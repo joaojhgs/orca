@@ -3,6 +3,8 @@ import { createServer as createHttpsServer, type Server as HttpsServer } from 'n
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http'
 import { WebSocketServer, type WebSocket } from 'ws'
 import type { RpcTransport } from './transport'
+import { DesktopVncWebSocketBridge } from './desktop-vnc-websocket-bridge'
+import type { WebSocketMessageHandler } from './websocket-message-handler'
 import { createStaticWebClientHandler } from './static-web-client-handler'
 import { RemoteRuntimeServerHeartbeat } from './remote-runtime-server-heartbeat'
 
@@ -12,15 +14,6 @@ const MAX_WS_CONNECTIONS = 128
 // Why: bound pre-upgrade descriptor use above the WS cap so raw sockets can't grow without bound.
 const MAX_TCP_CONNECTIONS = MAX_WS_CONNECTIONS * 2
 const PRE_AUTH_TIMEOUT_MS = 10_000
-type WebSocketMessagePayload = string | Uint8Array<ArrayBufferLike>
-type WebSocketMessageHandler = {
-  bivarianceHack(
-    msg: WebSocketMessagePayload,
-    reply: (response: string) => void,
-    ws: WebSocket
-  ): void
-}['bivarianceHack']
-
 // Why: mobile clients background-suspend sockets with no TCP FIN, leaving half-opens that otherwise only the OS keepalive (~2h) reaps; a 15s ping/pong sweep bounds that to ~60s (clients auto-pong per RFC 6455), since a reap needs consecutive unanswered probes rather than one (STA-3320).
 const HEARTBEAT_INTERVAL_MS = 15_000
 
@@ -55,6 +48,7 @@ export class WebSocketTransport implements RpcTransport {
   private readonly preferPinnedPort: boolean
   private httpServer: HttpsServer | HttpServer | null = null
   private wss: WebSocketServer | null = null
+  private vncBridge: DesktopVncWebSocketBridge | null = null
   private messageHandler: WebSocketMessageHandler | null = null
   private connectionCloseHandler:
     | ((clientId: string | null, ws: WebSocket, hasOtherConnections: boolean) => void)
@@ -195,8 +189,16 @@ export class WebSocketTransport implements RpcTransport {
     httpServer.maxConnections = MAX_TCP_CONNECTIONS
 
     const wss = new WebSocketServer({
-      server: httpServer,
+      noServer: true,
       maxPayload: MAX_WS_MESSAGE_BYTES
+    })
+    const vncBridge = new DesktopVncWebSocketBridge()
+
+    httpServer.on('upgrade', (request, socket, head) => {
+      if (vncBridge.tryUpgrade(request, socket, head)) {
+        return
+      }
+      wss.handleUpgrade(request, socket, head, (ws) => wss.emit('connection', ws, request))
     })
 
     wss.on('connection', (ws) => {
@@ -209,6 +211,7 @@ export class WebSocketTransport implements RpcTransport {
 
     this.httpServer = httpServer
     this.wss = wss
+    this.vncBridge = vncBridge
   }
 
   // Why: force-terminate soon after the 1013 close since a half-open phone may never ack and would hold the descriptor past the WS cap; the 'error' listener absorbs a reset while closing.
@@ -223,8 +226,10 @@ export class WebSocketTransport implements RpcTransport {
   async stop(): Promise<void> {
     const wss = this.wss
     const httpServer = this.httpServer
+    const vncBridge = this.vncBridge
     this.wss = null
     this.httpServer = null
+    this.vncBridge = null
     this.heartbeat.stop()
     this.heartbeatConnections.clear()
 
@@ -235,6 +240,7 @@ export class WebSocketTransport implements RpcTransport {
       }
       wss.close()
     }
+    vncBridge?.stop()
 
     if (httpServer) {
       await new Promise<void>((resolve, reject) => {

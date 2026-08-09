@@ -49,6 +49,7 @@ describe('computer RPC methods', () => {
     expect([...registry.keys()].sort()).toEqual([
       'computer.capabilities',
       'computer.click',
+      'computer.desktopStreamTicket',
       'computer.drag',
       'computer.getAppState',
       'computer.hotkey',

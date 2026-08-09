@@ -8,6 +8,7 @@ import {
   resetComputerSidecarForTest
 } from '../../../computer/sidecar-client'
 import { defineMethod, type RpcMethod } from '../core'
+import { mintDesktopVncTicket } from '../../../computer/desktop-vnc-tickets'
 import {
   Click,
   ComputerObserveTarget,
@@ -29,6 +30,13 @@ export function resetComputerSessionsForTest(): void {
 }
 
 export const COMPUTER_METHODS: RpcMethod[] = [
+  defineMethod({
+    name: 'computer.desktopStreamTicket',
+    params: z.object({}),
+    handler: async () => ({
+      path: `/desktop-vnc?ticket=${encodeURIComponent(mintDesktopVncTicket())}`
+    })
+  }),
   defineMethod({
     name: 'computer.capabilities',
     params: z.object({}),
