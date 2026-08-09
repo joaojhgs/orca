@@ -8,7 +8,6 @@ import type {
 } from './emulator-backend'
 import type { AndroidSdkPaths } from '../android/android-sdk-discovery'
 import { AndroidSdkState } from '../android/android-sdk-state'
-import { parseWmSize, wmSizeArgs } from '../android/adb-devices'
 import { emuKillArgs } from '../android/avd-manager'
 import { androidNaturalOrientation, type DeviceScreenSize } from '../android/android-input-mapping'
 import {
@@ -47,6 +46,7 @@ import { AndroidStreamController } from '../android/android-stream-controller'
 import { scrcpyVideoRegistry } from '../scrcpy-video-registry'
 import type { EmulatorGesturePoint } from '../emulator-gesture-sender'
 import { captureAndroidScreenshot } from '../android/android-screenshot'
+import { readAndroidScreenSize } from '../android/android-screen-size'
 
 export type AndroidEmulatorBackendOptions = {
   runner?: AndroidCommandRunner
@@ -321,9 +321,7 @@ export class AndroidEmulatorBackend implements EmulatorBackend {
     if (cached) {
       return cached
     }
-    const sdk = this.requireSdk()
-    const result = await this.runner(sdk.adb, wmSizeArgs(serial))
-    const size = parseWmSize(result.stdout)
+    const size = await readAndroidScreenSize(this.runner, this.requireSdk(), serial)
     if (!size) {
       throw new EmulatorError('emulator_error', `Could not read screen size for ${serial}.`)
     }

@@ -2348,7 +2348,7 @@ function createEmulatorApi(): NonNullable<Partial<PreloadApi>['emulator']> {
         if (streamTimers.has(streamId)) {
           streamTimers.set(
             streamId,
-            window.setTimeout(() => void poll(), 350)
+            window.setTimeout(() => void poll(), 75)
           )
         }
       }

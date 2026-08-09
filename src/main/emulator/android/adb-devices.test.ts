@@ -6,6 +6,7 @@ import {
   isBootCompleted,
   parseAdbDevices,
   parseWmSize,
+  parseActiveInputDisplaySize,
   wmSizeArgs,
   type AndroidAdbDevice
 } from './adb-devices'
@@ -85,6 +86,20 @@ describe('parseWmSize', () => {
   it('returns null when no size line is present', () => {
     expect(parseWmSize('')).toBeNull()
     expect(parseWmSize('something unrelated\n')).toBeNull()
+  })
+})
+
+describe('parseActiveInputDisplaySize', () => {
+  it('uses the active logical viewport after device rotation', () => {
+    const stdout = [
+      'Viewport INTERNAL: displayId=0, deviceSize=[1280, 768], isActive=[0]',
+      'Viewport INTERNAL: displayId=0, orientation=1, deviceSize=[768, 1280], isActive=[1]'
+    ].join('\n')
+    expect(parseActiveInputDisplaySize(stdout)).toEqual({ width: 768, height: 1280 })
+  })
+
+  it('returns null without an active internal viewport', () => {
+    expect(parseActiveInputDisplaySize('Viewport EXTERNAL: deviceSize=[800, 600]')).toBeNull()
   })
 })
 
