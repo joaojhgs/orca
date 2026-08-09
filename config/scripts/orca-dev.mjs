@@ -11,6 +11,20 @@ const repoRoot = path.resolve(scriptDir, '..', '..')
 const cliEntry =
   process.env.ORCA_DEV_CLI_ENTRY_PATH ?? path.join(repoRoot, 'out', 'cli', 'index.js')
 
+if (
+  process.argv.includes('serve') &&
+  existsSync(path.join(repoRoot, 'out', 'renderer', 'web-index.html'))
+) {
+  const projection = spawnSync(
+    process.execPath,
+    [path.join(scriptDir, 'project-renderer-web-client.mjs')],
+    { stdio: 'inherit', env: process.env }
+  )
+  if (projection.status !== 0) {
+    process.exit(projection.status ?? 1)
+  }
+}
+
 if (!existsSync(cliEntry)) {
   console.error("orca-dev: CLI not built yet. Run 'pnpm run build:cli' first.")
   process.exit(1)
