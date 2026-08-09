@@ -2,6 +2,7 @@ import { Loader2 } from 'lucide-react'
 import { useEffect, type CSSProperties } from 'react'
 import { useEmulatorFrameStream } from './use-emulator-frame-stream'
 import { useEmulatorVideoStream } from './use-emulator-video-stream'
+import { isWebClientLocation } from '@/lib/web-client-location'
 import { translate } from '@/i18n/i18n'
 import type { VisualStreamGeometry } from './emulator-device-frame-layout'
 
@@ -36,7 +37,11 @@ export function EmulatorScreenStreamContent({
   streamKey,
   streamRotation = 0
 }: EmulatorScreenStreamContentProps) {
-  const supportsNativeVideo = Boolean(window.api?.emulator?.startVideoStream)
+  // The web compatibility proxy can synthesize missing API members as callable
+  // fallbacks. Native H.264 is an Electron IPC capability, so location—not
+  // function presence—is the reliable discriminator for paired web clients.
+  const supportsNativeVideo =
+    !isWebClientLocation() && Boolean(window.api?.emulator?.startVideoStream)
   const androidDeviceId =
     supportsNativeVideo && previewUrl && previewUrl.startsWith(SCRCPY_PREFIX)
       ? previewUrl.slice(SCRCPY_PREFIX.length)

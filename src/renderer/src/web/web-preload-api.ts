@@ -2918,17 +2918,17 @@ function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight']> {
 function createCliApi(): NonNullable<Partial<PreloadApi>['cli']> {
   const status = {
     platform: getBrowserPlatform(),
-    commandName: getBrowserPlatform() === 'linux' ? 'orca-ide' : 'orca',
-    commandPath: null,
+    commandName: 'orca',
+    commandPath: 'orca',
     pathDirectory: null,
-    pathConfigured: false,
+    pathConfigured: true,
     launcherPath: null,
     installMethod: null,
-    supported: false,
-    state: 'unsupported',
+    supported: true,
+    state: 'installed',
     currentTarget: null,
-    unsupportedReason: 'launch_mode_unavailable',
-    detail: 'CLI registration is managed on the Orca server, not in the web browser.'
+    unsupportedReason: null,
+    detail: 'Orca CLI registration is managed by the connected Orca server.'
   } as const
   return {
     getInstallStatus: () => Promise.resolve(status),

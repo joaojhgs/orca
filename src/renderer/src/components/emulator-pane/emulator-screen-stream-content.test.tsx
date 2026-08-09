@@ -92,7 +92,7 @@ afterEach(() => {
 
 async function renderStream(
   streamKey = 'abc',
-  props?: { screenAspectRatio?: number; streamRotation?: -90 | 0 | 90 }
+  props?: { previewUrl?: string; screenAspectRatio?: number; streamRotation?: -90 | 0 | 90 }
 ): Promise<void> {
   await act(async () => {
     root.render(
@@ -100,7 +100,7 @@ async function renderStream(
         loading={false}
         onStreamError={vi.fn()}
         onStreamSize={vi.fn()}
-        previewUrl="http://127.0.0.1:3100/stream.mjpeg"
+        previewUrl={props?.previewUrl ?? 'http://127.0.0.1:3100/stream.mjpeg'}
         screenAspectRatio={props?.screenAspectRatio}
         showStream={true}
         streamError={false}
@@ -112,6 +112,20 @@ async function renderStream(
 }
 
 describe('EmulatorScreenStreamContent', () => {
+  it('uses frame polling for Android in paired web clients even when the API proxy exposes native video', async () => {
+    ;(window as typeof window & { __ORCA_WEB_CLIENT__?: boolean }).__ORCA_WEB_CLIENT__ = true
+    Object.assign(window.api.emulator, { startVideoStream: vi.fn() })
+
+    await renderStream('web-android', { previewUrl: 'scrcpy://192.168.240.112:5555' })
+
+    expect(startFrameStream).toHaveBeenCalledWith({
+      streamUrl: 'scrcpy://192.168.240.112:5555',
+      streamKey: 'web-android'
+    })
+    expect(window.api.emulator.startVideoStream).not.toHaveBeenCalled()
+    delete (window as typeof window & { __ORCA_WEB_CLIENT__?: boolean }).__ORCA_WEB_CLIENT__
+  })
+
   it('renders IPC-delivered frames as blob URLs instead of loading the MJPEG URL directly', async () => {
     await renderStream()
 
