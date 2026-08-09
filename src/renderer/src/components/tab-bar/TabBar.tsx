@@ -764,7 +764,6 @@ function TabBarInner({
         {openMarkdownMenuItem}
         {defaultTerminalMenuItems}
         {newBrowserMenuItem}
-        {newSimulatorMenuItem}
         {mobileEmulatorIntroMenuBlock}
       </>
     ) : (
@@ -773,7 +772,6 @@ function TabBarInner({
         {newBrowserMenuItem}
         {newMarkdownMenuItem}
         {openMarkdownMenuItem}
-        {newSimulatorMenuItem}
         {mobileEmulatorIntroMenuBlock}
       </>
     )
@@ -1244,6 +1242,8 @@ function TabBarInner({
             runPendingNewTabMenuFocusAfterClose()
           }}
         >
+          {newSimulatorMenuItem}
+          {newSimulatorMenuItem ? <DropdownMenuSeparator /> : null}
           {!terminalOnly && onOpenEntry ? (
             <>
               <TabBarCreateEntry
@@ -1279,6 +1279,26 @@ function TabBarInner({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      {!terminalOnly && mobileEmulatorEnabled && onNewSimulatorTab ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="my-auto ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+              onClick={onNewSimulatorTab}
+              aria-label={translate(
+                'auto.components.tab.bar.TabBar.fd2b42aaa3',
+                'Open Device Preview'
+              )}
+            >
+              <Smartphone className="size-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>
+            {translate('auto.components.tab.bar.TabBar.fd2b42aaa3', 'Open Device Preview')}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
     </div>
   )
 }
