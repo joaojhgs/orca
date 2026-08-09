@@ -74,7 +74,8 @@ import {
   type DetectedPort,
   MAX_SSH_RELAY_GRACE_PERIOD_SECONDS,
   MIN_SSH_RELAY_GRACE_PERIOD_SECONDS,
-  SSH_RELAY_CONFIGURE_GRACE_TIME_METHOD
+  SSH_RELAY_CONFIGURE_GRACE_TIME_METHOD,
+  type SshTarget
 } from '../../shared/ssh-types'
 import { normalizeRemoteArtifactInput } from '../../shared/artifact-cli-bridge'
 import type { Store } from '../persistence'
@@ -142,6 +143,11 @@ const SSH_REJECTED_PTY_RECOVERY_MAX_ATTEMPTS = 2
 const SSH_REJECTED_PTY_RECOVERY_MAX_GENERATION_ATTEMPTS = 12
 const SSH_REJECTED_PTY_RECOVERY_RETRY_DELAY_MS = 150
 const SSH_SOURCE_RECOVERY_CANCELLATION_FAILED = 'ssh_source_recovery_cancellation_failed'
+
+function isLoopbackTarget(target: SshTarget | undefined): boolean {
+  const host = target?.host.trim().toLowerCase()
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1'
+}
 
 // Why: superseded attempts stop quietly; a dead mux still owned by this attempt must enter recovery.
 function verifyRelayAttempt(
@@ -964,7 +970,8 @@ export class SshRelaySession {
       this.targetId,
       mux,
       this.remoteCliBridgeEnv ?? undefined,
-      providerGeneration
+      providerGeneration,
+      isLoopbackTarget(this.store.getSshTarget(this.targetId))
     )
     const consumerOwnerState = this.activePtyConsumerOwner()
     if (consumerOwnerState) {

@@ -13,8 +13,24 @@ export async function listRunningAdbDevices(
   runner: AndroidCommandRunner,
   sdk: AndroidSdkPaths
 ): Promise<AndroidAdbDevice[]> {
+  await connectRunningWaydroid(runner, sdk)
   const result = await runner(sdk.adb, adbDevicesArgs)
   return parseAdbDevices(result.stdout).filter((device) => device.state === 'device')
+}
+
+async function connectRunningWaydroid(
+  runner: AndroidCommandRunner,
+  sdk: AndroidSdkPaths
+): Promise<void> {
+  if (process.platform !== 'linux') {
+    return
+  }
+  const status = await runner('waydroid', ['status']).catch(() => null)
+  const ip = status?.stdout.match(/^IP address:\s*([^\s]+)$/m)?.[1]
+  if (!ip || ip === 'UNKNOWN') {
+    return
+  }
+  await runner(sdk.adb, ['connect', `${ip}:5555`]).catch(() => {})
 }
 
 export async function resolveRunningAvdNames(

@@ -130,6 +130,7 @@ import {
 import { enableRendererHeapHeadroom } from './startup/renderer-heap-headroom'
 import { argvRequestsServeMode, normalizeServeModeArgv } from './startup/serve-mode-argv'
 import { ensureVirtualDisplayForHeadlessServe } from './startup/ensure-virtual-display'
+import { ensureLinuxHeadlessAccessibility } from './startup/linux-headless-accessibility'
 import {
   readActiveGpuFallbackMarker,
   writeGpuFallbackMarker,
@@ -268,7 +269,7 @@ import { AgentAwakeService } from './agent-awake-service'
 import { registerSystemResumeBroadcast } from './system-resume-broadcast'
 import { settleTeardownWithinDeadline } from './quit-teardown-deadline'
 import { quitTeardownStartGate } from './quit-teardown-start-gate'
-import { beginSshShutdown } from './ipc/ssh'
+import { beginSshShutdown, connectRegisteredSshTarget, registerSshHandlers } from './ipc/ssh'
 import { PluginService } from './plugins/plugin-service'
 import { PluginKillListService } from './plugins/plugin-kill-list-service'
 import { getPluginsDataDir } from './plugins/plugin-discovery'
@@ -827,6 +828,7 @@ if (hasSingleInstanceLock) {
   }
   // Why: headless serve's offscreen BrowserWindows need an X display (Xvfb) on Linux; the result gates whether the offscreen backend is installed.
   headlessBrowserDisplayAvailable = ensureVirtualDisplayForHeadlessServe({ isServeMode })
+  ensureLinuxHeadlessAccessibility({ isServeMode })
 }
 
 ipcMain.handle('app:awaitFirstWindowStartupServices', async () => {
@@ -2913,6 +2915,22 @@ void app.whenReady().then(async () => {
     })
     // Why: headless PTYs must not start on the fallback provider, then get swept when an activated renderer registers desktop lifecycle handlers.
     await localPtyStartupReady
+    const { sshStore: headlessSshStore } = registerSshHandlers(store, () => null, runtime)
+    const eagerSshTargets = headlessSshStore
+      .listTargets()
+      .filter((target) => target.lastRequiredPassphrase !== true)
+    void Promise.allSettled(
+      eagerSshTargets.map(async (target) => {
+        try {
+          await connectRegisteredSshTarget(target.id)
+        } catch (error) {
+          console.warn(
+            `[serve] SSH target ${target.label} did not auto-connect:`,
+            error instanceof Error ? error.message : String(error)
+          )
+        }
+      })
+    )
     registerHeadlessPtyRuntime(
       runtime,
       prepareCodexRuntimeHomeForLaunch,

@@ -7,6 +7,7 @@ export function buildSshPtySpawnRequest(args: {
   options: PtySpawnOptions
   remoteCliBridgeEnv?: RemoteCliBridgeEnv
   supportsCreateOperation: boolean
+  forwardHostGuiEnv?: boolean
 }): Record<string, unknown> {
   const { options } = args
   return {
@@ -16,7 +17,8 @@ export function buildSshPtySpawnRequest(args: {
     env: buildSshPtySpawnEnv({
       env: options.env,
       envToDelete: options.envToDelete,
-      remoteCliBridgeEnv: args.remoteCliBridgeEnv
+      remoteCliBridgeEnv: args.remoteCliBridgeEnv,
+      forwardHostGuiEnv: args.forwardHostGuiEnv
     }),
     ...(options.envToDelete?.length ? { envToDelete: options.envToDelete } : {}),
     // Why: the relay needs launch identity for plugin env overlays and provider-side delivery.
