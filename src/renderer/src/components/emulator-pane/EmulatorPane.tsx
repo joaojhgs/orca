@@ -30,6 +30,7 @@ export default function EmulatorPane({ tab, worktreeId, isActive = true }: Emula
     sendButton,
     sendGesture,
     sendRotate,
+    syncVisualOrientationFromStream,
     displayName,
     previewUrl,
     wsUrl,
@@ -107,6 +108,9 @@ export default function EmulatorPane({ tab, worktreeId, isActive = true }: Emula
                 loading={loading}
                 isLive={isLive}
                 visualOrientation={visualOrientation}
+                onStreamSizeDetected={(size) =>
+                  syncVisualOrientationFromStream(size.width, size.height)
+                }
                 isActive={isActive}
                 onTap={(x, y) => void sendTap(x, y)}
                 onGesture={(points) => void sendGesture(points)}

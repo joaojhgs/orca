@@ -64,7 +64,8 @@ export function useEmulatorPaneSession({
     sendGesture,
     sendRotate,
     visualOrientation,
-    resetVisualOrientation
+    resetVisualOrientation,
+    syncVisualOrientationFromStream
   } = useEmulatorPaneControls(worktreeId, refreshStreamKey)
 
   const refreshDevices = useCallback(async (bootedTarget?: string | null) => {
@@ -308,6 +309,7 @@ export function useEmulatorPaneSession({
     sendButton,
     sendGesture,
     sendRotate,
+    syncVisualOrientationFromStream,
     visualOrientation,
     displayName: view.displayName,
     previewUrl: view.previewUrl,
