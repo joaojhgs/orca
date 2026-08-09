@@ -58,9 +58,9 @@ export async function listAndroidDevices(
 ): Promise<EmulatorDevice[]> {
   const [running, avdsResult] = await Promise.all([
     listRunningAdbDevices(runner, sdk),
-    runner(sdk.emulator, listAvdsArgs)
+    runner(sdk.emulator, listAvdsArgs).catch(() => null)
   ])
-  const avds = parseAvdList(avdsResult.stdout)
+  const avds = avdsResult ? parseAvdList(avdsResult.stdout) : []
   const runningAvdBySerial = await resolveRunningAvdNames(runner, sdk, running)
   return mergeAndroidDevices(running, avds, runningAvdBySerial)
 }

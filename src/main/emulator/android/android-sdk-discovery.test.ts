@@ -138,4 +138,21 @@ describe('discoverAndroidSdk', () => {
 
     expect(result).toBeNull()
   })
+
+  it('uses adb from PATH for connected devices without a full Android SDK', () => {
+    const adb = join('/usr', 'bin', 'adb')
+    const result = discoverAndroidSdk({
+      env: { PATH: '/usr/local/bin:/usr/bin:/bin' },
+      platform: 'linux',
+      homedir: '/home/erik',
+      exists: existsIn([adb])
+    })
+
+    expect(result).toEqual({
+      sdkRoot: join(adb, '..', '..'),
+      adb,
+      emulator: 'emulator',
+      avdmanager: 'avdmanager'
+    })
+  })
 })

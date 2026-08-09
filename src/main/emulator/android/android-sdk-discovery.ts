@@ -29,6 +29,33 @@ export function discoverAndroidSdk(options: DiscoverAndroidSdkOptions): AndroidS
     }
   }
 
+  const pathAdb = findPathAdb(env.PATH, win32, exists)
+  if (pathAdb) {
+    return {
+      sdkRoot: join(pathAdb, '..', '..'),
+      adb: pathAdb,
+      emulator: win32 ? 'emulator.exe' : 'emulator',
+      avdmanager: win32 ? 'avdmanager.bat' : 'avdmanager'
+    }
+  }
+
+  return null
+}
+
+function findPathAdb(
+  pathValue: string | undefined,
+  win32: boolean,
+  exists: (path: string) => boolean
+): string | null {
+  const executable = win32 ? 'adb.exe' : 'adb'
+  for (const directory of pathValue?.split(win32 ? ';' : ':') ?? []) {
+    if (directory) {
+      const candidate = join(directory, executable)
+      if (exists(candidate)) {
+        return candidate
+      }
+    }
+  }
   return null
 }
 

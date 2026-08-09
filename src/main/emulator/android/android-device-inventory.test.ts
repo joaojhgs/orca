@@ -77,6 +77,29 @@ describe('listAndroidDevices', () => {
     expect(devices).toHaveLength(1)
     expect(devices[0]).toMatchObject({ id: 'emulator-5554', name: 'Pixel_7', state: 'booted' })
   })
+
+  it('lists connected devices when the AVD emulator command is unavailable', async () => {
+    const fake: AndroidCommandRunner = async (binary, args) => {
+      if (binary === SDK.adb && args.join(' ') === 'devices -l') {
+        return ok('List of devices attached\n192.168.240.112:5555\tdevice model:WayDroid')
+      }
+      if (binary === SDK.emulator) {
+        throw new Error('spawn emulator ENOENT')
+      }
+      return ok('')
+    }
+
+    await expect(listAndroidDevices(fake, SDK)).resolves.toEqual([
+      {
+        backend: 'android',
+        id: '192.168.240.112:5555',
+        name: 'WayDroid',
+        state: 'booted',
+        detail: 'device',
+        isAvailable: true
+      }
+    ])
+  })
 })
 
 describe('findRunningAvdSerial', () => {

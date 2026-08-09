@@ -164,8 +164,8 @@ def choose_window(app, window_id=None, window_index=None):
 def restore_window(app, window=None):
     target = window if window is not None else app
     component = attempt(target.get_component_iface)
-    if component is not None and attempt(lambda: Atspi.Component.grab_focus(component), False):
-        return
+    if component is not None:
+        attempt(lambda: Atspi.Component.grab_focus(component), False)
     pid = pid_of(app)
     if not pid or not shutil.which("xdotool"):
         return
@@ -178,15 +178,28 @@ def restore_window(app, window=None):
 
 
 def require_keyboard_focus(window, operation):
-    if has_state(window, Atspi.StateType.ACTIVE):
+    def active():
+        if has_state(window, Atspi.StateType.ACTIVE):
+            return True
+        if not shutil.which("xdotool"):
+            return False
+        result = subprocess.run(
+            ["xdotool", "getactivewindow", "getwindowname"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0 and result.stdout.strip() == name_of(window)
+
+    if active():
         return
     if operation.get("restoreWindow"):
         deadline = time.monotonic() + 0.5
         while time.monotonic() < deadline:
-            if has_state(window, Atspi.StateType.ACTIVE):
+            if active():
                 return
             time.sleep(0.05)
-        if has_state(window, Atspi.StateType.ACTIVE):
+        if active():
             return
         raise RuntimeError("window_not_focused: keyboard input requires the target window to be focused; restoreWindow was requested but the target window is still not focused; bring it forward manually or check desktop permissions")
     raise RuntimeError("window_not_focused: keyboard input requires the target window to be focused; retry with --restore-window")
@@ -920,6 +933,9 @@ def key_name(raw):
 
 def press_key(raw):
     name = key_name(raw)
+    if shutil.which("xdotool"):
+        subprocess.run(["xdotool", "key", "--clearmodifiers", name], check=True)
+        return
     if len(name) == 1:
         Atspi.generate_keyboard_event(0, name, Atspi.KeySynthType.STRING)
         return
@@ -940,6 +956,9 @@ def hotkey(raw):
 
 
 def type_text(value):
+    if shutil.which("xdotool"):
+        subprocess.run(["xdotool", "type", "--clearmodifiers", "--", str(value)], check=True)
+        return
     Atspi.generate_keyboard_event(0, str(value), Atspi.KeySynthType.STRING)
 
 
@@ -1010,7 +1029,7 @@ def write_clipboard(value):
 
 
 def set_value(node, value):
-    if node is not None and bool(attempt(node.is_editable_text, False)):
+    if node is not None:
         editable = attempt(node.get_editable_text_iface)
         if editable is not None and attempt(lambda: Atspi.EditableText.set_text_contents(editable, str(value)), False):
             return True
@@ -1066,7 +1085,8 @@ def run_operation(operation):
             else 1
         )
         has_modifiers = bool(str(operation.get("modifiers") or "").strip())
-        handled = not has_modifiers and operation.get("mouse_button", "left") == "left" and click_count <= 1 and perform_action(node, preferred)
+        is_text_target = node is not None and role_of(node).lower() in {"text", "entry", "password text"}
+        handled = not is_text_target and not has_modifiers and operation.get("mouse_button", "left") == "left" and click_count <= 1 and perform_action(node, preferred)
         if not handled:
             click_at(
                 *screen_point(bounds, saved, operation.get("x"), operation.get("y"), node),
