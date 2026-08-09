@@ -10,7 +10,7 @@ type EmulatorFrameStreamState = {
 }
 
 function createFrameUrl(bytes: ArrayBuffer): string {
-  return URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }))
+  return URL.createObjectURL(new Blob([bytes], { type: 'image/png' }))
 }
 
 function getFrameStreamIdentity(
