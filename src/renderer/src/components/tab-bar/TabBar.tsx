@@ -703,7 +703,7 @@ function TabBarInner({
               className="gap-2 rounded-[7px] px-2 py-1.5 text-[12px] leading-5 font-medium"
             >
               <Smartphone className="size-4 text-muted-foreground" />
-              {translate('auto.components.tab.bar.TabBar.b426bb2615', 'Go to Device Preview')}
+              {translate('auto.components.tab.bar.TabBar.92f4d1a6c8', 'Go to Device Preview')}
               <DropdownMenuShortcut>{newSimulatorShortcut}</DropdownMenuShortcut>
             </DropdownMenuItem>
           </TooltipTrigger>
@@ -720,7 +720,7 @@ function TabBarInner({
           className="gap-2 rounded-[7px] px-2 py-1.5 text-[12px] leading-5 font-medium"
         >
           <Smartphone className="size-4 text-muted-foreground" />
-          {translate('auto.components.tab.bar.TabBar.fd2b42aaa3', 'New Device Preview')}
+          {translate('auto.components.tab.bar.TabBar.341eb2875d', 'New Device Preview')}
           <DropdownMenuShortcut>{newSimulatorShortcut}</DropdownMenuShortcut>
         </DropdownMenuItem>
       )
@@ -1279,26 +1279,6 @@ function TabBarInner({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-      {!terminalOnly && mobileEmulatorEnabled && onNewSimulatorTab ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              className="my-auto ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-              onClick={onNewSimulatorTab}
-              aria-label={translate(
-                'auto.components.tab.bar.TabBar.fd2b42aaa3',
-                'Open Device Preview'
-              )}
-            >
-              <Smartphone className="size-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={6}>
-            {translate('auto.components.tab.bar.TabBar.fd2b42aaa3', 'Open Device Preview')}
-          </TooltipContent>
-        </Tooltip>
-      ) : null}
     </div>
   )
 }

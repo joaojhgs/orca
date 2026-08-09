@@ -147,8 +147,8 @@ export function buildTabCreateMenuOptions(
 
   if (context.hasSimulator) {
     const label = context.simulatorIsGoTo
-      ? translate('auto.components.tab.bar.TabBar.b426bb2615', 'Go to Device Preview')
-      : translate('auto.components.tab.bar.TabBar.fd2b42aaa3', 'New Device Preview')
+      ? translate('auto.components.tab.bar.TabBar.92f4d1a6c8', 'Go to Device Preview')
+      : translate('auto.components.tab.bar.TabBar.341eb2875d', 'New Device Preview')
     options.push({
       id: context.simulatorIsGoTo ? 'go-to-simulator' : 'new-simulator',
       kind: context.simulatorIsGoTo ? 'go-to-simulator' : 'new-simulator',

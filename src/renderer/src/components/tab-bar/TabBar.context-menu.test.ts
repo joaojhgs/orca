@@ -497,7 +497,7 @@ describe('TabBar context menu wiring', () => {
     expect(menuLabels[3]).toContain('New Browser Tab')
   })
 
-  it('turns New Mobile Emulator into a go-to action when the workspace already has one', async () => {
+  it('turns New Device Preview into a go-to action when the workspace already has one', async () => {
     const onNewSimulatorTab = vi.fn()
     appStoreSnapshot.unifiedTabsByWorktree = {
       'wt-1': [
@@ -523,11 +523,11 @@ describe('TabBar context menu wiring', () => {
     })
 
     const emulatorItem = findChildrenByType(element, 'DropdownMenuItem').find((item) =>
-      extractText(item.props.children).includes('Go to Mobile Emulator')
+      extractText(item.props.children).includes('Go to Device Preview')
     )
     expect(emulatorItem).toBeTruthy()
     if (!emulatorItem) {
-      throw new Error('Go to Mobile Emulator menu item not rendered')
+      throw new Error('Go to Device Preview menu item not rendered')
     }
     expect(emulatorItem.props.disabled).toBeUndefined()
     expect(emulatorItem.props.onSelect).toBeTypeOf('function')
