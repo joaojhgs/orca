@@ -98,7 +98,8 @@ export async function androidRotate(
   runner: AndroidCommandRunner,
   sdk: AndroidSdkPaths,
   serial: string,
-  orientation: string
+  orientation: string,
+  naturalOrientation: 'portrait' | 'landscape' = 'portrait'
 ): Promise<void> {
   ensureAdbOk(
     await runner(
@@ -115,7 +116,7 @@ export async function androidRotate(
         'put',
         'system',
         'user_rotation',
-        String(orientationToRotation(orientation))
+        String(orientationToRotation(orientation, naturalOrientation))
       ])
     ),
     'adb rotate'
@@ -134,7 +135,22 @@ export async function androidExec(
   return result.stdout
 }
 
-function orientationToRotation(orientation: string): number {
+function orientationToRotation(
+  orientation: string,
+  naturalOrientation: 'portrait' | 'landscape'
+): number {
+  if (naturalOrientation === 'landscape') {
+    switch (orientation) {
+      case 'portrait':
+        return 1
+      case 'portrait_upside_down':
+        return 3
+      case 'landscape_right':
+        return 2
+      default:
+        return 0
+    }
+  }
   switch (orientation) {
     case 'landscape_left':
       return 1

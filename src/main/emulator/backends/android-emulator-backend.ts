@@ -10,7 +10,7 @@ import type { AndroidSdkPaths } from '../android/android-sdk-discovery'
 import { AndroidSdkState } from '../android/android-sdk-state'
 import { parseWmSize, wmSizeArgs } from '../android/adb-devices'
 import { emuKillArgs } from '../android/avd-manager'
-import type { DeviceScreenSize } from '../android/android-input-mapping'
+import { androidNaturalOrientation, type DeviceScreenSize } from '../android/android-input-mapping'
 import {
   androidButton,
   androidExec,
@@ -63,8 +63,7 @@ export type AndroidEmulatorBackendOptions = {
 const DEFAULT_BOOT_TIMEOUT_MS = 180_000
 const DEFAULT_POLL_INTERVAL_MS = 2_000
 
-// The Android backend. Device discovery + lifecycle + input run through `adb`
-// and the `emulator` binary; the live H.264 pane streams via scrcpy. Input uses
+// Device lifecycle and input use adb; live H.264 pane streams use scrcpy. Input uses
 // `adb shell input`, so it works without sending on the scrcpy control socket.
 export class AndroidEmulatorBackend implements EmulatorBackend {
   readonly kind = 'android' as const
@@ -241,8 +240,9 @@ export class AndroidEmulatorBackend implements EmulatorBackend {
 
   async rotate(deviceId: string, orientation: string): Promise<void> {
     const serial = await this.resolveDeviceId(deviceId)
+    const naturalOrientation = androidNaturalOrientation(await this.getScreenSize(serial))
     this.screenSizes.delete(serial)
-    await androidRotate(this.runner, this.requireSdk(), serial, orientation)
+    await androidRotate(this.runner, this.requireSdk(), serial, orientation, naturalOrientation)
   }
 
   async exec(deviceId: string, command: string): Promise<unknown> {

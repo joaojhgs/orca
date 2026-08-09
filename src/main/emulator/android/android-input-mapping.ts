@@ -2,6 +2,10 @@ import { EmulatorError } from '../emulator-errors'
 
 export type DeviceScreenSize = { width: number; height: number }
 
+export function androidNaturalOrientation(size: DeviceScreenSize): 'portrait' | 'landscape' {
+  return size.width > size.height ? 'landscape' : 'portrait'
+}
+
 // Why: serve-sim reports taps in normalized 0..1 (top-left origin); adb input
 // needs integer device pixels, and the max addressable pixel is dimension-1.
 function toPixel(normalized: number, dimension: number): number {
