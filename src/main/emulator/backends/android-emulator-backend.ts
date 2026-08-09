@@ -46,6 +46,7 @@ import {
 import { AndroidStreamController } from '../android/android-stream-controller'
 import { scrcpyVideoRegistry } from '../scrcpy-video-registry'
 import type { EmulatorGesturePoint } from '../emulator-gesture-sender'
+import { captureAndroidScreenshot } from '../android/android-screenshot'
 
 export type AndroidEmulatorBackendOptions = {
   runner?: AndroidCommandRunner
@@ -251,6 +252,10 @@ export class AndroidEmulatorBackend implements EmulatorBackend {
       await this.resolveDeviceId(deviceId),
       command
     )
+  }
+
+  async captureScreenshot(deviceId: string): Promise<string> {
+    return captureAndroidScreenshot(this.requireSdk(), await this.resolveDeviceId(deviceId))
   }
 
   async installApp(

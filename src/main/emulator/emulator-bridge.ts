@@ -294,7 +294,7 @@ export class EmulatorBridge {
     await this.destroyAllSessions()
   }
 
-  private async resolveTarget(
+  async resolveTarget(
     opts?: EmulatorTargetOpts
   ): Promise<{ backend: EmulatorBackend; device: string }> {
     const explicit = opts?.device ?? opts?.emulator

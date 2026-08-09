@@ -36,8 +36,9 @@ export function EmulatorScreenStreamContent({
   streamKey,
   streamRotation = 0
 }: EmulatorScreenStreamContentProps) {
+  const supportsNativeVideo = Boolean(window.api?.emulator?.startVideoStream)
   const androidDeviceId =
-    previewUrl && previewUrl.startsWith(SCRCPY_PREFIX)
+    supportsNativeVideo && previewUrl && previewUrl.startsWith(SCRCPY_PREFIX)
       ? previewUrl.slice(SCRCPY_PREFIX.length)
       : null
 

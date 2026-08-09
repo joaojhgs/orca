@@ -703,7 +703,7 @@ function TabBarInner({
               className="gap-2 rounded-[7px] px-2 py-1.5 text-[12px] leading-5 font-medium"
             >
               <Smartphone className="size-4 text-muted-foreground" />
-              {translate('auto.components.tab.bar.TabBar.b426bb2615', 'Go to Mobile Emulator')}
+              {translate('auto.components.tab.bar.TabBar.b426bb2615', 'Go to Device Preview')}
               <DropdownMenuShortcut>{newSimulatorShortcut}</DropdownMenuShortcut>
             </DropdownMenuItem>
           </TooltipTrigger>
@@ -720,7 +720,7 @@ function TabBarInner({
           className="gap-2 rounded-[7px] px-2 py-1.5 text-[12px] leading-5 font-medium"
         >
           <Smartphone className="size-4 text-muted-foreground" />
-          {translate('auto.components.tab.bar.TabBar.fd2b42aaa3', 'New Mobile Emulator')}
+          {translate('auto.components.tab.bar.TabBar.fd2b42aaa3', 'New Device Preview')}
           <DropdownMenuShortcut>{newSimulatorShortcut}</DropdownMenuShortcut>
         </DropdownMenuItem>
       )

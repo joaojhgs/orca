@@ -147,8 +147,8 @@ export function buildTabCreateMenuOptions(
 
   if (context.hasSimulator) {
     const label = context.simulatorIsGoTo
-      ? translate('auto.components.tab.bar.TabBar.b426bb2615', 'Go to Mobile Emulator')
-      : translate('auto.components.tab.bar.TabBar.fd2b42aaa3', 'New Mobile Emulator')
+      ? translate('auto.components.tab.bar.TabBar.b426bb2615', 'Go to Device Preview')
+      : translate('auto.components.tab.bar.TabBar.fd2b42aaa3', 'New Device Preview')
     options.push({
       id: context.simulatorIsGoTo ? 'go-to-simulator' : 'new-simulator',
       kind: context.simulatorIsGoTo ? 'go-to-simulator' : 'new-simulator',
@@ -160,7 +160,10 @@ export function buildTabCreateMenuOptions(
         translate('auto.components.tab.bar.tab.create.menu.options.1baeb07c17', 'ios simulator'),
         translate('auto.components.tab.bar.tab.create.menu.options.8a580f88cf', 'iphone'),
         translate('auto.components.tab.bar.tab.create.menu.options.7ecdc5ef08', 'ipad'),
-        translate('auto.components.tab.bar.tab.create.menu.options.14965cc123', 'mobile')
+        translate('auto.components.tab.bar.tab.create.menu.options.14965cc123', 'mobile'),
+        'computer use',
+        'desktop preview',
+        'tauri'
       ]
     })
   }

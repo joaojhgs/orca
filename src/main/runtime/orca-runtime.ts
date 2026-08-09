@@ -35057,6 +35057,8 @@ export class OrcaRuntimeService {
   emulatorExec: RuntimeEmulatorCommands['emulatorExec'] = this.emulatorCommands.emulatorExec.bind(
     this.emulatorCommands
   )
+  emulatorScreenshot: RuntimeEmulatorCommands['emulatorScreenshot'] =
+    this.emulatorCommands.emulatorScreenshot.bind(this.emulatorCommands)
   emulatorAttach: RuntimeEmulatorCommands['emulatorAttach'] =
     this.emulatorCommands.emulatorAttach.bind(this.emulatorCommands)
   emulatorList: RuntimeEmulatorCommands['emulatorList'] = this.emulatorCommands.emulatorList.bind(

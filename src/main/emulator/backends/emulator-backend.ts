@@ -79,6 +79,7 @@ export type EmulatorBackend = {
   button(deviceId: string, name: string): Promise<void>
   rotate(deviceId: string, orientation: string): Promise<void>
   exec(deviceId: string, command: string): Promise<unknown>
+  captureScreenshot?(deviceId: string): Promise<string>
 
   // Capability-gated verbs. The router checks `capabilities`
   // before calling these and rejects unsupported backends with emulator_unsupported.

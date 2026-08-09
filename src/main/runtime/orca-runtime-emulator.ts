@@ -12,6 +12,7 @@ import type { EmulatorSessionInfo } from '../emulator/emulator-types'
 import type { SimulatorDevice } from '../emulator/simctl-simulator-devices'
 import type { EmulatorDevice } from '../emulator/backends/emulator-backend'
 import type { GlobalSettings } from '../../shared/types'
+import { captureEmulatorScreenshot } from '../emulator/emulator-screenshot'
 
 // Settings slice the emulator surface needs; keeps the host contract honest (no widening cast).
 type EmulatorHostSettings = Pick<
@@ -119,6 +120,15 @@ export class RuntimeEmulatorCommands {
       emulator: params.emulator,
       worktreeId
     })
+  }
+
+  async emulatorScreenshot(params: EmulatorTargetParams): Promise<{ pngBase64: string }> {
+    const worktreeId = await this.resolveWorktreeId(params.worktree)
+    const pngBase64 = await captureEmulatorScreenshot(this.requireEmulatorBridge(), {
+      device: params.device ?? params.emulator,
+      worktreeId
+    })
+    return { pngBase64 }
   }
 
   async emulatorAttach(params: {

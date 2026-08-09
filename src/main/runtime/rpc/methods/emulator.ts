@@ -197,6 +197,11 @@ export const EMULATOR_METHODS: RpcMethod[] = [
     handler: async (params, { runtime }) => runtime.emulatorExec(params)
   }),
   defineMethod({
+    name: 'emulator.screenshot',
+    params: AxParams,
+    handler: async (params, { runtime }) => runtime.emulatorScreenshot(params)
+  }),
+  defineMethod({
     name: 'emulator.kill',
     params: KillParams,
     handler: async (params, { runtime }) => runtime.emulatorKill(params)
