@@ -1104,20 +1104,11 @@ export class SshRelaySession {
     ownsAttempt: () => boolean
   ): Promise<SshPtyConsumerSessionState> {
     const previousOwner = this.recoverablePtyConsumerOwner(serverBuildId)
-    const recovery = getSshPtyConsumerRecovery(this.targetId)
-    const needsLegacyReplay =
-      previousOwner !== null &&
-      recovery?.checkpointsByAppPtyId.size === 0 &&
-      this.store
-        .getSshRemotePtyLeases(this.targetId)
-        .some((lease) => lease.state === 'attached' || lease.state === 'detached')
     const options: OpenSshPtyConsumerSessionOptions = {
       clientInstanceId: this.ptyConsumerClientInstanceId,
       expectedServerBuildId: serverBuildId,
       allowSameBuildLegacyFallback: true,
-      ...(needsLegacyReplay
-        ? {}
-        : { outputFlowControl: { requestedWindowSu: DEFAULT_PTY_SOURCE_WINDOW_SU } })
+      outputFlowControl: { requestedWindowSu: DEFAULT_PTY_SOURCE_WINDOW_SU }
     }
     let admission: SshPtyConsumerAdmission
     try {
