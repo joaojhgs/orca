@@ -2361,7 +2361,9 @@ export class SshRelaySession {
           return
         }
       }
-      if (recoveryRequest && !existingDeliveryConfirmed) {
+      const requiresCheckpointRecovery =
+        recoveryRequest?.status === 'checkpoint' && !existingDeliveryConfirmed
+      if (requiresCheckpointRecovery) {
         const recovered = await this.finishSourceRecovery(
           ptyId,
           appPtyId,
@@ -2433,7 +2435,7 @@ export class SshRelaySession {
       pendingReattach.activated = true
       recoveryActivationLease?.commit()
       recoveryActivationLease = undefined
-      if (targetedDeliveryRecovery) {
+      if (!requiresCheckpointRecovery) {
         if (targetedDeliveryRecovery === 'fresh-activation') {
           this.retiredSourceDeliveries.activate(ptyId)
           this.sourceIdentityByRelayPtyId.delete(ptyId)
@@ -2455,7 +2457,7 @@ export class SshRelaySession {
         await this.acceptPtyExit(exitAfterActivation)
         return
       }
-      if (!recoveryRequest && !targetedDeliveryRecovery) {
+      if (!requiresCheckpointRecovery && !targetedDeliveryRecovery) {
         this.forwardReattachReplay(appPtyId, attachResult.replay ?? '')
       }
       sourceActivationLease?.commit()

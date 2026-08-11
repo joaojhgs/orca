@@ -406,6 +406,7 @@ describe('SshRelaySession data delivery', () => {
       undefined,
       Object.freeze({ status: 'checkpointUnavailable' })
     )
+    expect(mockStore.markSshRemotePtyLeasesAttachedAsync).toHaveBeenCalledWith(targetId, ['pty-1'])
     second.dispose()
   })
 
