@@ -158,6 +158,8 @@ export type RemoteRuntimeMultiplexedTerminal = {
 type RemoteRuntimeMultiplexedTerminalState = {
   streamId: number
   terminal: string
+  client: { id: string; type: 'desktop' | 'mobile' }
+  viewport?: { cols: number; rows: number }
   callbacks: RemoteRuntimeMultiplexedTerminalCallbacks
   subscriptionRequested: boolean
   acknowledgeOutput: boolean
@@ -397,6 +399,8 @@ class RemoteRuntimeTerminalMultiplexer {
     const state: RemoteRuntimeMultiplexedTerminalState = {
       streamId,
       terminal: args.terminal,
+      client: args.client,
+      viewport: args.viewport,
       callbacks: args.callbacks,
       subscriptionRequested: false,
       acknowledgeOutput: true,
@@ -452,13 +456,16 @@ class RemoteRuntimeTerminalMultiplexer {
     const stream: RemoteRuntimeMultiplexedTerminal = {
       streamId,
       sendInput: (text) => this.sendInput(state, text),
-      resize: (cols, rows) =>
-        this.sendFrame(
+      resize: (cols, rows) => {
+        state.viewport = { cols, rows }
+        return this.sendFrame(
           streamId,
           TerminalStreamOpcode.Resize,
           encodeTerminalStreamJson({ cols, rows })
-        ),
+        )
+      },
       claimViewport: (cols, rows) => {
+        state.viewport = { cols, rows }
         const claimed = this.sendFrame(
           streamId,
           TerminalStreamOpcode.ClaimViewport,
@@ -495,23 +502,7 @@ class RemoteRuntimeTerminalMultiplexer {
       if (this.streams.get(streamId) !== state) {
         return stream
       }
-      const sent = this.sendFrame(
-        CONTROL_STREAM_ID,
-        TerminalStreamOpcode.Subscribe,
-        encodeTerminalStreamJson({
-          streamId,
-          terminal: args.terminal,
-          client: args.client,
-          viewport: args.viewport,
-          capabilities: {
-            ackOutput: 1,
-            ackOutputSourceRanges: 1,
-            outputPause: 1,
-            writeUnavailable: 1,
-            ...(args.client.type === 'desktop' ? { desktopViewportClaims: 1 } : {})
-          }
-        })
-      )
+      const sent = this.sendStreamSubscription(state)
       if (!sent) {
         throw new Error('Remote terminal stream is not connected.')
       }
@@ -569,7 +560,15 @@ class RemoteRuntimeTerminalMultiplexer {
                 this.failConnection(Object.assign(new Error(error.message), { code: error.code }))
               }
             },
-            onClose: () => this.handleClose('Remote Orca runtime closed the connection.')
+            onClose: () => this.handleClose('Remote Orca runtime closed the connection.'),
+            onTransportInterrupted: () => {
+              this.ready = false
+            },
+            onTransportReplayed: () => {
+              // The replayed terminal.multiplex subscription will emit a fresh ready event. Keep
+              // logical streams intact until then, then re-register them on the new server socket.
+              this.ready = false
+            }
           }
         )
         .then((subscription) => {
@@ -610,8 +609,23 @@ class RemoteRuntimeTerminalMultiplexer {
     }
 
     if (event.type === 'ready') {
+      const recoveringStreams = Array.from(this.streams.values()).filter(
+        (stream) => stream.subscriptionRequested
+      )
       this.ready = true
       this.resolveReadyIfConnected()
+      for (const stream of recoveringStreams) {
+        discardOutputAcknowledgements(stream)
+        clearSnapshot(stream)
+        clearResyncTimer(stream)
+        stream.initialSnapshotReceived = false
+        stream.expectedSeq = undefined
+        stream.sourceAckedEndByte = 0
+        if (!this.sendStreamSubscription(stream)) {
+          this.handleClose('Remote terminal stream could not be restored after reconnect.')
+          break
+        }
+      }
       return
     }
 
@@ -1352,6 +1366,26 @@ class RemoteRuntimeTerminalMultiplexer {
       )
       return false
     }
+  }
+
+  private sendStreamSubscription(stream: RemoteRuntimeMultiplexedTerminalState): boolean {
+    return this.sendFrame(
+      CONTROL_STREAM_ID,
+      TerminalStreamOpcode.Subscribe,
+      encodeTerminalStreamJson({
+        streamId: stream.streamId,
+        terminal: stream.terminal,
+        client: stream.client,
+        viewport: stream.viewport,
+        capabilities: {
+          ackOutput: 1,
+          ackOutputSourceRanges: 1,
+          outputPause: 1,
+          writeUnavailable: 1,
+          ...(stream.client.type === 'desktop' ? { desktopViewportClaims: 1 } : {})
+        }
+      })
+    )
   }
 
   private resolveReadyIfConnected(): void {

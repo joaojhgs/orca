@@ -68,6 +68,10 @@ const CONNECT_TIMEOUT_MS = 12_000
 const HANDSHAKE_TIMEOUT_MS = 10_000
 const RECONNECT_DELAYS_MS = [500, 1000, 2000, 4000, 8000, 15_000]
 const SHARED_CONNECTION_SUBSCRIPTION_METHODS = new Set(['files.watch'])
+// Why: the terminal multiplexer owns its logical streams across transport loss. Keeping its
+// subscription on the child client lets that client reconnect and replay instead of reporting a
+// terminal death that every pane must independently reconstruct (which could strand Codex panes).
+const REPLAYABLE_SUBSCRIPTION_METHODS = new Set(['files.watch', 'terminal.multiplex'])
 // Why: browser WebSockets hide pings/pongs, so a half-open socket stays OPEN with no onclose/onerror — poll liveness in-app.
 const HEARTBEAT_INTERVAL_MS = 10_000
 const HEARTBEAT_IDLE_MS = 25_000
@@ -701,7 +705,7 @@ export class WebRuntimeClient {
 
   private handleInterruptedSubscriptions(): void {
     for (const [id, subscription] of Array.from(this.subscriptions)) {
-      if (!SHARED_CONNECTION_SUBSCRIPTION_METHODS.has(subscription.method)) {
+      if (!REPLAYABLE_SUBSCRIPTION_METHODS.has(subscription.method)) {
         this.subscriptions.delete(id)
         subscription.callbacks.onClose?.()
         continue

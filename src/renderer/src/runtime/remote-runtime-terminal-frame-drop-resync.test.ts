@@ -26,6 +26,8 @@ type SubscribeCallbacks = {
   onBinary?: (bytes: Uint8Array<ArrayBufferLike>) => void
   onError?: (error: { message: string }) => void
   onClose?: () => void
+  onTransportInterrupted?: () => void
+  onTransportReplayed?: () => void
 }
 
 /**
@@ -360,6 +362,33 @@ describe('remote terminal frame-drop resync', () => {
 
     expect(data).toEqual(['one', 'two', 'three'])
     expect(snapshots).toEqual(['INITIAL'])
+  })
+
+  it('keeps logical terminal streams and resubscribes them after WebSocket replay', async () => {
+    const snapshots: string[] = []
+    const onTransportClose = vi.fn()
+    const multiplexer = getRemoteRuntimeTerminalMultiplexer('env-1')
+    const stream = await multiplexer.subscribeTerminal({
+      terminal: 'terminal-reconnect',
+      client: { id: 'desktop-1', type: 'desktop' },
+      viewport: { cols: 120, rows: 40 },
+      callbacks: {
+        onData: vi.fn(),
+        onSnapshot: (snapshot) => snapshots.push(snapshot),
+        onTransportClose
+      }
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    subscriptionCallbacks.onTransportInterrupted?.()
+    subscriptionCallbacks.onTransportReplayed?.()
+    subscriptionCallbacks.onResponse({ ok: true, result: { type: 'ready' } })
+    await Promise.resolve()
+
+    expect(onTransportClose).not.toHaveBeenCalled()
+    expect(stream.sendInput('still-live')).toBe(true)
+    expect(snapshots).toEqual(['INITIAL', 'INITIAL'])
   })
 
   it('replaces the stream and subscription CAS after a same-id re-pair', async () => {

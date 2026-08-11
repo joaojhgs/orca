@@ -3454,6 +3454,9 @@ export type PreloadApi = {
         onBinary?: (bytes: Uint8Array<ArrayBufferLike>) => void
         onError?: (error: { code: string; message: string }) => void
         onClose?: () => void
+        // Web runtimes can transparently replay selected subscriptions after a WebSocket reconnect.
+        onTransportInterrupted?: () => void
+        onTransportReplayed?: () => void
       }
     ) => Promise<RuntimeEnvironmentSubscriptionHandle>
   }
