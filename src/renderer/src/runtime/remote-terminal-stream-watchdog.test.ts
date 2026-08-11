@@ -7,28 +7,13 @@ import {
 describe('remote terminal stream watchdog', () => {
   afterEach(() => vi.useRealTimers())
 
-  it('probes a working agent after an otherwise silent stream and rearms after success', () => {
+  it('does not treat an idle terminal as a stalled stream', () => {
     vi.useFakeTimers()
     const onStall = vi.fn()
     const watchdog = createRemoteTerminalStreamWatchdog(onStall)
 
-    watchdog.setActivityExpected(true)
-    vi.advanceTimersByTime(REMOTE_TERMINAL_DELIVERY_STALL_TIMEOUT_MS)
-    expect(onStall).toHaveBeenCalledTimes(1)
-
-    watchdog.completeCommandResponseProbe()
-    vi.advanceTimersByTime(REMOTE_TERMINAL_DELIVERY_STALL_TIMEOUT_MS)
-    expect(onStall).toHaveBeenCalledTimes(2)
-  })
-
-  it('does not probe an idle terminal', () => {
-    vi.useFakeTimers()
-    const onStall = vi.fn()
-    const watchdog = createRemoteTerminalStreamWatchdog(onStall)
-
-    watchdog.setActivityExpected(true)
-    watchdog.setActivityExpected(false)
-    vi.advanceTimersByTime(REMOTE_TERMINAL_DELIVERY_STALL_TIMEOUT_MS)
+    watchdog.recordInbound()
+    vi.advanceTimersByTime(REMOTE_TERMINAL_DELIVERY_STALL_TIMEOUT_MS * 2)
 
     expect(onStall).not.toHaveBeenCalled()
   })

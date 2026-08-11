@@ -365,7 +365,6 @@ export function createRemoteRuntimePtyTransport(
     onAgentBecameWorking,
     onAgentExited,
     onAgentStatus: (status) => {
-      multiplexedStream?.setActivityExpected(status.state === 'working')
       onAgentStatus?.(status)
     }
   })
