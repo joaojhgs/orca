@@ -89,6 +89,11 @@ export function useTaskSourceProviderReadiness(
         connected: jiraConnected,
         checking: jiraChecking,
         visible: visible.has('jira')
+      },
+      multica: {
+        connected: true,
+        checking: false,
+        visible: visible.has('multica')
       }
     }
   }, [

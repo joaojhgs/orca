@@ -8,6 +8,7 @@ import {
 } from '../../../../shared/task-providers'
 import { JiraIcon } from '@/components/icons/JiraIcon'
 import { LinearIcon } from '@/components/icons/LinearIcon'
+import { MulticaIcon } from '@/components/task-page-localized-options'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store'
 import { SearchableSetting } from './SearchableSetting'
@@ -88,6 +89,11 @@ const PROVIDER_META: Record<
       )
     },
     Icon: ({ className }) => <JiraIcon className={className} />
+  },
+  multica: {
+    label: 'Multica',
+    description: 'Browse Multica projects and issues through the configured Multica CLI.',
+    Icon: ({ className }) => <MulticaIcon className={className} />
   }
 }
 
@@ -226,6 +232,11 @@ export function TasksPane({ settings, updateSettings }: TasksPaneProps): React.J
                     onConnected={() => void checkJiraConnection()}
                     onOpenIntegrations={() => openIntegrations(JIRA_INTEGRATION_SECTION_ID)}
                   />
+                ) : provider === 'multica' ? (
+                  <div className="py-3 text-xs text-muted-foreground">
+                    Multica uses the server-managed CLI connection and the existing Orca session
+                    bridge.
+                  </div>
                 ) : (
                   <CodeHostSetupSteps
                     providerLabel={meta.label}

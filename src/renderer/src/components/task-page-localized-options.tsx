@@ -56,6 +56,20 @@ export function LinearIcon({ className }: { className?: string }): React.JSX.Ele
   )
 }
 
+export function MulticaIcon({ className }: { className?: string }): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className={className} fill="none">
+      <path
+        d="M4 18V6l8 7 8-7v12"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 export const getGitLabMRFilters = createLocalizedCatalog(
   (): { id: GitLabTaskFilter; label: string }[] => [
     { id: 'opened', label: translate('auto.components.TaskPage.606a85c774', 'Open') },
@@ -130,6 +144,11 @@ export const getSourceOptions = createLocalizedCatalog((): SourceOption[] => [
     id: 'jira',
     label: translate('auto.components.TaskPage.9cd11ba218', 'Jira'),
     Icon: ({ className }) => <JiraIcon className={className} />
+  },
+  {
+    id: 'multica',
+    label: 'Multica',
+    Icon: ({ className }) => <MulticaIcon className={className} />
   }
 ])
 

@@ -411,6 +411,7 @@ import {
   type JiraPrioritiesBySite
 } from './jira-issue-sorter'
 import { TaskPageJiraSortControls } from './task-page-jira-sort-controls'
+import { MulticaTaskSourcePanel } from './MulticaTaskSourcePanel'
 import { bindTaskPageJiraItemSourceContext } from './task-page-jira-item-source-context'
 import {
   normalizeVisibleTaskProviders,
@@ -10903,6 +10904,8 @@ export default function TaskPage(): React.JSX.Element {
                 />
               </div>
             )
+          ) : taskSource === 'multica' ? (
+            <MulticaTaskSourcePanel />
           ) : taskSource === 'linear' && selectedLinearIssue ? (
             <LinearIssueWorkspace
               issue={selectedLinearIssue}

@@ -1,6 +1,12 @@
-export type TaskProvider = 'github' | 'gitlab' | 'linear' | 'jira'
+export type TaskProvider = 'github' | 'gitlab' | 'linear' | 'jira' | 'multica'
 
-export const TASK_PROVIDERS: readonly TaskProvider[] = ['github', 'gitlab', 'linear', 'jira']
+export const TASK_PROVIDERS: readonly TaskProvider[] = [
+  'github',
+  'gitlab',
+  'linear',
+  'jira',
+  'multica'
+]
 
 const TASK_PROVIDER_SET = new Set<TaskProvider>(TASK_PROVIDERS)
 
@@ -45,6 +51,14 @@ export function normalizeVisibleTaskProviders(value: unknown): TaskProvider[] {
     if (!normalized.includes(provider as TaskProvider)) {
       normalized.push(provider as TaskProvider)
     }
+  }
+
+  const legacyDefaultProviders: TaskProvider[] = ['github', 'gitlab', 'linear', 'jira']
+  if (
+    normalized.length === legacyDefaultProviders.length &&
+    legacyDefaultProviders.every((provider) => normalized.includes(provider))
+  ) {
+    normalized.push('multica')
   }
 
   // Why: at least one provider must remain visible so the Tasks surface always
@@ -103,6 +117,9 @@ function isTaskProviderAvailable(
   // Why: Jira can be connected from the Tasks surface itself, so hiding it
   // when disconnected would remove the entry point for first-time setup.
   if (provider === 'jira') {
+    return true
+  }
+  if (provider === 'multica') {
     return true
   }
   return availability.linearConnected
