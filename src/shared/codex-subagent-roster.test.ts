@@ -35,7 +35,7 @@ describe('Codex subagent roster', () => {
     expect(snapshot?.model).toHaveLength(AGENT_MODEL_MAX_LENGTH)
 
     finishCodexSubagent(roster, ' child-1 ')
-    expect(roster.size).toBe(0)
+    expect(codexRosterToSnapshots(roster)?.[0]).toMatchObject({ state: 'idle' })
   })
 
   it('rejects an id that would normalize to an invisible child', () => {

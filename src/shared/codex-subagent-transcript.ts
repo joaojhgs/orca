@@ -293,7 +293,7 @@ export function reconcileCodexSubagentTranscript(
         continue
       }
     }
-    finishCodexSubagent(roster, id)
+    finishCodexSubagent(roster, id, { transcriptPath: tracked.filePath })
     state.subagents.delete(id)
   }
 }

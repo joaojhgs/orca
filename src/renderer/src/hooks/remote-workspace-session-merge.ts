@@ -9,7 +9,7 @@ function preserveNewerLocalTerminalFields(remote: TerminalTab, local: TerminalTa
     generation: local.generation,
     ptyId: local.ptyId
   }
-  return local.pendingActivationSpawn
+  return local.pendingActivationSpawn && local.ptyId === null
     ? { ...preserved, pendingActivationSpawn: local.pendingActivationSpawn }
     : preserved
 }
@@ -35,7 +35,7 @@ export function mergeDirectSshRemoteWorkspaceSession(
         if (
           !local ||
           ((local.generation ?? 0) <= (tab.generation ?? 0) &&
-            !local.pendingActivationSpawn &&
+            !(local.pendingActivationSpawn && local.ptyId === null) &&
             !preserveLocalTerminalTabIds.has(tab.id))
         ) {
           return tab

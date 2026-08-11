@@ -364,7 +364,10 @@ export function createRemoteRuntimePtyTransport(
     onAgentBecameIdle,
     onAgentBecameWorking,
     onAgentExited,
-    onAgentStatus
+    onAgentStatus: (status) => {
+      multiplexedStream?.setActivityExpected(status.state === 'working')
+      onAgentStatus?.(status)
+    }
   })
   const shutdownDataHandler = (
     data: string,

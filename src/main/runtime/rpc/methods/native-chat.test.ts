@@ -55,6 +55,16 @@ const watcher = vi.hoisted(() => ({
   },
   watching: true
 }))
+const remoteTranscript = vi.hoisted(() => ({
+  provider: undefined as { readFile: ReturnType<typeof vi.fn> } | undefined,
+  read: vi.fn()
+}))
+vi.mock('../../../providers/ssh-filesystem-dispatch', () => ({
+  getSshFilesystemProvider: () => remoteTranscript.provider
+}))
+vi.mock('../../../native-chat/remote-transcript-reader', () => ({
+  readRemoteTranscriptTail: (...args: unknown[]) => remoteTranscript.read(...args)
+}))
 vi.mock('../../../native-chat/transcript-watch', () => ({
   readNativeChatTranscriptTail: ({ limit }: { limit: number }) => {
     const messages = cachedResult.value.messages
@@ -141,6 +151,28 @@ function activeWatcherArgs(): NonNullable<typeof watcher.args> {
 }
 
 describe('nativeChat.readSession clientKind truncation gating', () => {
+  it('routes SSH transcripts through the remote filesystem provider', async () => {
+    remoteTranscript.provider = { readFile: vi.fn() }
+    remoteTranscript.read.mockResolvedValueOnce({ messages: [], hasMore: false, beforeOffset: 0 })
+
+    await readSessionHandler()(
+      {
+        agent: 'codex',
+        sessionId: 'session-1',
+        transcriptPath: '/home/developer/.codex/session.jsonl',
+        executionHostId: 'ssh-personal'
+      },
+      { clientKind: 'mobile' } as RpcContext
+    )
+
+    expect(remoteTranscript.read).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: remoteTranscript.provider,
+        path: '/home/developer/.codex/session.jsonl'
+      })
+    )
+    remoteTranscript.provider = undefined
+  })
   it('clips oversized tool output for mobile clients', async () => {
     cachedResult.value = { messages: [makeMessage(OVERSIZED)] }
     const result = await readSessionHandler()(

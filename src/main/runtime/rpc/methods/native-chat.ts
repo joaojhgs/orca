@@ -9,6 +9,11 @@ import {
   subscribeNativeChatTranscript
 } from '../../../native-chat/transcript-watch'
 import { defineMethod, defineStreamingMethod, type RpcAnyMethod, type RpcContext } from '../core'
+import { getSshFilesystemProvider } from '../../../providers/ssh-filesystem-dispatch'
+import {
+  readRemoteTranscriptTail,
+  subscribeRemoteTranscript
+} from '../../../native-chat/remote-transcript-reader'
 
 // Why: native chat renders an agent's own transcript (Claude/Codex JSONL). The
 // desktop reaches the readers via Electron IPC; mobile/web clients reach the
@@ -45,7 +50,8 @@ const NativeChatSession = z.object({
   // locate the file directly when the session id no longer names it (recent
   // Claude Code). Optional for back-compat with older clients.
   transcriptPath: z.string().min(1).optional(),
-  beforeOffset: z.number().int().nonnegative().optional()
+  beforeOffset: z.number().int().nonnegative().optional(),
+  executionHostId: z.string().min(1).optional()
 })
 
 const NativeChatUnsubscribe = z.object({
@@ -192,13 +198,27 @@ export const NATIVE_CHAT_METHODS: readonly RpcAnyMethod[] = [
     params: NativeChatSession,
     handler: async (params, { clientKind }) => {
       const limit = params.limit ?? MOBILE_NATIVE_CHAT_DEFAULT_WINDOW
-      const result = await readNativeChatTranscriptTail({
-        agent: params.agent,
-        sessionId: params.sessionId,
-        transcriptPath: params.transcriptPath,
-        limit,
-        beforeOffset: params.beforeOffset
-      })
+      const remoteProvider = params.executionHostId
+        ? getSshFilesystemProvider(params.executionHostId)
+        : undefined
+      const result =
+        params.executionHostId && (!remoteProvider || !params.transcriptPath)
+          ? { error: 'Remote transcript unavailable' }
+          : remoteProvider && params.transcriptPath
+            ? await readRemoteTranscriptTail({
+                provider: remoteProvider,
+                path: params.transcriptPath,
+                agent: params.agent,
+                limit,
+                beforeOffset: params.beforeOffset
+              })
+            : await readNativeChatTranscriptTail({
+                agent: params.agent,
+                sessionId: params.sessionId,
+                transcriptPath: params.transcriptPath,
+                limit,
+                beforeOffset: params.beforeOffset
+              })
       return 'messages' in result
         ? {
             messages: windowForClient(result.messages, clientKind, limit),
@@ -235,6 +255,36 @@ export const NATIVE_CHAT_METHODS: readonly RpcAnyMethod[] = [
         connectionId
       )
       if (closed) {
+        return
+      }
+      const remoteProvider = params.executionHostId
+        ? getSshFilesystemProvider(params.executionHostId)
+        : undefined
+      if (remoteProvider && params.transcriptPath) {
+        unsubscribe = await subscribeRemoteTranscript({
+          provider: remoteProvider,
+          path: params.transcriptPath,
+          agent: params.agent,
+          limit,
+          onResult: (result, first) =>
+            emit({
+              type: first ? 'snapshot' : 'replacement',
+              messages: windowForClient(result.messages, clientKind, limit),
+              hasMore: result.hasMore,
+              beforeOffset: result.beforeOffset,
+              ...(result.lifecycle ? { lifecycle: result.lifecycle } : {})
+            }),
+          onInitialError: (error) => emit({ type: 'snapshot', messages: [], hasMore: false, error })
+        })
+        return
+      }
+      if (params.executionHostId) {
+        emit({
+          type: 'snapshot',
+          messages: [],
+          hasMore: false,
+          error: 'Remote transcript unavailable'
+        })
         return
       }
       const subscription = await subscribeNativeChatTranscript({

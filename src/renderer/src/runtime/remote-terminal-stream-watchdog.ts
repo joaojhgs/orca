@@ -12,6 +12,7 @@ export type RemoteTerminalStreamWatchdog = {
   completeCommandResponseProbe: () => void
   recordCommandInput: (text: string) => void
   recordInbound: () => void
+  setActivityExpected: (expected: boolean) => void
   dispose: () => void
 }
 
@@ -23,6 +24,7 @@ export function createRemoteTerminalStreamWatchdog(
   let outstandingDeliveryBytes = 0
   let lastInboundAtMs = Date.now()
   let commandResponseProbePending = false
+  let activityExpected = false
   let disposed = false
 
   const clearResponseTimer = (): void => {
@@ -36,6 +38,16 @@ export function createRemoteTerminalStreamWatchdog(
       clearTimeout(deliveryTimer)
       deliveryTimer = null
     }
+  }
+  const armResponseTimer = (): void => {
+    clearResponseTimer()
+    if (!activityExpected || commandResponseProbePending || disposed) {
+      return
+    }
+    responseTimer = setTimeout(
+      () => trip('command-response-timeout'),
+      REMOTE_TERMINAL_DELIVERY_STALL_TIMEOUT_MS
+    )
   }
   const trip = (reason: RemoteTerminalStreamStall['reason']): void => {
     if (disposed) {
@@ -83,6 +95,7 @@ export function createRemoteTerminalStreamWatchdog(
     },
     completeCommandResponseProbe() {
       commandResponseProbePending = false
+      armResponseTimer()
     },
     recordCommandInput(text) {
       if (disposed || commandResponseProbePending || responseTimer || !/[\r\n]/u.test(text)) {
@@ -95,7 +108,16 @@ export function createRemoteTerminalStreamWatchdog(
     },
     recordInbound() {
       lastInboundAtMs = Date.now()
-      clearResponseTimer()
+      armResponseTimer()
+    },
+    setActivityExpected(expected) {
+      activityExpected = expected
+      if (expected) {
+        armResponseTimer()
+      } else {
+        clearResponseTimer()
+        commandResponseProbePending = false
+      }
     },
     dispose() {
       disposed = true

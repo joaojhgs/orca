@@ -3459,7 +3459,7 @@ export function reconcileRemoteCodexState(
     }
   } else {
     const leadState = codexLeadStateForHookEvent(eventName)
-    if (eventName === 'SessionStart' || (eventName === 'Stop' && !payload.subagents)) {
+    if (eventName === 'SessionStart') {
       roster.clear()
     }
     if (leadState) {
@@ -3616,10 +3616,7 @@ function normalizeCodexEvent(
       transcriptPath
     )
   }
-  if (eventName === 'Stop' && !hasCodexTranscriptSubagents(state, paneKey)) {
-    // Why: Codex CLI 0.144 can omit child Stop hooks; later child activity safely recreates any agent still running.
-    state.codexSubagentRosterByPaneKey.delete(paneKey)
-  }
+  // Completed children remain as idle transcript rows until the next provider session starts.
   const previousLead = state.codexLeadStateByPaneKey.get(paneKey)
   state.codexLeadStateByPaneKey.set(paneKey, {
     state: stateName,

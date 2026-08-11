@@ -84,6 +84,8 @@ export type AgentSubagentSnapshot = {
   state: AgentSubagentState
   /** Timestamp (ms) when this subagent was first observed. */
   startedAt: number
+  /** Provider transcript for transcript-backed inspection when the child has no PTY. */
+  transcriptPath?: string
 }
 
 export type AgentStatusEntry = {
@@ -322,7 +324,8 @@ function normalizeSubagentSnapshot(value: unknown): AgentSubagentSnapshot | null
       typeof obj.startedAt === 'number' && Number.isFinite(obj.startedAt) ? obj.startedAt : 0,
     agentType: normalizeOptionalField(obj.agentType, AGENT_TYPE_MAX_LENGTH),
     model: normalizeOptionalField(obj.model, AGENT_MODEL_MAX_LENGTH),
-    description: normalizeOptionalField(obj.description, AGENT_STATUS_TOOL_INPUT_MAX_LENGTH)
+    description: normalizeOptionalField(obj.description, AGENT_STATUS_TOOL_INPUT_MAX_LENGTH),
+    transcriptPath: normalizeOptionalField(obj.transcriptPath, AGENT_STATUS_TOOL_INPUT_MAX_LENGTH)
   }
 }
 
@@ -362,6 +365,7 @@ export function agentSubagentsEqual(
       x.id !== y.id ||
       x.state !== y.state ||
       x.startedAt !== y.startedAt ||
+      x.transcriptPath !== y.transcriptPath ||
       x.agentType !== y.agentType ||
       x.model !== y.model ||
       x.description !== y.description

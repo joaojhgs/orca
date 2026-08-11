@@ -141,6 +141,7 @@ export type RemoteRuntimeMultiplexedTerminal = {
   resize: (cols: number, rows: number) => boolean
   claimViewport: (cols: number, rows: number) => boolean
   setOutputPaused: (paused: boolean) => boolean
+  setActivityExpected: (expected: boolean) => void
   serializeBuffer: (opts?: { scrollbackRows?: number }) => Promise<{
     data: string
     cols: number
@@ -475,6 +476,7 @@ class RemoteRuntimeTerminalMultiplexer {
         return claimed && resized
       },
       setOutputPaused: (paused) => this.setOutputPaused(state, paused),
+      setActivityExpected: (expected) => state.watchdog.setActivityExpected(expected),
       serializeBuffer: (opts) => this.requestSnapshot(state, opts),
       serializeBufferOutcome: (opts) => this.requestSnapshotOutcome(state, opts),
       close: () => {
