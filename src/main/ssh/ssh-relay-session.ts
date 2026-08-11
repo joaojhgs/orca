@@ -2316,7 +2316,7 @@ export class SshRelaySession {
         targetedDeliveryRecovery === 'fresh-activation'
           ? undefined
           : await this.sourceRecoveryRequest(appPtyId)
-      const attachResult = await this.attachPtyWithRetry(
+      let attachResult = await this.attachPtyWithRetry(
         ptyProvider,
         ptyId,
         expectedIdentityByPtyId.get(ptyId),
@@ -2324,6 +2324,21 @@ export class SshRelaySession {
         shouldContinue
       )
       sourceActivationLease = attachResult.sourceActivationLease
+      if (
+        recoveryRequest?.status === 'checkpointUnavailable' &&
+        attachResult.sourceRecovery?.status === 'restoreRequired'
+      ) {
+        await sourceActivationLease?.rollback()
+        sourceActivationLease = undefined
+        attachResult = await this.attachPtyWithRetry(
+          ptyProvider,
+          ptyId,
+          expectedIdentityByPtyId.get(ptyId),
+          undefined,
+          shouldContinue
+        )
+        sourceActivationLease = attachResult.sourceActivationLease
+      }
       if (!shouldContinue()) {
         return
       }
