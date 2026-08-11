@@ -2311,7 +2311,6 @@ export class SshRelaySession {
     this.pendingPtyReattaches.set(appPtyId, pendingReattach)
     let sourceActivationLease: SshPtyAttachResult['sourceActivationLease']
     let recoveryActivationLease: SshPtyRecoveryActivationLease | undefined
-    let retryFreshActivation = false
     try {
       const recoveryRequest =
         targetedDeliveryRecovery === 'fresh-activation'
@@ -2325,9 +2324,6 @@ export class SshRelaySession {
         shouldContinue
       )
       sourceActivationLease = attachResult.sourceActivationLease
-      retryFreshActivation =
-        recoveryRequest?.status === 'checkpointUnavailable' &&
-        attachResult.sourceRecovery?.status === 'restoreRequired'
       if (!shouldContinue()) {
         return
       }
@@ -2481,17 +2477,6 @@ export class SshRelaySession {
         this.pendingPtyReattaches.delete(appPtyId)
       }
       this.ptyRecoveryRetention.release(pendingReattach.retentionKey)
-    }
-    if (retryFreshActivation && shouldContinue()) {
-      void this.rejectedPtyReattaches
-        .run(appPtyId, () =>
-          this.reattachRejectedPty(ptyId, mux, providerGeneration, 'fresh-activation')
-        )
-        .catch((error: unknown) => {
-          console.warn(`[ssh-relay-session] PTY ${ptyId} fresh activation failed`, {
-            error: error instanceof Error ? error.message : String(error)
-          })
-        })
     }
   }
 

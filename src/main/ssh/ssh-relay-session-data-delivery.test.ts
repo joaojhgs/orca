@@ -385,18 +385,20 @@ describe('SshRelaySession data delivery', () => {
     vi.mocked(getSshPtyProvider).mockImplementation(
       () => vi.mocked(registerSshPtyProvider).mock.calls.at(-1)?.[1]
     )
-    attachForReconnectMock
-      .mockResolvedValueOnce({ sourceRecovery: { status: 'restoreRequired', reason: 'test' } })
-      .mockResolvedValueOnce({ incarnationId: 'incarnation-1', replay: 'restored-output' })
+    attachForReconnectMock.mockResolvedValue({
+      incarnationId: 'incarnation-1',
+      sourceRecovery: { status: 'restoreRequired', reason: 'checkpointUnavailable' }
+    })
     const second = new SshRelaySession(targetId, getMainWindow, mockStore, mockPortForward)
     const openCallCountBeforeRetry = openConsumerSessionMock.mock.calls.length
 
     await second.establish(mockConn)
-    await vi.waitFor(() => expect(attachForReconnectMock).toHaveBeenCalledTimes(2))
 
     const retryCalls = openConsumerSessionMock.mock.calls
       .slice(openCallCountBeforeRetry)
       .map(([, options]) => options)
+    // Why one call: the relay answers a proof it cannot match with a fresh claim, so the client never
+    // needs a second, resume-less request to get owner authority back.
     expect(retryCalls).toHaveLength(1)
     expect(retryCalls[0]).toHaveProperty('resume')
     expect(attachForReconnectMock).toHaveBeenCalledWith(
@@ -404,7 +406,6 @@ describe('SshRelaySession data delivery', () => {
       undefined,
       Object.freeze({ status: 'checkpointUnavailable' })
     )
-    expect(attachForReconnectMock).toHaveBeenLastCalledWith('pty-1')
     expect(mockStore.markSshRemotePtyLeasesAttachedAsync).toHaveBeenCalledWith(targetId, ['pty-1'])
     second.dispose()
   })
