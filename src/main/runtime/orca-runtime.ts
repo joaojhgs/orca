@@ -472,6 +472,7 @@ import {
 import {
   BROWSER_HEADLESS_RUNTIME_CAPABILITY,
   BROWSER_CERTIFICATE_TRUST_RUNTIME_CAPABILITY,
+  BROWSER_DESIGN_MODE_RUNTIME_CAPABILITY,
   MIN_COMPATIBLE_RUNTIME_CLIENT_VERSION,
   ORCHESTRATION_CONTRACT_RUNTIME_CAPABILITY,
   ORCHESTRATION_CONTRACT_VERSION,
@@ -4913,7 +4914,9 @@ export class OrcaRuntimeService {
     const canBrowse = hasRenderer || hasOffscreen
     const capabilities: RuntimeCapability[] = RUNTIME_CAPABILITIES.filter(
       (capability) =>
-        (capability !== 'browser.screencast.v1' || canBrowse) &&
+        ((capability !== 'browser.screencast.v1' &&
+          capability !== BROWSER_DESIGN_MODE_RUNTIME_CAPABILITY) ||
+          canBrowse) &&
         // Why: the nested-runtime E2E needs a real legacy transport without maintaining an old binary fixture.
         (process.env.ORCA_E2E_DISABLE_RUNTIME_SHARED_CONTROL !== '1' ||
           capability !== REMOTE_RUNTIME_SHARED_CONTROL_CAPABILITY) &&
@@ -34680,6 +34683,15 @@ export class OrcaRuntimeService {
 
   browserScreenshot: RuntimeBrowserCommands['browserScreenshot'] =
     this.browserCommands.browserScreenshot.bind(this.browserCommands)
+
+  browserSetGrabMode: RuntimeBrowserCommands['browserSetGrabMode'] =
+    this.browserCommands.browserSetGrabMode.bind(this.browserCommands)
+  browserAwaitGrabSelection: RuntimeBrowserCommands['browserAwaitGrabSelection'] =
+    this.browserCommands.browserAwaitGrabSelection.bind(this.browserCommands)
+  browserCancelGrab: RuntimeBrowserCommands['browserCancelGrab'] =
+    this.browserCommands.browserCancelGrab.bind(this.browserCommands)
+  browserCaptureSelectionScreenshot: RuntimeBrowserCommands['browserCaptureSelectionScreenshot'] =
+    this.browserCommands.browserCaptureSelectionScreenshot.bind(this.browserCommands)
 
   async browserScreencast(
     params: Parameters<RuntimeBrowserCommands['browserScreencast']>[0],

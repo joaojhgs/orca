@@ -53,6 +53,12 @@ import type {
   BrowserCertificateProceedResult,
   BrowserSessionUserAgentMode
 } from '../../shared/types'
+import type {
+  BrowserGrabRect,
+  BrowserGrabResult,
+  BrowserSetGrabModeResult,
+  BrowserCaptureSelectionScreenshotResult
+} from '../../shared/browser-grab-types'
 import type { AgentBrowserBridge } from '../browser/agent-browser-bridge'
 import type { BrowserBackend } from '../browser/browser-backend'
 import { browserCertificateTrustController, browserManager } from '../browser/browser-manager'
@@ -447,6 +453,55 @@ export class RuntimeBrowserCommands {
       target.worktreeId,
       target.browserPageId
     )
+  }
+
+  async browserSetGrabMode(
+    params: { enabled: boolean } & BrowserCommandTargetParams
+  ): Promise<BrowserSetGrabModeResult> {
+    const target = await this.resolveBrowserCommandTarget(params)
+    const { browserPageId, webContents: guest } = this.resolveBrowserPageWebContents(
+      target.worktreeId,
+      target.browserPageId
+    )
+    const ok = await browserManager.setGrabMode(browserPageId, params.enabled, guest)
+    return ok ? { ok: true } : { ok: false, reason: 'injection-failed' }
+  }
+
+  async browserAwaitGrabSelection(
+    params: { opId: string } & BrowserCommandTargetParams
+  ): Promise<BrowserGrabResult> {
+    const target = await this.resolveBrowserCommandTarget(params)
+    const { browserPageId, webContents: guest } = this.resolveBrowserPageWebContents(
+      target.worktreeId,
+      target.browserPageId
+    )
+    return browserManager.awaitGrabSelection(browserPageId, params.opId, guest)
+  }
+
+  async browserCancelGrab(params: BrowserCommandTargetParams): Promise<{ ok: true }> {
+    const target = await this.resolveBrowserCommandTarget(params)
+    const { browserPageId } = this.resolveBrowserPageWebContents(
+      target.worktreeId,
+      target.browserPageId
+    )
+    browserManager.cancelGrabOp(browserPageId, 'user')
+    return { ok: true }
+  }
+
+  async browserCaptureSelectionScreenshot(
+    params: { rect: BrowserGrabRect } & BrowserCommandTargetParams
+  ): Promise<BrowserCaptureSelectionScreenshotResult> {
+    const target = await this.resolveBrowserCommandTarget(params)
+    const { browserPageId, webContents: guest } = this.resolveBrowserPageWebContents(
+      target.worktreeId,
+      target.browserPageId
+    )
+    const screenshot = await browserManager.captureSelectionScreenshot(
+      browserPageId,
+      params.rect,
+      guest
+    )
+    return screenshot ? { ok: true, screenshot } : { ok: false, reason: 'capture-failed' }
   }
 
   async browserScreencast(

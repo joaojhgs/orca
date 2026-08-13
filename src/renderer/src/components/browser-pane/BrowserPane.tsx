@@ -61,7 +61,10 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { useAppStore } from '@/store'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { ORCA_BROWSER_BLANK_URL, ORCA_BROWSER_PARTITION } from '../../../../shared/constants'
-import { BROWSER_CERTIFICATE_TRUST_RUNTIME_CAPABILITY } from '../../../../shared/protocol-version'
+import {
+  BROWSER_CERTIFICATE_TRUST_RUNTIME_CAPABILITY,
+  BROWSER_DESIGN_MODE_RUNTIME_CAPABILITY
+} from '../../../../shared/protocol-version'
 import { getOrcaProfileBrowserDefaultPartition } from '../../../../shared/orca-profiles'
 import type {
   BrowserCertificateProceedResult,
@@ -123,7 +126,7 @@ import {
   type BrowserPageAnnotation
 } from '../../../../shared/browser-grab-types'
 import { BROWSER_ANNOTATION_VIEWPORT_MESSAGE_PREFIX } from '../../../../shared/browser-annotation-viewport-bridge'
-import { useGrabMode } from './useGrabMode'
+import { useGrabMode, type GrabModeTransport } from './useGrabMode'
 import { formatGrabPayloadAsText } from './GrabConfirmationSheet'
 import { formatBrowserAnnotationsAsMarkdown } from './browser-annotation-output'
 import { isEditableKeyboardTarget } from './browser-keyboard'
@@ -975,6 +978,8 @@ function RemoteBrowserPagePane({
   const closeBrowserPage = useAppStore((s) => s.closeBrowserPage)
   const closeBrowserTab = useAppStore((s) => s.closeBrowserTab)
   const keybindings = useAppStore((state) => state.keybindings)
+  const remoteGrabElementShortcut = useShortcutLabel('browser.grabElement')
+  const [remoteDesignModeSupported, setRemoteDesignModeSupported] = useState(false)
 
   // Why: runtimes predating browser.certificate-trust.v1 can't honor a proceed request, so hide "Proceed Anyway" until support is advertised.
   const [remoteCertificateTrustSupported, setRemoteCertificateTrustSupported] = useState(false)
@@ -1068,6 +1073,86 @@ function RemoteBrowserPagePane({
         } satisfies RuntimeClientTarget)
       : null
   }, [activeRuntimeEnvironmentId])
+
+  useEffect(() => {
+    let cancelled = false
+    void runtimeEnvironmentSupportsCapability(
+      activeRuntimeEnvironmentId,
+      BROWSER_DESIGN_MODE_RUNTIME_CAPABILITY
+    )
+      .then((supported) => {
+        if (!cancelled) {
+          setRemoteDesignModeSupported(supported)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRemoteDesignModeSupported(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [activeRuntimeEnvironmentId])
+
+  const remoteGrabTransport = useMemo<GrabModeTransport>(() => {
+    const callGrabRpc = <TResult,>(
+      method: string,
+      params: Record<string, unknown>,
+      timeoutMs = 15_000
+    ) => {
+      const target = runtimeTarget()
+      const page = lifecycle.tokens.remotePage
+      if (!target || !page) {
+        return Promise.reject(new Error('Remote browser page is unavailable.'))
+      }
+      return callRuntimeRpc<TResult>(
+        target,
+        method,
+        { worktree: runtimeWorktree, page, ...params },
+        { timeoutMs, suppressFeatureInteraction: true }
+      )
+    }
+    return {
+      setGrabMode: (enabled) =>
+        callGrabRpc<Awaited<ReturnType<GrabModeTransport['setGrabMode']>>>('browser.grab.setMode', {
+          enabled
+        }).catch(() => ({ ok: false, reason: 'injection-failed' })),
+      awaitGrabSelection: (opId) =>
+        callGrabRpc<Awaited<ReturnType<GrabModeTransport['awaitGrabSelection']>>>(
+          'browser.grab.awaitSelection',
+          { opId },
+          130_000
+        ).catch((error: unknown) => ({
+          opId,
+          kind: 'error',
+          reason: error instanceof Error ? error.message : 'Remote element selection failed.'
+        })),
+      cancelGrab: () => callGrabRpc('browser.grab.cancel', {}).catch(() => undefined),
+      captureSelectionScreenshot: (rect) =>
+        callGrabRpc<Awaited<ReturnType<GrabModeTransport['captureSelectionScreenshot']>>>(
+          'browser.grab.captureScreenshot',
+          { rect },
+          30_000
+        ).catch(() => ({ ok: false, reason: 'capture-failed' }))
+    }
+  }, [lifecycle, runtimeTarget, runtimeWorktree])
+  const remoteGrab = useGrabMode(browserTab.id, remoteGrabTransport)
+  const remoteGrabState = remoteGrab.state
+  const remoteGrabPayload = remoteGrab.payload
+  const remoteGrabContextMenu = remoteGrab.contextMenu
+  const rearmRemoteGrab = remoteGrab.rearm
+
+  useEffect(() => {
+    if (remoteGrabState !== 'confirming' || !remoteGrabPayload) {
+      return
+    }
+    if (!remoteGrabContextMenu) {
+      void window.api.ui.writeClipboardText(formatGrabPayloadAsText(remoteGrabPayload))
+      setPaneNotice({ kind: 'direct', text: 'Element context copied.' })
+      rearmRemoteGrab()
+    }
+  }, [remoteGrabContextMenu, remoteGrabPayload, remoteGrabState, rearmRemoteGrab])
 
   const clearStreamFrame = useCallback((): void => {
     pendingFrameDecodeRef.current += 1
@@ -2266,30 +2351,35 @@ function RemoteBrowserPagePane({
           <TooltipTrigger asChild>
             <Button
               size="icon"
-              variant="ghost"
-              className="h-7 w-7 opacity-50"
-              aria-disabled="true"
+              variant={remoteGrab.state !== 'idle' ? 'default' : 'ghost'}
+              className="h-7 w-7"
+              disabled={!remoteDesignModeSupported || !frameUrl || markup.isActive}
               aria-label={translate(
-                'auto.components.browser.pane.BrowserPane.deb5293610',
-                'Browser annotations unavailable in remote runtime'
+                'auto.components.browser.pane.BrowserPane.fdfc7fe0ef',
+                'Grab page element'
               )}
-              onClick={(event) => {
-                event.preventDefault()
-              }}
+              onClick={remoteGrab.toggle}
+              data-contextual-tour-target="browser-grab-control"
             >
-              <MessageSquarePlus className="size-4" />
+              <Crosshair className="size-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" sideOffset={4}>
-            {translate(
-              'auto.components.browser.pane.BrowserPane.8b7e6d1f5a',
-              'Browser annotations are only available in local browser tabs.'
-            )}
+            {remoteDesignModeSupported
+              ? translate(
+                  'auto.components.browser.pane.BrowserPane.acbe79fd01',
+                  'Grab page element ({{value0}})',
+                  { value0: remoteGrabElementShortcut }
+                )
+              : translate(
+                  'auto.components.browser.pane.BrowserPane.8b7e6d1f5a',
+                  'Update the remote Orca server to use Design Mode.'
+                )}
           </TooltipContent>
         </Tooltip>
         <MarkupDrawButton
           onClick={() => (markup.isActive ? markup.cancel() : void markup.start())}
-          disabled={!frameUrl}
+          disabled={!frameUrl || remoteGrab.state !== 'idle'}
           active={markup.isActive}
           surfaceActive={isActive}
           className="h-7 w-7"
@@ -2300,6 +2390,18 @@ function RemoteBrowserPagePane({
         tabIndex={-1}
         className="relative min-h-0 flex-1 overflow-hidden bg-background"
       >
+        {remoteGrab.state !== 'idle' ? (
+          <div className="absolute top-2 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-md border border-border bg-popover/95 px-3 py-1.5 text-xs text-popover-foreground shadow-sm">
+            <span>
+              {remoteGrab.state === 'error'
+                ? remoteGrab.error
+                : 'Select an element in the page. Its DOM, styles, and source context will be copied.'}
+            </span>
+            <Button size="xs" variant="ghost" onClick={remoteGrab.cancel}>
+              {translate('auto.components.browser.pane.BrowserPane.fa6ea61de3', 'Cancel')}
+            </Button>
+          </div>
+        ) : null}
         {markup.isActive && markup.baseImage ? (
           <MarkupOverlay
             baseImage={markup.baseImage}
