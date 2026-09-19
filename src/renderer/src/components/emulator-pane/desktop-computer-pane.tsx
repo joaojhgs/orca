@@ -1,130 +1,123 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Monitor, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { RFB, type VncClient } from '@/runtime/novnc-rfb'
-import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
-
-type DesktopStreamTicket = { path: string }
-type StreamState = 'connecting' | 'connected' | 'disconnected'
-
-function bindRfbEvents(
-  rfb: VncClient,
-  onConnect: (event: Event) => void,
-  onDisconnect: (event: Event) => void,
-  onSecurityFailure: (event: Event) => void
-): () => void {
-  rfb.addEventListener('connect', onConnect)
-  rfb.addEventListener('disconnect', onDisconnect)
-  rfb.addEventListener('securityfailure', onSecurityFailure)
-  return () => {
-    rfb.removeEventListener('connect', onConnect)
-    rfb.removeEventListener('disconnect', onDisconnect)
-    rfb.removeEventListener('securityfailure', onSecurityFailure)
-  }
-}
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { callRuntimeRpc, hasRuntimeRpcErrorCode } from '@/runtime/runtime-rpc-client'
+import { MAIN_DESKTOP, useDesktopStream, type DesktopTarget } from './use-desktop-stream'
 
 export function DesktopComputerPane({ active }: { active: boolean }) {
   const targetRef = useRef<HTMLDivElement>(null)
-  const rfbRef = useRef<VncClient | null>(null)
+  const [desktopId, setDesktopId] = useState('main')
+  const [targets, setTargets] = useState<DesktopTarget[]>([])
+  const [targetsError, setTargetsError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
-  const [state, setState] = useState<StreamState>('disconnected')
-  const [error, setError] = useState<string | null>(null)
-
-  const reconnect = useCallback(() => setAttempt((value) => value + 1), [])
+  const desktop = targets.find((target) => target.id === desktopId) ?? null
+  const { state, error } = useDesktopStream(targetRef, desktop, active, attempt)
 
   useEffect(() => {
-    const target = targetRef.current
-    if (!active || !target) {
+    if (!active) {
       return
     }
     let cancelled = false
-    let rfb: VncClient | null = null
-    setState('connecting')
-    setError(null)
-
-    const connect = async () => {
-      try {
-        const { path } = await callRuntimeRpc<DesktopStreamTicket>(
-          { kind: 'local' },
-          'computer.desktopStreamTicket',
-          {}
-        )
+    setTargetsError(null)
+    void callRuntimeRpc<{ targets: DesktopTarget[] }>(
+      { kind: 'local' },
+      'computer.desktopTargets',
+      {}
+    )
+      .then(({ targets: nextTargets }) => {
+        if (!cancelled) {
+          setTargets(nextTargets)
+        }
+      })
+      .catch((cause) => {
         if (cancelled) {
           return
         }
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        rfb = new RFB(target, `${protocol}//${window.location.host}${path}`, {
-          shared: true
-        })
-        rfb.scaleViewport = true
-        rfb.resizeSession = false
-        rfb.viewOnly = false
-        rfb.focusOnClick = true
-        rfb.background = 'rgb(0 0 0)'
-        const onConnect = () => {
-          setState('connected')
-          setError(null)
+        if (hasRuntimeRpcErrorCode(cause, 'method_not_found')) {
+          setTargets([MAIN_DESKTOP])
+        } else {
+          setTargets([])
+          setTargetsError('Could not load desktops. Check the server configuration and reconnect.')
         }
-        const onDisconnect = (event: Event) => {
-          setState('disconnected')
-          const detail = (event as CustomEvent<{ clean?: boolean }>).detail
-          if (!cancelled && detail?.clean !== true) {
-            setError('Desktop stream disconnected')
-          }
-        }
-        const onSecurityFailure = () => {
-          setError('Desktop stream authorization failed')
-        }
-        cleanupListeners = bindRfbEvents(rfb, onConnect, onDisconnect, onSecurityFailure)
-        rfbRef.current = rfb
-      } catch (cause) {
-        if (!cancelled) {
-          setState('disconnected')
-          setError(cause instanceof Error ? cause.message : 'Could not open desktop stream')
-        }
-      }
-    }
-    let cleanupListeners = () => {}
-    void connect()
-
+      })
     return () => {
       cancelled = true
-      cleanupListeners()
-      rfb?.disconnect()
-      if (rfbRef.current === rfb) {
-        rfbRef.current = null
-      }
-      target.replaceChildren()
     }
   }, [active, attempt])
 
+  const displayedError =
+    targetsError ??
+    error ??
+    (targets.length > 0 && !desktop
+      ? 'The selected desktop is no longer configured. Choose another desktop.'
+      : null)
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <Monitor className="size-4 text-primary" />
-        <span className="font-medium">Desktop</span>
-        <span className="text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+        <Monitor className="size-4 text-muted-foreground" />
+        <Select value={desktopId} onValueChange={setDesktopId} disabled={targets.length === 0}>
+          <SelectTrigger size="sm" className="w-48" aria-label="Desktop view">
+            <SelectValue placeholder="Choose desktop" />
+          </SelectTrigger>
+          <SelectContent>
+            {targets.map((target) => (
+              <SelectItem key={target.id} value={target.id}>
+                {target.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="w-24 text-xs text-muted-foreground" role="status" aria-live="polite">
           {state === 'connected'
-            ? 'Interactive'
+            ? desktop?.viewOnly
+              ? 'View only'
+              : 'Interactive'
             : state === 'connecting'
               ? 'Connecting…'
               : 'Offline'}
         </span>
         <div className="flex-1" />
-        <Button size="icon-xs" variant="ghost" onClick={reconnect} aria-label="Reconnect desktop">
-          <RefreshCw />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              onClick={() => setAttempt((value) => value + 1)}
+              aria-label="Reconnect desktop"
+            >
+              <RefreshCw />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Reconnect desktop</TooltipContent>
+        </Tooltip>
       </div>
-      {error ? (
-        <div className="border-b border-border bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
+      {desktop?.viewOnly ? (
+        <div className="border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
+          View only. Agent computer use stays on the main desktop.
+        </div>
+      ) : null}
+      {displayedError ? (
+        <div
+          role="alert"
+          className="border-b border-border bg-destructive/10 px-3 py-2 text-xs text-destructive"
+        >
+          {displayedError}
         </div>
       ) : null}
       <div className="flex min-h-0 flex-1 overflow-hidden bg-black">
         <div
           ref={targetRef}
           className="size-full overflow-hidden [&_canvas]:mx-auto"
-          tabIndex={0}
+          tabIndex={desktop?.viewOnly ? -1 : 0}
         />
       </div>
     </div>

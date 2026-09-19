@@ -10,6 +10,11 @@ import {
 import { defineMethod, type RpcMethod } from '../core'
 import { mintDesktopVncTicket } from '../../../computer/desktop-vnc-tickets'
 import {
+  listDesktopVncTargets,
+  readDesktopVncTargetPassword,
+  resolveDesktopVncTarget
+} from '../../../computer/desktop-vnc-targets'
+import {
   Click,
   ComputerObserveTarget,
   ComputerPermissions,
@@ -32,9 +37,27 @@ export function resetComputerSessionsForTest(): void {
 export const COMPUTER_METHODS: RpcMethod[] = [
   defineMethod({
     name: 'computer.desktopStreamTicket',
+    params: z.object({ desktopId: z.string().optional() }),
+    handler: async (params) => {
+      const target = resolveDesktopVncTarget(params.desktopId)
+      const password = readDesktopVncTargetPassword(target)
+      const ticket = mintDesktopVncTicket(
+        { id: target.id, port: target.port, viewOnly: target.viewOnly },
+        Date.now()
+      )
+      return {
+        path: `/desktop-vnc?ticket=${encodeURIComponent(ticket)}`,
+        desktopId: target.id,
+        viewOnly: target.viewOnly,
+        ...(password ? { credentials: { password } } : {})
+      }
+    }
+  }),
+  defineMethod({
+    name: 'computer.desktopTargets',
     params: z.object({}),
     handler: async () => ({
-      path: `/desktop-vnc?ticket=${encodeURIComponent(mintDesktopVncTicket())}`
+      targets: listDesktopVncTargets()
     })
   }),
   defineMethod({

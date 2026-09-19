@@ -2,22 +2,51 @@ import { randomBytes } from 'node:crypto'
 
 const TICKET_TTL_MS = 30_000
 const MAX_TICKETS = 32
-const tickets = new Map<string, number>()
+export type DesktopVncTicketTarget = Readonly<{
+  id: string
+  port: number
+  viewOnly: boolean
+}>
 
-export function mintDesktopVncTicket(now = Date.now()): string {
+const MAIN_DESKTOP_VNC_TICKET_TARGET: DesktopVncTicketTarget = {
+  id: 'main',
+  port: 5900,
+  viewOnly: false
+}
+
+const tickets = new Map<string, { expiresAt: number; target: DesktopVncTicketTarget }>()
+
+export function mintDesktopVncTicket(now?: number): string
+export function mintDesktopVncTicket(target: DesktopVncTicketTarget, now?: number): string
+export function mintDesktopVncTicket(
+  targetOrNow: DesktopVncTicketTarget | number = Date.now(),
+  maybeNow?: number
+): string {
+  const target =
+    typeof targetOrNow === 'number'
+      ? MAIN_DESKTOP_VNC_TICKET_TARGET
+      : { id: targetOrNow.id, port: targetOrNow.port, viewOnly: targetOrNow.viewOnly }
+  const now = typeof targetOrNow === 'number' ? targetOrNow : (maybeNow ?? Date.now())
   pruneExpiredTickets(now)
   while (tickets.size >= MAX_TICKETS) {
     tickets.delete(tickets.keys().next().value as string)
   }
   const ticket = randomBytes(32).toString('base64url')
-  tickets.set(ticket, now + TICKET_TTL_MS)
+  tickets.set(ticket, { expiresAt: now + TICKET_TTL_MS, target })
   return ticket
 }
 
 export function consumeDesktopVncTicket(ticket: string, now = Date.now()): boolean {
-  const expiresAt = tickets.get(ticket)
+  return consumeDesktopVncTicketTarget(ticket, now) !== null
+}
+
+export function consumeDesktopVncTicketTarget(
+  ticket: string,
+  now = Date.now()
+): DesktopVncTicketTarget | null {
+  const entry = tickets.get(ticket)
   tickets.delete(ticket)
-  return expiresAt !== undefined && expiresAt >= now
+  return entry !== undefined && entry.expiresAt >= now ? entry.target : null
 }
 
 export function resetDesktopVncTicketsForTest(): void {
@@ -25,8 +54,8 @@ export function resetDesktopVncTicketsForTest(): void {
 }
 
 function pruneExpiredTickets(now: number): void {
-  for (const [ticket, expiresAt] of tickets) {
-    if (expiresAt < now) {
+  for (const [ticket, entry] of tickets) {
+    if (entry.expiresAt < now) {
       tickets.delete(ticket)
     }
   }

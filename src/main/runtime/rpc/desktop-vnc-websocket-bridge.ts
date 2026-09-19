@@ -2,10 +2,12 @@ import type { IncomingMessage } from 'node:http'
 import { connect, type Socket } from 'node:net'
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type WebSocket } from 'ws'
-import { consumeDesktopVncTicket } from '../../computer/desktop-vnc-tickets'
+import {
+  consumeDesktopVncTicketTarget,
+  type DesktopVncTicketTarget
+} from '../../computer/desktop-vnc-tickets'
 
 const DESKTOP_VNC_PATH = '/desktop-vnc'
-const DESKTOP_VNC_PORT = 5900
 const MAX_VNC_MESSAGE_BYTES = 16 * 1024 * 1024
 
 export class DesktopVncWebSocketBridge {
@@ -18,12 +20,13 @@ export class DesktopVncWebSocketBridge {
       return false
     }
     const ticket = url.searchParams.get('ticket') ?? ''
-    if (!consumeDesktopVncTicket(ticket)) {
+    const target = consumeDesktopVncTicketTarget(ticket)
+    if (!target) {
       socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n')
       socket.destroy()
       return true
     }
-    this.wss.handleUpgrade(request, socket, head, (ws) => this.handleConnection(ws))
+    this.wss.handleUpgrade(request, socket, head, (ws) => this.handleConnection(ws, target))
     return true
   }
 
@@ -38,8 +41,8 @@ export class DesktopVncWebSocketBridge {
     this.sockets.clear()
   }
 
-  private handleConnection(ws: WebSocket): void {
-    const socket = connect(DESKTOP_VNC_PORT, '127.0.0.1')
+  private handleConnection(ws: WebSocket, target: DesktopVncTicketTarget): void {
+    const socket = connect(target.port, '127.0.0.1')
     this.sockets.add(socket)
     const close = (): void => {
       this.sockets.delete(socket)
