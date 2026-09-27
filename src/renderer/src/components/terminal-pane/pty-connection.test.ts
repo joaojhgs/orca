@@ -11693,6 +11693,42 @@ describe('connectPanePty', () => {
       return { transport, pane, dataCallback: capturedDataCallback.current!, binding }
     }
 
+    it('keeps Codex delivery live instead of gating it behind reveal snapshot recovery', async () => {
+      enableMainAuthority()
+      const deps = createDeps({
+        isVisibleRef: { current: false },
+        startup: { command: 'codex', launchAgent: 'codex' }
+      })
+      const { pane, dataCallback, binding } = await connectHiddenPane(deps)
+      const setHiddenRendererPty = getSetHiddenRendererPtyMock()
+      const getMainBufferSnapshot = window.api.pty.getMainBufferSnapshot as unknown as ReturnType<
+        typeof vi.fn
+      >
+      getMainBufferSnapshot.mockResolvedValue({
+        data: 'authoritative Codex snapshot\r\n',
+        cols: 100,
+        rows: 30,
+        seq: 21
+      })
+
+      dataCallback('hidden Codex redraw\r\n', { seq: 21, rawLength: 21 })
+      await flushAsyncTicks(10)
+
+      expect(setHiddenRendererPty).not.toHaveBeenCalledWith('pty-id', true)
+      ;(deps.isVisibleRef as { current: boolean }).current = true
+      binding.syncProcessTracking()
+      const { requestTerminalBacklogRecovery } =
+        await import('@/lib/pane-manager/pane-terminal-output-scheduler')
+      requestTerminalBacklogRecovery(pane.terminal as never)
+      await flushAsyncTicks(10)
+      expect(getMainBufferSnapshot).toHaveBeenCalled()
+      expect(pane.terminal.write).toHaveBeenCalledWith(
+        expect.stringContaining('authoritative Codex snapshot'),
+        expect.any(Function)
+      )
+      binding.dispose()
+    })
+
     it('marks the PTY hidden on hidden output and clears it before requesting restore on reveal', async () => {
       enableMainAuthority()
       const deps = createDeps({ isVisibleRef: { current: false } })
@@ -14662,6 +14698,61 @@ describe('connectPanePty', () => {
       facts: [{ kind: 'title', normalizedTitle: 'stale', rawTitle: 'stale' }]
     })
     expect(deps.setRuntimePaneTitle).not.toHaveBeenCalled()
+  })
+
+  it('keeps paired Codex output unpaused across document visibility changes', async () => {
+    const { connectPanePty } = await import('./pty-connection')
+    const remotePtyId = 'remote:env-1@@terminal-codex'
+    const transport = createMockTransport(remotePtyId)
+    let callbacks: ConnectCallbacks = {}
+    transport.connect.mockImplementation(async (options: { callbacks?: ConnectCallbacks }) => {
+      callbacks = options.callbacks ?? {}
+      return remotePtyId
+    })
+    transport.setOutputPaused = vi.fn((paused: boolean) => {
+      callbacks.onOutputPauseChanged?.(paused, true)
+      return true
+    })
+    transport.serializeBuffer = vi.fn().mockResolvedValue({
+      data: 'authoritative paired Codex snapshot\r\n',
+      cols: 100,
+      rows: 30,
+      seq: 29,
+      source: 'headless'
+    })
+    transportFactoryQueue.push(transport)
+    mockStoreState.repos = [
+      { id: 'repo1', connectionId: null, displayName: 'orca', executionHostId: 'runtime:env-1' }
+    ]
+    mockStoreState.worktreesByRepo.repo1[0].runtimeOwnerEnvironmentId = 'env-1'
+
+    const pane = createPane(1)
+    const deps = createDeps({
+      isVisibleRef: { current: false },
+      startup: { command: 'codex', launchAgent: 'codex' }
+    })
+    const binding = connectPanePty(pane as never, createManager(1) as never, deps as never) as {
+      syncProcessTracking: () => void
+      dispose: () => void
+    }
+    await flushAsyncTicks(6)
+
+    expect(transport.setOutputPaused).toHaveBeenLastCalledWith(false)
+    callbacks.onData?.('hidden paired Codex redraw\r\n', { seq: 29, rawLength: 29 })
+    ;(deps.isVisibleRef as { current: boolean }).current = true
+    binding.syncProcessTracking()
+    const { requestTerminalBacklogRecovery } =
+      await import('@/lib/pane-manager/pane-terminal-output-scheduler')
+    requestTerminalBacklogRecovery(pane.terminal as never)
+    await flushAsyncTicks(10)
+
+    expect(transport.setOutputPaused).not.toHaveBeenCalledWith(true)
+    expect(transport.serializeBuffer).toHaveBeenCalled()
+    expect(pane.terminal.write).toHaveBeenCalledWith(
+      expect.stringContaining('authoritative paired Codex snapshot'),
+      expect.any(Function)
+    )
+    binding.dispose()
   })
 
   it('locally gates hidden paired output when a legacy host cannot pause it', async () => {

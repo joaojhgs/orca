@@ -233,7 +233,10 @@ import {
 } from './terminal-startup-grid-settle'
 import { getTerminalPasteSshRemotePlatform } from './terminal-paste-ssh-platform'
 import { resolveTerminalPasteRuntime } from './terminal-paste-runtime'
-import { isKnownTuiAgentTerminalStartupCommand } from './terminal-startup-command-classifier'
+import {
+  isCodexTerminalStartupCommand,
+  isKnownTuiAgentTerminalStartupCommand
+} from './terminal-startup-command-classifier'
 import { createCommandCodeOutputStatusDetector } from '../../../../shared/command-code-output-status'
 import { createCodexBackfillErrorDetector } from './codex-backfill-error-detector'
 import type { PtyDataMeta } from './pty-dispatcher'
@@ -678,6 +681,15 @@ function shouldKeepHiddenStartupRendererQueriesLive(
   return (
     Boolean(startup?.telemetry?.agent_kind && startup.telemetry.agent_kind !== 'other') ||
     isKnownTuiAgentTerminalStartupCommand(startup?.command ?? '')
+  )
+}
+
+function shouldKeepCodexRendererDeliveryLive(startup: PtyConnectionDeps['startup']): boolean {
+  return (
+    startup?.launchAgent === 'codex' ||
+    startup?.initialAgentStatus?.agent === 'codex' ||
+    startup?.telemetry?.agent_kind === 'codex' ||
+    isCodexTerminalStartupCommand(startup?.command ?? '')
   )
 }
 
@@ -5991,6 +6003,10 @@ export function connectPanePty(
     let foregroundRewriteCsiScanTail = ''
     let mode2031ReplyScanState = INITIAL_MODE_2031_REPLY_SCAN_STATE
     const shouldSnapshotHiddenCodexOutput = shouldKeepHiddenStartupRendererQueriesLive(paneStartup)
+    const keepCodexRendererDeliveryLive = (): boolean =>
+      shouldKeepCodexRendererDeliveryLive(paneStartup) ||
+      getPaneScopedRendererOwner() === 'codex' ||
+      useAppStore.getState().agentLaunchConfigByPaneKey[cacheKey]?.identity.agentType === 'codex'
     let hiddenStartupRendererQueryPending = ''
     let hiddenRendererStateDirty = false
     let hiddenRiskPtyId: string | null = null
@@ -6082,6 +6098,7 @@ export function connectPanePty(
     function shouldDeclareHiddenAtSpawn(): boolean {
       return (
         hiddenDeliveryGateActive &&
+        !keepCodexRendererDeliveryLive() &&
         !runtimeEnvironmentId &&
         !disposed &&
         !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
@@ -6245,7 +6262,9 @@ export function connectPanePty(
       }
       if (isRemoteRuntimePtyId(ptyId) && canUseHiddenOutputSnapshot(ptyId)) {
         transport.setOutputPaused?.(
-          !disposed && !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
+          !keepCodexRendererDeliveryLive() &&
+            !disposed &&
+            !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
         )
         return
       }
@@ -6257,7 +6276,10 @@ export function connectPanePty(
       if (!isHiddenDeliveryGateManagedPty(ptyId) || !canUseHiddenOutputSnapshot(ptyId)) {
         return
       }
-      const shouldHide = !disposed && !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
+      const shouldHide =
+        !keepCodexRendererDeliveryLive() &&
+        !disposed &&
+        !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
       const isFirstSyncForPty = hiddenDeliverySyncedPtyId !== ptyId
       hiddenDeliverySyncedPtyId = ptyId
       if (shouldHide) {

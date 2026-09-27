@@ -808,7 +808,8 @@ function configureRelaySessionCallbacks(session: SshRelaySession): void {
     // manual-reconnect banner, which would tell the user to act on a link that is still auto-recovering.
     const transportStatus = connectionManager?.getState(tid)?.status
     const transportConnected = transportStatus === 'connected'
-    if (transportConnected && state.attempts >= RELAY_LOST_MAX_ATTEMPTS) {
+    const persistentReconnect = t?.connectOnStartup !== false
+    if (transportConnected && state.attempts >= RELAY_LOST_MAX_ATTEMPTS && !persistentReconnect) {
       console.warn(
         `[ssh] Relay channel for ${tid} kept dying across ${state.attempts} attempts; giving up. User must reconnect manually.`
       )
@@ -838,7 +839,7 @@ function configureRelaySessionCallbacks(session: SshRelaySession): void {
           if (!attemptCharged) {
             // Why: waiting is free, but the deploy it defers is real — charge it here so a transport that
             // flaps back to 'connected' can't redeploy forever on an uncharged budget.
-            state.attempts += 1
+            state.attempts = Math.min(state.attempts + 1, RELAY_LOST_MAX_ATTEMPTS)
           }
           void s.reconnect(liveConn, relayGracePeriodForTarget(t))
           return
@@ -871,7 +872,10 @@ function configureRelaySessionCallbacks(session: SshRelaySession): void {
     }
 
     const delay = Math.min(RELAY_LOST_BASE_DELAY_MS * 2 ** state.attempts, RELAY_LOST_MAX_DELAY_MS)
-    state.attempts += 1
+    // Persistent targets are infrastructure, not one-shot connection attempts.
+    // Keep the counter saturated so delay/exponent math stays bounded while the
+    // relay continues healing at the maximum backoff until it stabilizes.
+    state.attempts = Math.min(state.attempts + 1, RELAY_LOST_MAX_ATTEMPTS)
     publishRelayOverride(
       getCurrentMainWindow,
       tid,
@@ -881,7 +885,7 @@ function configureRelaySessionCallbacks(session: SshRelaySession): void {
     )
     scheduleRelayRedeploy(delay, true)
     console.warn(
-      `[ssh] Relay channel for ${tid} lost; reconnect attempt ${state.attempts}/${RELAY_LOST_MAX_ATTEMPTS} in ${delay}ms`
+      `[ssh] Relay channel for ${tid} lost; reconnect attempt ${state.attempts}${persistentReconnect && state.attempts === RELAY_LOST_MAX_ATTEMPTS ? '+' : ''}/${RELAY_LOST_MAX_ATTEMPTS} in ${delay}ms`
     )
   })
 

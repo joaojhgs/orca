@@ -270,6 +270,8 @@ import { registerSystemResumeBroadcast } from './system-resume-broadcast'
 import { settleTeardownWithinDeadline } from './quit-teardown-deadline'
 import { quitTeardownStartGate } from './quit-teardown-start-gate'
 import { beginSshShutdown, connectRegisteredSshTarget, registerSshHandlers } from './ipc/ssh'
+import { isAuthError } from './ssh/ssh-connection-utils'
+import type { SshTarget } from '../shared/ssh-types'
 import { PluginService } from './plugins/plugin-service'
 import { PluginKillListService } from './plugins/plugin-kill-list-service'
 import { getPluginsDataDir } from './plugins/plugin-discovery'
@@ -2918,19 +2920,52 @@ void app.whenReady().then(async () => {
     const { sshStore: headlessSshStore } = registerSshHandlers(store, () => null, runtime)
     const eagerSshTargets = headlessSshStore
       .listTargets()
-      .filter((target) => target.lastRequiredPassphrase !== true)
-    void Promise.allSettled(
-      eagerSshTargets.map(async (target) => {
+      .filter(
+        (target) => target.connectOnStartup !== false && target.lastRequiredPassphrase !== true
+      )
+    // Why: remote relays (especially on-demand Distroboxes) can take longer than
+    // Orca's startup window. A single best-effort connect leaves the persisted
+    // target with no PTY provider forever after a reboot, requiring a manual
+    // reconnect. Keep retrying transient failures in the background until the
+    // target is connected, removed, disabled, or requires interactive auth.
+    const reconnectEagerSshTarget = async (target: SshTarget): Promise<void> => {
+      let attempt = 0
+      for (;;) {
+        const current = headlessSshStore.getTarget(target.id)
+        if (
+          !current ||
+          current.connectOnStartup === false ||
+          current.lastRequiredPassphrase === true
+        ) {
+          return
+        }
         try {
           await connectRegisteredSshTarget(target.id)
+          console.info(`[serve] SSH target ${target.label} connected automatically`)
+          return
         } catch (error) {
+          const errorObject = error instanceof Error ? error : new Error(String(error))
+          if (isAuthError(errorObject)) {
+            console.warn(
+              `[serve] SSH target ${target.label} needs interactive authentication; automatic retry paused`
+            )
+            return
+          }
+          const delay = Math.min(30_000, 1_000 * 2 ** Math.min(attempt, 5))
+          attempt += 1
           console.warn(
-            `[serve] SSH target ${target.label} did not auto-connect:`,
-            error instanceof Error ? error.message : String(error)
+            `[serve] SSH target ${target.label} did not auto-connect (attempt ${attempt}); retrying in ${delay}ms:`,
+            errorObject.message
           )
+          await new Promise<void>((resolve) => setTimeout(resolve, delay))
         }
-      })
-    )
+      }
+    }
+    const reconnectEagerSshTargets = (): void => {
+      for (const target of eagerSshTargets) {
+        void reconnectEagerSshTarget(target)
+      }
+    }
     registerHeadlessPtyRuntime(
       runtime,
       prepareCodexRuntimeHomeForLaunch,
@@ -2955,6 +2990,7 @@ void app.whenReady().then(async () => {
       console.error('[runtime] Failed to start headless RPC transport:', error)
       throw error
     })
+    reconnectEagerSshTargets()
     settleServeDesktopActivation()
     installServeSignalHandlers()
     // Why: headless serve has no renderer to run the normal cli:install flow; do it here for macOS/Linux only (Windows-excluded: install() only mutates registry PATH, not child terminals).

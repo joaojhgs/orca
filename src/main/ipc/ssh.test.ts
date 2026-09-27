@@ -301,6 +301,7 @@ describe('SSH IPC handlers', () => {
   const handlers = new Map<string, (_event: unknown, args: unknown) => unknown>()
   const mockStore = {
     getRepos: () => [],
+    getSshTarget: vi.fn().mockReturnValue(null),
     getSshPtyConsumerRecovery: vi.fn().mockReturnValue(null),
     upsertSshPtyConsumerRecovery: vi.fn(),
     removeSshPtyConsumerRecovery: vi.fn(),
@@ -384,6 +385,7 @@ describe('SSH IPC handlers', () => {
     mockSshStore.lastRepoReadoptions = []
     mockWindow.webContents.send.mockReset()
     mockStore.getSshRemotePtyLeases.mockReset().mockReturnValue([])
+    mockStore.getSshTarget.mockReset().mockReturnValue(null)
     mockStore.markSshRemotePtyLease.mockReset()
     mockStore.markSshRemotePtyLeases.mockReset()
     mockStore.markSshRemotePtyLeasesAsync.mockReset()
@@ -1413,7 +1415,8 @@ describe('SSH IPC handlers', () => {
       label: 'Server',
       host: 'example.com',
       port: 22,
-      username: 'deploy'
+      username: 'deploy',
+      connectOnStartup: false
     }
     const conn = {}
     mockSshStore.getTarget.mockReturnValue(target)
@@ -1458,13 +1461,60 @@ describe('SSH IPC handlers', () => {
     }
   })
 
+  it('keeps healing persistent relay targets after the bounded ladder is saturated', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const target: SshTarget = {
+      id: 'ssh-1',
+      label: 'Server',
+      host: 'example.com',
+      port: 22,
+      username: 'deploy',
+      connectOnStartup: true
+    }
+    const conn = {}
+    mockSshStore.getTarget.mockReturnValue(target)
+    mockConnectionManager.connect.mockResolvedValue(conn)
+    mockConnectionManager.getConnection.mockReturnValue(conn)
+    mockConnectionManager.getState.mockReturnValue({
+      targetId: 'ssh-1',
+      status: 'connected',
+      error: null,
+      reconnectAttempt: 0
+    })
+
+    try {
+      await handlers.get('ssh:connect')!(null, { targetId: 'ssh-1' })
+      mockDeployAndLaunchRelay.mockRejectedValue(new Error('relay refused'))
+      getLatestRelayDisposeCallback()('connection_lost')
+      for (const delayMs of [...relayReconnectDelaysMs, relayReconnectDelaysMs.at(-1)!]) {
+        await vi.advanceTimersByTimeAsync(delayMs)
+      }
+
+      // Initial establishment plus one retry per ladder step and one retry at
+      // the saturated delay prove the persistent loop did not terminate.
+      expect(mockDeployAndLaunchRelay).toHaveBeenCalledTimes(relayReconnectDelaysMs.length + 2)
+      expect(handlers.get('ssh:getState')!(null, { targetId: 'ssh-1' })).toEqual({
+        targetId: 'ssh-1',
+        status: 'reconnecting',
+        error: 'Relay channel lost. Reconnecting...',
+        reconnectAttempt: relayReconnectDelaysMs.length,
+        providerEpoch: expect.any(String),
+        connectionGeneration: relayReconnectDelaysMs.length + 3
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   describe('relay loss while the SSH transport is down', () => {
     const relayLostTarget: SshTarget = {
       id: 'ssh-1',
       label: 'Server',
       host: 'example.com',
       port: 22,
-      username: 'deploy'
+      username: 'deploy',
+      connectOnStartup: false
     }
     const transportState = (status: SshConnectionStatus): SshConnectionState => ({
       targetId: 'ssh-1',

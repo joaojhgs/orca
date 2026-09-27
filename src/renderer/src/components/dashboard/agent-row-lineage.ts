@@ -20,15 +20,39 @@ const ROOT_LINEAGE: AgentRowLineagePresentation = {
   childCount: 0
 }
 
+const lineagedSubagentRows = new WeakMap<DashboardAgentRow, DashboardAgentRowWithLineage>()
+
+function withLineage(
+  row: DashboardAgentRow,
+  lineage: AgentRowLineagePresentation
+): DashboardAgentRowWithLineage {
+  const cached = row.rowSource === 'subagent' ? lineagedSubagentRows.get(row) : undefined
+  if (
+    cached &&
+    cached.lineage.depth === lineage.depth &&
+    cached.lineage.parentPaneKey === lineage.parentPaneKey &&
+    cached.lineage.isFirstSibling === lineage.isFirstSibling &&
+    cached.lineage.isLastSibling === lineage.isLastSibling &&
+    cached.lineage.childCount === lineage.childCount
+  ) {
+    return cached
+  }
+  const result = { ...row, lineage }
+  if (row.rowSource === 'subagent') {
+    lineagedSubagentRows.set(row, result)
+  }
+  return result
+}
+
 export function applyAgentRowLineage(rows: DashboardAgentRow[]): DashboardAgentRowWithLineage[] {
   if (rows.length <= 1) {
-    return rows.map((row) => ({ ...row, lineage: ROOT_LINEAGE }))
+    return rows.map((row) => withLineage(row, ROOT_LINEAGE))
   }
 
   const { rootRows, childrenByParentPaneKey, childPaneKeys } = buildAgentRowLineageTree(rows)
 
   if (childPaneKeys.size === 0) {
-    return rows.map((row) => ({ ...row, lineage: ROOT_LINEAGE }))
+    return rows.map((row) => withLineage(row, ROOT_LINEAGE))
   }
 
   const ordered: DashboardAgentRowWithLineage[] = []
@@ -38,7 +62,7 @@ export function applyAgentRowLineage(rows: DashboardAgentRow[]): DashboardAgentR
       return false
     }
     emitted.add(row.paneKey)
-    ordered.push({ ...row, lineage })
+    ordered.push(withLineage(row, lineage))
     return true
   }
 

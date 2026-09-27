@@ -570,6 +570,11 @@ import {
 } from '../../shared/claude-agent-teams-tmux-compat'
 import { joinWorktreeRelativePath } from './runtime-relative-paths'
 import { collectMemorySnapshot } from '../memory/collector'
+import {
+  analyzeWorkspaceSpace as runWorkspaceSpaceAnalysis,
+  WorkspaceSpaceScanCancelledError
+} from '../workspace-space-analysis'
+import type { WorkspaceSpaceAnalyzeResult } from '../../shared/workspace-space-types'
 import { app, BrowserWindow, ipcMain, Notification } from 'electron'
 import { RendererPublicationThrottle } from '../window/renderer-publication-throttle'
 import type { AgentBrowserBridge } from '../browser/agent-browser-bridge'
@@ -3519,6 +3524,45 @@ export class OrcaRuntimeService {
       throw new Error('runtime_unavailable')
     }
     return collectMemorySnapshot(this.store)
+  }
+
+  private workspaceSpaceAbortController: AbortController | null = null
+  private workspaceSpaceAnalysisPromise: Promise<WorkspaceSpaceAnalyzeResult> | null = null
+
+  analyzeWorkspaceSpace(): Promise<WorkspaceSpaceAnalyzeResult> {
+    if (!this.store) {
+      throw new Error('runtime_unavailable')
+    }
+    if (this.workspaceSpaceAnalysisPromise) {
+      return this.workspaceSpaceAnalysisPromise
+    }
+    const controller = new AbortController()
+    this.workspaceSpaceAbortController = controller
+    const scan = runWorkspaceSpaceAnalysis(this.store as Store, { signal: controller.signal })
+      .then((analysis): WorkspaceSpaceAnalyzeResult => ({ ok: true, analysis }))
+      .catch((error: unknown): WorkspaceSpaceAnalyzeResult => {
+        if (error instanceof WorkspaceSpaceScanCancelledError) {
+          return { ok: false, cancelled: true }
+        }
+        throw error
+      })
+      .finally(() => {
+        if (this.workspaceSpaceAbortController === controller) {
+          this.workspaceSpaceAbortController = null
+          this.workspaceSpaceAnalysisPromise = null
+        }
+      })
+    this.workspaceSpaceAnalysisPromise = scan
+    return scan
+  }
+
+  cancelWorkspaceSpaceAnalysis(): boolean {
+    const controller = this.workspaceSpaceAbortController
+    if (!controller || controller.signal.aborted) {
+      return false
+    }
+    controller.abort()
+    return true
   }
 
   getUIState(): PersistedUIState {
@@ -18696,6 +18740,10 @@ export class OrcaRuntimeService {
       // server-side repo paths to be explicit so `orca serve` cwd is irrelevant.
       throw new Error('Project path must be an absolute path')
     }
+    const parsedHost = parseExecutionHostId(executionHostId)
+    if (parsedHost?.kind === 'ssh') {
+      return await this.addSshRepo(path, kind, parsedHost.targetId, parsedHost.id)
+    }
     if (kind === 'git' && !isGitRepo(path)) {
       throw new Error(`Not a valid git repository: ${path}`)
     }
@@ -18746,6 +18794,71 @@ export class OrcaRuntimeService {
     }
     this.store.addRepo(repo)
     await prepareLocalWorktreeRootForRepo(this.store, repo)
+    this.invalidateResolvedWorktreeCache()
+    this.invalidateWorktreeScanCacheForRepo(repo.id)
+    this.notifyReposChanged()
+    return this.store.getRepo(repo.id) ?? repo
+  }
+
+  private async addSshRepo(
+    path: string,
+    kind: 'git' | 'folder',
+    connectionId: string,
+    executionHostId: ExecutionHostId
+  ): Promise<Repo> {
+    if (!this.store) {
+      throw new Error('runtime_unavailable')
+    }
+    const provider = getSshGitProvider(connectionId)
+    if (!provider) {
+      throw new Error(`SSH connection "${connectionId}" not found or not connected`)
+    }
+
+    let resolvedPath = path
+    if (kind === 'git') {
+      const check = await provider.isGitRepoAsync(path)
+      if (!check.isRepo) {
+        throw new Error(`Not a valid git repository: ${path}`)
+      }
+      if (check.rootPath) {
+        resolvedPath = check.rootPath
+      }
+    }
+
+    const existing = this.store
+      .getRepos()
+      .find(
+        (repo) => repo.connectionId === connectionId && runtimePathsEqual(repo.path, resolvedPath)
+      )
+    if (existing) {
+      return existing
+    }
+
+    const detected = await detectRepoIconAndUpstream({
+      repoPath: resolvedPath,
+      kind,
+      connectionId
+    })
+    const repo: Repo = {
+      id: randomUUID(),
+      path: resolvedPath,
+      displayName: getRepoName(resolvedPath),
+      badgeColor: DEFAULT_REPO_BADGE_COLOR,
+      ...detected,
+      addedAt: Date.now(),
+      kind,
+      connectionId,
+      executionHostId,
+      ...(kind === 'git'
+        ? {
+            externalWorktreeVisibility: 'show' as const,
+            externalWorktreeVisibilityLegacy: false,
+            projectHostSetupMethod: 'imported-existing-folder' as const
+          }
+        : {})
+    }
+    this.store.addRepo(repo)
+    invalidateAuthorizedRootsCache()
     this.invalidateResolvedWorktreeCache()
     this.invalidateWorktreeScanCacheForRepo(repo.id)
     this.notifyReposChanged()

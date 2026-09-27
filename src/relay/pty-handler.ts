@@ -70,6 +70,7 @@ import {
   type AgentSessionOwnerBinding
 } from '../shared/agent-session-host-authority'
 import { createPtySlaveEchoProbe, readPtySlavePath } from '../shared/pty-slave-line-discipline-echo'
+import { collectRelayResourceSnapshot } from './resource-snapshot'
 
 // Why: only Linux compiles node-pty (no prebuilt), so the build-tools remedy is a closable setup gap
 // there and wrong advice anywhere node-pty ships one. The relay only sees an unloadable binding, never
@@ -789,6 +790,16 @@ export class PtyHandler {
       agentSessionCreateOperationVersion: AGENT_SESSION_CREATE_OPERATION_PROTOCOL_VERSION
     }))
     this.dispatcher.onRequest('pty.listProcesses', () => this.listProcesses())
+    this.dispatcher.onRequest('resource.snapshot', () =>
+      collectRelayResourceSnapshot(
+        Array.from(this.ptys.values(), (managed) => ({
+          id: managed.id,
+          pid: managed.pty.pid,
+          ...(managed.paneKey ? { paneKey: managed.paneKey } : {}),
+          ...(managed.worktreeId ? { worktreeId: managed.worktreeId } : {})
+        }))
+      )
+    )
     this.dispatcher.onRequest('pty.getDefaultShell', async () => resolveDefaultShell())
     this.dispatcher.onRequest('pty.serialize', (p) => this.serialize(p))
     this.dispatcher.onRequest('pty.revive', (p) => this.revive(p))

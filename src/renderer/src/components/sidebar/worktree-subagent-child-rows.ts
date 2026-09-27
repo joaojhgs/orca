@@ -1,6 +1,17 @@
 import type { DashboardAgentRow } from '@/components/dashboard/useDashboardData'
-import type { AgentStatusEntry } from '../../../../shared/agent-status-types'
+import type { AgentStatusEntry, AgentSubagentSnapshot } from '../../../../shared/agent-status-types'
 import type { TerminalTab } from '../../../../shared/types'
+
+type CachedSubagentRows = {
+  parentPaneKey: string
+  parentIsFresh: boolean
+  parentWorktreeId: string | undefined
+  parentTabId: string | undefined
+  tab: TerminalTab
+  rows: DashboardAgentRow[]
+}
+
+const rowsBySubagentRoster = new WeakMap<AgentSubagentSnapshot[], CachedSubagentRows>()
 
 /** Row-identity key for an in-process subagent child row. The NUL separator
  *  cannot appear in real pane keys, so synthetic keys can never collide with
@@ -28,7 +39,17 @@ export function buildSubagentChildRows(args: {
   if (!subagents || subagents.length === 0) {
     return []
   }
-  return subagents.map((subagent) => {
+  const cached = rowsBySubagentRoster.get(subagents)
+  if (
+    cached?.parentPaneKey === args.parentEntry.paneKey &&
+    cached.parentIsFresh === args.parentIsFresh &&
+    cached.parentWorktreeId === args.parentEntry.worktreeId &&
+    cached.parentTabId === args.parentEntry.tabId &&
+    cached.tab === args.tab
+  ) {
+    return cached.rows
+  }
+  const rows: DashboardAgentRow[] = subagents.map((subagent) => {
     const activeState = args.parentIsFresh && subagent.state !== 'idle' ? subagent.state : undefined
     const state = activeState ?? 'idle'
     const startedAt = subagent.startedAt > 0 ? subagent.startedAt : args.parentEntry.stateStartedAt
@@ -36,7 +57,7 @@ export function buildSubagentChildRows(args: {
     const entry: AgentStatusEntry = {
       state: activeState ?? 'done',
       prompt: subagent.description ?? subagent.agentType ?? '',
-      updatedAt: args.parentEntry.updatedAt,
+      updatedAt: startedAt,
       stateStartedAt: startedAt,
       agentType: subagent.agentType,
       model: subagent.model,
@@ -62,4 +83,13 @@ export function buildSubagentChildRows(args: {
       startedAt
     }
   })
+  rowsBySubagentRoster.set(subagents, {
+    parentPaneKey: args.parentEntry.paneKey,
+    parentIsFresh: args.parentIsFresh,
+    parentWorktreeId: args.parentEntry.worktreeId,
+    parentTabId: args.parentEntry.tabId,
+    tab: args.tab,
+    rows
+  })
+  return rows
 }

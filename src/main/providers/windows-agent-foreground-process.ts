@@ -53,7 +53,7 @@ export async function resolveWindowsAgentForegroundProcess(
 export async function resolveWindowsAgentForegroundProcessWithAvailability(
   shellPid: number,
   fallbackProcess: string,
-  options: AgentForegroundResolutionOptions
+  options: AgentForegroundResolutionOptions = {}
 ): Promise<WindowsAgentForegroundResolution> {
   const candidates = await queryWindowsProcessDescendants(
     shellPid,

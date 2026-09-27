@@ -76,8 +76,8 @@ import {
 import { sweepStaleAgentHookEndpointTemps } from './agent-hook-endpoint-temp-cleanup'
 import { assertJsonTextStructureWithinLimits } from './json-text-structure-limit'
 
-/** Maximum request body size accepted by the listener (1 MB). */
-export const HOOK_REQUEST_MAX_BYTES = 1_000_000
+/** Large Codex tool results can legitimately exceed 1 MB before normalization. */
+export const HOOK_REQUEST_MAX_BYTES = 8_000_000
 const HOOK_REQUEST_INITIAL_BUFFER_BYTES = 4 * 1024
 const AGENT_HOOK_JSON_STRUCTURE_LIMITS = {
   structuralTokens: 128 * 1024,

@@ -79,6 +79,10 @@ describe('startup ordering', () => {
     // would steal this anchor, collapse desktopStartup to '', and pass the negative check below.
     expect(desktopWindowStart).toBeGreaterThan(serveEnd)
     expect(serveStartup).toContain('await managedWslCliStartupBarrierReady')
+    expect(serveStartup).toContain('await Promise.allSettled(')
+    expect(serveStartup.indexOf('await Promise.allSettled(')).toBeLessThan(
+      serveStartup.indexOf('await runtimeRpc.start()')
+    )
     expect(serveStartup).not.toContain('await managedWslCliReconciliationReady')
     expect(serveStartup.indexOf('await managedWslCliStartupBarrierReady')).toBeLessThan(
       serveStartup.indexOf('await runtimeRpc.start()')

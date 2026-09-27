@@ -8,6 +8,7 @@ import {
   LoaderCircle,
   MemoryStick,
   RotateCw,
+  Server,
   Terminal,
   Trash2,
   X
@@ -31,7 +32,13 @@ import { useAppStore } from '../../store'
 import { useWorktreeMap } from '../../store/selectors'
 import { runWorktreeDelete } from '../sidebar/delete-worktree-flow'
 import { useDaemonActions, DaemonActionDialog } from '../shared/useDaemonActions'
-import type { AppMemory, BrowserWorkspace, UsageValues, Worktree } from '../../../../shared/types'
+import type {
+  AppMemory,
+  BrowserWorkspace,
+  ResourceHostSnapshot,
+  UsageValues,
+  Worktree
+} from '../../../../shared/types'
 import { ORPHAN_WORKTREE_ID } from '../../../../shared/constants'
 import { getRepoExecutionHostId, parseExecutionHostId } from '../../../../shared/execution-host'
 import { countEstimatedInactiveWorkspaces } from '../workspace-cleanup/inactive-workspace-estimate'
@@ -108,6 +115,71 @@ function formatMetricCpu(value: Metric): string {
 
 function formatMetricMemory(value: Metric): string {
   return value === null ? '—' : formatMemory(value)
+}
+
+function HostHealthRows({ hosts }: { hosts: readonly ResourceHostSnapshot[] }): React.JSX.Element {
+  return (
+    <div className="border-b border-border px-3 py-2 space-y-2">
+      {hosts.map((entry) => {
+        const host = entry.host
+        return (
+          <div
+            key={entry.id}
+            className="rounded-md border border-border/60 bg-muted/20 px-2.5 py-2"
+          >
+            <div className="flex items-center justify-between gap-2 text-[11px]">
+              <span className="flex min-w-0 items-center gap-1.5 font-medium">
+                <Server className="size-3 shrink-0 text-muted-foreground" />
+                <span className="truncate">{entry.name}</span>
+                <span className="shrink-0 text-[9px] uppercase text-muted-foreground">
+                  {entry.kind === 'ssh' ? 'SSH' : 'Orca server'}
+                </span>
+              </span>
+              {host ? (
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  CPU{' '}
+                  {host.cpuUsagePercent === undefined
+                    ? 'warming…'
+                    : formatCpu(host.cpuUsagePercent)}
+                </span>
+              ) : (
+                <span className="shrink-0 text-yellow-500">Unavailable</span>
+              )}
+            </div>
+            {host ? (
+              <>
+                <div className="mt-1.5 flex items-center justify-between gap-3 text-[10px] tabular-nums text-muted-foreground">
+                  <span>
+                    RAM {formatMemory(host.usedMemory)} / {formatMemory(host.totalMemory)} (
+                    {host.memoryUsagePercent.toFixed(0)}%)
+                  </span>
+                  <span>
+                    {host.cpuCoreCount} cores · load {host.loadAverage1m.toFixed(2)}
+                  </span>
+                </div>
+                {host.diskTotal !== undefined &&
+                  host.diskUsed !== undefined &&
+                  host.diskAvailable !== undefined && (
+                    <div className="mt-1 text-[10px] tabular-nums text-muted-foreground">
+                      Disk {formatMemory(host.diskUsed)} used · {formatMemory(host.diskAvailable)}{' '}
+                      available · {formatMemory(host.diskTotal)} total (
+                      {(host.diskUsagePercent ?? 0).toFixed(0)}%)
+                    </div>
+                  )}
+              </>
+            ) : (
+              <div className="mt-1 text-[10px] text-muted-foreground truncate" title={entry.error}>
+                {entry.error || 'Resource collection failed'}
+              </div>
+            )}
+            <div className="mt-1 text-[10px] text-muted-foreground">
+              Managed: {formatCpu(entry.managedCpu)} · {formatMemory(entry.managedMemory)}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 // ─── Sparkline ──────────────────────────────────────────────────────
@@ -1305,6 +1377,25 @@ export function ResourceUsageStatusSegment({
               )}
             </span>
           </div>
+        )}
+
+        {resourceSnapshot && (
+          <HostHealthRows
+            hosts={
+              resourceSnapshot.hosts ?? [
+                {
+                  id: 'local',
+                  name: 'Orca server',
+                  kind: 'local',
+                  connectionId: null,
+                  host: resourceSnapshot.host,
+                  worktrees: resourceSnapshot.worktrees,
+                  managedCpu: resourceSnapshot.totalCpu,
+                  managedMemory: resourceSnapshot.totalMemory
+                }
+              ]
+            }
+          />
         )}
 
         {resourceSnapshot && (

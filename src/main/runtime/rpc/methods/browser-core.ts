@@ -33,12 +33,19 @@ import {
   Wait
 } from './browser-schemas'
 import { BROWSER_TEXT_METHODS } from './browser-text-rpc-methods'
+import { workspaceWebProxyManager } from '../../../browser/workspace-web-proxy'
+import { z } from 'zod'
 
 const CertificateProceed = BrowserTarget.extend({
   challengeId: requiredString('Missing required challengeId')
 })
 
 export const BROWSER_CORE_METHODS: RpcMethod[] = [
+  defineMethod({
+    name: 'browser.webProxyOpen',
+    params: z.object({ url: z.string().min(1) }).strict(),
+    handler: async ({ url }) => workspaceWebProxyManager.open(url)
+  }),
   defineMethod({
     name: 'browser.snapshot',
     params: BrowserTarget,

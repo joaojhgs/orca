@@ -214,6 +214,7 @@ import {
   resolveBrowserReloadButtonLabelKind,
   resolveBrowserReloadIntent
 } from './browser-reload-action'
+import { useRemoteBrowserDirectWeb } from './remote-browser-direct-web'
 
 type BrowserTabPageState = Partial<
   Pick<
@@ -1073,6 +1074,11 @@ function RemoteBrowserPagePane({
         } satisfies RuntimeClientTarget)
       : null
   }, [activeRuntimeEnvironmentId])
+  const directWebTarget = useMemo<RuntimeClientTarget>(
+    () => ({ kind: 'environment', environmentId: activeRuntimeEnvironmentId }),
+    [activeRuntimeEnvironmentId]
+  )
+  const directWeb = useRemoteBrowserDirectWeb(directWebTarget, browserTab.url)
 
   useEffect(() => {
     let cancelled = false
@@ -2410,7 +2416,15 @@ function RemoteBrowserPagePane({
             onCancel={markup.cancel}
           />
         ) : null}
-        {frameUrl ? (
+        {directWeb.url && remoteGrab.state === 'idle' && !markup.isActive ? (
+          <iframe
+            data-testid="remote-browser-direct-web"
+            src={directWeb.url}
+            title={browserTab.title || 'Workspace web app'}
+            className="absolute inset-0 h-full w-full border-0 bg-white"
+            allow="clipboard-read; clipboard-write; fullscreen"
+          />
+        ) : frameUrl ? (
           <img
             data-testid="remote-browser-frame"
             ref={imageRef}
@@ -2445,10 +2459,11 @@ function RemoteBrowserPagePane({
                     )}
               </div>
               <div className="text-xs leading-5 text-muted-foreground">
-                {translate(
-                  'auto.components.browser.pane.BrowserPane.bbe8f15e83',
-                  'This pane is rendered from the active runtime server.'
-                )}
+                {directWeb.error ??
+                  translate(
+                    'auto.components.browser.pane.BrowserPane.bbe8f15e83',
+                    'This pane is rendered from the active runtime server.'
+                  )}
               </div>
             </div>
           </div>

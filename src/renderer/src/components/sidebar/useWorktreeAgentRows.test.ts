@@ -797,6 +797,70 @@ describe('applyAgentRowLineage', () => {
     expect(rows.find((row) => row.rowSource === 'subagent')?.state).toBe('waiting')
   })
 
+  it('reuses unchanged subagent rows across parent-only hook updates', () => {
+    const subagents = [{ id: 'a1', state: 'working' as const, startedAt: 1000 }]
+    const firstEntry = makeEntry(PANE_KEY_1, 1000, { state: 'working', subagents })
+    const tab = makeTab('tab-1')
+    const firstRows = applyAgentRowLineage(
+      buildWorktreeAgentRows({
+        tabs: [tab],
+        entries: [firstEntry],
+        retained: [],
+        now: 2000
+      })
+    )
+    const secondRows = applyAgentRowLineage(
+      buildWorktreeAgentRows({
+        tabs: [tab],
+        entries: [{ ...firstEntry, updatedAt: 2500, toolName: 'Read' }],
+        retained: [],
+        now: 2500
+      })
+    )
+
+    expect(secondRows.find((row) => row.rowSource === 'subagent')).toBe(
+      firstRows.find((row) => row.rowSource === 'subagent')
+    )
+  })
+
+  it('shows a completed Cursor turn as idle while its pane PTY remains live', () => {
+    const entry = makeEntry(PANE_KEY_1, 1000, { agentType: 'cursor', state: 'done' })
+    const rows = buildWorktreeAgentRows({
+      tabs: [makeTab('tab-1')],
+      entries: [entry],
+      retained: [],
+      ptyIdsByTabId: { 'tab-1': ['pty-cursor'] },
+      terminalLayoutsByTabId: {
+        'tab-1': {
+          ...makeSinglePaneLayout(LEAF_ID_1),
+          ptyIdsByLeafId: { [LEAF_ID_1]: 'pty-cursor' }
+        }
+      },
+      now: 2000
+    })
+
+    expect(rows.find((row) => row.paneKey === PANE_KEY_1)?.state).toBe('idle')
+  })
+
+  it('keeps a completed Cursor turn done after its pane PTY exits', () => {
+    const entry = makeEntry(PANE_KEY_1, 1000, { agentType: 'cursor', state: 'done' })
+    const rows = buildWorktreeAgentRows({
+      tabs: [makeTab('tab-1')],
+      entries: [entry],
+      retained: [],
+      ptyIdsByTabId: { 'tab-1': [] },
+      terminalLayoutsByTabId: {
+        'tab-1': {
+          ...makeSinglePaneLayout(LEAF_ID_1),
+          ptyIdsByLeafId: { [LEAF_ID_1]: 'pty-cursor' }
+        }
+      },
+      now: 2000
+    })
+
+    expect(rows.find((row) => row.paneKey === PANE_KEY_1)?.state).toBe('done')
+  })
+
   it('does not derive subagent child rows for retained snapshots', () => {
     const retained = makeRetained(PANE_KEY_1, 'wt-1', 1000, {
       entry: makeEntry(PANE_KEY_1, 1000, {

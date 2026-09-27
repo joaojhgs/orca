@@ -1007,11 +1007,13 @@ function App(): React.JSX.Element {
               const targetMap = new Map(allTargets.map((t) => [t.id, t]))
               const targets = connectionIds.map((targetId) => ({
                 targetId,
-                needsPassphrase: targetMap.get(targetId)?.lastRequiredPassphrase ?? false
+                deferStartup:
+                  targetMap.get(targetId)?.connectOnStartup === false ||
+                  (targetMap.get(targetId)?.lastRequiredPassphrase ?? false)
               }))
 
-              const eagerTargets = targets.filter((t) => !t.needsPassphrase)
-              const deferredTargets = targets.filter((t) => t.needsPassphrase)
+              const eagerTargets = targets.filter((t) => !t.deferStartup)
+              const deferredTargets = targets.filter((t) => t.deferStartup)
 
               if (deferredTargets.length > 0) {
                 actions.setDeferredSshReconnectTargets(deferredTargets.map((t) => t.targetId))

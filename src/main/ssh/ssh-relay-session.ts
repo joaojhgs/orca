@@ -115,6 +115,12 @@ import type {
   PtySourceRecoveryPending,
   PtySourceRecoveryRequest
 } from '../../shared/pty-source-recovery-contract'
+import {
+  registerRemoteResourceProvider,
+  unregisterRemoteResourceProvider,
+  type RemoteResourceSnapshot
+} from '../memory/remote-resource-provider-registry'
+import { collectLegacyRemoteResourceSnapshot } from '../memory/legacy-remote-resource-snapshot'
 import { SshPtyRecoveryRetentionBudget } from './ssh-pty-recovery-retention-budget'
 import { SshPtyRetiredSourceDeliveries } from './ssh-pty-retired-source-deliveries'
 import {
@@ -1033,6 +1039,35 @@ export class SshRelaySession {
     }
     this.activePtyProviderGeneration = providerGeneration
     registerSshPtyProvider(this.targetId, ptyProvider)
+    registerRemoteResourceProvider(this.targetId, {
+      name: this.store.getSshTarget(this.targetId)?.label || this.targetId,
+      collect: async () => {
+        let snapshot: RemoteResourceSnapshot
+        try {
+          snapshot = (await mux.request('resource.snapshot', undefined, {
+            timeoutMs: 5_000
+          })) as RemoteResourceSnapshot
+        } catch (error) {
+          if (!isMethodNotFoundError(error)) {
+            throw error
+          }
+          snapshot = await collectLegacyRemoteResourceSnapshot(
+            this.requireReadyConnection(),
+            this.remoteCliBridgeEnv?.nodePath || 'node'
+          )
+        }
+        return {
+          ...snapshot,
+          worktrees: snapshot.worktrees.map((worktree) => ({
+            ...worktree,
+            sessions: worktree.sessions.map((session) => ({
+              ...session,
+              sessionId: toAppSshPtyId(this.targetId, session.sessionId)
+            }))
+          }))
+        }
+      }
+    })
     this.installPtyRecoveryNotifications(mux)
 
     const connection = this.requireReadyConnection()
@@ -1108,7 +1143,9 @@ export class SshRelaySession {
       clientInstanceId: this.ptyConsumerClientInstanceId,
       expectedServerBuildId: serverBuildId,
       allowSameBuildLegacyFallback: true,
-      outputFlowControl: { requestedWindowSu: DEFAULT_PTY_SOURCE_WINDOW_SU }
+      ...(process.env.ORCA_DISABLE_SSH_PTY_OUTPUT_FLOW_CONTROL === '1'
+        ? {}
+        : { outputFlowControl: { requestedWindowSu: DEFAULT_PTY_SOURCE_WINDOW_SU } })
     }
     let admission: SshPtyConsumerAdmission
     try {
@@ -1580,6 +1617,7 @@ export class SshRelaySession {
     }
 
     unregisterSshPtyProvider(this.targetId)
+    unregisterRemoteResourceProvider(this.targetId)
     unregisterSshFilesystemProvider(this.targetId)
     unregisterSshGitProvider(this.targetId)
     this.sourceIdentityByRelayPtyId.clear()

@@ -7316,6 +7316,51 @@ describe('OrcaRuntimeService', () => {
     expect(prepareLocalWorktreeRootForRepoMock).toHaveBeenCalledWith(runtimeStore, repo)
   })
 
+  it('registers a git checkout on an active SSH host', async () => {
+    const added: Record<string, unknown>[] = []
+    const runtimeStore = {
+      ...store,
+      getRepos: () => [...added] as never,
+      addRepo: (repo: Record<string, unknown>) => {
+        added.push(repo)
+      },
+      getRepo: (id: string) => added.find((repo) => repo.id === id) as never
+    }
+    registerSshGitProvider('ssh-personal', {
+      isGitRepoAsync: vi.fn().mockResolvedValue({
+        isRepo: true,
+        rootPath: '/home/developer/multica_workspaces/task/workdir'
+      }),
+      exec: vi.fn().mockResolvedValue({
+        stdout: 'origin\tgit@github.com:joaojhgs/aurora.git (fetch)\n',
+        stderr: ''
+      })
+    } as never)
+    const runtime = new OrcaRuntimeService(runtimeStore as never)
+
+    try {
+      const repo = await runtime.addRepo(
+        '/home/developer/multica_workspaces/task/workdir',
+        'git',
+        'ssh:ssh-personal'
+      )
+
+      expect(repo).toMatchObject({
+        path: '/home/developer/multica_workspaces/task/workdir',
+        connectionId: 'ssh-personal',
+        executionHostId: 'ssh:ssh-personal',
+        externalWorktreeVisibility: 'show',
+        gitRemoteIdentity: {
+          canonicalKey: 'github.com/joaojhgs/aurora'
+        }
+      })
+      expect(invalidateAuthorizedRootsCacheMock).toHaveBeenCalled()
+      expect(prepareLocalWorktreeRootForRepoMock).not.toHaveBeenCalledWith(runtimeStore, repo)
+    } finally {
+      unregisterSshGitProvider('ssh-personal')
+    }
+  })
+
   it('sets up an existing folder on a fresh runtime after importing the repo project', async () => {
     const tempRoot = await mkdtemp(join(tmpdir(), 'orca-runtime-project-setup-'))
     const repos: Record<string, unknown>[] = []
@@ -7683,9 +7728,9 @@ describe('OrcaRuntimeService', () => {
     expect(repos[0]).not.toHaveProperty('executionHostId')
   })
 
-  it('only a runtime host adopts an unstamped repo; local/ssh imports never stamp it', async () => {
-    // Local and legacy runtime repos both have null executionHostId/connectionId, so only a runtime host may backfill; local/ssh imports leave it untouched.
-    for (const importHostId of ['local', 'ssh:ssh-target-9'] as const) {
+  it('keeps an unstamped local repo local when the same path is registered on SSH', async () => {
+    registerSshGitProvider('ssh-target-9', {} as never)
+    try {
       const repos: Record<string, unknown>[] = [
         {
           id: 'repo-local-1',
@@ -7714,12 +7759,19 @@ describe('OrcaRuntimeService', () => {
       }
       const runtime = new OrcaRuntimeService(runtimeStore as never)
 
-      const repo = await runtime.addRepo('/workspace', 'folder', importHostId)
+      const localRepo = await runtime.addRepo('/workspace', 'folder', 'local')
+      const sshRepo = await runtime.addRepo('/workspace', 'folder', 'ssh:ssh-target-9')
 
-      // The matched repo is returned unchanged — no new repo, no executionHostId stamped.
-      expect(repos).toHaveLength(1)
-      expect(repo.id).toBe('repo-local-1')
+      expect(localRepo.id).toBe('repo-local-1')
       expect(repos[0]).not.toHaveProperty('executionHostId')
+      expect(repos).toHaveLength(2)
+      expect(sshRepo).toMatchObject({
+        path: '/workspace',
+        connectionId: 'ssh-target-9',
+        executionHostId: 'ssh:ssh-target-9'
+      })
+    } finally {
+      unregisterSshGitProvider('ssh-target-9')
     }
   })
 

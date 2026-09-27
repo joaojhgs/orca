@@ -27,13 +27,20 @@ import {
   iterateProcessOutputLines
 } from '../../shared/process-output-field-scanner'
 import { app } from 'electron'
-import type { AppMemory, MemorySnapshot, SessionMemory, WorktreeMemory } from '../../shared/types'
+import type {
+  AppMemory,
+  MemorySnapshot,
+  ResourceHostSnapshot,
+  SessionMemory,
+  WorktreeMemory
+} from '../../shared/types'
 import type { Store } from '../persistence'
 import { ORPHAN_WORKTREE_ID } from '../../shared/constants'
 import { listRegisteredPtys } from './pty-registry'
 import { enumerateWindowsProcessResources } from './windows-process-resource-collector'
 import { collectHostMemory, fallbackHostMemory } from './host-memory'
 import { getProcessMemoryMetric } from './process-memory-metric'
+import { listRemoteResourceProviders } from './remote-resource-provider-registry'
 
 export type MemorySnapshotStore = Pick<Store, 'getRepo' | 'getWorktreeMeta'>
 
@@ -419,6 +426,45 @@ async function runSnapshot(store: MemorySnapshotStore): Promise<MemorySnapshot> 
     history: readHistory(b.worktreeId)
   }))
 
+  const remoteHosts = await Promise.all(
+    listRemoteResourceProviders().map(
+      async ({ connectionId, name, collect }): Promise<ResourceHostSnapshot> => {
+        try {
+          const remote = await collect()
+          const remoteWorktrees = remote.worktrees.map(({ worktreeId, sessions }) => {
+            const resolvedId = worktreeId ?? ORPHAN_WORKTREE_ID
+            const names = resolveWorktreeNames(resolvedId, store)
+            const cpu = sessions.reduce((sum, session) => sum + session.cpu, 0)
+            const memory = sessions.reduce((sum, session) => sum + session.memory, 0)
+            return { ...names, worktreeId: resolvedId, sessions, cpu, memory, history: [] }
+          })
+          return {
+            id: `ssh:${connectionId}`,
+            name,
+            kind: 'ssh',
+            connectionId,
+            host: remote.host,
+            worktrees: remoteWorktrees,
+            managedCpu: remoteWorktrees.reduce((sum, worktree) => sum + worktree.cpu, 0),
+            managedMemory: remoteWorktrees.reduce((sum, worktree) => sum + worktree.memory, 0)
+          }
+        } catch (error) {
+          return {
+            id: `ssh:${connectionId}`,
+            name,
+            kind: 'ssh',
+            connectionId,
+            host: null,
+            worktrees: [],
+            managedCpu: 0,
+            managedMemory: 0,
+            error: error instanceof Error ? error.message : String(error)
+          }
+        }
+      }
+    )
+  )
+
   let sessionCpuTotal = 0
   let sessionMemoryTotal = 0
   for (const wt of worktrees) {
@@ -426,13 +472,30 @@ async function runSnapshot(store: MemorySnapshotStore): Promise<MemorySnapshot> 
     sessionMemoryTotal += wt.memory
   }
 
+  const localHost: ResourceHostSnapshot = {
+    id: 'local',
+    name: os.hostname(),
+    kind: 'local',
+    connectionId: null,
+    host,
+    worktrees,
+    managedCpu: sessionCpuTotal + appBuckets.cpu,
+    managedMemory: sessionMemoryTotal + appBuckets.memory
+  }
   return {
     app: { ...appBuckets, history: readHistory(APP_HISTORY_KEY) },
-    worktrees,
+    worktrees: [...worktrees, ...remoteHosts.flatMap((remote) => remote.worktrees)],
     host,
+    hosts: [localHost, ...remoteHosts],
     processMemoryMetric: getProcessMemoryMetric(),
-    totalCpu: appBuckets.cpu + sessionCpuTotal,
-    totalMemory: appBuckets.memory + sessionMemoryTotal,
+    totalCpu:
+      appBuckets.cpu +
+      sessionCpuTotal +
+      remoteHosts.reduce((sum, item) => sum + item.managedCpu, 0),
+    totalMemory:
+      appBuckets.memory +
+      sessionMemoryTotal +
+      remoteHosts.reduce((sum, item) => sum + item.managedMemory, 0),
     collectedAt: now
   }
 }

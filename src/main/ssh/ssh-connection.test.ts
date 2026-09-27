@@ -557,7 +557,7 @@ describe('SshConnection', () => {
     try {
       const statuses: string[] = []
       const conn = new SshConnection(
-        createTarget(),
+        createTarget({ connectOnStartup: false }),
         createCallbacks({
           onStateChange: vi.fn((_id, state) => statuses.push(state.status))
         })

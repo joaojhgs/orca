@@ -3872,12 +3872,32 @@ export type HostMemory = {
   memoryUsagePercent: number
   cpuCoreCount: number
   loadAverage1m: number
+  /** Whole-host utilization across all cores. Absent when the sampler is still warming. */
+  cpuUsagePercent?: number
+  diskTotal?: number
+  diskUsed?: number
+  diskAvailable?: number
+  diskUsagePercent?: number
+}
+
+export type ResourceHostSnapshot = {
+  id: string
+  name: string
+  kind: 'local' | 'ssh'
+  connectionId: string | null
+  host: HostMemory | null
+  worktrees: WorktreeMemory[]
+  managedCpu: number
+  managedMemory: number
+  error?: string
 }
 
 export type MemorySnapshot = {
   app: AppMemory
   worktrees: WorktreeMemory[]
   host: HostMemory
+  /** Optional for compatibility with Orca clients and relays predating multi-host resources. */
+  hosts?: ResourceHostSnapshot[]
   /** Per-process byte metric used by app, session, worktree, history, and totalMemory values. */
   processMemoryMetric: ProcessMemoryMetric
   /** Sum of app + all tracked worktree sessions. Percent of a single core, so may exceed 100 on multi-core machines. */

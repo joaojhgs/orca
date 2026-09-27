@@ -808,7 +808,15 @@ function createWebPreloadApi(): Partial<PreloadApi> {
         }))
     },
     memory: {
-      getSnapshot: () => Promise.resolve(createEmptyMemorySnapshot())
+      getSnapshot: () =>
+        callRuntimeResult<MemorySnapshot>('diagnostics.memory').catch(() =>
+          createEmptyMemorySnapshot()
+        )
+    },
+    workspaceSpace: {
+      analyze: () => callRuntimeResult('workspaceSpace.analyze', undefined, 10 * 60_000),
+      cancel: () => callRuntimeResult<boolean>('workspaceSpace.cancel'),
+      onProgress: () => noopUnsubscribe
     },
     aiVault: createAiVaultApi(),
     preflight: createPreflightApi(),

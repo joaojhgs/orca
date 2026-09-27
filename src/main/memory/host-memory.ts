@@ -10,6 +10,31 @@ const KIB = 1024
 
 let darwinAvailabilitySupported = true
 let linuxAvailabilitySupported = true
+let previousCpuTicks: { idle: number; total: number } | null = null
+
+function sampleCpuUsagePercent(): number | undefined {
+  let idle = 0
+  let total = 0
+  for (const cpu of os.cpus()) {
+    if (!cpu?.times) {
+      continue
+    }
+    idle += cpu.times.idle
+    total += Object.values(cpu.times).reduce((sum, value) => sum + value, 0)
+  }
+  if (total <= 0) {
+    return undefined
+  }
+  const previous = previousCpuTicks
+  previousCpuTicks = { idle, total }
+  if (!previous) {
+    return undefined
+  }
+  const elapsed = total - previous.total
+  return elapsed > 0
+    ? Math.max(0, Math.min(100, ((elapsed - (idle - previous.idle)) / elapsed) * 100))
+    : undefined
+}
 
 export async function collectHostMemory(): Promise<HostMemory> {
   const total = nonNegativeNumber(os.totalmem())
@@ -17,6 +42,8 @@ export async function collectHostMemory(): Promise<HostMemory> {
   const preferred = await readAvailableMemory(os.platform(), total)
   const available = Math.min(total, Math.max(free, preferred?.bytes ?? free))
   const used = Math.max(0, total - available)
+  const cpuUsagePercent = sampleCpuUsagePercent()
+  const disk = await collectDiskCapacity()
 
   return {
     totalMemory: total,
@@ -26,7 +53,44 @@ export async function collectHostMemory(): Promise<HostMemory> {
     usedMemory: used,
     memoryUsagePercent: total > 0 ? (used / total) * 100 : 0,
     cpuCoreCount: Math.max(1, os.cpus().length),
-    loadAverage1m: nonNegativeNumber(os.loadavg()[0])
+    loadAverage1m: nonNegativeNumber(os.loadavg()[0]),
+    ...(cpuUsagePercent === undefined ? {} : { cpuUsagePercent }),
+    ...disk
+  }
+}
+
+async function collectDiskCapacity(): Promise<
+  Pick<HostMemory, 'diskTotal' | 'diskUsed' | 'diskAvailable' | 'diskUsagePercent'>
+> {
+  if (os.platform() === 'win32') {
+    return {}
+  }
+  try {
+    const stdout = await execFileText('df', ['-Pk'])
+    const devices = new Map<string, { total: number; used: number; available: number }>()
+    for (const line of stdout.split(/\r?\n/).slice(1)) {
+      const fields = line.trim().split(/\s+/)
+      if (fields.length < 6 || !fields[0].startsWith('/dev/')) {
+        continue
+      }
+      const total = Number(fields[1]) * KIB
+      const used = Number(fields[2]) * KIB
+      const available = Number(fields[3]) * KIB
+      if ([total, used, available].every(Number.isFinite)) {
+        devices.set(fields[0], { total, used, available })
+      }
+    }
+    const diskTotal = Array.from(devices.values()).reduce((sum, item) => sum + item.total, 0)
+    const diskUsed = Array.from(devices.values()).reduce((sum, item) => sum + item.used, 0)
+    const diskAvailable = Array.from(devices.values()).reduce(
+      (sum, item) => sum + item.available,
+      0
+    )
+    return diskTotal > 0
+      ? { diskTotal, diskUsed, diskAvailable, diskUsagePercent: (diskUsed / diskTotal) * 100 }
+      : {}
+  } catch {
+    return {}
   }
 }
 

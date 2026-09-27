@@ -29,6 +29,7 @@ import {
   effectiveWorktreeAgentRowStartedAt,
   tabFromWorktreeAttributedStatusEntry
 } from './worktree-agent-row-fallback-tab'
+import { resolveAgentRowLiveTurnState } from './agent-row-live-turn-state'
 
 /**
  * Resolves the sidebar row agent type, prioritizing launch agent configuration
@@ -246,7 +247,13 @@ export function buildWorktreeAgentRows(args: {
         tab,
         agentType: resolveRowAgentType(rowEntry, tab),
         rowSource: 'live',
-        state: shouldDecay ? 'idle' : rowEntry.state,
+        state: shouldDecay
+          ? 'idle'
+          : resolveAgentRowLiveTurnState({
+              entry: rowEntry,
+              ptyIdsByTabId: args.ptyIdsByTabId,
+              terminalLayoutsByTabId: args.terminalLayoutsByTabId
+            }),
         startedAt
       })
       rows.push(...buildSubagentChildRows({ parentEntry: rowEntry, tab, parentIsFresh: isFresh }))
