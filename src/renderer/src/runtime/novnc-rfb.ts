@@ -12,8 +12,8 @@ export type VncClient = {
   removeEventListener(type: string, listener: (event: Event) => void): void
 }
 
-export const RFB = RfbImplementation as new (
+export const RFB: new (
   target: HTMLElement,
   url: string,
   options?: { credentials?: { password?: string }; shared?: boolean }
-) => VncClient
+) => VncClient = RfbImplementation

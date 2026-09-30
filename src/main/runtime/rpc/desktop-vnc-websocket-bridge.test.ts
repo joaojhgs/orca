@@ -1,10 +1,5 @@
 import { createServer, type Server as HttpServer } from 'node:http'
-import {
-  createServer as createTcpServer,
-  type AddressInfo,
-  type Server as TcpServer,
-  type Socket
-} from 'node:net'
+import { createServer as createTcpServer, type Server as TcpServer, Socket } from 'node:net'
 import { once } from 'node:events'
 import { afterEach, describe, expect, it } from 'vitest'
 import { WebSocket } from 'ws'
@@ -33,21 +28,24 @@ describe('DesktopVncWebSocketBridge', () => {
     tcpServer = createTcpServer()
     tcpServer.listen(0, '127.0.0.1')
     await once(tcpServer, 'listening')
-    const targetPort = (tcpServer.address() as AddressInfo).port
+    const targetPort = serverPort(tcpServer)
     const ticket = mintDesktopVncTicket({ id: 'game', port: targetPort, viewOnly: true })
-    const connectionPromise = once(tcpServer, 'connection') as Promise<[Socket]>
+    const connectionPromise = once(tcpServer, 'connection')
 
     bridge = new DesktopVncWebSocketBridge()
     httpServer = createBridgeServer(bridge)
     httpServer.listen(0, '127.0.0.1')
     await once(httpServer, 'listening')
     const ws = new WebSocket(
-      `ws://127.0.0.1:${(httpServer.address() as AddressInfo).port}/desktop-vnc?ticket=${ticket}&port=5900&desktopId=main`
+      `ws://127.0.0.1:${serverPort(httpServer)}/desktop-vnc?ticket=${ticket}&port=5900&desktopId=main`
     )
     await once(ws, 'open')
     const [targetSocket] = await connectionPromise
-    const targetMessage = once(targetSocket, 'data') as Promise<[Buffer]>
-    const websocketMessage = once(ws, 'message') as Promise<[Buffer]>
+    if (!(targetSocket instanceof Socket)) {
+      throw new Error('Expected a connected TCP socket')
+    }
+    const targetMessage = once(targetSocket, 'data')
+    const websocketMessage = once(ws, 'message')
 
     ws.send(Buffer.from([4, 5, 6]))
     expect((await targetMessage)[0]).toEqual(Buffer.from([4, 5, 6]))
@@ -63,17 +61,26 @@ describe('DesktopVncWebSocketBridge', () => {
     httpServer.listen(0, '127.0.0.1')
     await once(httpServer, 'listening')
     const ticket = mintDesktopVncTicket({ id: 'game', port: 65_534, viewOnly: true })
-    const port = (httpServer.address() as AddressInfo).port
+    const port = serverPort(httpServer)
 
     const first = new WebSocket(`ws://127.0.0.1:${port}/desktop-vnc?ticket=${ticket}`)
     await once(first, 'open')
     first.terminate()
 
     const second = new WebSocket(`ws://127.0.0.1:${port}/desktop-vnc?ticket=${ticket}`)
-    const [error] = (await once(second, 'error')) as [Error]
+    const [error] = await once(second, 'error')
+    expect(error).toBeInstanceOf(Error)
     expect(error.message).toContain('Unexpected server response: 401')
   })
 })
+
+function serverPort(server: HttpServer | TcpServer): number {
+  const address = server.address()
+  if (address === null || typeof address === 'string') {
+    throw new Error('Expected a listening TCP server')
+  }
+  return address.port
+}
 
 function createBridgeServer(bridge: DesktopVncWebSocketBridge): HttpServer {
   const server = createServer()

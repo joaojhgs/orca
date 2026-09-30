@@ -11,7 +11,7 @@ describe('readRemoteTranscriptTail', () => {
     const readFile = vi.fn(async () => ({ content, isBinary: false }))
 
     const result = await readRemoteTranscriptTail({
-      provider: { readFile } as never,
+      provider: { readFile },
       path: '/home/developer/.codex/sessions/rollout.jsonl',
       agent: 'codex',
       limit: 1

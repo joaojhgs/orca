@@ -29,7 +29,11 @@ export function mintDesktopVncTicket(
   const now = typeof targetOrNow === 'number' ? targetOrNow : (maybeNow ?? Date.now())
   pruneExpiredTickets(now)
   while (tickets.size >= MAX_TICKETS) {
-    tickets.delete(tickets.keys().next().value as string)
+    const oldest = tickets.keys().next().value
+    if (oldest === undefined) {
+      break
+    }
+    tickets.delete(oldest)
   }
   const ticket = randomBytes(32).toString('base64url')
   tickets.set(ticket, { expiresAt: now + TICKET_TTL_MS, target })

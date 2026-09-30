@@ -793,6 +793,7 @@ describe('WebRuntimeClient', () => {
     })
     const onClose = vi.fn()
     const onTransportInterrupted = vi.fn()
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: This fixture accesses the client's real subscription map and transport registry to simulate interruption without a socket.
     const internals = client as unknown as {
       subscriptions: Map<
         string,

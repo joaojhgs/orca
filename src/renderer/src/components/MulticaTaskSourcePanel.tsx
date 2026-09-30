@@ -113,7 +113,7 @@ export function MulticaTaskSourcePanel(): React.JSX.Element {
             setProjectId(ALL)
           }}
         >
-          <SelectTrigger className="h-8 w-[180px] text-xs">
+          <SelectTrigger className="h-8 w-[180px]">
             <SelectValue placeholder="Workspace" />
           </SelectTrigger>
           <SelectContent>
@@ -128,7 +128,7 @@ export function MulticaTaskSourcePanel(): React.JSX.Element {
           </SelectContent>
         </Select>
         <Select value={projectId} onValueChange={setProjectId}>
-          <SelectTrigger className="h-8 w-[200px] text-xs">
+          <SelectTrigger className="h-8 w-[200px]">
             <SelectValue placeholder="Project" />
           </SelectTrigger>
           <SelectContent>
@@ -143,7 +143,7 @@ export function MulticaTaskSourcePanel(): React.JSX.Element {
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="h-8 w-[150px] text-xs">
+          <SelectTrigger className="h-8 w-[150px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -157,13 +157,13 @@ export function MulticaTaskSourcePanel(): React.JSX.Element {
             </SelectGroup>
           </SelectContent>
         </Select>
-        <div className="relative min-w-[220px] flex-1">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <div className="flex min-w-[220px] flex-1 items-center gap-2">
+          <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Filter Multica issues…"
-            className="h-8 pl-8 text-xs"
+            className="h-8"
           />
         </div>
         <Button
@@ -229,8 +229,8 @@ export function MulticaTaskSourcePanel(): React.JSX.Element {
             <span
               className={cn(
                 'w-fit rounded-full border border-border/50 px-2 py-0.5 text-[10px]',
-                issue.status === 'done' && 'text-emerald-600 dark:text-emerald-400',
-                issue.status === 'in_progress' && 'text-blue-600 dark:text-blue-400'
+                issue.status === 'done' && 'text-status-success',
+                issue.status === 'in_progress' && 'text-ai-action-accent'
               )}
             >
               {issue.status.replaceAll('_', ' ')}

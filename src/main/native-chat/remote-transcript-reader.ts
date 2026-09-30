@@ -16,7 +16,7 @@ export type RemoteTranscriptTail = {
 }
 
 export async function readRemoteTranscriptTail(args: {
-  provider: IFilesystemProvider
+  provider: Pick<IFilesystemProvider, 'readFile'>
   path: string
   agent: AgentType
   limit: number

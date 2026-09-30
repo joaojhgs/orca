@@ -31,8 +31,8 @@ describe('browser RPC methods', () => {
         .fn()
         .mockResolvedValue({ ok: false, reason: 'capture-failed' })
     }
-    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: This dispatcher fixture supplies every runtime method exercised here.
     const dispatcher = new RpcDispatcher({
+      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: This dispatcher fixture supplies every runtime method exercised here.
       runtime: runtime as unknown as OrcaRuntimeService,
       methods: BROWSER_GRAB_METHODS
     })

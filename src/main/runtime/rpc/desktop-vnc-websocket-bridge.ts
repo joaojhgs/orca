@@ -56,7 +56,12 @@ export class DesktopVncWebSocketBridge {
         ws.close(1003, 'Binary RFB frames required')
         return
       }
-      socket.write(data as Buffer)
+      const payload = Array.isArray(data)
+        ? Buffer.concat(data)
+        : Buffer.isBuffer(data)
+          ? data
+          : Buffer.from(data)
+      socket.write(payload)
     })
     ws.once('close', close)
     ws.once('error', close)

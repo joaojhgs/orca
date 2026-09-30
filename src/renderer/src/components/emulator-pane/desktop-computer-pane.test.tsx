@@ -14,9 +14,8 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { DesktopComputerPane } from './desktop-computer-pane'
 import { MAIN_DESKTOP, useDesktopStream, type DesktopTarget } from './use-desktop-stream'
 
-const { callRuntimeRpc, clients } = vi.hoisted(() => ({
-  callRuntimeRpc: vi.fn(),
-  clients: [] as {
+const { callRuntimeRpc, clients } = vi.hoisted(() => {
+  const clients: {
     viewOnly: boolean
     focusOnClick: boolean
     resizeSession: boolean
@@ -24,8 +23,9 @@ const { callRuntimeRpc, clients } = vi.hoisted(() => ({
     disconnect: ReturnType<typeof vi.fn>
     dispatchEvent: (event: Event) => boolean
     options: unknown
-  }[]
-}))
+  }[] = []
+  return { callRuntimeRpc: vi.fn(), clients }
+})
 vi.mock('@/runtime/runtime-rpc-client', () => ({
   callRuntimeRpc,
   hasRuntimeRpcErrorCode: (error: { code?: string }, code: string) => error?.code === code

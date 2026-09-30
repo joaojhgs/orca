@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer'
 import type { SshConnection } from '../ssh/ssh-connection'
 import { execCommand } from '../ssh/ssh-relay-deploy-helpers'
 import type { RemoteResourceSnapshot } from './remote-resource-provider-registry'
+import { remoteResourceSnapshotSchema } from './remote-resource-snapshot-schema'
 
 const SCRIPT = String.raw`
 const fs=require('fs'),os=require('os');
@@ -32,5 +33,5 @@ export async function collectLegacyRemoteResourceSnapshot(
     `${nodePath} -e "eval(Buffer.from('${encoded}','base64').toString())"`,
     { timeoutMs: 5_000 }
   )
-  return JSON.parse(stdout) as RemoteResourceSnapshot
+  return remoteResourceSnapshotSchema.parse(JSON.parse(stdout))
 }

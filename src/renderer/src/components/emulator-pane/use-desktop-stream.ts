@@ -11,6 +11,20 @@ type DesktopStreamTicket = {
   credentials?: { password: string }
 }
 
+function bindDesktopStreamListeners(
+  client: VncClient,
+  listeners: [string, (event: Event) => void][]
+): () => void {
+  for (const [event, listener] of listeners) {
+    client.addEventListener(event, listener)
+  }
+  return () => {
+    for (const [event, listener] of listeners) {
+      client.removeEventListener(event, listener)
+    }
+  }
+}
+
 export function useDesktopStream(
   targetRef: RefObject<HTMLDivElement | null>,
   desktop: DesktopTarget | null,
@@ -103,14 +117,7 @@ export function useDesktopStream(
               )
           ]
         ]
-        for (const [event, listener] of listeners) {
-          rfb.addEventListener(event, listener)
-        }
-        cleanupListeners = () => {
-          for (const [event, listener] of listeners) {
-            rfb?.removeEventListener(event, listener)
-          }
-        }
+        cleanupListeners = bindDesktopStreamListeners(rfb, listeners)
       } catch (cause) {
         fail(cause instanceof Error ? cause.message : 'Could not open desktop stream')
       }
