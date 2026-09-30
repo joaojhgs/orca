@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue
@@ -116,12 +117,14 @@ export function MulticaTaskSourcePanel(): React.JSX.Element {
             <SelectValue placeholder="Workspace" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All workspaces</SelectItem>
-            {workspaces.map((workspace) => (
-              <SelectItem key={workspace.id} value={workspace.id}>
-                {workspace.name}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              <SelectItem value={ALL}>All workspaces</SelectItem>
+              {workspaces.map((workspace) => (
+                <SelectItem key={workspace.id} value={workspace.id}>
+                  {workspace.name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
         <Select value={projectId} onValueChange={setProjectId}>
@@ -129,12 +132,14 @@ export function MulticaTaskSourcePanel(): React.JSX.Element {
             <SelectValue placeholder="Project" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All projects</SelectItem>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.title}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              <SelectItem value={ALL}>All projects</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.title}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={setStatus}>
@@ -142,12 +147,14 @@ export function MulticaTaskSourcePanel(): React.JSX.Element {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All statuses</SelectItem>
-            <SelectItem value="backlog">Backlog</SelectItem>
-            <SelectItem value="todo">Todo</SelectItem>
-            <SelectItem value="in_progress">In progress</SelectItem>
-            <SelectItem value="done">Done</SelectItem>
-            <SelectItem value="canceled">Canceled</SelectItem>
+            <SelectGroup>
+              <SelectItem value={ALL}>All statuses</SelectItem>
+              <SelectItem value="backlog">Backlog</SelectItem>
+              <SelectItem value="todo">Todo</SelectItem>
+              <SelectItem value="in_progress">In progress</SelectItem>
+              <SelectItem value="done">Done</SelectItem>
+              <SelectItem value="canceled">Canceled</SelectItem>
+            </SelectGroup>
           </SelectContent>
         </Select>
         <div className="relative min-w-[220px] flex-1">

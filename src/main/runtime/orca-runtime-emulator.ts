@@ -8,22 +8,16 @@ import {
 import { resolveDefaultAttachDevice } from '../emulator/emulator-default-attach-device'
 import { setConfiguredAndroidSdkPath } from '../emulator/android/android-sdk-host-discovery'
 import type { EmulatorGesturePoint } from '../emulator/emulator-gesture-sender'
-import type { EmulatorSessionInfo } from '../emulator/emulator-types'
+import type { EmulatorSessionInfo, EmulatorHostSettings } from '../emulator/emulator-types'
 import type { SimulatorDevice } from '../emulator/simctl-simulator-devices'
 import type { EmulatorDevice } from '../emulator/backends/emulator-backend'
-import type { GlobalSettings } from '../../shared/types'
 import { captureEmulatorScreenshot } from '../emulator/emulator-screenshot'
-
-// Settings slice the emulator surface needs; keeps the host contract honest (no widening cast).
-type EmulatorHostSettings = Pick<
-  GlobalSettings,
-  'mobileEmulatorEnabled' | 'mobileEmulatorDefaultDeviceUdid' | 'androidSdkPath'
->
 
 // Why: dedicated file for "one surface" separation (emulator), parallel to orca-runtime-browser.ts. Keeps OrcaRuntimeService focused; emulator routing easy to scan. No max-lines disable (split further if grows; per AGENTS + plan Phase 3).
 export type RuntimeEmulatorCommandHost = {
   getEmulatorBridge(): EmulatorBridge | null
-  resolveWorktreeSelector(selector: string): Promise<{ id: string }>
+  resolveEmulatorWorkspaceId(selector: string): Promise<string>
+  resolveEmulatorCleanupWorkspaceId(selector: string): Promise<string>
   getAuthoritativeWindow(): BrowserWindow
   getSettings(): EmulatorHostSettings
 }
@@ -167,13 +161,36 @@ export class RuntimeEmulatorCommands {
       // slow-to-boot Android emulator alive for instant switch-back.
       await bridge.stopActiveForSwitch(worktreeId)
     }
-    const info = await bridge.startHelperForDevice(device)
+    const lease = await bridge.acquireHelperForDevice(device)
+    const { info } = lease
     if (worktreeId) {
+      try {
+        const currentWorktreeId = await this.resolveWorktreeId(params.worktree)
+        if (currentWorktreeId !== worktreeId) {
+          throw new EmulatorError(
+            'emulator_no_active',
+            'The workspace changed while the emulator was starting. Reattach the emulator.'
+          )
+        }
+      } catch (error) {
+        // Why: the workspace can disappear while a slow Android device boots.
+        await lease.release({ cleanupIfUnused: true }).catch(() => {})
+        if (error instanceof Error && error.message === 'selector_not_found') {
+          throw new EmulatorError(
+            'emulator_no_active',
+            'The workspace changed while the emulator was starting. Reattach the emulator.'
+          )
+        }
+        throw error
+      }
       bridge.registerActiveEmulator(worktreeId, info, { managed: true })
+      await lease.release()
       this.notifyRendererEmulatorAutoAttach(worktreeId, info)
       if (params.focus) {
         this.notifyRendererEmulatorPaneFocus(worktreeId)
       }
+    } else {
+      await lease.release()
     }
     // Default: no auto steal (mirror browser tab create/switch). --focus sends emulator:pane-focus only when requested.
     return { attached: true, info }
@@ -186,7 +203,7 @@ export class RuntimeEmulatorCommands {
 
   async emulatorUnregisterActive(params: { worktree?: string }): Promise<{ ok: true }> {
     const bridge = this.requireEmulatorBridge()
-    const worktreeId = await this.resolveWorktreeId(params.worktree)
+    const worktreeId = await this.resolveCleanupWorktreeId(params.worktree)
     if (worktreeId) {
       bridge.unregisterActiveEmulator(worktreeId)
     }
@@ -213,7 +230,11 @@ export class RuntimeEmulatorCommands {
   }
 
   private async resolveWorktreeId(worktree?: string): Promise<string | undefined> {
-    return worktree ? (await this.host.resolveWorktreeSelector(worktree)).id : undefined
+    return worktree ? await this.host.resolveEmulatorWorkspaceId(worktree) : undefined
+  }
+
+  private async resolveCleanupWorktreeId(worktree?: string): Promise<string | undefined> {
+    return worktree ? await this.host.resolveEmulatorCleanupWorkspaceId(worktree) : undefined
   }
 
   async emulatorInstall(
@@ -282,7 +303,7 @@ export class RuntimeEmulatorCommands {
     worktree?: string
   }): Promise<{ ok: true; deviceUdid: string }> {
     const bridge = this.requireEmulatorBridge()
-    const worktreeId = await this.resolveWorktreeId(params.worktree)
+    const worktreeId = await this.resolveCleanupWorktreeId(params.worktree)
     const killedUdid = await bridge.kill(params.device ?? params.emulator, worktreeId)
     return { ok: true, deviceUdid: killedUdid }
   }
@@ -294,7 +315,7 @@ export class RuntimeEmulatorCommands {
     managedOnly?: boolean
   }): Promise<{ ok: true; deviceUdid?: string }> {
     const bridge = this.requireEmulatorBridge()
-    const worktreeId = await this.resolveWorktreeId(params.worktree)
+    const worktreeId = await this.resolveCleanupWorktreeId(params.worktree)
     if (params.managedOnly && worktreeId && !params.device && !params.emulator) {
       const shutdownUdid = await bridge.shutdownActiveManagedForWorktree(worktreeId)
       return { ok: true, deviceUdid: shutdownUdid ?? undefined }
@@ -322,12 +343,7 @@ export class RuntimeEmulatorCommands {
   }
 
   // Raw for extensibility.
-  async emulatorExecRaw(params: {
-    command: string
-    device?: string
-    emulator?: string
-    worktree?: string
-  }): Promise<unknown> {
+  async emulatorExecRaw(params: EmulatorTargetParams & { command: string }): Promise<unknown> {
     return this.emulatorExec(params)
   }
 }

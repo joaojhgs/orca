@@ -1,10 +1,37 @@
 import { vi, type Mock } from 'vitest'
 import type { BrowserWindow } from 'electron'
-import { PTY_CONSUMER_STALE_OWNER_RECOVERY_ERROR } from '../../shared/pty-consumer-session'
 import type { SshConnection } from './ssh-connection'
+import type { PersistPtyBindingArgs } from '../persistence/loading-store/pty-binding-persistence'
 import type { Store } from '../persistence'
 import type { SshPortForwardManager } from './ssh-port-forward'
 import { deployAndLaunchRelay } from './ssh-relay-deploy'
+import type {
+  OpenSshPtyConsumerSessionOptions,
+  SshPtyConsumerAdmission
+} from './ssh-pty-consumer-session'
+
+export function createMockConsumerAdmission(
+  options: OpenSshPtyConsumerSessionOptions
+): SshPtyConsumerAdmission {
+  return {
+    state: {
+      mode: 'negotiated',
+      clientInstanceId: options.clientInstanceId,
+      clientGeneration: 1,
+      ownerGeneration: 1,
+      ownerLease: 'test-owner-lease',
+      ...(options.outputFlowControl
+        ? {
+            outputFlowControl: {
+              version: 1 as const,
+              windowSu: options.outputFlowControl.requestedWindowSu
+            }
+          }
+        : {})
+    },
+    resumed: options.resume !== undefined
+  }
+}
 
 type SshRelaySessionTestDeps = {
   mockConn: SshConnection
@@ -14,8 +41,16 @@ type SshRelaySessionTestDeps = {
   mockWindow: BrowserWindow
 }
 
+const persistedBindings = new WeakMap<Store, PersistPtyBindingArgs[]>()
+
+export function recordedPtyBindings(store: Store): readonly PersistPtyBindingArgs[] {
+  return persistedBindings.get(store) ?? []
+}
+
 export function createMockDeps(): SshRelaySessionTestDeps {
+  const bindings: PersistPtyBindingArgs[] = []
   const mockConn = {} as SshConnection
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: The relay fixture implements the Store methods exercised by session establishment and teardown.
   const mockStore = {
     getRepos: vi.fn().mockReturnValue([]),
     getSshTarget: vi.fn().mockReturnValue(null),
@@ -23,13 +58,28 @@ export function createMockDeps(): SshRelaySessionTestDeps {
     upsertSshPtyConsumerRecovery: vi.fn(),
     removeSshPtyConsumerRecovery: vi.fn(),
     getSshRemotePtyLeases: vi.fn().mockReturnValue([]),
+    reconcileSshRemotePtyLeasesForTarget: vi.fn(),
+    getWorkspaceSession: vi.fn(),
     markSshRemotePtyLease: vi.fn(),
     markSshRemotePtyLeases: vi.fn(),
     markSshRemotePtyLeasesAsync: vi.fn(),
     markSshRemotePtyLeasesForShutdown: vi.fn(),
     markSshRemotePtyLeasesAttachedAsync: vi.fn(),
-    persistPtyBinding: vi.fn()
+    getSshRemotePtyKillIntents: vi.fn().mockReturnValue([]),
+    pruneExpiredSshRemotePtyKillIntents: vi.fn(),
+    recordSshRemotePtyKillIntent: vi.fn(),
+    clearSshRemotePtyKillIntent: vi.fn(),
+    noteSshRemotePtyKillReplayAttempt: vi.fn(),
+    persistPtyBinding: vi.fn(async (input: Parameters<Store['persistPtyBinding']>[0]) => {
+      const binding = typeof input === 'function' ? input() : input
+      if (!binding) {
+        return false
+      }
+      bindings.push(binding)
+      return true
+    })
   } as unknown as Store
+  persistedBindings.set(mockStore, bindings)
   const mockPortForward = {
     removeAllForwards: vi.fn()
   } as unknown as SshPortForwardManager
@@ -53,11 +103,5 @@ export function mockDeploySuccess(): void {
       onClose: vi.fn()
     },
     platform: 'linux-x64'
-  })
-}
-
-export function createMismatchedOwnerRecoveryError(): unknown {
-  return Object.assign(new Error('Owner recovery lease is stale'), {
-    code: PTY_CONSUMER_STALE_OWNER_RECOVERY_ERROR
   })
 }

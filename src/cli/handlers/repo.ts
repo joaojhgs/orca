@@ -1,5 +1,6 @@
 import type { RuntimeRepoList, RuntimeRepoSearchRefs } from '../../shared/runtime-types'
-import type { Project, RepoKind } from '../../shared/types'
+import type { Project } from '../../shared/project-types'
+import type { RepoKind } from '../../shared/repo-types'
 import type { CommandHandler } from '../dispatch'
 import { formatRepoList, formatRepoRefs, formatRepoShow, printResult } from '../format'
 import {

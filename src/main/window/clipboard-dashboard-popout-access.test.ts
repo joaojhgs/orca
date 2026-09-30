@@ -39,6 +39,7 @@ vi.mock('electron', () => ({
 vi.mock('./dashboard-popout-window', () => ({ isDashboardPopoutRenderer }))
 vi.mock('./clipboard-remote-file-copy', () => ({
   cleanupExpiredRemoteClipboardFiles: vi.fn(async () => undefined),
+  scheduleLegacyRemoteClipboardFileCleanup: vi.fn(),
   writeRemoteFileToClipboard: vi.fn()
 }))
 
@@ -103,6 +104,9 @@ describe('dashboard popout clipboard access', () => {
       handlers.get('clipboard:writeSelectionText')?.(popoutEvent, 'primary selection')
     ).rejects.toThrow('Unauthorized clipboard IPC sender')
     await expect(handlers.get('clipboard:saveImageAsTempFile')?.(popoutEvent)).rejects.toThrow(
+      'Unauthorized clipboard IPC sender'
+    )
+    expect(() => handlers.get('clipboard:readFilePaths')?.(popoutEvent)).toThrow(
       'Unauthorized clipboard IPC sender'
     )
     expect(() =>

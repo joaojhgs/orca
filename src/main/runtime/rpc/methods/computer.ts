@@ -1,4 +1,3 @@
-import { z } from 'zod'
 import {
   callComputerSidecarAction,
   callComputerSidecarCapabilities,
@@ -7,7 +6,7 @@ import {
   callComputerSidecarSnapshot,
   resetComputerSidecarForTest
 } from '../../../computer/sidecar-client'
-import { defineMethod, type RpcMethod } from '../core'
+import { defineMethod } from '../core'
 import { mintDesktopVncTicket } from '../../../computer/desktop-vnc-tickets'
 import {
   listDesktopVncTargets,
@@ -29,15 +28,21 @@ import {
   SetValue,
   TypeText
 } from './computer-schemas'
+import {
+  ComputerCapabilitiesParams,
+  ComputerDesktopStreamTicketParams,
+  ComputerDesktopTargetsParams,
+  ComputerPermissionsStatusParams
+} from '../../../../shared/rpc-contract/computer-params'
 
 export function resetComputerSessionsForTest(): void {
   resetComputerSidecarForTest()
 }
 
-export const COMPUTER_METHODS: RpcMethod[] = [
+export const COMPUTER_METHODS = [
   defineMethod({
     name: 'computer.desktopStreamTicket',
-    params: z.object({ desktopId: z.string().optional() }),
+    params: ComputerDesktopStreamTicketParams,
     handler: async (params) => {
       const target = resolveDesktopVncTarget(params.desktopId)
       const password = readDesktopVncTargetPassword(target)
@@ -55,14 +60,12 @@ export const COMPUTER_METHODS: RpcMethod[] = [
   }),
   defineMethod({
     name: 'computer.desktopTargets',
-    params: z.object({}),
-    handler: async () => ({
-      targets: listDesktopVncTargets()
-    })
+    params: ComputerDesktopTargetsParams,
+    handler: async () => ({ targets: listDesktopVncTargets() })
   }),
   defineMethod({
     name: 'computer.capabilities',
-    params: z.object({}),
+    params: ComputerCapabilitiesParams,
     handler: async () => {
       return await callComputerSidecarCapabilities()
     }
@@ -85,7 +88,7 @@ export const COMPUTER_METHODS: RpcMethod[] = [
   }),
   defineMethod({
     name: 'computer.permissionsStatus',
-    params: z.object({}),
+    params: ComputerPermissionsStatusParams,
     handler: async () => {
       const { getComputerUsePermissionStatus } =
         await import('../../../computer/macos-computer-use-permissions')

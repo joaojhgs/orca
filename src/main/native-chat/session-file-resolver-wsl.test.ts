@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type * as NodeFsModule from 'node:fs'
+import type * as NodeFsPromisesModule from 'node:fs/promises'
 
 const UBUNTU_HOME = '\\\\wsl.localhost\\Ubuntu\\home\\ada'
 const WSL_MANAGED_SESSIONS_DIR = `${UBUNTU_HOME}\\.local\\share\\orca\\codex-runtime-home\\home\\sessions`
@@ -7,21 +7,37 @@ const ROLLOUT_LINUX =
   '/home/ada/.local/share/orca/codex-runtime-home/home/sessions/2026/07/24/rollout-wsl-sess.jsonl'
 const ROLLOUT_UNC =
   '\\\\wsl.localhost\\Ubuntu\\home\\ada\\.local\\share\\orca\\codex-runtime-home\\home\\sessions\\2026\\07\\24\\rollout-wsl-sess.jsonl'
+const DEBIAN_ROLLOUT_UNC = ROLLOUT_UNC.replace('Ubuntu', 'Debian')
 
 vi.mock('../wsl', () => ({
-  listWslDistrosAsync: vi.fn(async () => ['Ubuntu']),
-  getWslHomeAsync: vi.fn(async () => UBUNTU_HOME)
+  listWslDistrosAsync: vi.fn(async () => ['Ubuntu', 'Debian']),
+  listRunningWslDistrosAsync: vi.fn(async () => ['Ubuntu', 'Debian']),
+  listRunningWslHomeDirsAsync: vi.fn(async () => [
+    UBUNTU_HOME,
+    UBUNTU_HOME.replace('Ubuntu', 'Debian')
+  ]),
+  getWslHomeAsync: vi.fn(async (distro: string) => UBUNTU_HOME.replace('Ubuntu', distro))
 }))
 
-// Only WSL UNC paths are readable; the guest Linux path is not (as on a real
-// Windows host, where it would misresolve against the current drive).
-const fsState = vi.hoisted(() => ({ existsAll: false }))
-vi.mock('node:fs', async (importOriginal) => {
-  const actual = await importOriginal<typeof NodeFsModule>()
+// Only these UNC fixtures are readable. Every other `\\wsl.localhost\` path —
+// wrong distro, missing file — must reject, or the mock would mask a misresolve.
+// Non-WSL paths hit the real fs, so the guest Linux path stays unreadable as on a
+// real Windows host, where it would misresolve against the current drive.
+const READABLE_WSL_UNC_PATHS = new Set([ROLLOUT_UNC])
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof NodeFsPromisesModule>()
   return {
     ...actual,
-    existsSync: (path: string) =>
-      fsState.existsAll || path.startsWith('\\\\wsl.localhost\\') || actual.existsSync(path)
+    access: async (path: string) => {
+      if (!path.startsWith('\\\\wsl.localhost\\')) {
+        await actual.access(path)
+        return
+      }
+      if (!READABLE_WSL_UNC_PATHS.has(path)) {
+        throw Object.assign(new Error(`ENOENT: ${path}`), { code: 'ENOENT' })
+      }
+    }
   }
 })
 
@@ -53,7 +69,8 @@ beforeEach(() => {
   vi.mocked(listWslDistrosAsync).mockClear()
   scanned.dirs = []
   scanned.hostRootHasRollout = false
-  fsState.existsAll = false
+  READABLE_WSL_UNC_PATHS.clear()
+  READABLE_WSL_UNC_PATHS.add(ROLLOUT_UNC)
   setPlatform('win32')
 })
 
@@ -70,6 +87,77 @@ describe('resolveSessionFilePath on a Windows host with WSL', () => {
     expect(resolved).toBe(ROLLOUT_UNC)
   })
 
+  it.each(['codex', 'omp'] as const)(
+    'keeps an attested distro when another guest has the same transcript path (%s)',
+    async (agent) => {
+      READABLE_WSL_UNC_PATHS.add(DEBIAN_ROLLOUT_UNC)
+
+      const resolved = await resolveSessionFilePath(agent, 'wsl-sess', {
+        transcriptPath: ROLLOUT_LINUX,
+        wslDistro: 'Ubuntu',
+        codexSessionsDirs: []
+      })
+
+      expect(resolved).toBe(ROLLOUT_UNC)
+      expect(vi.mocked(listWslDistrosAsync)).not.toHaveBeenCalled()
+      expect(vi.mocked(getWslHomeAsync)).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['codex', 'omp'] as const)(
+    'does not fall through to another guest when the attested path is missing (%s)',
+    async (agent) => {
+      READABLE_WSL_UNC_PATHS.delete(ROLLOUT_UNC)
+      READABLE_WSL_UNC_PATHS.add(DEBIAN_ROLLOUT_UNC)
+      scanned.hostRootHasRollout = true
+
+      await expect(
+        resolveSessionFilePath(agent, 'wsl-sess', {
+          transcriptPath: ROLLOUT_LINUX,
+          wslDistro: 'Ubuntu',
+          codexSessionsDirs: []
+        })
+      ).resolves.toBeNull()
+      expect(scanned.dirs).toEqual([])
+    }
+  )
+
+  it('does not return a UNC twin that no distro actually has', async () => {
+    const resolved = await resolveSessionFilePath('codex', 'wsl-sess', {
+      transcriptPath: '/home/ada/.codex/sessions/2026/07/24/rollout-gone.jsonl',
+      codexSessionsDirs: []
+    })
+    expect(resolved).toBeNull()
+  })
+
+  it.each(['codex', 'omp'] as const)(
+    'does not fall back by id from an unattested guest hook path (%s)',
+    async (agent) => {
+      READABLE_WSL_UNC_PATHS.delete(ROLLOUT_UNC)
+      scanned.hostRootHasRollout = true
+
+      await expect(
+        resolveSessionFilePath(agent, 'wsl-sess', {
+          transcriptPath: ROLLOUT_LINUX,
+          codexSessionsDirs: ['C:\\host\\sessions']
+        })
+      ).resolves.toBeNull()
+      expect(scanned.dirs).toEqual([])
+    }
+  )
+
+  it('does not fall back to a host id match for an unattested guest hook path', async () => {
+    scanned.hostRootHasRollout = true
+
+    const resolved = await resolveSessionFilePath('codex', 'wsl-sess', {
+      transcriptPath: '/home/ada/.codex/sessions/2026/07/24/rollout-wsl-sess.jsonl',
+      codexSessionsDirs: [HOST_ROLLOUT]
+    })
+
+    expect(resolved).toBeNull()
+    expect(scanned.dirs).toEqual([])
+  })
+
   it('searches the WSL managed Codex sessions root when no hook path is known', async () => {
     await resolveSessionFilePath('codex', 'wsl-sess')
     expect(scanned.dirs).toContain(WSL_MANAGED_SESSIONS_DIR)
@@ -79,7 +167,6 @@ describe('resolveSessionFilePath on a Windows host with WSL', () => {
   it('does not enumerate WSL distros when a host Codex root already has the rollout', async () => {
     // Why: listing WSL homes spawns wsl.exe per distro, which boots distros the
     // user deliberately left stopped. It must stay a last resort.
-    fsState.existsAll = true
     scanned.hostRootHasRollout = true
 
     await expect(resolveSessionFilePath('codex', 'wsl-sess')).resolves.toBe(HOST_ROLLOUT)

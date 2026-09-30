@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync, type Stats } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
-import { app } from 'electron'
+import { getAppEnvironment } from '../../shared/app-environment'
 
 export type DesktopVncTarget = Readonly<{
   id: string
@@ -156,7 +156,10 @@ function readPasswordFileContent(passwordFile: string): string {
     }
     return password
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('Invalid desktop VNC target password:')) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith('Invalid desktop VNC target password:')
+    ) {
       throw error
     }
     throw passwordFileError('file is unavailable')
@@ -184,7 +187,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function getUserDataPath(): string {
-  return app.getPath('userData')
+  return getAppEnvironment().getPath('userData')
 }
 
 function invalidConfig(reason: string): Error {

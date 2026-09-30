@@ -5,8 +5,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clearLinearMetadataCache,
-  useTeamLabels,
-  useTeamMembers,
+  useRepoLabels,
   useTeamStates,
   useTeamsStates
 } from './useIssueMetadata'
@@ -17,14 +16,17 @@ const linearMocks = vi.hoisted(() => ({
   linearTeamMembers: vi.fn()
 }))
 
-vi.mock('@/runtime/runtime-linear-client', () => ({
+const runtimeMocks = vi.hoisted(() => ({ callRuntimeRpc: vi.fn() }))
+const githubMocks = vi.hoisted(() => ({ listLabels: vi.fn() }))
+
+vi.mock('@/runtime/runtime-linear-project-client', () => ({
   linearTeamStates: linearMocks.linearTeamStates,
   linearTeamLabels: linearMocks.linearTeamLabels,
   linearTeamMembers: linearMocks.linearTeamMembers
 }))
 
 vi.mock('@/runtime/runtime-rpc-client', () => ({
-  callRuntimeRpc: vi.fn(),
+  callRuntimeRpc: runtimeMocks.callRuntimeRpc,
   getActiveRuntimeTarget: (settings?: { activeRuntimeEnvironmentId?: string | null } | null) =>
     settings?.activeRuntimeEnvironmentId
       ? { kind: 'environment', environmentId: settings.activeRuntimeEnvironmentId }
@@ -32,6 +34,13 @@ vi.mock('@/runtime/runtime-rpc-client', () => ({
 }))
 
 const roots: Root[] = []
+
+function installWindowApi(): void {
+  Object.defineProperty(window, 'api', {
+    configurable: true,
+    value: { gh: { listLabels: githubMocks.listLabels } }
+  })
+}
 
 async function flushEffects(): Promise<void> {
   await act(async () => {
@@ -50,12 +59,15 @@ function renderProbe(element: React.ReactNode): void {
   })
 }
 
-describe('useIssueMetadata Linear hooks', () => {
+describe('useIssueMetadata hooks', () => {
   beforeEach(() => {
     clearLinearMetadataCache()
     linearMocks.linearTeamStates.mockReset()
     linearMocks.linearTeamLabels.mockReset()
     linearMocks.linearTeamMembers.mockReset()
+    runtimeMocks.callRuntimeRpc.mockReset()
+    githubMocks.listLabels.mockReset()
+    installWindowApi()
   })
 
   afterEach(() => {
@@ -63,6 +75,51 @@ describe('useIssueMetadata Linear hooks', () => {
       act(() => root.unmount())
     })
     document.body.replaceChildren()
+  })
+
+  it('routes repo-id-only folder metadata through local IPC', async () => {
+    let labels: string[] = []
+    githubMocks.listLabels.mockResolvedValue(['folder'])
+
+    function LabelsProbe(): null {
+      labels = useRepoLabels(null, 'folder-repo-id').data
+      return null
+    }
+
+    renderProbe(<LabelsProbe />)
+    await flushEffects()
+
+    expect(labels).toEqual(['folder'])
+    expect(githubMocks.listLabels).toHaveBeenCalledExactlyOnceWith({
+      repoPath: '',
+      repoId: 'folder-repo-id'
+    })
+    expect(runtimeMocks.callRuntimeRpc).not.toHaveBeenCalled()
+  })
+
+  it('prefers an explicit remote environment and repo id', async () => {
+    let labels: string[] = []
+    runtimeMocks.callRuntimeRpc.mockResolvedValue(['remote'])
+
+    function LabelsProbe(): null {
+      labels = useRepoLabels('/local/repo', 'remote-repo-id', {
+        runtimeEnvironmentId: ' env-explicit ',
+        activeRuntimeEnvironmentId: 'env-active'
+      }).data
+      return null
+    }
+
+    renderProbe(<LabelsProbe />)
+    await flushEffects()
+
+    expect(labels).toEqual(['remote'])
+    expect(runtimeMocks.callRuntimeRpc).toHaveBeenCalledExactlyOnceWith(
+      { kind: 'environment', environmentId: 'env-explicit' },
+      'github.listLabels',
+      { repo: 'remote-repo-id' },
+      { timeoutMs: 15_000 }
+    )
+    expect(githubMocks.listLabels).not.toHaveBeenCalled()
   })
 
   it('does not loop when cached team-state metadata is read with a fresh settings object', async () => {
@@ -105,50 +162,6 @@ describe('useIssueMetadata Linear hooks', () => {
 
     expect(error).toBe('Could not connect')
     expect(linearMocks.linearTeamStates).toHaveBeenCalledTimes(1)
-    expect(renders).toBeLessThanOrEqual(4)
-  })
-
-  it('does not re-issue a failed team-label fetch when a fresh settings object re-renders', async () => {
-    let renders = 0
-    let error: string | null = null
-    linearMocks.linearTeamLabels.mockRejectedValue(new Error('Could not connect'))
-
-    function LabelsProbe(): null {
-      renders += 1
-      const metadata = useTeamLabels('team-1', { activeRuntimeEnvironmentId: null }, 'ws-1')
-      error = metadata.error
-      return null
-    }
-
-    renderProbe(<LabelsProbe />)
-    await flushEffects()
-    await flushEffects()
-    await flushEffects()
-
-    expect(error).toBe('Could not connect')
-    expect(linearMocks.linearTeamLabels).toHaveBeenCalledTimes(1)
-    expect(renders).toBeLessThanOrEqual(4)
-  })
-
-  it('does not re-issue a failed team-member fetch when a fresh settings object re-renders', async () => {
-    let renders = 0
-    let error: string | null = null
-    linearMocks.linearTeamMembers.mockRejectedValue(new Error('Could not connect'))
-
-    function MembersProbe(): null {
-      renders += 1
-      const metadata = useTeamMembers('team-1', { activeRuntimeEnvironmentId: null }, 'ws-1')
-      error = metadata.error
-      return null
-    }
-
-    renderProbe(<MembersProbe />)
-    await flushEffects()
-    await flushEffects()
-    await flushEffects()
-
-    expect(error).toBe('Could not connect')
-    expect(linearMocks.linearTeamMembers).toHaveBeenCalledTimes(1)
     expect(renders).toBeLessThanOrEqual(4)
   })
 

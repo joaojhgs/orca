@@ -12,7 +12,13 @@ import {
   REMOTE_ARTIFACT_INPUT_ENV
 } from '../../shared/artifact-cli-bridge'
 import { readArtifactFileWithinLimit } from '../../shared/artifact-file-read'
+import {
+  ARTIFACT_SHARING_DISABLED_CODE,
+  ARTIFACT_SHARING_DISABLED_MESSAGE,
+  ARTIFACT_SHARING_DISABLED_NEXT_STEPS
+} from '../../shared/artifact-sharing-gate'
 import type { CommandHandler, HandlerContext } from '../dispatch'
+import { rejectRemoteSelectionFlags } from '../remote-selection-flag-rejection'
 import { RuntimeClientError } from '../runtime-client'
 import { formatArtifactListPage, formatArtifactShared } from '../artifact-format'
 import { printResult } from '../format'
@@ -39,15 +45,11 @@ function cloudOptions(ctx: HandlerContext): ArtifactCloudOptions {
   }
 }
 
-function rejectRemoteSelectionFlags(ctx: HandlerContext): void {
-  for (const flag of ['environment', 'pairing-code']) {
-    if (ctx.flags.has(flag)) {
-      throw new RuntimeClientError(
-        'invalid_argument',
-        `\`--${flag}\` does not retarget artifact commands; artifacts use the signed-in desktop account.`
-      )
-    }
-  }
+function rejectArtifactRemoteSelectionFlags(ctx: HandlerContext): void {
+  rejectRemoteSelectionFlags(
+    ctx.flags,
+    'artifact commands; artifacts use the signed-in desktop account.'
+  )
 }
 
 function artifactContentType(path: string): ArtifactWriteRequest['contentType'] | null {
@@ -76,6 +78,31 @@ async function readStdinWithinLimit(maxBytes: number): Promise<string> {
   return Buffer.concat(chunks).toString('utf8')
 }
 
+/**
+ * Publishing is off by default, so denial is the common outcome. A tiny `settings.get` read
+ * answers it before we load (or pipe in) up to the full RPC byte budget the host would reject.
+ * Only an explicit `false` denies: a host predating the capability omits the field entirely,
+ * and an unreachable host stays the publish RPC's problem, not the preflight's.
+ */
+async function preflightPublishCapability(ctx: HandlerContext): Promise<void> {
+  let enabled: unknown
+  try {
+    const response = await ctx.client.call<{
+      settings?: { artifactSharingEnabled?: boolean }
+    }>('settings.get')
+    enabled = response.result?.settings?.artifactSharingEnabled
+  } catch {
+    return
+  }
+  if (enabled === false) {
+    throw new RuntimeClientError(
+      ARTIFACT_SHARING_DISABLED_CODE,
+      ARTIFACT_SHARING_DISABLED_MESSAGE,
+      { nextSteps: [...ARTIFACT_SHARING_DISABLED_NEXT_STEPS] }
+    )
+  }
+}
+
 async function readArtifactRequest(ctx: HandlerContext): Promise<ArtifactWriteRequest> {
   const remoteInput = parseRemoteArtifactInput(process.env[REMOTE_ARTIFACT_INPUT_ENV])
   const sourceKey = remoteInput?.sourceKey ?? resolve(ctx.cwd, requireStringFlag(ctx, 'file'))
@@ -83,6 +110,7 @@ async function readArtifactRequest(ctx: HandlerContext): Promise<ArtifactWriteRe
   if (!contentType) {
     throw new RuntimeClientError('invalid_argument', 'Artifacts must be HTML or Markdown files.')
   }
+  await preflightPublishCapability(ctx)
   const localRead = remoteInput
     ? null
     : await readArtifactFileWithinLimit(sourceKey, ARTIFACT_CLI_MAX_RPC_BYTES)
@@ -134,7 +162,7 @@ function requireOperation<T>(operation: ArtifactCloudOperation<T>): T {
 
 export const ARTIFACT_HANDLERS: Record<string, CommandHandler> = {
   'artifacts list': async (ctx) => {
-    rejectRemoteSelectionFlags(ctx)
+    rejectArtifactRemoteSelectionFlags(ctx)
     const cursor = stringFlag(ctx, 'cursor')
     const response = await ctx.client.call<ArtifactCloudOperation<ArtifactListPage>>(
       'artifacts.list',
@@ -147,7 +175,7 @@ export const ARTIFACT_HANDLERS: Record<string, CommandHandler> = {
     printResult({ ...response, result: value }, ctx.json, formatArtifactListPage)
   },
   'artifacts share': async (ctx) => {
-    rejectRemoteSelectionFlags(ctx)
+    rejectArtifactRemoteSelectionFlags(ctx)
     const response = await ctx.client.call<ArtifactCloudOperation<ArtifactListItem>>(
       'artifacts.share',
       await readArtifactRequest(ctx)
@@ -156,7 +184,7 @@ export const ARTIFACT_HANDLERS: Record<string, CommandHandler> = {
     printResult({ ...response, result: value }, ctx.json, formatArtifactShared)
   },
   'artifacts update': async (ctx) => {
-    rejectRemoteSelectionFlags(ctx)
+    rejectArtifactRemoteSelectionFlags(ctx)
     const response = await ctx.client.call<ArtifactCloudOperation<ArtifactListItem>>(
       'artifacts.update',
       await readArtifactRequest(ctx)
@@ -165,7 +193,7 @@ export const ARTIFACT_HANDLERS: Record<string, CommandHandler> = {
     printResult({ ...response, result: value }, ctx.json, formatArtifactShared)
   },
   'artifacts unshare': async (ctx) => {
-    rejectRemoteSelectionFlags(ctx)
+    rejectArtifactRemoteSelectionFlags(ctx)
     const remoteInput = parseRemoteArtifactInput(process.env[REMOTE_ARTIFACT_INPUT_ENV])
     const sourceKey = remoteInput?.sourceKey ?? resolve(ctx.cwd, requireStringFlag(ctx, 'file'))
     const response = await ctx.client.call<ArtifactCloudOperation<void>>('artifacts.unshare', {
@@ -176,7 +204,7 @@ export const ARTIFACT_HANDLERS: Record<string, CommandHandler> = {
     printResult({ ...response, result: { deleted: true } }, ctx.json, () => 'Artifact deleted.')
   },
   'artifacts delete': async (ctx) => {
-    rejectRemoteSelectionFlags(ctx)
+    rejectArtifactRemoteSelectionFlags(ctx)
     const response = await ctx.client.call<ArtifactCloudOperation<void>>('artifacts.delete', {
       id: requireStringFlag(ctx, 'id'),
       ...cloudOptions(ctx)

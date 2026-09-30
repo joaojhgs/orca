@@ -1,14 +1,15 @@
-import { z } from 'zod'
-import { defineMethod, type RpcAnyMethod } from '../core'
+import {
+  MulticaListIssues,
+  MulticaListProjects
+} from '../../../../shared/rpc-contract/multica-params'
+import { defineMethod } from '../core'
 import {
   listMulticaIssues,
   listMulticaProjects,
   listMulticaWorkspaces
 } from '../../../multica/cli-client'
 
-const optionalId = z.string().trim().min(1).optional()
-
-export const MULTICA_METHODS: RpcAnyMethod[] = [
+export const MULTICA_METHODS = [
   defineMethod({
     name: 'multica.listWorkspaces',
     params: null,
@@ -16,19 +17,12 @@ export const MULTICA_METHODS: RpcAnyMethod[] = [
   }),
   defineMethod({
     name: 'multica.listProjects',
-    params: z.object({ workspaceId: optionalId }).optional(),
+    params: MulticaListProjects,
     handler: (params) => listMulticaProjects(params?.workspaceId)
   }),
   defineMethod({
     name: 'multica.listIssues',
-    params: z
-      .object({
-        workspaceId: optionalId,
-        projectId: optionalId,
-        status: optionalId,
-        limit: z.number().int().min(1).max(200).optional()
-      })
-      .optional(),
+    params: MulticaListIssues,
     handler: (params) => listMulticaIssues(params ?? {})
   })
 ]

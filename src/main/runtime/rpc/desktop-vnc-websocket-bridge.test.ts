@@ -8,7 +8,10 @@ import {
 import { once } from 'node:events'
 import { afterEach, describe, expect, it } from 'vitest'
 import { WebSocket } from 'ws'
-import { mintDesktopVncTicket, resetDesktopVncTicketsForTest } from '../../computer/desktop-vnc-tickets'
+import {
+  mintDesktopVncTicket,
+  resetDesktopVncTicketsForTest
+} from '../../computer/desktop-vnc-tickets'
 import { DesktopVncWebSocketBridge } from './desktop-vnc-websocket-bridge'
 
 describe('DesktopVncWebSocketBridge', () => {

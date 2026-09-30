@@ -1,10 +1,14 @@
 // @vitest-environment happy-dom
 
-import { render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { AiVaultSession } from '../../../../shared/ai-vault-types'
+import type { AiVaultSessionWorktreeInfo } from './ai-vault-session-worktree'
+import { searchHit } from '../../../../shared/ai-vault-search-test-fixture'
+import type { AiVaultSearchHit } from '../../../../shared/ai-vault-search-types'
+import type { AiVaultSubagentResumeActions } from './AiVaultSessionSubagents'
 import { VaultSessionRow } from './AiVaultSessionRow'
 
 const session = {
@@ -23,43 +27,92 @@ const session = {
   modifiedAt: 0,
   messageCount: 2,
   totalTokens: 0,
-  previewMessages: [],
+  previewMessages: [{ role: 'assistant', text: 'Ready when you are' }],
   queuedMessageCount: 0,
   subagentTranscriptCount: 0,
   resumeCommand: 'gemini --resume sess-1',
   subagent: null
 } as unknown as AiVaultSession
 
-function renderRow(handlers: { onToggleDetails: () => void; onRequestDelete?: () => void }) {
+const worktreeInfo: AiVaultSessionWorktreeInfo = {
+  status: 'active',
+  label: 'feature-branch',
+  path: '/home/a/worktrees/feature-branch'
+}
+
+beforeEach(() => {
+  // The expanded details panel reads these while rendering (first-prompt card)
+  // and on mount (subagent list), so the row cannot expand without them.
+  ;(window as unknown as { api: unknown }).api = {
+    aiVault: {
+      getFirstUserPrompt: vi.fn().mockResolvedValue({ prompt: null }),
+      listSubagentSessions: vi.fn().mockResolvedValue({ sessions: [] })
+    }
+  }
+})
+
+afterEach(() => {
+  // No `globals: true`, so Testing Library's auto-cleanup never runs and rows
+  // from earlier tests would stay in the document and duplicate every query.
+  cleanup()
+  vi.clearAllMocks()
+  delete (window as unknown as { api?: unknown }).api
+})
+
+function renderRow(
+  overrides: {
+    searchHit?: AiVaultSearchHit
+    session?: AiVaultSession
+    subagentResume?: AiVaultSubagentResumeActions
+    detailsExpanded?: boolean
+    worktreeInfo?: AiVaultSessionWorktreeInfo | null
+    onToggleDetails?: () => void
+    onJumpToOriginalPane?: () => void
+    onResume?: () => void
+    resumeHidden?: boolean
+    onRequestDelete?: () => void
+  } = {}
+) {
   return render(
     <TooltipProvider>
       <VaultSessionRow
-        session={session}
+        session={overrides.session ?? session}
+        searchHit={overrides.searchHit}
+        subagentResume={overrides.subagentResume}
         liveState={null}
         resumeStartup={{ command: 'gemini --resume sess-1' }}
         realHomeResumeStartup={{ command: 'gemini --resume sess-1' }}
-        worktreeInfo={null}
+        worktreeInfo={overrides.worktreeInfo ?? null}
         vaultScope="all"
-        detailsExpanded={false}
+        detailsExpanded={overrides.detailsExpanded ?? false}
         resumeDisabled={false}
-        onToggleDetails={handlers.onToggleDetails}
+        resumeHidden={overrides.resumeHidden}
+        onToggleDetails={overrides.onToggleDetails ?? vi.fn()}
+        onJumpToOriginalPane={overrides.onJumpToOriginalPane}
         showJumpToWorktree={false}
-        onResume={vi.fn()}
+        onResume={overrides.onResume ?? vi.fn()}
         resumeLabel="Resume in New Tab"
-        resumeActions={{} as never}
+        resumeActions={{
+          worktree: { worktreeId: null, disabled: true },
+          newTab: { worktreeId: null, disabled: true }
+        }}
         onResumeInWorktree={vi.fn()}
         onResumeInNewTab={vi.fn()}
         onCopyId={vi.fn()}
         onCopyPath={vi.fn()}
-        onRequestDelete={handlers.onRequestDelete ?? vi.fn()}
+        onRequestDelete={overrides.onRequestDelete ?? vi.fn()}
       />
     </TooltipProvider>
   )
 }
 
-afterEach(() => {
-  vi.clearAllMocks()
-})
+function expectAgentIdentity(): void {
+  const metadata = screen.getByTestId('ai-vault-session-metadata')
+  // AgentIcon is an <svg> for the hand-drawn agents and an <img> for the rest.
+  expect(metadata.querySelector('svg, img')).toBeTruthy()
+  expect(within(metadata).getByText('Gemini')).toBeTruthy()
+  expect(within(metadata).getByText('2 msgs')).toBeTruthy()
+}
 
 describe('VaultSessionRow details toggle', () => {
   it('does not expand the row when a menu action is chosen', async () => {
@@ -92,4 +145,105 @@ describe('VaultSessionRow details toggle', () => {
 
     expect(onToggleDetails).toHaveBeenCalledTimes(1)
   })
+})
+
+describe('VaultSessionRow native session actions', () => {
+  it('shows the jump action instead of Resume for an open structured session', async () => {
+    const onJumpToOriginalPane = vi.fn()
+    const onResume = vi.fn()
+    renderRow({ resumeHidden: true, onJumpToOriginalPane, onResume })
+
+    expect(screen.queryByTestId('ai-vault-session-resume')).toBeNull()
+    fireEvent.click(screen.getByTestId('ai-vault-session-jump-original-pane'))
+
+    expect(onJumpToOriginalPane).toHaveBeenCalledOnce()
+    expect(onResume).not.toHaveBeenCalled()
+
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('ai-vault-session-more-actions'))
+    expect(await screen.findByRole('menuitem', { name: 'Jump to Original Pane' })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: 'Resume in New Tab' })).toBeNull()
+  })
+
+  it('hides Delete for structured native sessions', async () => {
+    const nativeSession = {
+      ...session,
+      structuredSession: { sessionId: 'native-1', workspaceId: 'workspace-1' }
+    }
+
+    renderRow({ session: nativeSession })
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('ai-vault-session-more-actions'))
+
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).toBeNull()
+  })
+})
+
+describe('VaultSessionRow agent metadata line', () => {
+  it('shows the agent identity when the row is collapsed', () => {
+    renderRow()
+
+    expectAgentIdentity()
+    expect(screen.getByText(': Ready when you are')).toBeTruthy()
+  })
+
+  it('keeps the agent identity visible while the row is expanded', () => {
+    renderRow({ detailsExpanded: true })
+
+    expectAgentIdentity()
+    // The details panel replaces the one-line preview with the full turns.
+    expect(screen.getByText('Latest turns')).toBeTruthy()
+    expect(screen.queryByText(': Ready when you are')).toBeNull()
+  })
+
+  it('renders the worktree badge once when expanded', () => {
+    // The metadata grid already carries the worktree badge, so the row body must
+    // not add a second copy of its own above the details panel.
+    const { container } = renderRow({ detailsExpanded: true, worktreeInfo })
+
+    expect(container.querySelectorAll(`[title="${worktreeInfo.label}"]`)).toHaveLength(1)
+  })
+})
+
+it('keeps matching evidence visible in expanded search rows', () => {
+  const { container } = renderRow({ detailsExpanded: true, searchHit: searchHit() })
+  expect(container.querySelector('mark')?.textContent).toBe('needle')
+})
+
+it('threads child resume through expanded parent details without resuming the parent', async () => {
+  const child: AiVaultSession = {
+    ...session,
+    agent: 'omp',
+    sessionId: 'child',
+    filePath: '/tmp/parent/worker.jsonl',
+    title: 'OMP worker',
+    subagent: { parentSessionId: 'parent', agentType: 'worker', status: 'completed' }
+  }
+  vi.mocked(window.api.aiVault.listSubagentSessions).mockResolvedValue({
+    sessions: [child],
+    issues: []
+  })
+  const resume = {
+    getState: vi.fn(() => ({
+      blocked: false,
+      worktreeId: 'folder:target',
+      usesSessionWorktree: false
+    })),
+    onResume: vi.fn()
+  }
+  renderRow({
+    session: {
+      ...session,
+      agent: 'omp',
+      sessionId: 'parent',
+      messageCount: 0,
+      previewMessages: [],
+      subagentTranscriptCount: 1
+    },
+    detailsExpanded: true,
+    subagentResume: resume
+  })
+  await act(async () => {})
+  fireEvent.click(screen.getByTitle('Resume in New Tab'))
+  expect(resume.onResume).toHaveBeenCalledExactlyOnceWith(child, 'folder:target')
 })

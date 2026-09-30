@@ -1,21 +1,12 @@
-import { z } from 'zod'
-import { defineMethod, type RpcMethod } from '../core'
-import { BrowserTarget, requiredString } from '../schemas'
+import { defineMethod } from '../core'
+import { BrowserTarget } from '../schemas'
+import {
+  GrabSetMode,
+  GrabAwaitSelection,
+  GrabCaptureScreenshot
+} from '../../../../shared/rpc-contract/browser-grab-params'
 
-const GrabSetMode = BrowserTarget.extend({ enabled: z.boolean() })
-const GrabAwaitSelection = BrowserTarget.extend({
-  opId: requiredString('Missing required opId')
-})
-const GrabCaptureScreenshot = BrowserTarget.extend({
-  rect: z.object({
-    x: z.number().finite(),
-    y: z.number().finite(),
-    width: z.number().finite().nonnegative(),
-    height: z.number().finite().nonnegative()
-  })
-})
-
-export const BROWSER_GRAB_METHODS: RpcMethod[] = [
+export const BROWSER_GRAB_METHODS = [
   defineMethod({
     name: 'browser.grab.setMode',
     params: GrabSetMode,

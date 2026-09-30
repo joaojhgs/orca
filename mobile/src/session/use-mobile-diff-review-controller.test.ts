@@ -43,6 +43,9 @@ describe('useMobileDiffReviewController', () => {
     const controller = useMobileDiffReviewController({
       client,
       connState,
+      hostCapabilities: [],
+      hostStatusPending: false,
+      hostStatusReadable: true,
       hostId: 'host-1',
       worktreeId: 'wt-1',
       name: 'review',
@@ -63,7 +66,6 @@ describe('useMobileDiffReviewController', () => {
   }
 
   beforeEach(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true
     loadSnapshot.mockReset()
   })
 

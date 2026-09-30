@@ -1,6 +1,6 @@
 import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { NativeChatMessage } from '../../../src/shared/native-chat-types'
 import { MobileNativeChatOverlay } from './MobileNativeChatOverlay'
 import type { MobileNativeChatController } from './use-mobile-native-chat-controller'
@@ -11,20 +11,10 @@ vi.mock('react-native', () => ({
 }))
 
 vi.mock('./MobileNativeChatView', () => ({ MobileNativeChatView: 'ChatView' }))
+vi.mock('./MobileNativeChatQueuedMessages', () => ({ MobileNativeChatQueuedMessages: 'Queued' }))
 
 function assistantTurn(id: string, text: string): NativeChatMessage {
   return { id, role: 'assistant', blocks: [{ type: 'text', text }], timestamp: 0, source: 'hook' }
-}
-
-function suppressRendererWarning(): () => void {
-  const original = console.error
-  const spy = vi.spyOn(console, 'error').mockImplementation((...args) => {
-    if (typeof args[0] === 'string' && args[0].includes('react-test-renderer is deprecated')) {
-      return
-    }
-    original(...args)
-  })
-  return () => spy.mockRestore()
 }
 
 /** One render of the route: chat visible or not, the transcript it currently
@@ -38,6 +28,7 @@ type Tick = {
 }
 
 function overlayElement(tick: Tick): ReturnType<typeof createElement> {
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the overlay reads only these controller members; the rest of the controller is unreachable from it.
   const controller = {
     showNativeChat: tick.show ?? true,
     nativeChatSession: { messages: tick.messages ?? [], status: 'ready' },
@@ -49,7 +40,16 @@ function overlayElement(tick: Tick): ReturnType<typeof createElement> {
     chatPending: [],
     chatImagePreviewsByMessageId: {},
     chatComposerText: '',
-    setChatComposerText: vi.fn()
+    setChatComposerText: vi.fn(),
+    nativeChatQueued: {
+      cards: [],
+      send: vi.fn(),
+      delete: vi.fn(),
+      edit: vi.fn(),
+      pause: null,
+      resume: vi.fn(),
+      sessionKey: 'session-a'
+    }
   } as unknown as MobileNativeChatController
   return createElement(MobileNativeChatOverlay, {
     controller,
@@ -62,6 +62,8 @@ function overlayElement(tick: Tick): ReturnType<typeof createElement> {
     inputLockReason: null,
     sendErrorMessage: null,
     onClearSendError: vi.fn(),
+    sendSurfaceId: tick.identity ?? 'tab-a',
+    getSendCompletionGeneration: () => 0,
     keyboardInset: 0
   })
 }
@@ -69,24 +71,15 @@ function overlayElement(tick: Tick): ReturnType<typeof createElement> {
 describe('MobileNativeChatOverlay streaming gate', () => {
   let renderer: ReactTestRenderer | null = null
 
-  beforeEach(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true
-  })
-
   afterEach(() => {
     act(() => renderer?.unmount())
     renderer = null
   })
 
   async function render(tick: Tick): Promise<void> {
-    const restore = suppressRendererWarning()
-    try {
-      await act(async () => {
-        renderer = create(overlayElement(tick))
-      })
-    } finally {
-      restore()
-    }
+    await act(async () => {
+      renderer = create(overlayElement(tick))
+    })
   }
 
   async function update(tick: Tick): Promise<void> {

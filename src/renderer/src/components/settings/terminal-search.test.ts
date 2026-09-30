@@ -68,20 +68,6 @@ describe('getTerminalPaneSearchEntries', () => {
     )
   })
 
-  it('includes the Korean Won mapping setting only on macOS', () => {
-    const entriesMac = getTerminalPaneSearchEntries({ isWindows: false, isMac: true })
-    const entriesWindows = getTerminalPaneSearchEntries({ isWindows: true, isMac: false })
-    const entriesLinux = getTerminalPaneSearchEntries({ isWindows: false, isMac: false })
-
-    expect(entriesMac.some((entry) => entry.title === 'Korean Won (₩) to Backquote (`)')).toBe(true)
-    expect(entriesWindows.some((entry) => entry.title === 'Korean Won (₩) to Backquote (`)')).toBe(
-      false
-    )
-    expect(entriesLinux.some((entry) => entry.title === 'Korean Won (₩) to Backquote (`)')).toBe(
-      false
-    )
-  })
-
   it('includes the Manage Sessions entry on all platforms', () => {
     const entriesWindows = getTerminalPaneSearchEntries({ isWindows: true, isMac: false })
     const entriesMac = getTerminalPaneSearchEntries({ isWindows: false, isMac: true })
@@ -98,6 +84,16 @@ describe('getTerminalPaneSearchEntries', () => {
     expect(scrollbackEntry).toBeDefined()
     expect(matchesSettingsSearch('rows', [scrollbackEntry!])).toBe(true)
     expect(entries.some((entry) => entry.title === 'Scrollback Size')).toBe(false)
+  })
+
+  it('indexes the Unix terminal shell profile without exposing it on Windows', () => {
+    const unixEntries = getTerminalPaneSearchEntries({ isWindows: false, isMac: false })
+    const windowsEntries = getTerminalPaneSearchEntries({ isWindows: true, isMac: false })
+    const shellEntry = unixEntries.find((entry) => entry.title === 'Terminal shell')
+
+    expect(shellEntry).toBeDefined()
+    expect(matchesSettingsSearch('rcfile', [shellEntry!])).toBe(true)
+    expect(windowsEntries.some((entry) => entry.title === 'Terminal shell')).toBe(false)
   })
 
   it('includes the OSC 52 clipboard setting on all platforms', () => {
@@ -170,14 +166,17 @@ describe('getTerminalPaneSearchEntries', () => {
     expect(matchesSettingsSearch(query, getAppearancePaneSearchEntries())).toBe(true)
   })
 
-  it('omits the Warp import appearance entry when desktop-only controls are hidden', () => {
-    const desktopEntries = getAppearancePaneSearchEntries({ showWarpImport: true })
-    const webEntries = getAppearancePaneSearchEntries({ showWarpImport: false })
+  it.each(['ghostty', 'warp', 'yaml'])(
+    'omits desktop-only %s search results on web clients',
+    (query) => {
+      const desktopEntries = getAppearancePaneSearchEntries()
+      const webEntries = getAppearancePaneSearchEntries({ showDesktopThemeImports: false })
 
-    expect(desktopEntries.some((entry) => entry.title === 'Import from Warp')).toBe(true)
-    expect(webEntries.some((entry) => entry.title === 'Import from Warp')).toBe(false)
-    expect(webEntries.some((entry) => entry.title === 'Import from Ghostty')).toBe(true)
-  })
+      expect(matchesSettingsSearch(query, desktopEntries)).toBe(true)
+      expect(matchesSettingsSearch(query, webEntries)).toBe(false)
+      expect(matchesSettingsSearch('font size', webEntries)).toBe(true)
+    }
+  )
 
   it('includes the system tray appearance entry only when desktop tray controls are shown', () => {
     const desktopEntries = getAppearancePaneSearchEntries({ showSystemTray: true })

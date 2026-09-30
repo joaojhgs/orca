@@ -1,4 +1,8 @@
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
+import {
+  spawnProcess,
+  runProcessSync,
+  type ChildProcessHandle
+} from '../../shared/child-process/run-process'
 import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { app } from 'electron'
 
@@ -7,11 +11,13 @@ const SESSION_BUS_SOCKET = `${RUNTIME_ROOT}/session-bus`
 const ACCESSIBILITY_CONFIG = `${RUNTIME_ROOT}/accessibility.conf`
 const STARTUP_TIMEOUT_MS = 5_000
 
-let sessionBusProcess: ChildProcess | null = null
-let accessibilityBusProcess: ChildProcess | null = null
+let sessionBusProcess: ChildProcessHandle | null = null
+let accessibilityBusProcess: ChildProcessHandle | null = null
 
 function commandExists(command: string): boolean {
-  return spawnSync('which', [command], { stdio: 'ignore' }).status === 0
+  return (
+    runProcessSync({ program: 'which', args: [command], timeoutMs: STARTUP_TIMEOUT_MS }).code === 0
+  )
 }
 
 function waitForPath(path: string): boolean {
@@ -52,11 +58,12 @@ export function ensureLinuxHeadlessAccessibility(options: { isServeMode: boolean
   rmSync(accessibilitySocket, { force: true })
 
   const sessionBusAddress = `unix:path=${SESSION_BUS_SOCKET}`
-  sessionBusProcess = spawn(
-    'dbus-daemon',
-    ['--session', '--nofork', `--address=${sessionBusAddress}`],
-    { stdio: 'ignore' }
-  )
+  sessionBusProcess = spawnProcess({
+    program: 'dbus-daemon',
+    args: ['--session', '--nofork', `--address=${sessionBusAddress}`],
+    stdio: 'ignore'
+  })
+  sessionBusProcess.on('error', (error) => console.warn('[serve] Private D-Bus failed:', error))
   if (!waitForPath(SESSION_BUS_SOCKET)) {
     console.warn('[serve] Private D-Bus session did not become ready; Computer Use is unavailable.')
     stopLinuxHeadlessAccessibility()
@@ -83,12 +90,13 @@ export function ensureLinuxHeadlessAccessibility(options: { isServeMode: boolean
     { mode: 0o600 }
   )
   process.env.AT_SPI_BUS_ADDRESS = `unix:path=${accessibilitySocket}`
-  accessibilityBusProcess = spawn(
-    'dbus-daemon',
-    ['--nofork', `--config-file=${ACCESSIBILITY_CONFIG}`],
-    {
-      stdio: 'ignore'
-    }
+  accessibilityBusProcess = spawnProcess({
+    program: 'dbus-daemon',
+    args: ['--nofork', `--config-file=${ACCESSIBILITY_CONFIG}`],
+    stdio: 'ignore'
+  })
+  accessibilityBusProcess.on('error', (error) =>
+    console.warn('[serve] AT-SPI D-Bus failed:', error)
   )
   if (!waitForPath(accessibilitySocket)) {
     console.warn('[serve] AT-SPI bus did not become ready; Computer Use is unavailable.')

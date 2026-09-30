@@ -33,20 +33,12 @@ vi.mock('../wsl-unc-delete', () => ({
   WslDeleteValidationError: WslDeleteValidationErrorMock
 }))
 
-import { deleteAiVaultSessionFile as deleteAiVaultSessionFileWithLiveness } from './session-delete'
+import { deleteAiVaultSessionFile } from './session-delete'
 
 const HOME = join('/tmp', 'orca-ai-vault-delete-exec-fixture-home')
 const GEMINI_ROOT = join(HOME, '.gemini', 'tmp')
 const CLAUDE_ROOT = join(HOME, '.claude', 'projects')
 const ROVO_ROOT = join(HOME, '.rovodev', 'sessions')
-
-function deleteAiVaultSessionFile(
-  args: Parameters<typeof deleteAiVaultSessionFileWithLiveness>[0]
-) {
-  return deleteAiVaultSessionFileWithLiveness(args, {
-    getSessionLiveness: async () => 'not-live'
-  })
-}
 
 function enoent(): NodeJS.ErrnoException {
   const error = new Error('not found') as NodeJS.ErrnoException
@@ -83,20 +75,6 @@ describe('deleteAiVaultSessionFile', () => {
   })
 
   it('rejects a directory instead of trashing it', async () => {
-    const filePath = join(GEMINI_ROOT, 'project-a', 'session-1.json')
-    lstatMock.mockResolvedValue({ isFile: () => false })
-
-    const result = await deleteAiVaultSessionFile(baseArgs(filePath))
-
-    expect(result).toEqual({
-      outcome: 'rejected',
-      agent: 'gemini',
-      reason: 'unexpected-target-kind'
-    })
-    expect(trashItemMock).not.toHaveBeenCalled()
-  })
-
-  it('rejects a symlink instead of trashing it (isFile() is false for a symlink under lstat)', async () => {
     const filePath = join(GEMINI_ROOT, 'project-a', 'session-1.json')
     lstatMock.mockResolvedValue({ isFile: () => false })
 

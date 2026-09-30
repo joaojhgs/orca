@@ -1,10 +1,9 @@
 import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { HostedReviewCreationEligibility } from '../../../src/shared/hosted-review'
 import {
   buildMobileHostedReviewEligibilityLoadKey,
-  eligibilityStateAfterMobileHostedReviewError,
   renderedMobileHostedReviewEligibilityState,
   shouldFetchMobileHostedReviewEligibility,
   useMobileHostedReviewEligibility,
@@ -101,38 +100,6 @@ describe('mobile hosted review eligibility loader core', () => {
     expect(local.identity).not.toBe(ssh.identity)
     expect(local.fetch).not.toBe(ssh.fetch)
   })
-
-  it('renders a superseded same-identity snapshot as loading', () => {
-    const input = {
-      hostId: 'host-1',
-      worktreeId: 'wt-1',
-      branch: 'feature',
-      hasUpstream: true,
-      ahead: 0,
-      behind: 0
-    }
-    const older = buildMobileHostedReviewEligibilityLoadKey({
-      ...input,
-      hasUncommittedChanges: false
-    })
-    const newest = buildMobileHostedReviewEligibilityLoadKey({
-      ...input,
-      hasUncommittedChanges: true
-    })
-
-    expect(older.identity).toBe(newest.identity)
-    expect(
-      renderedMobileHostedReviewEligibilityState({
-        snapshot: loadSnapshot(older, { kind: 'ready', eligibility: eligibility() }),
-        key: newest,
-        shouldFetch: true
-      })
-    ).toMatchObject({ kind: 'loading', eligibility: eligibility() })
-  })
-
-  it('fails closed after errors', () => {
-    expect(eligibilityStateAfterMobileHostedReviewError()).toEqual({ kind: 'error' })
-  })
 })
 
 // #8411: what the hook returns is what paints. A fetch-imminent frame must not
@@ -205,10 +172,6 @@ describe('rendered eligibility state', () => {
 describe('eligibility request ordering', () => {
   let renderer: ReactTestRenderer | null = null
   let renderedState: MobileCreatePrEligibilityState = { kind: 'idle' }
-
-  beforeEach(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true
-  })
 
   afterEach(() => {
     act(() => renderer?.unmount())

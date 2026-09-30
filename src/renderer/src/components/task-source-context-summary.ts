@@ -3,7 +3,7 @@ import { getExecutionHostLabel } from '../../../shared/execution-host'
 import type { ExecutionHostScope } from '../../../shared/execution-host'
 import type { ExecutionHostHealth } from '../../../shared/execution-host-registry'
 import type { SshConnectionStatus } from '../../../shared/ssh-types'
-import type { TaskProvider } from '../../../shared/types'
+import type { TaskProvider } from '../../../shared/task-providers'
 import type { TaskSourceContext } from '../../../shared/task-source-context'
 import { getTaskSourceProviderIdentityLabel } from './task-source-provider-identity-label'
 

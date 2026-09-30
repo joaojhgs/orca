@@ -4,6 +4,8 @@ import {
 } from '../../../../shared/agent-status-types'
 import {
   AGENT_INTERRUPT_SETTLE_MS,
+  isNavigationEscapeIntent,
+  requiresDoubleEscapeInterrupt,
   type AgentInterruptInferenceRequest,
   type AgentInterruptInputIntent
 } from '../../../../shared/agent-interrupt-intent'
@@ -15,7 +17,7 @@ export type AgentInterruptInference = {
     intent: AgentInterruptInputIntent,
     entry?: AgentStatusEntry | null,
     baselineSequence?: number
-  ): void
+  ): boolean | Promise<boolean> | undefined
   flushPending(): boolean | Promise<boolean>
   dispose(): void
 }
@@ -38,19 +40,13 @@ type CapturedInterruptBaseline = {
   inputCount?: number
 }
 
-function requiresDoubleEscapeForAgent(
-  agentType: AgentStatusEntry['agentType'],
-  intent: AgentInterruptInputIntent
-): boolean {
-  return (agentType === 'opencode' || agentType === 'copilot') && intent === 'plain-escape'
-}
-
 function shouldFlushInterruptImmediately(
   baseline: Pick<CapturedInterruptBaseline, 'agentType' | 'intent'>
 ): boolean {
   return (
-    requiresDoubleEscapeForAgent(baseline.agentType, baseline.intent) ||
-    baseline.agentType === 'gemini'
+    requiresDoubleEscapeInterrupt(baseline.agentType, baseline.intent) ||
+    baseline.agentType === 'gemini' ||
+    (baseline.agentType === 'codex' && baseline.intent === 'plain-escape')
   )
 }
 
@@ -59,6 +55,16 @@ function shouldIgnoreInterruptIntent(
   intent: AgentInterruptInputIntent
 ): boolean {
   return agentType === 'droid' && intent === 'ctrl-c'
+}
+
+/** Why: skip a round-trip main will refuse anyway. Scoped to 'working' so Claude's
+ *  AskUserQuestion dismissal — a 'waiting' row — still reaches inferQuestionAnswered. */
+function isIgnorableNavigationEscape(
+  agentType: AgentStatusEntry['agentType'],
+  intent: AgentInterruptInputIntent,
+  state: AgentStatusEntry['state']
+): boolean {
+  return state === 'working' && isNavigationEscapeIntent(agentType, intent)
 }
 
 function canInferInterrupt(entry: AgentStatusEntry, intent: AgentInterruptInputIntent): boolean {
@@ -237,7 +243,12 @@ export function createAgentInterruptInference({
         clearPending()
         return
       }
-      if (requiresDoubleEscapeForAgent(baseline.agentType, intent)) {
+      // Why: this keypress proves nothing, but it must not revoke a Ctrl+C already waiting to
+      // settle — the user really did ask to interrupt, and Escape does not take that back.
+      if (isIgnorableNavigationEscape(baseline.agentType, intent, entry.state)) {
+        return
+      }
+      if (requiresDoubleEscapeInterrupt(baseline.agentType, intent)) {
         const isSecondEscape =
           doubleEscapeBaseline !== null && isSameTurnBaseline(doubleEscapeBaseline, baseline)
         doubleEscapeBaseline = baseline
@@ -261,12 +272,12 @@ export function createAgentInterruptInference({
       }
       pendingBaseline = baseline
       if (shouldFlushInterruptImmediately(baseline)) {
-        // Why: these agents can emit their idle/done hook immediately after an
-        // accepted interrupt. Flush before that hook overwrites the working baseline.
-        void flushPending()
-        return
+        // Why: these interrupts can emit an idle/done hook before the settle timer,
+        // overwriting the working baseline and losing the interrupted outcome.
+        return flushPending()
       }
       pendingTimer = setTimer(flushPendingFromTimer, AGENT_INTERRUPT_SETTLE_MS)
+      return undefined
     },
     flushPending,
     dispose() {

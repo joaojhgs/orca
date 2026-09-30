@@ -1,5 +1,4 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
+import { runProcess } from '../../shared/child-process/run-process'
 import { z } from 'zod'
 import type {
   MulticaIssue,
@@ -8,7 +7,6 @@ import type {
   MulticaWorkspace
 } from '../../shared/multica-types'
 
-const execFileAsync = promisify(execFile)
 const stringOrNull = z.string().nullable().optional()
 
 const workspaceSchema = z.object({
@@ -124,10 +122,14 @@ function workspaceArgs(workspaceId?: string): string[] {
 
 async function runMultica(args: string[]): Promise<unknown> {
   const command = process.env.ORCA_MULTICA_COMMAND?.trim() || 'multica'
-  const { stdout } = await execFileAsync(command, args, {
-    timeout: 30_000,
-    maxBuffer: 16 * 1024 * 1024,
-    encoding: 'utf8'
+  const result = await runProcess({
+    program: command,
+    args,
+    timeoutMs: 30_000,
+    maxOutputBytes: 16 * 1024 * 1024
   })
-  return JSON.parse(stdout)
+  if (result.code !== 0 || result.outputTruncated) {
+    throw new Error(result.timedOut ? 'Multica command timed out' : 'Multica command failed')
+  }
+  return JSON.parse(result.stdout)
 }

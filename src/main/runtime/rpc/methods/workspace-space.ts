@@ -1,6 +1,6 @@
-import { defineMethod, type RpcMethod } from '../core'
+import { defineMethod } from '../core'
 
-export const WORKSPACE_SPACE_METHODS: RpcMethod[] = [
+export const WORKSPACE_SPACE_METHODS = [
   defineMethod({
     name: 'workspaceSpace.analyze',
     params: null,

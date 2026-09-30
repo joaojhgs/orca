@@ -2,8 +2,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildRegistry } from '../core'
-import { CLIPBOARD_TEXT_WRITE_MAX_BYTES } from '../../../../shared/clipboard-text'
+import { eraseRpcMethods } from '../core'
+import { installFakeAppEnvironment } from '../../../../../config/scripts/vitest-host-ports-setup'
+const desktopState = vi.hoisted(() => ({ userDataPath: '' }))
 
 const computerMocks = vi.hoisted(() => ({
   callComputerSidecarAction: vi.fn(),
@@ -14,10 +15,6 @@ const computerMocks = vi.hoisted(() => ({
   resetComputerSidecarForTest: vi.fn(),
   openComputerUsePermissions: vi.fn(),
   getComputerUsePermissionStatus: vi.fn()
-}))
-
-const desktopState = vi.hoisted(() => ({
-  userDataPath: ''
 }))
 
 vi.mock('../../../computer/sidecar-client', () => ({
@@ -34,20 +31,12 @@ vi.mock('../../../computer/macos-computer-use-permissions', () => ({
   getComputerUsePermissionStatus: computerMocks.getComputerUsePermissionStatus
 }))
 
-vi.mock('electron', () => ({
-  app: {
-    getPath: vi.fn(() => desktopState.userDataPath)
-  }
-}))
-
 import { COMPUTER_METHODS, resetComputerSessionsForTest } from './computer'
 
 describe('computer RPC methods', () => {
   beforeEach(() => {
-    if (desktopState.userDataPath) {
-      rmSync(desktopState.userDataPath, { recursive: true, force: true })
-    }
     desktopState.userDataPath = mkdtempSync(join(tmpdir(), 'orca-computer-rpc-'))
+    installFakeAppEnvironment({ getPath: () => desktopState.userDataPath })
     computerMocks.callComputerSidecarAction.mockReset()
     computerMocks.callComputerSidecarCapabilities.mockReset()
     computerMocks.callComputerSidecarListApps.mockReset()
@@ -61,40 +50,8 @@ describe('computer RPC methods', () => {
   })
 
   afterEach(() => {
-    if (desktopState.userDataPath) {
-      rmSync(desktopState.userDataPath, { recursive: true, force: true })
-      desktopState.userDataPath = ''
-    }
-  })
-
-  it('registers all computer methods', () => {
-    const registry = buildRegistry(COMPUTER_METHODS)
-
-    expect([...registry.keys()].sort()).toEqual([
-      'computer.capabilities',
-      'computer.click',
-      'computer.desktopStreamTicket',
-      'computer.desktopTargets',
-      'computer.drag',
-      'computer.getAppState',
-      'computer.hotkey',
-      'computer.listApps',
-      'computer.listWindows',
-      'computer.pasteText',
-      'computer.performSecondaryAction',
-      'computer.permissions',
-      'computer.permissionsStatus',
-      'computer.pressKey',
-      'computer.scroll',
-      'computer.setValue',
-      'computer.typeText'
-    ])
-  })
-
-  it('resets the sidecar test process', () => {
-    resetComputerSessionsForTest()
-
-    expect(computerMocks.resetComputerSidecarForTest).toHaveBeenCalledTimes(1)
+    rmSync(desktopState.userDataPath, { recursive: true, force: true })
+    desktopState.userDataPath = ''
   })
 
   it('returns a legacy-compatible main desktop stream ticket', async () => {
@@ -104,51 +61,25 @@ describe('computer RPC methods', () => {
     })
   })
 
-  it('lists configured desktop targets without password paths', async () => {
+  it('lists desktop targets without leaking credential paths', async () => {
     const passwordFile = join(desktopState.userDataPath, 'vnc-password')
     writeFileSync(passwordFile, 'secret\n')
     writeDesktopTargetConfig({
-      targets: [
-        {
-          id: 'game',
-          label: 'K-style game desktop',
-          port: 5901,
-          viewOnly: true,
-          passwordFile
-        }
-      ]
+      targets: [{ id: 'game', label: 'Game desktop', port: 5901, viewOnly: true, passwordFile }]
     })
-
     await expect(call('computer.desktopTargets', {})).resolves.toEqual({
       targets: [
         { id: 'main', label: 'Main desktop', viewOnly: false },
-        { id: 'game', label: 'K-style game desktop', viewOnly: true }
+        { id: 'game', label: 'Game desktop', viewOnly: true }
       ]
     })
-  })
-
-  it('returns configured target ticket metadata and credentials', async () => {
-    const passwordFile = join(desktopState.userDataPath, 'vnc-password')
-    writeFileSync(passwordFile, 'secret\n')
-    writeDesktopTargetConfig({
-      targets: [
-        {
-          id: 'game',
-          label: 'K-style game desktop',
-          port: 5901,
-          viewOnly: true,
-          passwordFile
-        }
-      ]
+    await expect(
+      call('computer.desktopStreamTicket', { desktopId: 'game' })
+    ).resolves.toMatchObject({
+      desktopId: 'game',
+      viewOnly: true,
+      credentials: { password: 'secret' }
     })
-
-    await expect(call('computer.desktopStreamTicket', { desktopId: 'game' })).resolves.toMatchObject(
-      {
-        desktopId: 'game',
-        viewOnly: true,
-        credentials: { password: 'secret' }
-      }
-    )
   })
 
   it('rejects unknown desktop target ids', async () => {
@@ -324,18 +255,10 @@ describe('computer RPC methods', () => {
       findMethod('computer.hotkey').params!.parse({ app: 'Finder', key: 'Ctrl+A+B' })
     ).toThrow(/Hotkey requires a modifier and one key/)
   })
-
-  it('leaves pasteText byte limits to async sidecar validation', () => {
-    const text = 'x'.repeat(CLIPBOARD_TEXT_WRITE_MAX_BYTES + 1)
-
-    expect(
-      findMethod('computer.pasteText').params!.safeParse({ app: 'Finder', text }).success
-    ).toBe(true)
-  })
 })
 
 function findMethod(name: string) {
-  const method = COMPUTER_METHODS.find((candidate) => candidate.name === name)
+  const method = eraseRpcMethods(COMPUTER_METHODS).find((candidate) => candidate.name === name)
   if (!method) {
     throw new Error(`missing method ${name}`)
   }

@@ -1,11 +1,15 @@
 import React, { createContext, useContext, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '@/store'
+import { AgentStateDot } from '@/components/AgentStateDot'
+import { StateIndicatorTooltip } from '@/components/StateIndicatorTooltip'
 import StatusIndicator from '@/components/sidebar/StatusIndicator'
+import { FilledBellIcon } from '@/components/sidebar/WorktreeCardHelpers'
 import {
   buildExplicitEntriesByTabId,
   type TabPaneInputSources
 } from '@/components/sidebar/smart-attention'
+import { isExplicitAgentStatusFresh } from '@/lib/agent-status'
 import { getLiveAgentStatusByWorktreeId } from '@/lib/worktree-activity-state'
 import {
   getWorktreeStatus,
@@ -16,17 +20,36 @@ import {
   resolveRecentWorkspaceTabStatus,
   type RecentWorkspaceTabRow
 } from '@/lib/recent-workspace-tab-rows'
+import {
+  resolveTerminalTabAttentionBadge,
+  terminalTabHasUnreadActivity,
+  type TerminalTabAttentionBadge
+} from '@/components/tab-bar/terminal-tab-activity-status'
+import { translate } from '@/i18n/i18n'
 import type { LiveAgentWorktreeStatus } from '@/lib/worktree-activity-state'
-import type { BrowserWorkspace, TerminalTab, Worktree } from '../../../../shared/types'
+import {
+  AGENT_STATUS_STALE_AFTER_MS,
+  type AgentStatusEntry
+} from '../../../../shared/agent-status-types'
+import { parsePaneKey } from '../../../../shared/stable-pane-id'
+import type { BrowserWorkspace } from '../../../../shared/browser-workspace-types'
+import type { TerminalTab } from '../../../../shared/terminal-tab-types'
+import type { Worktree } from '../../../../shared/worktree/types'
+import { useNow } from '@/hooks/use-now'
 
 /** Confines the app's hottest status subscriptions here so only the dots re-render on their churn. */
 type PaletteLiveStatus = {
   liveAgentStatusByWorktreeId: ReadonlyMap<string, LiveAgentWorktreeStatus>
+  agentStatusPaneIdsByTabId: Record<string, ReadonlySet<string>>
+  stalePaneIdsByTabId: Record<string, ReadonlySet<string>>
   paneSources: TabPaneInputSources
   tabsByWorktree: Record<string, TerminalTab[]>
   browserTabsByWorktree: Record<string, BrowserWorkspace[]>
+  unreadTerminalTabs: Record<string, true>
+  unreadAgentCompletionPanes: Record<string, true>
   /** Bumped with the maps so consumers re-resolve `now`-sensitive freshness on the same tick. */
   statusEpoch: number
+  now: number
 }
 
 const PaletteLiveStatusContext = createContext<PaletteLiveStatus | null>(null)
@@ -39,6 +62,7 @@ export function PaletteLiveStatusProvider({
   active: boolean
   children: React.ReactNode
 }): React.JSX.Element {
+  const now = useNow(30_000, active)
   const {
     agentStatusByPaneKey,
     runtimePaneTitlesByTabId,
@@ -46,7 +70,9 @@ export function PaletteLiveStatusProvider({
     terminalLayoutsByTabId,
     tabsByWorktree,
     browserTabsByWorktree,
-    migrationUnsupportedByPtyId
+    migrationUnsupportedByPtyId,
+    unreadTerminalTabs,
+    unreadAgentCompletionPanes
   } = useAppStore(
     useShallow((s) =>
       active
@@ -57,7 +83,9 @@ export function PaletteLiveStatusProvider({
             terminalLayoutsByTabId: s.terminalLayoutsByTabId,
             tabsByWorktree: s.tabsByWorktree,
             browserTabsByWorktree: s.browserTabsByWorktree,
-            migrationUnsupportedByPtyId: s.migrationUnsupportedByPtyId
+            migrationUnsupportedByPtyId: s.migrationUnsupportedByPtyId,
+            unreadTerminalTabs: s.unreadTerminalTabs,
+            unreadAgentCompletionPanes: s.unreadAgentCompletionPanes
           }
         : EMPTY_LIVE_INPUTS
     )
@@ -67,25 +95,31 @@ export function PaletteLiveStatusProvider({
   const value = useMemo<PaletteLiveStatus>(() => {
     // Why: `now` decides freshness, so both derivations must read it on the same tick — otherwise a
     // "done" dot can outlive its window while the worktree row beside it has already decayed.
-    const now = Date.now()
+    const entriesByTabId = buildExplicitEntriesByTabId(
+      agentStatusByPaneKey,
+      migrationUnsupportedByPtyId
+    )
+    const livePaneIds = buildLiveAgentStatusPaneIdsByTabId(entriesByTabId, now)
     return {
       liveAgentStatusByWorktreeId: getLiveAgentStatusByWorktreeId(
         agentStatusByPaneKey,
         tabsByWorktree,
         now
       ),
+      agentStatusPaneIdsByTabId: livePaneIds.paneIdsByTabId,
+      stalePaneIdsByTabId: livePaneIds.stalePaneIdsByTabId,
       paneSources: {
-        entriesByTabId: buildExplicitEntriesByTabId(
-          agentStatusByPaneKey,
-          migrationUnsupportedByPtyId
-        ),
+        entriesByTabId,
         ptyIdsByTabId,
         runtimePaneTitlesByTabId,
         terminalLayoutsByTabId
       },
       tabsByWorktree,
       browserTabsByWorktree,
-      statusEpoch
+      unreadTerminalTabs,
+      unreadAgentCompletionPanes,
+      statusEpoch,
+      now
     }
   }, [
     agentStatusByPaneKey,
@@ -95,12 +129,52 @@ export function PaletteLiveStatusProvider({
     runtimePaneTitlesByTabId,
     statusEpoch,
     tabsByWorktree,
-    terminalLayoutsByTabId
+    terminalLayoutsByTabId,
+    unreadAgentCompletionPanes,
+    unreadTerminalTabs,
+    now
   ])
 
   return (
     <PaletteLiveStatusContext.Provider value={value}>{children}</PaletteLiveStatusContext.Provider>
   )
+}
+
+/** Fresh rows suppress all title heuristics; stale rows suppress generated permission labels. */
+function buildLiveAgentStatusPaneIdsByTabId(
+  entriesByTabId: ReadonlyMap<string, readonly AgentStatusEntry[]>,
+  now: number
+): {
+  paneIdsByTabId: Record<string, ReadonlySet<string>>
+  stalePaneIdsByTabId: Record<string, ReadonlySet<string>>
+} {
+  const paneIdsByTabId: Record<string, ReadonlySet<string>> = {}
+  const stalePaneIdsByTabId: Record<string, ReadonlySet<string>> = {}
+  for (const [tabId, entries] of entriesByTabId) {
+    const paneIds = new Set<string>()
+    const stalePaneIds = new Set<string>()
+    for (const entry of entries) {
+      const paneId = parsePaneKey(entry.paneKey)?.leafId
+      if (!paneId) {
+        continue
+      }
+      if (
+        entry.restoredUnconfirmed !== true &&
+        !isExplicitAgentStatusFresh(entry, now, AGENT_STATUS_STALE_AFTER_MS)
+      ) {
+        stalePaneIds.add(paneId)
+        continue
+      }
+      paneIds.add(paneId)
+    }
+    if (paneIds.size > 0) {
+      paneIdsByTabId[tabId] = paneIds
+    }
+    if (stalePaneIds.size > 0) {
+      stalePaneIdsByTabId[tabId] = stalePaneIds
+    }
+  }
+  return { paneIdsByTabId, stalePaneIdsByTabId }
 }
 
 const EMPTY_LIVE_INPUTS = Object.freeze({
@@ -110,7 +184,9 @@ const EMPTY_LIVE_INPUTS = Object.freeze({
   terminalLayoutsByTabId: {},
   tabsByWorktree: {},
   browserTabsByWorktree: {},
-  migrationUnsupportedByPtyId: {}
+  migrationUnsupportedByPtyId: {},
+  unreadTerminalTabs: {},
+  unreadAgentCompletionPanes: {}
 })
 
 function useLiveStatus(): PaletteLiveStatus | null {
@@ -135,7 +211,12 @@ export function PaletteWorktreeStatusDot({
     live.browserTabsByWorktree[worktree.id] ?? [],
     live.paneSources.ptyIdsByTabId,
     live.paneSources.runtimePaneTitlesByTabId,
-    { liveAgentStatus: live.liveAgentStatusByWorktreeId.get(worktree.id) }
+    {
+      liveAgentStatus: live.liveAgentStatusByWorktreeId.get(worktree.id),
+      agentStatusPaneIdsByTabId: live.agentStatusPaneIdsByTabId,
+      stalePaneIdsByTabId: live.stalePaneIdsByTabId,
+      terminalLayoutsByTabId: live.paneSources.terminalLayoutsByTabId
+    }
   )
   return (
     <>
@@ -146,8 +227,8 @@ export function PaletteWorktreeStatusDot({
 }
 
 /**
- * Live dot for a recent chat/terminal row, falling back to the row's content icon when the row has
- * no agent-bearing terminal behind it.
+ * Leading slot for a recent chat/terminal row: content icon + shared attention badge
+ * (resolveTerminalTabAttentionBadge — same ladder as the tab strip).
  */
 export function PaletteRecentTabStatusDot({
   row,
@@ -157,17 +238,59 @@ export function PaletteRecentTabStatusDot({
   fallback: React.ReactNode
 }): React.JSX.Element {
   const live = useLiveStatus()
+  const terminalTabId = row?.terminalTab?.id
   const status: WorktreeStatus | null =
     live && row?.terminalTab
-      ? resolveRecentWorkspaceTabStatus(row, live.paneSources, Date.now())
+      ? resolveRecentWorkspaceTabStatus(row, live.paneSources, live.now)
       : null
-  if (!status) {
+  const hasUnread =
+    live != null &&
+    terminalTabId != null &&
+    terminalTabHasUnreadActivity({
+      terminalTabId,
+      unreadTerminalTabs: live.unreadTerminalTabs,
+      unreadAgentCompletionPanes: live.unreadAgentCompletionPanes
+    })
+  const badge = resolveTerminalTabAttentionBadge({ status, hasUnread })
+  if (badge == null) {
     return <>{fallback}</>
   }
+  const statusLabel =
+    badge === 'unread'
+      ? // Why the tab-bar key: same bell, same sentence — a fresh key here would ship untranslated
+        // in every non-English locale for the sake of a namespace.
+        translate(
+          'auto.components.tab.bar.TerminalTabLeadingIcon.7ab2964bea',
+          'Unread agent completion'
+        )
+      : getWorktreeStatusLabel(badge)
+  // Why: the outer hit target owns the tooltip because the overlaid pip ignores pointer events.
   return (
-    <>
-      <StatusIndicator status={status} aria-hidden="true" />
-      <span className="sr-only">{getWorktreeStatusLabel(status)}</span>
-    </>
+    <StateIndicatorTooltip label={statusLabel}>
+      <span className="relative inline-flex size-3.5 shrink-0 items-center justify-center">
+        {fallback}
+        <span
+          // The popover-colored knockout separates the glyph from its icon without inheriting row selection.
+          className="pointer-events-none absolute -right-0.5 -bottom-0.5 flex items-center justify-center rounded-full bg-popover ring-2 ring-popover"
+          aria-hidden="true"
+        >
+          <RecentTabAttentionBadgeGlyph badge={badge} />
+        </span>
+        <span className="sr-only">{statusLabel}</span>
+      </span>
+    </StateIndicatorTooltip>
   )
+}
+
+/** Renders the shared attention glyph — AgentStateDot for agent states, bell for unread. */
+function RecentTabAttentionBadgeGlyph({
+  badge
+}: {
+  badge: TerminalTabAttentionBadge
+}): React.JSX.Element {
+  if (badge === 'unread') {
+    return <FilledBellIcon className="size-2.5 text-amber-500 drop-shadow-sm" />
+  }
+  // Why: AgentStateDot owns working/permission/done glyphs app-wide (spinner / ? / check).
+  return <AgentStateDot state={badge} size="sm" title={null} />
 }

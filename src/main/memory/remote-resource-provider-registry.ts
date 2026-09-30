@@ -1,4 +1,4 @@
-import type { HostMemory, SessionMemory } from '../../shared/types'
+import type { HostMemory, SessionMemory } from '../../shared/process-stats-types'
 
 export type RemoteResourceWorktree = {
   worktreeId: string | null

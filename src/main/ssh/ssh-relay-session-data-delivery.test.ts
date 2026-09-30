@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SshRelaySession } from './ssh-relay-session'
-import { createMockDeps, mockDeploySuccess } from './ssh-relay-session-test-fixtures'
+import {
+  createMockDeps,
+  mockDeploySuccess,
+  createMockConsumerAdmission
+} from './ssh-relay-session-test-fixtures'
 
 const {
   acceptOutputDataMock,
@@ -133,6 +137,7 @@ const { deployAndLaunchRelay } = await import('./ssh-relay-deploy')
 
 describe('SshRelaySession data delivery', () => {
   beforeEach(() => {
+    vi.stubEnv('ORCA_DISABLE_SSH_PTY_OUTPUT_FLOW_CONTROL', '')
     vi.clearAllMocks()
     ptyDataHandlerRef.current = undefined
     attachForReconnectMock.mockResolvedValue({})
@@ -140,24 +145,9 @@ describe('SshRelaySession data delivery', () => {
     vi.mocked(getSshPtyAcceptedSourceCheckpoints).mockReturnValue([])
     vi.mocked(applySshPtySourceCancellationProof).mockReturnValue(true)
     vi.mocked(applySshPtySourceRecoveryCancellationProof).mockReturnValue(true)
-    openConsumerSessionMock.mockImplementation(async (_mux, options) => ({
-      state: {
-        mode: 'negotiated',
-        clientInstanceId: options.clientInstanceId,
-        clientGeneration: 1,
-        ownerGeneration: 1,
-        ownerLease: 'test-owner-lease',
-        ...(options.outputFlowControl
-          ? {
-              outputFlowControl: {
-                version: 1,
-                windowSu: options.outputFlowControl.requestedWindowSu
-              }
-            }
-          : {})
-      },
-      resumed: options.resume !== undefined
-    }))
+    openConsumerSessionMock.mockImplementation(async (_mux, options) =>
+      createMockConsumerAdmission(options)
+    )
     muxRequestMock.mockResolvedValue([])
     mockDeploySuccess()
   })
@@ -344,7 +334,8 @@ describe('SshRelaySession data delivery', () => {
       })
     )
     session.dispose()
-    expect(mockStore.removeSshPtyConsumerRecovery).toHaveBeenCalledWith(targetId)
+    const removeRecovery = mockStore.removeSshPtyConsumerRecovery
+    expect(removeRecovery).toHaveBeenCalledWith(targetId, 'persisted-client')
   })
 
   it('voids checkpoints for a fresh claim without a second owner request', async () => {
@@ -397,8 +388,7 @@ describe('SshRelaySession data delivery', () => {
     const retryCalls = openConsumerSessionMock.mock.calls
       .slice(openCallCountBeforeRetry)
       .map(([, options]) => options)
-    // Why one call: the relay answers a proof it cannot match with a fresh claim, so the client never
-    // needs a second, resume-less request to get owner authority back.
+    // Why one call: an unmatched proof yields a fresh owner claim without a second request.
     expect(retryCalls).toHaveLength(1)
     expect(retryCalls[0]).toHaveProperty('resume')
     expect(attachForReconnectMock).toHaveBeenCalledWith(
@@ -617,7 +607,10 @@ describe('SshRelaySession data delivery', () => {
       outputFlowControl: { requestedWindowSu: 256 * 1024 }
     })
     expect(deployAndLaunchRelay).toHaveBeenCalledWith(mockConn, undefined, undefined, 'target-1')
-    expect(notifyWithSettlementMock).toHaveBeenCalledWith('pty.ackData', batch, settled)
+    const [method, published] = notifyWithSettlementMock.mock.calls[0]!
+    notifyWithSettlementMock.mock.calls[0]![2]({ outcome: 'accepted' })
+    expect([method, published]).toEqual(['pty.ackData', batch])
+    expect(settled).toHaveBeenCalledWith({ ok: true })
   })
 
   it('offers V1 through reconnect negotiation', async () => {

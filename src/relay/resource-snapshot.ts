@@ -1,10 +1,9 @@
-import { execFile } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
 import os from 'node:os'
-import { promisify } from 'node:util'
-import type { HostMemory, SessionMemory } from '../shared/types'
+import { runProcess } from '../shared/child-process/run-process'
+import type { HostMemory, SessionMemory } from '../shared/process-stats-types'
 import { parseLinuxAvailableMemory } from '../main/memory/host-memory'
 
-const execFileAsync = promisify(execFile)
 let previousCpuTicks: { idle: number; total: number } | null = null
 
 type ProcessRow = { pid: number; ppid: number; cpu: number; memory: number }
@@ -44,7 +43,7 @@ async function collectHost(): Promise<HostMemory> {
   let availableMemorySource: HostMemory['availableMemorySource'] = 'free-memory'
   if (process.platform === 'linux') {
     try {
-      const { stdout } = await execFileAsync('cat', ['/proc/meminfo'], { encoding: 'utf8' })
+      const stdout = await readFile('/proc/meminfo', 'utf8')
       availableMemory = parseLinuxAvailableMemory(stdout) ?? freeMemory
       availableMemorySource = 'proc-meminfo'
     } catch {
@@ -56,7 +55,10 @@ async function collectHost(): Promise<HostMemory> {
   let disk: Pick<HostMemory, 'diskTotal' | 'diskUsed' | 'diskAvailable' | 'diskUsagePercent'> = {}
   if (process.platform !== 'win32') {
     try {
-      const { stdout } = await execFileAsync('df', ['-Pk'], { encoding: 'utf8' })
+      const { stdout, code } = await runProcess({ program: 'df', args: ['-Pk'], timeoutMs: 5_000 })
+      if (code !== 0) {
+        throw new Error('Disk resource snapshot unavailable')
+      }
       const devices = new Map<string, number[]>()
       for (const line of stdout.split(/\r?\n/).slice(1)) {
         const fields = line.trim().split(/\s+/)
@@ -129,10 +131,15 @@ export async function collectRelayResourceSnapshot(
   if (process.platform === 'win32') {
     return { host, worktrees: [] }
   }
-  const { stdout } = await execFileAsync('ps', ['-eo', 'pid=,ppid=,pcpu=,rss='], {
-    encoding: 'utf8',
-    maxBuffer: 10 * 1024 * 1024
+  const { stdout, code, outputTruncated } = await runProcess({
+    program: 'ps',
+    args: ['-eo', 'pid=,ppid=,pcpu=,rss='],
+    timeoutMs: 5_000,
+    maxOutputBytes: 10 * 1024 * 1024
   })
+  if (code !== 0 || outputTruncated) {
+    throw new Error('Process resource snapshot unavailable')
+  }
   const rows = parseProcesses(stdout)
   const byPid = new Map(rows.map((row) => [row.pid, row]))
   const children = new Map<number, number[]>()

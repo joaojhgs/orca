@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue
@@ -69,11 +70,13 @@ export function DesktopComputerPane({ active }: { active: boolean }) {
             <SelectValue placeholder="Choose desktop" />
           </SelectTrigger>
           <SelectContent>
-            {targets.map((target) => (
-              <SelectItem key={target.id} value={target.id}>
-                {target.label}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              {targets.map((target) => (
+                <SelectItem key={target.id} value={target.id}>
+                  {target.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
         <span className="w-24 text-xs text-muted-foreground" role="status" aria-live="polite">

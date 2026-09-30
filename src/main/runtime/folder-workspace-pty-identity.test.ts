@@ -1,9 +1,10 @@
+import { withDurableRuntimeStore } from './runtime-durable-store-fixture'
 import { describe, expect, it } from 'vitest'
 import { getDefaultWorkspaceSession } from '../../shared/constants'
 import type { RuntimeClientEvent } from '../../shared/runtime-client-events'
 import { makePaneKey } from '../../shared/stable-pane-id'
-import type { WorkspaceSessionState } from '../../shared/types'
-import { FOLDER_WORKSPACE_INSTANCE_SEPARATOR } from '../../shared/worktree-id'
+import type { WorkspaceSessionState } from '../../shared/workspace-session-state-types'
+import { FOLDER_WORKSPACE_INSTANCE_SEPARATOR } from '../../shared/worktree/id'
 import { OrcaRuntimeService } from './orca-runtime'
 
 // Folder projects back several workspaces with ONE directory; only the
@@ -66,7 +67,8 @@ function createRuntimeInternals(
     [WORKSPACE_A]: { hostId: 'local' },
     [WORKSPACE_B]: { hostId: 'local' }
   }
-  const store = {
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: This runtime fixture supplies the persistence and graph methods exercised by the test.
+  const store = withDurableRuntimeStore({
     getRepos: () => [REPO],
     getRepo: (id: string) => (id === REPO_ID ? REPO : undefined),
     getAllWorktreeMeta: () => meta,
@@ -78,7 +80,7 @@ function createRuntimeInternals(
     getWorkspaceSession: () => options.session ?? getDefaultWorkspaceSession(),
     setWorkspaceSession: () => {},
     flushOrThrow: () => {}
-  } as never
+  }) as never
   const runtime = new OrcaRuntimeService(store)
   runtime.setPtyController({
     write: () => true,
@@ -132,6 +134,126 @@ describe('folder workspaces sharing one directory', () => {
     )
 
     expect([...(inventory?.livePtyIds ?? [])]).toEqual([PTY_B])
+  })
+
+  it('keeps the first resolved worktree when normalized identities collide', async () => {
+    const firstId = `${ROOT_ID}/duplicate/`
+    const equivalentId = `${ROOT_ID}/duplicate`
+    const laterId = `${ROOT_ID}/later`
+    const internals = createRuntimeInternals({
+      sessions: [
+        { id: 'later-owner-pty', worktreeId: laterId, cwd: FOLDER_PATH, title: 'shell' },
+        { id: 'duplicate-owner-pty', worktreeId: equivalentId, cwd: FOLDER_PATH, title: 'shell' }
+      ]
+    })
+    const resolvedWorktrees = [firstId, equivalentId, laterId].map((id) =>
+      internals.buildResolvedWorktreeFromId(id)
+    )
+
+    await internals.refreshPtyWorktreeRecordsWithControllerInventory(resolvedWorktrees)
+
+    expect(internals.ptysById.get('duplicate-owner-pty')?.worktreeId).toBe(firstId)
+  })
+
+  it('stops indexing after a sparse owner match', async () => {
+    const ownerId = `${ROOT_ID}/first`
+    const internals = createRuntimeInternals({
+      sessions: [{ id: 'sparse-owner-pty', worktreeId: ownerId, cwd: FOLDER_PATH, title: 'shell' }]
+    })
+    let identityReads = 0
+    const resolvedWorktrees = [ownerId, `${ROOT_ID}/unused-a`, `${ROOT_ID}/unused-b`].map((id) => {
+      const worktree = internals.buildResolvedWorktreeFromId(id)
+      if (!worktree || typeof worktree !== 'object') {
+        throw new Error(`Failed to resolve ${id}`)
+      }
+      return Object.defineProperty(worktree, 'id', {
+        configurable: true,
+        enumerable: true,
+        get: () => {
+          identityReads += 1
+          return id
+        }
+      })
+    })
+
+    await internals.refreshPtyWorktreeRecordsWithControllerInventory(resolvedWorktrees)
+
+    expect(internals.ptysById.get('sparse-owner-pty')?.worktreeId).toBe(ownerId)
+    expect(identityReads).toBe(2)
+  })
+
+  it('keeps parsed and raw identity domains distinct', async () => {
+    const parsedId = `${ROOT_ID}/collision`
+    const rawId = `${REPO_ID}\0${FOLDER_PATH}/collision`
+    const internals = createRuntimeInternals({
+      sessions: [{ id: 'raw-owner-pty', worktreeId: rawId, cwd: FOLDER_PATH, title: 'shell' }]
+    })
+    const parsedWorktree = internals.buildResolvedWorktreeFromId(parsedId)
+    if (!parsedWorktree || typeof parsedWorktree !== 'object') {
+      throw new Error(`Failed to resolve ${parsedId}`)
+    }
+    const rawWorktree = { ...parsedWorktree, id: rawId }
+
+    await internals.refreshPtyWorktreeRecordsWithControllerInventory([parsedWorktree, rawWorktree])
+
+    expect(internals.ptysById.get('raw-owner-pty')?.worktreeId).toBe(rawId)
+  })
+
+  it('bounds provider and persisted worktree resolution to linear identity reads', async () => {
+    const worktreeCount = 128
+    const worktreeIds = Array.from(
+      { length: worktreeCount },
+      (_, index) => `${ROOT_ID}/worktree-${index}`
+    )
+    const persistedSession: WorkspaceSessionState = {
+      ...getDefaultWorkspaceSession(),
+      tabsByWorktree: Object.fromEntries(
+        worktreeIds.map((worktreeId, index) => [
+          worktreeId,
+          [
+            {
+              id: `indexed-tab-${index}`,
+              ptyId: `indexed-pty-${index}`,
+              worktreeId,
+              title: 'shell'
+            }
+          ]
+        ])
+      ) as never
+    }
+    const internals = createRuntimeInternals({
+      session: persistedSession,
+      sessions: worktreeIds.map((worktreeId, index) => ({
+        id: `indexed-pty-${index}`,
+        worktreeId,
+        cwd: `${FOLDER_PATH}/worktree-${index}`,
+        title: 'shell'
+      }))
+    })
+    let identityReads = 0
+    const resolvedWorktrees = worktreeIds.map((id) => {
+      const worktree = internals.buildResolvedWorktreeFromId(id)
+      if (!worktree || typeof worktree !== 'object') {
+        throw new Error(`Failed to resolve ${id}`)
+      }
+      return Object.defineProperty(worktree, 'id', {
+        configurable: true,
+        enumerable: true,
+        get: () => {
+          identityReads += 1
+          return id
+        }
+      })
+    })
+
+    await internals.refreshPtyWorktreeRecordsWithControllerInventory(resolvedWorktrees)
+
+    expect(internals.ptysById.size).toBe(worktreeCount)
+    expect(internals.ptysById.get('indexed-pty-0')?.worktreeId).toBe(worktreeIds[0])
+    expect(internals.ptysById.get(`indexed-pty-${worktreeCount - 1}`)?.worktreeId).toBe(
+      worktreeIds[worktreeCount - 1]
+    )
+    expect(identityReads).toBe(worktreeCount * 2)
   })
 
   it('reports live PTYs per workspace instance and for the folder root separately', () => {
@@ -211,18 +333,37 @@ describe('folder workspaces sharing one directory', () => {
   })
 
   it('does not serialize a sibling instance behind this instance held terminal mutation', async () => {
-    const internals = createRuntimeInternals()
+    const internals = createRuntimeInternals({ processLists: [[], []] })
     const releaseA = await internals.acquireWorktreeTerminalSpawn(WORKSPACE_A)
 
     const spawnB = internals.acquireWorktreeTerminalSpawn(WORKSPACE_B)
-    const spawnSecondA = internals.acquireWorktreeTerminalSpawn(WORKSPACE_A)
-
     expect(await raceAgainstMicrotaskDrain(spawnB)).toBe('acquired')
-    // Control: same-instance mutations must still queue, so 'acquired' above is not a free pass.
-    expect(await raceAgainstMicrotaskDrain(spawnSecondA)).toBe('blocked')
+
+    // Control: spawns intentionally share the per-worktree lock (only sleep
+    // excludes), so a second A spawn can no longer prove the lock blocks.
+    // A's own sleep still must, which keeps 'acquired' above from being a
+    // free pass on a lock that never blocks anything.
+    const sleepA = internals.sleepTerminalsForWorktree(`id:${WORKSPACE_A}`)
+    expect(await raceAgainstMicrotaskDrain(sleepA)).toBe('blocked')
 
     releaseA()
     ;(await spawnB)()
-    ;(await spawnSecondA)()
+    await sleepA
+  })
+
+  it('grants concurrent spawns for one instance while still excluding its sleep', async () => {
+    const internals = createRuntimeInternals({ processLists: [[], []] })
+    const releaseFirst = await internals.acquireWorktreeTerminalSpawn(WORKSPACE_A)
+    // Why: a multi-tab worktree activates every tab at once; queueing them
+    // behind each other was the activation latency staircase.
+    const second = internals.acquireWorktreeTerminalSpawn(WORKSPACE_A)
+    expect(await raceAgainstMicrotaskDrain(second)).toBe('acquired')
+
+    const sleepA = internals.sleepTerminalsForWorktree(`id:${WORKSPACE_A}`)
+    expect(await raceAgainstMicrotaskDrain(sleepA)).toBe('blocked')
+
+    releaseFirst()
+    ;(await second)()
+    await sleepA
   })
 })

@@ -109,7 +109,9 @@ async function handleAgentPicker(
   ctx: SessionOptionApplyContext,
   midSession: Extract<CatalogMidSessionApply, { kind: 'agent-picker' }>
 ): Promise<SessionOptionSetResult> {
-  await ctx.dispatchCommand(midSession.command)
+  await (midSession.delivery
+    ? ctx.dispatchCommand(midSession.command, { delivery: midSession.delivery })
+    : ctx.dispatchCommand(midSession.command))
   ctx.clearModelTruth()
   const snapshot = ctx.publish()
   ctx.onAgentPicker?.()
@@ -168,12 +170,6 @@ function applyDispatchOutcome(
     ctx.clearModelTruth()
     ctx.publish()
     throw new Error('Could not verify the model change; open the terminal to check.')
-  }
-  if (dispatchResult?.outcome === 'interaction-required') {
-    ctx.clearModelTruth()
-    const snapshot = ctx.publish()
-    ctx.onAgentPicker?.()
-    return { snapshot }
   }
   return null
 }
