@@ -87,11 +87,16 @@ export async function discoverExecutionCredentials(): Promise<ExecutionCredentia
     )
   }
   const claude = record(readCredentialRecord(paths.claude)?.claudeAiOauth)
-  if (text(claude?.accessToken)) {
+  const claudeToken = text(claude?.accessToken)
+  if (claudeToken) {
     const identity = record(readCredentialRecord(paths.claudeIdentity)?.oauthAccount)
-    result.push(
-      descriptor('claude', 'claude:default', [identity?.accountUuid, identity?.organizationUuid])
-    )
+    result.push({
+      ...descriptor('claude', 'claude:default', [
+        identity?.accountUuid,
+        identity?.organizationUuid
+      ]),
+      credentialRevision: createHash('sha256').update(claudeToken).digest('hex')
+    })
   }
   const cursor = await readCursorAuthSession()
   if (cursor.status === 'ok') {

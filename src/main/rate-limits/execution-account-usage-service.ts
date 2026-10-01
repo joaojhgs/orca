@@ -145,16 +145,18 @@ export class ExecutionAccountUsageService {
       const row: ExecutionAccountUsage = {
         ...group.credential,
         id,
-        sources: group.hosts.map((host) => ({
-          executionHostId: host.id,
-          label: host.label,
-          sourceRef:
-            this.inventories
-              .get(host.id)
-              ?.credentials.find((credential) => executionAccountUsageId(host, credential) === id)
-              ?.sourceRef ?? group.credential.sourceRef,
-          reachable: this.inventories.get(host.id)?.reachable === true
-        })),
+        sources: group.hosts.map((host) => {
+          const credential = this.inventories
+            .get(host.id)
+            ?.credentials.find((candidate) => executionAccountUsageId(host, candidate) === id)
+          return {
+            executionHostId: host.id,
+            label: host.label,
+            sourceRef: credential?.sourceRef ?? group.credential.sourceRef,
+            credentialRevision: credential?.credentialRevision,
+            reachable: this.inventories.get(host.id)?.reachable === true
+          }
+        }),
         rateLimits: previous?.rateLimits ?? null,
         checkedAt: previous?.checkedAt ?? 0,
         retryAt: previous?.retryAt ?? 0

@@ -32,7 +32,13 @@ export type ExecutionObserverRequest = z.infer<typeof executionObserverRequestSc
 
 export type ExecutionAccountUsage = ExecutionCredential & {
   id: string
-  sources: { executionHostId: string; label: string; sourceRef: string; reachable: boolean }[]
+  sources: {
+    executionHostId: string
+    label: string
+    sourceRef: string
+    reachable: boolean
+    credentialRevision?: string
+  }[]
   rateLimits: ProviderRateLimits | null
   checkedAt: number
   retryAt: number

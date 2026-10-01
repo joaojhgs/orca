@@ -33,8 +33,8 @@ function host(id: string, credentials: ExecutionCredential[] = [account]): Usage
 
 describe('ExecutionAccountUsageService', () => {
   it('deduplicates matching accounts across hosts and collects quota once', async () => {
-    const local = host('local'),
-      ssh = host('ssh:personal')
+    const local = host('local', [{ ...account, credentialRevision: '1'.repeat(64) }]),
+      ssh = host('ssh:personal', [{ ...account, credentialRevision: '2'.repeat(64) }])
     const service = new ExecutionAccountUsageService(() => [local, ssh], vi.fn())
     await Promise.all([service.refresh(), service.refresh()])
     expect(service.getState()).toHaveLength(1)
@@ -44,6 +44,10 @@ describe('ExecutionAccountUsageService', () => {
     ])
     expect(local.collect).toHaveBeenCalledTimes(1)
     expect(ssh.collect).not.toHaveBeenCalled()
+    expect(service.getState()[0]?.sources.map((source) => source.credentialRevision)).toEqual([
+      '1'.repeat(64),
+      '2'.repeat(64)
+    ])
   })
 
   it('never merges different accounts, different providers or unknown identities', async () => {

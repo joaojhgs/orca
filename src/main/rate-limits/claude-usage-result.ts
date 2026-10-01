@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type {
   ProviderRateLimits,
   UsageRateLimitFailureKind,
@@ -78,6 +79,9 @@ export function metadataForClaudeUsageAttempt(input: {
     failureKind: input.failureKind,
     credentialSource: input.oauthCredentials.source,
     authProvenance: input.authPreparation?.provenance ?? 'system',
+    executionCredentialRevision: input.oauthCredentials.token
+      ? createHash('sha256').update(input.oauthCredentials.token).digest('hex')
+      : undefined,
     deferredByLiveClaudeSession: input.deferredByLiveClaudeSession,
     retryAtMs: input.retryAtMs
   }
