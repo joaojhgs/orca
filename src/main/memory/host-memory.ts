@@ -66,9 +66,18 @@ async function collectDiskCapacity(): Promise<
     return {}
   }
   try {
-    const stdout = await execFileText('df', ['-Pk'])
+    const result = await runProcess({
+      program: 'df',
+      args: ['-Pk'],
+      env: { ...process.env, LC_ALL: 'C', LANG: 'C' },
+      timeoutMs: MEMORY_PRESSURE_TIMEOUT_MS,
+      maxOutputBytes: MEMORY_PRESSURE_MAX_BUFFER
+    })
+    if (result.code !== 0 || result.timedOut || result.outputTruncated) {
+      return {}
+    }
     const devices = new Map<string, { total: number; used: number; available: number }>()
-    for (const line of stdout.split(/\r?\n/).slice(1)) {
+    for (const line of result.stdout.split(/\r?\n/).slice(1)) {
       const fields = line.trim().split(/\s+/)
       if (fields.length < 6 || !fields[0].startsWith('/dev/')) {
         continue

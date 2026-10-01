@@ -49,6 +49,7 @@ describe('web preload API composition', () => {
       'hooks',
       'stats',
       'memory',
+      'workspaceSpace',
       'aiVault',
       'preflight',
       'notifications',
@@ -81,6 +82,7 @@ describe('web preload API composition', () => {
     expect(Object.keys(globals.window.api.projects)).toEqual([])
     const projects: Record<string, unknown> = globals.window.api.projects
     expect(projects.then).toBeUndefined()
+    await expect(globals.window.api.workspaceSpace.getCachedAnalysis()).resolves.toBeNull()
   })
 
   it('snapshots E2E config before runtime storage initialization', async () => {

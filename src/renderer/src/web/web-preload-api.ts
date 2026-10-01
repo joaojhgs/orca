@@ -108,6 +108,7 @@ function createWebPreloadApi(): Partial<PreloadApi> {
     workspaceSpace: {
       analyze: () => callRuntimeResult('workspaceSpace.analyze', undefined, 10 * 60_000),
       cancel: () => callRuntimeResult<boolean>('workspaceSpace.cancel'),
+      getCachedAnalysis: () => Promise.resolve(null),
       onProgress: () => () => {}
     },
     aiVault: createWebAiVaultApi(),

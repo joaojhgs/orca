@@ -77,7 +77,11 @@ describe('host memory', () => {
       memoryUsagePercent: 90
     })
     expect(second.availableMemorySource).toBe('free-memory')
-    expect(runProcessMock).toHaveBeenCalledTimes(1)
+    expect(
+      runProcessMock.mock.calls.filter(
+        ([request]) => request.program === '/usr/bin/memory_pressure'
+      )
+    ).toHaveLength(1)
   })
 
   it('uses Linux MemAvailable and keeps the value within physical RAM', async () => {
@@ -107,6 +111,46 @@ describe('host memory', () => {
     expect(host.availableMemorySource).toBe('free-memory')
     expect(runProcessMock).not.toHaveBeenCalled()
     expect(readFileMock).not.toHaveBeenCalled()
+  })
+
+  it('reports physical disk capacity without counting duplicate device mounts or tmpfs', async () => {
+    vi.spyOn(os, 'platform').mockReturnValue('linux')
+    readFileMock.mockResolvedValue('MemAvailable: 1 kB\n')
+    runProcessMock.mockResolvedValue({
+      code: 0,
+      timedOut: false,
+      stdout:
+        'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda1 100 60 40 60% /\n/dev/sda1 100 60 40 60% /duplicate\n/dev/sdb1 200 50 150 25% /data\ntmpfs 100 10 90 10% /run\n'
+    })
+    const { collectHostMemory } = await loadHostMemory()
+
+    expect(await collectHostMemory()).toMatchObject({
+      diskTotal: 300 * 1024,
+      diskUsed: 110 * 1024,
+      diskAvailable: 190 * 1024,
+      diskUsagePercent: (110 / 300) * 100
+    })
+    expect(runProcessMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        program: 'df',
+        args: ['-Pk'],
+        timeoutMs: 1_000,
+        maxOutputBytes: 64 * 1024
+      })
+    )
+  })
+
+  it.each([
+    { code: 1, timedOut: false },
+    { code: 0, timedOut: true },
+    { code: 0, timedOut: false, outputTruncated: true }
+  ])('withholds disk totals when df does not complete successfully: %j', async (result) => {
+    vi.spyOn(os, 'platform').mockReturnValue('linux')
+    readFileMock.mockResolvedValue('MemAvailable: 1 kB\n')
+    runProcessMock.mockResolvedValue({ ...result, stdout: '/dev/sda1 100 60 40 60% /\n' })
+    const { collectHostMemory } = await loadHostMemory()
+
+    expect(await collectHostMemory()).not.toHaveProperty('diskTotal')
   })
 })
 

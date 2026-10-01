@@ -8,12 +8,32 @@ import {
   codexRosterChildWorkLiveness,
   codexRosterToSnapshots,
   finishCodexSubagent,
+  seedCodexSubagentRoster,
   setCodexSubagentModel,
   upsertCodexSubagent,
   type CodexSubagentRoster
 } from './codex-subagent-roster'
 
 describe('Codex subagent roster', () => {
+  it('seeds canonical snapshots without losing host-private transcript metadata', () => {
+    const roster: CodexSubagentRoster = new Map()
+    upsertCodexSubagent(
+      roster,
+      'child-1',
+      { state: 'working', transcriptPath: '/host/child.jsonl' },
+      10
+    )
+
+    seedCodexSubagentRoster(roster, [{ id: 'child-1', state: 'idle', startedAt: 10 }])
+
+    expect(roster.get('child-1')).toMatchObject({
+      state: 'idle',
+      transcriptPath: '/host/child.jsonl'
+    })
+    expect(codexRosterToSnapshots(roster)?.[0]).not.toHaveProperty('transcriptPath')
+    expect(codexRosterChildWorkLiveness(roster)).toBeNull()
+  })
+
   it('normalizes retained identity fields before storing them', () => {
     const roster: CodexSubagentRoster = new Map()
 

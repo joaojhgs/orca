@@ -119,8 +119,7 @@ export function seedCodexSubagentRoster(
         agentType: snapshot.agentType,
         description: snapshot.description,
         model: snapshot.model,
-        state: snapshot.state,
-        transcriptPath: snapshot.transcriptPath
+        state: snapshot.state
       },
       snapshot.startedAt
     )
@@ -139,8 +138,7 @@ export function codexRosterToSnapshots(
     description: tracked.description,
     model: tracked.model,
     state: tracked.state,
-    startedAt: tracked.startedAt,
-    transcriptPath: tracked.transcriptPath
+    startedAt: tracked.startedAt
   }))
   snapshots.sort((a, b) => a.startedAt - b.startedAt || a.id.localeCompare(b.id))
   return snapshots
