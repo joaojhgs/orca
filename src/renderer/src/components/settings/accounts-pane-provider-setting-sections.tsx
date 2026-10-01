@@ -4,6 +4,7 @@ import { Label } from '../ui/label'
 import { Switch } from '../ui/switch'
 import { GeminiIcon, OpenCodeGoIcon } from '../status-bar/icons'
 import { SearchableSetting } from './SearchableSetting'
+import { ExecutionAccountUsageRows } from './ExecutionAccountUsageRows'
 import type { AccountsPaneSectionModel } from './accounts-pane-types'
 import { DebouncedSettingsTextInput } from './DebouncedSettingsTextInput'
 
@@ -25,6 +26,7 @@ export function renderGeminiAccountsSection(model: AccountsPaneSectionModel): Re
         </p>
       </div>
 
+      <ExecutionAccountUsageRows provider="antigravity" />
       <SearchableSetting
         title={translate(
           'auto.components.settings.AccountsPane.0c7f915b01',
@@ -95,6 +97,7 @@ export function renderOpenCodeAccountsSection(model: AccountsPaneSectionModel): 
         </p>
       </div>
 
+      <ExecutionAccountUsageRows provider="opencode" />
       <SearchableSetting
         title={translate(
           'auto.components.settings.AccountsPane.opencodeGo.apiKey.title',

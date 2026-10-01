@@ -1,3 +1,5 @@
+import type { ExecutionAccountUsage } from './execution-observer'
+
 export type RateLimitWindow = {
   /** Percentage of the window consumed (0–100). */
   usedPercent: number
@@ -59,6 +61,7 @@ export type ProviderRateLimits = {
     | 'antigravity'
     | 'cursor'
     | 'zcode'
+    | 'opencode'
   /** 5-hour session window, null if not available. */
   session: RateLimitWindow | null
   /** 7-day weekly window, null if not available. */
@@ -131,6 +134,8 @@ export type CursorAccountStatus = {
 }
 
 export type RateLimitState = {
+  /** Credential-owner and account-aware quota records. Tokens are never included. */
+  executionAccounts?: ExecutionAccountUsage[]
   claude: ProviderRateLimits | null
   codex: ProviderRateLimits | null
   gemini: ProviderRateLimits | null

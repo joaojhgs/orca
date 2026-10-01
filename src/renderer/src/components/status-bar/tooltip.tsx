@@ -82,7 +82,7 @@ export function ProviderIcon({ provider }: { provider: string }): React.JSX.Elem
   if (provider === 'gemini') {
     return <GeminiIcon size={13} />
   }
-  if (provider === 'opencode-go') {
+  if (provider === 'opencode-go' || provider === 'opencode') {
     return <OpenCodeGoIcon size={13} />
   }
   if (provider === 'kimi') {
@@ -154,7 +154,7 @@ export function getWindowSections(
       ...bucketSections,
       // Why: Cursor reports the plan total in `monthly` and its pools as buckets,
       // so dropping it here would hide the number closest to the user's cap.
-      ...(p.monthly
+      ...(p.monthly && p.provider !== 'opencode'
         ? [
             {
               label:
@@ -165,10 +165,14 @@ export function getWindowSections(
             }
           ]
         : []),
-      {
-        label: translate('auto.components.status.bar.tooltip.252c096536', 'Weekly'),
-        window: p.weekly
-      }
+      ...(p.provider === 'antigravity' || p.provider === 'opencode'
+        ? []
+        : [
+            {
+              label: translate('auto.components.status.bar.tooltip.252c096536', 'Weekly'),
+              window: p.weekly
+            }
+          ])
     ]
   }
   const sections: { label: string; window: RateLimitWindow | null }[] = [

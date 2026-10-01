@@ -53,6 +53,8 @@ export type OrcaProfileAuthStatus = {
   capabilities?: OrcaCloudCapabilities
   credentialError?: string
   setupMessage?: string
+  /** Artifact hosting is independent of an optional Cloud account. */
+  artifactHosting?: { backend: 'local'; identity: string; requiresCloudLogin: false }
 }
 
 export type OrcaProfileSummary = {

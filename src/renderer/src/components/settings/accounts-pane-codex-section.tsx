@@ -7,6 +7,7 @@ import { Label } from '../ui/label'
 import { OpenAIIcon } from '../status-bar/icons'
 import { CodexLoginLinkNotice } from './CodexLoginLinkNotice'
 import { SearchableSetting } from './SearchableSetting'
+import { ExecutionAccountUsageRows } from './ExecutionAccountUsageRows'
 import { getAccountsCodexSearchEntries } from './accounts-search'
 import { getCodexSystemDefaultSubtitle } from './accounts-pane-runtime'
 import type { AccountsPaneSectionModel } from './accounts-pane-types'
@@ -60,6 +61,7 @@ export function renderCodexAccountsSection(model: AccountsPaneSectionModel): Rea
         </p>
       </div>
 
+      <ExecutionAccountUsageRows provider="codex" />
       <SearchableSetting
         title={translate('auto.components.settings.AccountsPane.3180536c7a', 'Codex Accounts')}
         description={translate(

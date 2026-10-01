@@ -15,11 +15,8 @@ import type {
   WorkspacePortProbe,
   WorkspacePortScanResult
 } from '../../shared/workspace-ports'
-import {
-  filterWorkspacePortProbes,
-  killWorkspacePort,
-  scanWorkspacePortProbes
-} from '../ports/workspace-port-ownership'
+import { filterWorkspacePortProbes, killWorkspacePort } from '../ports/workspace-port-ownership'
+import { scanExecutionWorkspacePorts } from '../ports/execution-workspace-port-scanner'
 
 export class OrcaRuntimeWithListManagedWorktrees extends OrcaRuntimeWithRestoreStructuredAgentSessionTabsOnce {
   listManagedWorktrees(
@@ -143,8 +140,12 @@ export class OrcaRuntimeWithListManagedWorktrees extends OrcaRuntimeWithRestoreS
     return await this.resolveTerminalWorkspaceLaunchScope(worktreeSelector)
   }
 
-  async scanWorkspacePorts(repoId?: string): Promise<WorkspacePortScanResult> {
-    return scanWorkspacePortProbes(await this.getWorkspacePortProbes(repoId))
+  async scanWorkspacePorts(repoId?: string, includeSsh = false): Promise<WorkspacePortScanResult> {
+    const probes = await this.getAllExecutionWorkspacePortProbes()
+    return scanExecutionWorkspacePorts(
+      includeSsh ? probes : probes.filter((probe) => !probe.connectionId),
+      repoId
+    )
   }
 
   async killWorkspacePort(args: WorkspacePortKillRequest): Promise<WorkspacePortKillResult> {
@@ -154,21 +155,22 @@ export class OrcaRuntimeWithListManagedWorktrees extends OrcaRuntimeWithRestoreS
   // Why: remote clients may invoke this over RPC, so the runtime derives
   // allowed worktree paths from its own store instead of trusting client paths.
   protected async getWorkspacePortProbes(repoId?: string): Promise<WorkspacePortProbe[]> {
+    return filterWorkspacePortProbes(await this.getAllExecutionWorkspacePortProbes(), repoId)
+  }
+
+  protected async getAllExecutionWorkspacePortProbes() {
     const reposById = new Map(
       this.requireStore()
         .getRepos()
         .map((repo) => [repo.id, repo])
     )
-    return filterWorkspacePortProbes(
-      (await this.listResolvedWorktrees()).map((worktree) => ({
-        id: worktree.id,
-        repoId: worktree.repoId,
-        displayName: worktree.displayName,
-        path: worktree.git.path,
-        connectionId: reposById.get(worktree.repoId)?.connectionId ?? null
-      })),
-      repoId
-    )
+    return (await this.listResolvedWorktrees()).map((worktree) => ({
+      id: worktree.id,
+      repoId: worktree.repoId,
+      displayName: worktree.displayName,
+      path: worktree.git.path,
+      connectionId: reposById.get(worktree.repoId)?.connectionId ?? null
+    }))
   }
 
   async sleepManagedWorktree(worktreeSelector: string): Promise<{ worktreeId: string }> {

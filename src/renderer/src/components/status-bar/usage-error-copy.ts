@@ -14,6 +14,9 @@ export function getProviderDisplayName(provider: ProviderRateLimits['provider'])
   if (provider === 'opencode-go') {
     return 'OpenCode Go'
   }
+  if (provider === 'opencode') {
+    return 'OpenCode'
+  }
   if (provider === 'kimi') {
     return 'Kimi'
   }

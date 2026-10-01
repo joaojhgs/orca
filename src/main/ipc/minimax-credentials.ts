@@ -1,40 +1,13 @@
 import { ipcMain } from 'electron'
 import {
   clearMiniMaxSessionCookie,
-  getMiniMaxSessionCookieProtection,
-  hasMiniMaxSessionCookie,
   saveMiniMaxSessionCookie
 } from '../minimax/minimax-cookie-store'
-import {
-  clearMiniMaxApiKey,
-  getMiniMaxApiKeyProtection,
-  hasMiniMaxApiKey,
-  saveMiniMaxApiKey
-} from '../minimax/minimax-api-key-store'
+import { clearMiniMaxApiKey, saveMiniMaxApiKey } from '../minimax/minimax-api-key-store'
 import { clearMiniMaxSessionCookieJar } from '../rate-limits/minimax/minimax-request-context'
 import type { RateLimitService } from '../rate-limits/service'
-import type { SecretAtRestProtection } from '../../shared/secret-at-rest-protection'
-
-export type MiniMaxCredentialsStatus = {
-  configured: boolean
-  cookieConfigured: boolean
-  apiKeyConfigured: boolean
-  /** How each stored credential sits on disk, so Settings can warn when it is unsealed. */
-  cookieProtection: SecretAtRestProtection | null
-  apiKeyProtection: SecretAtRestProtection | null
-}
-
-function getMiniMaxCredentialsStatus(): MiniMaxCredentialsStatus {
-  const cookieConfigured = hasMiniMaxSessionCookie()
-  const apiKeyConfigured = hasMiniMaxApiKey()
-  return {
-    configured: cookieConfigured || apiKeyConfigured,
-    cookieConfigured,
-    apiKeyConfigured,
-    cookieProtection: cookieConfigured ? getMiniMaxSessionCookieProtection() : null,
-    apiKeyProtection: apiKeyConfigured ? getMiniMaxApiKeyProtection() : null
-  }
-}
+import { getMiniMaxCredentialsStatus } from '../minimax/minimax-credentials-status'
+export type { MiniMaxCredentialsStatus } from '../minimax/minimax-credentials-status'
 
 // Why: fire-and-forget — callers get the persisted credential status immediately;
 // the rate-limit refresh runs in the background and only logs on failure.

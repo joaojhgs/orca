@@ -8,7 +8,12 @@ export function getBuildOldSpaceSizeMb(totalMemoryBytes = os.totalmem()) {
   const totalMemoryMb = Math.floor(totalMemoryBytes / 1024 / 1024)
   const hostSizedLimitMb = Math.max(minOldSpaceSizeMb, totalMemoryMb - reservedSystemMemoryMb)
 
-  return Math.min(maxOldSpaceSizeMb, hostSizedLimitMb)
+  const explicitLimit = Number(process.env.ORCA_BUILD_MAX_OLD_SPACE_MB)
+  return Math.min(
+    maxOldSpaceSizeMb,
+    hostSizedLimitMb,
+    Number.isInteger(explicitLimit) && explicitLimit > 0 ? explicitLimit : maxOldSpaceSizeMb
+  )
 }
 
 export function appendBuildOldSpaceOption(existingNodeOptions, totalMemoryBytes = os.totalmem()) {

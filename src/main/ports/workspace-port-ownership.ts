@@ -79,6 +79,9 @@ export async function killWorkspacePort(
   worktrees: readonly WorkspacePortProbe[],
   args: WorkspacePortKillRequest
 ): Promise<WorkspacePortKillResult> {
+  if (args.connectionId) {
+    return { ok: false, reason: 'Remote listeners must be stopped on their execution host.' }
+  }
   if (!Number.isSafeInteger(args.pid) || args.pid <= 0 || !Number.isSafeInteger(args.port)) {
     return { ok: false, reason: 'Invalid process or port.' }
   }

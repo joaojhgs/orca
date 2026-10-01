@@ -1,7 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { isStatusBarItemAvailable } from './status-bar-agent-gating'
+import { isStatusBarItemAvailable, withExecutionAgentIds } from './status-bar-agent-gating'
+import type { ExecutionAccountUsage } from '../../../../shared/execution-observer'
 
 describe('isStatusBarItemAvailable', () => {
+  it('keeps SSH-only credential owners available in the footer and toggle menu', () => {
+    const account: ExecutionAccountUsage = {
+      id: 'remote-codex',
+      provider: 'codex',
+      sourceRef: 'codex:default',
+      accountKey: null,
+      identityConfidence: 'unknown',
+      sources: [
+        {
+          executionHostId: 'ssh:personal',
+          label: 'personal',
+          sourceRef: 'codex:default',
+          reachable: false
+        }
+      ],
+      rateLimits: null,
+      checkedAt: 0,
+      retryAt: 0
+    }
+    expect(isStatusBarItemAvailable('codex', withExecutionAgentIds([], [account]))).toBe(true)
+    expect(isStatusBarItemAvailable('claude', withExecutionAgentIds([], [account]))).toBe(false)
+  })
   it('shows non-CLI items regardless of detection', () => {
     // Why: ssh, resource-usage, and opencode-go aren't CLIs on PATH, so
     // detection results don't apply.

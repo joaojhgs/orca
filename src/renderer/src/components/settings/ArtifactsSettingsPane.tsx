@@ -20,7 +20,8 @@ export function ArtifactsSettingsPane({
   const openArtifactsPage = useAppStore((state) => state.openArtifactsPage)
   const authStatus = useAppStore((state) => state.orcaProfileAuthStatus)
   const connect = useAppStore((state) => state.connectCurrentOrcaProfile)
-  const signedIn = authStatus?.state === 'connected'
+  const localHosting = authStatus?.artifactHosting?.backend === 'local'
+  const signedIn = localHosting || authStatus?.state === 'connected'
   // Why: the capability lives in the desktop host's store and is deliberately absent from the
   // settings.update allowlist, so a web client can only mirror it — never grant it.
   const isWebClient = isWebClientLocation()
@@ -62,7 +63,9 @@ export function ArtifactsSettingsPane({
     },
     {
       key: 'link',
-      title: translate('auto.components.settings.artifacts.linkStepTitle', 'Copy the public link'),
+      title: localHosting
+        ? translate('settings.artifacts.local.linkStepTitle', 'Copy the server-hosted link')
+        : translate('auto.components.settings.artifacts.linkStepTitle', 'Copy the public link'),
       description: translate(
         'auto.components.settings.artifacts.linkStepDescription',
         'After publishing, copy the link and send it to your team.'
@@ -81,20 +84,32 @@ export function ArtifactsSettingsPane({
   return (
     <div className="divide-y divide-border">
       <SettingsSwitchRow
-        label={translate(
-          'auto.components.settings.artifacts.allowPublishing',
-          'Allow publishing public artifact links'
-        )}
-        description={
-          isWebClient
+        label={
+          localHosting
             ? translate(
-                'auto.components.settings.artifacts.allowPublishingHeadlessWebDescription',
-                'Changing this host-wide permission requires approval on the host. Use the approval button below or the host desktop app.'
+                'settings.artifacts.local.allowPublishing',
+                'Allow publishing server-hosted artifact links'
               )
             : translate(
-                'auto.components.settings.artifacts.allowPublishingDescription',
-                'Publish HTML and Markdown files as links anyone with the URL can open. Existing links remain until you delete them from Artifacts.'
+                'auto.components.settings.artifacts.allowPublishing',
+                'Allow publishing public artifact links'
               )
+        }
+        description={
+          localHosting
+            ? translate(
+                'settings.artifacts.local.publishingDescription',
+                'Artifacts stay on this Orca server. Anyone with the secret link and network access to the server can open them. Publishing approval is required on the host; no Orca Cloud account is needed.'
+              )
+            : isWebClient
+              ? translate(
+                  'auto.components.settings.artifacts.allowPublishingHeadlessWebDescription',
+                  'Changing this host-wide permission requires approval on the host. Use the approval button below or the host desktop app.'
+                )
+              : translate(
+                  'auto.components.settings.artifacts.allowPublishingDescription',
+                  'Publish HTML and Markdown files as links anyone with the URL can open. Existing links remain until you delete them from Artifacts.'
+                )
         }
         checked={sharingEnabled}
         disabled={isWebClient}

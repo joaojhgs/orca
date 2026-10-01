@@ -5,7 +5,7 @@ import { selectFloatingWorkspaceHasUnread } from '../../store/selectors'
 import type { ProviderRateLimits } from '../../../../shared/rate-limit-types'
 import { normalizeUsagePercentageDisplay } from '../../../../shared/usage-percentage-display'
 import { normalizeStatusBarUsageMode } from '../../../../shared/status-bar-usage-mode'
-import { isStatusBarItemAvailable } from './status-bar-agent-gating'
+import { isStatusBarItemAvailable, withExecutionAgentIds } from './status-bar-agent-gating'
 import { getVisibleUsageProvider, isUsageEmptyState } from './status-bar-provider-visibility'
 import { getUsageProviderAccountsSectionId } from './usage-provider-settings-target'
 import { CLOSE_ALL_CONTEXT_MENUS_EVENT, useStatusBarMenuFocusHandoff } from './ProviderDetailsMenu'
@@ -34,7 +34,10 @@ export function useStatusBarController(floatingTerminalOpen: boolean) {
   const floatingTerminalTriggerLocation =
     settings?.floatingTerminalTriggerLocation ?? 'floating-button'
   // Why: gate per-CLI bars on PATH detection so an uninstalled agent isn't shown a noisy empty bar (auto re-shows when installed).
-  const detectedAgentIds = useAppStore((s) => s.detectedAgentIds)
+  const detectedAgentIds = withExecutionAgentIds(
+    useAppStore((s) => s.detectedAgentIds),
+    rateLimits.executionAccounts
+  )
   const ensureDetectedAgents = useAppStore((s) => s.ensureDetectedAgents)
   // Why: pet segment is driven purely by experimentalPet, not statusBarItems, to avoid double-toggling the surface (see design doc).
   const petEnabled = useAppStore((s) => s.settings?.experimentalPet === true)
@@ -95,8 +98,7 @@ export function useStatusBarController(floatingTerminalOpen: boolean) {
     rateLimits
 
   // Why: a bar is earned by a live snapshot or durable Settings setup; detection-gating hides per-CLI bars when the agent isn't on PATH.
-  // Why: Antigravity has no persisted credential, so a checked status item + detected CLI is the durable "show its slot" signal.
-  // Why: Antigravity visibility also requires geminiCliOAuthEnabled because its usage snapshot mirrors the Gemini fetch.
+  // Why: discovered credentials are durable even when the CLI only exists on an SSH host.
   const antigravityUsageConfigured =
     statusBarItems.includes('antigravity') &&
     isStatusBarItemAvailable('antigravity', detectedAgentIds)
@@ -104,6 +106,8 @@ export function useStatusBarController(floatingTerminalOpen: boolean) {
   const usageSettings = {
     ...settings,
     antigravityUsageConfigured,
+    antigravityAuthConfigured:
+      rateLimits.executionAccounts?.some((account) => account.provider === 'antigravity') === true,
     minimaxCookieConfigured: rateLimits.minimaxCookieConfigured,
     minimaxApiKeyConfigured: rateLimits.minimaxApiKeyConfigured,
     opencodeGoApiKeyConfigured: rateLimits.opencodeGoApiKeyConfigured,

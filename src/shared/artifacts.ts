@@ -63,6 +63,14 @@ export type ArtifactCloudOptions = {
   authToken?: string
 }
 
+export type ArtifactHostingStatus = {
+  backend: 'local' | 'cloud'
+  identity: string
+  requiresCloudLogin: boolean
+  sharingEnabled: boolean
+  viewerOrigin?: string
+}
+
 export type ArtifactListOptions = ArtifactCloudOptions & {
   cursor?: string
 }

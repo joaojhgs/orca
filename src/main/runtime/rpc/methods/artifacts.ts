@@ -11,6 +11,11 @@ import {
 
 export const ARTIFACT_METHODS = [
   defineMethod({
+    name: 'artifacts.hostingStatus',
+    params: null,
+    handler: (_params, { runtime }) => runtime.getArtifactHostingStatus()
+  }),
+  defineMethod({
     name: 'artifacts.authStatus',
     params: null,
     handler: () => {

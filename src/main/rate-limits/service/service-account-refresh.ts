@@ -14,6 +14,7 @@ export abstract class RateLimitServiceAccountRefresh extends RateLimitServiceIna
   async refresh(): Promise<RateLimitState> {
     // Why: this user-directed refresh must bypass the poll throttle, else the click can no-op after wake/focus and feel broken.
     await this.fetchAll({ force: true })
+    await this.executionUsageRefresh?.()
     return this.getState()
   }
 
@@ -21,6 +22,7 @@ export abstract class RateLimitServiceAccountRefresh extends RateLimitServiceIna
     // Why: reconnecting mobile subscribers need fresh backgrounded-desktop data, but replaying a subscription must not queue another forced fetch.
     const plan = this.getActiveWindowRefreshPlan(Date.now())
     await this.runActiveWindowRefreshPlan(plan)
+    await this.executionUsageRefresh?.()
     return this.getState()
   }
 

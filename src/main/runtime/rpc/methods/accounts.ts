@@ -1,6 +1,7 @@
 import { defineMethod, defineStreamingMethod } from '../core'
 import {
   AccountsUnsubscribeParams,
+  AccountControlParams,
   AddClaudeFromConfigDirParams,
   AddCodexFromHomeParams,
   ConsumeCodexResetCreditParams,
@@ -25,6 +26,16 @@ let accountsSubscriptionSeq = 0
 // `orca account add` CLI can register accounts on a headless host; it is gated
 // to the local runtime connection, never a mobile device token. See #1438.
 export const ACCOUNT_METHODS = [
+  defineMethod({
+    name: 'accounts.control',
+    params: AccountControlParams,
+    handler: (params, { runtime, clientKind }) => {
+      if (clientKind === 'mobile') {
+        throw new Error('Account management requires a paired runtime client.')
+      }
+      return runtime.controlAccount(params)
+    }
+  }),
   defineMethod({
     name: 'accounts.usage',
     params: null,

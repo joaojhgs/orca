@@ -1,106 +1,100 @@
-import { translate } from '@/i18n/i18n'
 import type { PreloadApi } from '../../../../preload/api-types'
+import type { AccountControlRequest } from '../../../../shared/rpc-contract/accounts-params'
+import type {
+  ClaudeRateLimitAccountsState,
+  CodexRateLimitAccountsState
+} from '../../../../shared/managed-account-types'
+import { callRuntimeResult } from './web-runtime-calls'
+import { requireActiveEnvironmentOrNull } from './web-runtime-session'
 
-export function createMiniMaxCredentialsApi(): NonNullable<
-  Partial<PreloadApi>['minimaxCredentials']
-> {
-  // Nulls, not 'sealed': MiniMax credentials live on the desktop host, so this bridge
-  // stores nothing and has no protection to claim either way.
-  const notConfigured = {
-    configured: false,
-    cookieConfigured: false,
-    apiKeyConfigured: false,
-    cookieProtection: null,
-    apiKeyProtection: null
-  }
-  const unsupportedError = new Error('MiniMax cookie storage is only available in the desktop app.')
+const control = <T>(request: AccountControlRequest, timeout = 60_000): Promise<T> =>
+  callRuntimeResult<T>('accounts.control', request, timeout)
+
+export function createMiniMaxCredentialsApi(): PreloadApi['minimaxCredentials'] {
   return {
-    getStatus: () => Promise.resolve(notConfigured),
-    saveCookie: () => Promise.reject(unsupportedError),
-    clearCookie: () => Promise.resolve(notConfigured),
-    saveApiKey: () => Promise.reject(unsupportedError),
-    clearApiKey: () => Promise.resolve(notConfigured)
+    getStatus: () => control({ operation: 'minimax.status' }),
+    saveCookie: (secret) => control({ operation: 'minimax.saveCookie', secret }),
+    clearCookie: () => control({ operation: 'minimax.clearCookie' }),
+    saveApiKey: (secret) => control({ operation: 'minimax.saveApiKey', secret }),
+    clearApiKey: () => control({ operation: 'minimax.clearApiKey' })
   }
 }
 
-export function createCursorAccountsApi(): NonNullable<Partial<PreloadApi>['cursorAccounts']> {
-  // Why an explanation and not a bare `signedIn: false`: Cursor's session lives on
-  // the machine running Orca, and this bridge cannot read it. The host may well be
-  // signed in — its usage meter still arrives over the rate-limit snapshot — so
-  // asserting "not signed in" here would contradict the meter beside it.
-  return {
-    getStatus: () =>
-      Promise.resolve({
-        signedIn: false,
-        email: null,
-        displayName: null,
-        credentialSource: null,
-        planType: null,
-        tokenFresh: false,
-        error: translate(
-          'auto.components.web.preloadApi.cursorAccounts.hostOnly',
-          'Cursor sign-in details are only readable on the computer running Orca.'
-        )
-      })
-  }
+export function createCursorAccountsApi(): PreloadApi['cursorAccounts'] {
+  return { getStatus: () => control({ operation: 'cursor.status' }) }
 }
 
-export function createGrokAccountsApi(): NonNullable<Partial<PreloadApi>['grokAccounts']> {
-  const unsigned = {
-    signedIn: false,
-    email: null,
-    teamId: null,
-    tokenFresh: false,
-    error: null
-  }
-  return {
-    getStatus: () => Promise.resolve(unsigned)
-  }
-}
-
-function createEmptyManagedAccountsState(): {
-  accounts: never[]
-  activeAccountId: null
-  activeAccountIdsByRuntime: { host: null; wsl: Record<string, string | null> }
-} {
-  return {
-    accounts: [],
-    activeAccountId: null,
-    activeAccountIdsByRuntime: { host: null, wsl: {} }
-  }
+export function createGrokAccountsApi(): PreloadApi['grokAccounts'] {
+  return { getStatus: () => control({ operation: 'grok.status' }) }
 }
 
 export function createClaudeAccountsApi(): PreloadApi['claudeAccounts'] {
-  const empty = createEmptyManagedAccountsState()
   return {
-    list: () => Promise.resolve(empty),
-    add: () => Promise.resolve(empty),
-    cancelPendingLogin: () => Promise.resolve(false),
-    reauthenticate: () => Promise.resolve(empty),
-    remove: () => Promise.resolve(empty),
-    select: () => Promise.resolve(empty)
+    list: async () =>
+      (
+        await callRuntimeResult<{ claude: ClaudeRateLimitAccountsState }>('accounts.list', {
+          refreshUsage: false
+        })
+      ).claude,
+    add: (args) => control({ operation: 'claude.add', ...args }, 600_000),
+    cancelPendingLogin: () => control({ operation: 'claude.cancelLogin' }),
+    reauthenticate: (args) => control({ operation: 'claude.reauthenticate', ...args }, 600_000),
+    remove: (args) => callRuntimeResult('accounts.removeClaude', args),
+    select: (args) => control({ operation: 'claude.select', ...args })
   }
 }
 
 export function createCodexAccountsApi(): PreloadApi['codexAccounts'] {
-  const empty = createEmptyManagedAccountsState()
   return {
-    list: () => Promise.resolve(empty),
-    add: () => Promise.resolve(empty),
-    cancelPendingLogin: () => Promise.resolve(false),
-    // Why: the login runs on the desktop host that owns the browser, so a web
-    // client has no link to offer and nothing to publish changes from.
-    getPendingLoginUrl: () => Promise.resolve(null),
-    onPendingLoginUrlChanged: () => () => {},
-    reauthenticate: () => Promise.resolve(empty),
-    remove: () => Promise.resolve(empty),
-    select: () => Promise.resolve(empty),
-    // Why: launch accounts are recorded on the host that owns the PTY, which the
-    // web client never is — report no stale panes rather than reject the sweep.
-    listStalePanes: () => Promise.resolve([]),
-    // Why empty rather than absent: the same host owns both records, so a web
-    // client has no recorded lane to offer and every pane falls to derivation.
-    listRecordedPaneLanes: () => Promise.resolve({}),
-    forgetStalePanes: () => Promise.resolve()
+    list: async () =>
+      (
+        await callRuntimeResult<{ codex: CodexRateLimitAccountsState }>('accounts.list', {
+          refreshUsage: false
+        })
+      ).codex,
+    add: (args) => control({ operation: 'codex.add', ...args }, 600_000),
+    cancelPendingLogin: () => control({ operation: 'codex.cancelLogin' }),
+    getPendingLoginUrl: () => control({ operation: 'codex.pendingLoginUrl' }),
+    onPendingLoginUrlChanged: (callback) => {
+      const owner = requireActiveEnvironmentOrNull()?.id
+      let disposed = false
+      let pending = false
+      let previous: string | null | undefined
+      const poll = async (): Promise<void> => {
+        if (pending || disposed || requireActiveEnvironmentOrNull()?.id !== owner) {
+          return
+        }
+        pending = true
+        try {
+          const url = await control<string | null>({ operation: 'codex.pendingLoginUrl' })
+          if (!disposed && requireActiveEnvironmentOrNull()?.id === owner && url !== previous) {
+            previous = url
+            callback(url)
+          }
+        } catch {
+          /* The owning connection reports transport failures. */
+        } finally {
+          pending = false
+        }
+      }
+      void poll()
+      const timer = setInterval(() => void poll(), 2000)
+      return () => {
+        disposed = true
+        clearInterval(timer)
+      }
+    },
+    reauthenticate: (args) => control({ operation: 'codex.reauthenticate', ...args }, 600_000),
+    remove: (args) => callRuntimeResult('accounts.removeCodex', args),
+    select: (args) =>
+      args.runtime
+        ? callRuntimeResult('accounts.selectCodexForTarget', {
+            accountId: args.accountId,
+            target: { runtime: args.runtime, wslDistro: args.wslDistro ?? null }
+          })
+        : callRuntimeResult('accounts.selectCodex', { accountId: args.accountId }),
+    listStalePanes: (args) => control({ operation: 'codex.stalePanes', ...args }),
+    listRecordedPaneLanes: (args) => control({ operation: 'codex.recordedPaneLanes', ...args }),
+    forgetStalePanes: (args) => control({ operation: 'codex.forgetStalePanes', ...args })
   }
 }

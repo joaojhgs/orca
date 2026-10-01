@@ -13,6 +13,8 @@ const MAX_EXEC_OUTPUT_CHARS = 1024 * 1024
 
 type ExecCommandOptions = SshExecOptions & {
   timeoutMs?: number
+  /** Script/input delivered over the channel, never interpolated into the shell command. */
+  input?: string | Buffer
   // Why: a zero-exit command resolves with stdout alone, so the reason a wrapped-in-`|| echo`
   // probe failed is discarded. Callers that need that diagnostic opt in here rather than
   // folding stderr into stdout, where it would match the probe's own token strings.
@@ -48,7 +50,7 @@ export async function execCommand(
   command: string,
   options?: ExecCommandOptions
 ): Promise<string> {
-  const { timeoutMs = EXEC_TIMEOUT_MS, onStderr, ...execOptions } = options ?? {}
+  const { timeoutMs = EXEC_TIMEOUT_MS, onStderr, input, ...execOptions } = options ?? {}
   const signal = options?.signal
   if (signal?.aborted) {
     throw createSshOperationAbortError()
@@ -78,6 +80,7 @@ export async function execCommand(
       }
       signal?.removeEventListener('abort', onAbort)
       channel.off('error', fail)
+      channel.off('error', onInputError)
       channel.stderr.off('error', fail)
       channel.off('data', onStdoutData)
       channel.stderr.off('data', onStderrData)
@@ -130,6 +133,7 @@ export async function execCommand(
       requestTermination(err)
     }
     const onAbort = (): void => requestTermination(createSshOperationAbortError())
+    const onInputError = (): void => fail(new Error('SSH command input could not be delivered'))
     const onStdoutData = (data: Buffer): void => {
       stdout = appendExecOutputTail(stdout, data.toString('utf-8'))
     }
@@ -195,6 +199,9 @@ export async function execCommand(
     channel.on('close', onClose)
     if (signal?.aborted) {
       onAbort()
+    } else if (input !== undefined) {
+      channel.once('error', onInputError)
+      channel.end(input)
     }
   })
 }

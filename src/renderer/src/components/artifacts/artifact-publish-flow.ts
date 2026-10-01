@@ -1,6 +1,7 @@
 import { toast } from 'sonner'
 import type {
   ArtifactCloudOperation,
+  ArtifactHostingStatus,
   ArtifactPublishResult,
   ArtifactWriteRequest
 } from '../../../../shared/artifacts'
@@ -100,6 +101,16 @@ export async function publishArtifactFromSurface(
 
 async function ensureArtifactAccountConnected(): Promise<boolean> {
   const state = useAppStore.getState()
+  if (state.orcaProfileAuthStatus?.artifactHosting?.backend === 'local') {
+    return true
+  }
+  const hosting = await callRuntimeRpc<ArtifactHostingStatus>(
+    LOCAL_RUNTIME,
+    'artifacts.hostingStatus'
+  ).catch(() => null)
+  if (hosting?.backend === 'local' && !hosting.requiresCloudLogin) {
+    return true
+  }
   if (state.orcaProfileAuthStatus?.state === 'connected') {
     return true
   }

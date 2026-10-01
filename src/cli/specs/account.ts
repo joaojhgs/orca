@@ -7,6 +7,16 @@ import { GLOBAL_FLAGS, type CommandSpec } from '../args'
 // way to manage Claude and Codex accounts.
 export const ACCOUNT_COMMAND_SPECS: CommandSpec[] = [
   {
+    path: ['account', 'usage'],
+    summary: 'Show account-aware usage from the Orca server and its connected SSH hosts',
+    usage: 'orca account usage [--environment <name>] [--json]',
+    allowedFlags: [...GLOBAL_FLAGS],
+    notes: [
+      'Same-account quota records list all credential-owning hosts; unknown identities remain separate. Provider throttling and disconnected hosts never imply available capacity.'
+    ],
+    examples: ['orca account usage --json', 'orca account usage --environment skyron-host --json']
+  },
+  {
     path: ['account', 'add'],
     summary: 'Add a managed Claude or Codex account by signing in on this Orca host',
     usage: 'orca account add [--agent claude|codex] [--json]',

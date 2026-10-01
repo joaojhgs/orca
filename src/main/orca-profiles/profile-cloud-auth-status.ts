@@ -7,6 +7,23 @@ export function getOrcaProfileAuthStatusFromProfile(
   active: ActiveOrcaProfileState,
   userDataPath: string
 ): OrcaProfileAuthStatus {
+  const status = cloudAuthStatusFromProfile(active, userDataPath)
+  return process.env.ORCA_ARTIFACTS_BACKEND === 'local'
+    ? {
+        ...status,
+        artifactHosting: {
+          backend: 'local',
+          identity: `local:${active.profile.id}`,
+          requiresCloudLogin: false
+        }
+      }
+    : status
+}
+
+function cloudAuthStatusFromProfile(
+  active: ActiveOrcaProfileState,
+  userDataPath: string
+): OrcaProfileAuthStatus {
   const configState = getOrcaCloudAuthConfig()
   const devAuthEnabled = isOrcaCloudDevAuthEnabled()
   const configured = configState.configured || devAuthEnabled

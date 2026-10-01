@@ -13,15 +13,22 @@ const electronViteCli = path.join(path.dirname(electronVitePackageJson), 'bin', 
 // renderer bundle. Reserve memory on smaller hosts so the OS does not kill Vite.
 const nodeOptions = appendBuildOldSpaceOption(process.env.NODE_OPTIONS)
 
-const child = spawn(process.execPath, [electronViteCli, 'build', ...process.argv.slice(2)], {
-  stdio: 'inherit',
-  env: {
-    ...process.env,
-    NODE_OPTIONS: nodeOptions
+const outputArgs = process.env.ORCA_BUILD_OUTPUT_DIR
+  ? ['--outDir', process.env.ORCA_BUILD_OUTPUT_DIR]
+  : []
+const child = spawn(
+  process.execPath,
+  [electronViteCli, 'build', ...outputArgs, ...process.argv.slice(2)],
+  {
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      NODE_OPTIONS: nodeOptions
+    }
   }
-})
+)
 
-child.on('exit', (code, signal) => {
+child.on('exit', async (code, signal) => {
   if (signal) {
     process.kill(process.pid, signal)
     return
@@ -36,6 +43,15 @@ child.on('exit', (code, signal) => {
   // target gate keeps the parallel runner's concurrent main/preload builds from
   // reading out/renderer while the renderer target is still writing it.
   const target = process.env.ORCA_ELECTRON_VITE_TARGET
+  if (!target || target === 'main') {
+    try {
+      // Why: main clears its output directory first; add the standalone observer after it finishes.
+      await import('./build-execution-observer.mjs')
+    } catch (error) {
+      console.error(error)
+      process.exit(1)
+    }
+  }
   const builtRenderer =
     (!target || target === 'renderer') && fs.existsSync(path.join(RENDERER_BUILD_DIR, 'index.html'))
   process.exit(builtRenderer ? verifyRendererBootGraph() : 0)
