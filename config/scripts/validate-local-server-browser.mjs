@@ -123,7 +123,9 @@ try {
       }))
     )
   )
-  await page.keyboard.press('Control+,')
+  if (!(await backButton.isVisible())) {
+    await settingsButton.click()
+  }
   await backButton.waitFor({ timeout: 15000 })
   await page.getByRole('button', { name: /AI Provider Accounts/ }).click()
   await page.locator('[data-execution-account]').first().waitFor({ timeout: 30000 })
