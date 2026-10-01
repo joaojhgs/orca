@@ -40,7 +40,7 @@ export function ArtifactsSettingsPane({
             ),
             description: isWebClient
               ? translate(
-                  'auto.components.settings.artifacts.enableStepWebDescription',
+                  'auto.components.settings.artifacts.enableStepHeadlessWebDescription',
                   'Request approval above and run the one-time command yourself over SSH on the host, or use its desktop Artifacts settings.'
                 )
               : translate(
@@ -88,7 +88,7 @@ export function ArtifactsSettingsPane({
         description={
           isWebClient
             ? translate(
-                'auto.components.settings.artifacts.allowPublishingWebDescription',
+                'auto.components.settings.artifacts.allowPublishingHeadlessWebDescription',
                 'Changing this host-wide permission requires approval on the host. Use the approval button below or the host desktop app.'
               )
             : translate(
