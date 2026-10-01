@@ -26,6 +26,14 @@ let accountsSubscriptionSeq = 0
 // to the local runtime connection, never a mobile device token. See #1438.
 export const ACCOUNT_METHODS = [
   defineMethod({
+    name: 'accounts.usage',
+    params: null,
+    handler: async (_params, { runtime }) => {
+      await runtime.refreshAccountsForMobileSubscriber()
+      return { rateLimits: runtime.getAccountsSnapshot().rateLimits }
+    }
+  }),
+  defineMethod({
     name: 'accounts.list',
     params: ListAccountsParams,
     handler: async (params, { runtime }) => {

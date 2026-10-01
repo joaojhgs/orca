@@ -201,6 +201,14 @@ export class OrcaRuntimeWithPtyForegroundProcessReads extends OrcaRuntimeWithSta
     return this.clientSettings.get()
   }
 
+  requestArtifactPublishingApproval(enabled: boolean, owner: string) {
+    return this.clientSettings.artifactPublishingApproval.request(enabled, owner)
+  }
+
+  checkArtifactPublishingApproval(requestId: string, owner: string) {
+    return this.clientSettings.artifactPublishingApproval.check(requestId, owner)
+  }
+
   async updateClientSettings(updates: RuntimeClientSettingsUpdate) {
     return await this.clientSettings.update(updates)
   }

@@ -42,6 +42,10 @@ import {
   AiVaultPrepareSessionResumeParams,
   AiVaultSessionTitlesParams
 } from './ai-vault-params'
+import {
+  ArtifactPublishingApprovalCheckParams,
+  ArtifactPublishingApprovalRequestParams
+} from './artifact-publishing-approval-params'
 import { ArtifactsDeleteParams, ListOptions, SourceRequest, WriteRequest } from './artifacts-params'
 import {
   AutomationCreate,
@@ -577,6 +581,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'accounts.selectCodexForTarget': SelectCodexAccountForTargetParams,
   'accounts.subscribe': null,
   'accounts.unsubscribe': AccountsUnsubscribeParams,
+  'accounts.usage': null,
   'agent.launch': AgentLaunch,
   'agent.launchReplay': AgentLaunchReplay,
   'agentHooks.prepareCodexForWslPane': PrepareCodexForWslPaneParams,
@@ -1111,9 +1116,11 @@ export const RPC_PARAMS_BY_METHOD = {
   'session.tabs.unsubscribe': SessionTabsUnsubscribe,
   'session.tabs.unsubscribeAll': SessionTabsUnsubscribeAllParams,
   'session.tabs.updatePaneLayout': UpdatePaneLayout,
+  'settings.checkArtifactPublishingApproval': ArtifactPublishingApprovalCheckParams,
   'settings.get': null,
   'settings.getTerminalQuickCommands': null,
   'settings.mutateNativeChatSessionOptions': NativeChatSessionOptionsMutation,
+  'settings.requestArtifactPublishingApproval': ArtifactPublishingApprovalRequestParams,
   'settings.update': SettingsUpdate,
   'settings.updatePRBotAuthorOverride': PRBotAuthorOverrideUpdate,
   'settings.updateTerminalQuickCommands': TerminalQuickCommandsUpdate,

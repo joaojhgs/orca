@@ -1,4 +1,6 @@
 import { getAppEnvironment } from '../../shared/app-environment'
+import { join } from 'node:path'
+import { ArtifactPublishingApprovalController } from './artifact-publishing-approval'
 import { isArtifactSharingEnabled } from '../../shared/artifact-sharing-gate'
 import { isAgentSkillSharingEnabled } from '../../shared/agent-skill-sharing-gate'
 import { applyPRBotAuthorOverride } from '../../shared/pr-bot-author-overrides'
@@ -90,6 +92,15 @@ export type RuntimeClientSettingsUpdate = Pick<
 >
 
 export class RuntimeClientSettingsController {
+  readonly artifactPublishingApproval = new ArtifactPublishingApprovalController(
+    () => join(getAppEnvironment().getPath('userData'), 'artifact-publishing-approvals'),
+    (enabled) => {
+      if (!this.store?.updateSettings) {
+        throw new Error('runtime_unavailable')
+      }
+      this.store.updateSettings({ artifactSharingEnabled: enabled }, { notifyListeners: true })
+    }
+  )
   private reconciliationGeneration = 0
   private reconciliationTail: Promise<void> = Promise.resolve()
 

@@ -6,6 +6,7 @@ import { useOrcaProfileAuthStatusRefresh } from '@/hooks/use-orca-profile-auth-s
 import { useAppStore } from '@/store'
 import { isWebClientLocation } from '@/lib/web-client-location'
 import { translate } from '@/i18n/i18n'
+import { ArtifactPublishingApprovalDialog } from './ArtifactPublishingApprovalDialog'
 
 type HowToStep = { key: string; title: string; description: string }
 
@@ -40,7 +41,7 @@ export function ArtifactsSettingsPane({
             description: isWebClient
               ? translate(
                   'auto.components.settings.artifacts.enableStepWebDescription',
-                  'Open Settings → Artifacts in the Orca desktop app on the host device and enable publishing.'
+                  'Request approval above and run the one-time command yourself over SSH on the host, or use its desktop Artifacts settings.'
                 )
               : translate(
                   'auto.components.settings.artifacts.enableStepDescription',
@@ -88,7 +89,7 @@ export function ArtifactsSettingsPane({
           isWebClient
             ? translate(
                 'auto.components.settings.artifacts.allowPublishingWebDescription',
-                'Desktop only. Open Settings → Artifacts on the host device to change this setting.'
+                'Changing this host-wide permission requires approval on the host. Use the approval button below or the host desktop app.'
               )
             : translate(
                 'auto.components.settings.artifacts.allowPublishingDescription',
@@ -99,6 +100,11 @@ export function ArtifactsSettingsPane({
         disabled={isWebClient}
         onChange={() => void updateSettings({ artifactSharingEnabled: !sharingEnabled })}
       />
+      {isWebClient ? (
+        <section className="py-5">
+          <ArtifactPublishingApprovalDialog enabled={sharingEnabled} />
+        </section>
+      ) : null}
       <SettingsSwitchRow
         label={translate('auto.components.settings.artifacts.showButton', 'Show Artifacts Button')}
         description={translate(

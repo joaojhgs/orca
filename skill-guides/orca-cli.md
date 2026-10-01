@@ -194,6 +194,12 @@ publishing public artifact links"). It applies to every caller on the device, ag
 There is no CLI or RPC way to grant it. `list`, `unshare`, and `delete` are never gated, so old
 links stay auditable and revocable.
 
+On a headless Linux/macOS host, a human can use the paired browser's Settings → Artifacts →
+Request publishing approval. It displays an expiring one-time command the human must run
+themselves over SSH as the Orca host user, then check in the browser. Requesting or checking
+over RPC without the host-shell proof cannot enable publishing. Agents must never execute
+that approval command, create its proof file, or automate the approval UI.
+
 A denied share fails with `artifact_sharing_disabled` before any upload. Do not retry; the
 answer will not change until a human acts. Tell the user to turn the setting on and re-run, or
 deliver the file locally if they decline.
