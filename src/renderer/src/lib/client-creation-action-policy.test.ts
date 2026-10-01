@@ -117,9 +117,51 @@ describe('resolveClientCreationActionPolicy', () => {
       reason: MOBILE_EMULATOR_UNAVAILABLE_MESSAGE
     })
   })
+
+  it('restores device preview when the web preload provides frame streaming', () => {
+    expect(
+      resolveClientCreationActionPolicy({
+        surface: 'paired-web',
+        runtimeStatus: runtimeStatus(['mobile.tasks.v1']),
+        emulatorFrameStreamingAvailable: true
+      })['mobile-emulator']
+    ).toEqual({ state: 'enabled', provider: 'paired-runtime' })
+  })
+
+  it('keeps floating device preview hidden even with a streaming preload', () => {
+    expect(
+      resolveClientCreationActionPolicy({
+        surface: 'paired-web',
+        runtimeStatus: null,
+        floatingWorkspace: true,
+        emulatorFrameStreamingAvailable: true
+      })['mobile-emulator'].state
+    ).toBe('hidden')
+  })
 })
 
 describe('client creation action guards', () => {
+  it('allows the web device-preview action through its installed streaming bridge', () => {
+    vi.stubGlobal('__ORCA_WEB_CLIENT__', true)
+    vi.stubGlobal('window', {
+      api: {
+        emulator: { startFrameStream: vi.fn(), onFrameStreamFrame: vi.fn() }
+      }
+    })
+    const state = {
+      settings: {},
+      runtimeStatusByEnvironmentId: new Map()
+    }
+
+    expect(getClientCreationActionPolicy(state as never, null)['mobile-emulator']).toEqual({
+      state: 'enabled',
+      provider: 'paired-runtime'
+    })
+    expect(() =>
+      assertClientCreationActionAvailable(state as never, null, 'mobile-emulator')
+    ).not.toThrow()
+  })
+
   it('fails closed for an older paired runtime and rejects local browser materialization', () => {
     vi.stubGlobal('__ORCA_WEB_CLIENT__', true)
     const state = {

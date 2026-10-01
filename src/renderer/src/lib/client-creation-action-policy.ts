@@ -32,6 +32,7 @@ export function resolveClientCreationActionPolicy(args: {
   surface: 'electron' | 'paired-web'
   runtimeStatus: Pick<RuntimeStatus, 'capabilities' | 'hostPlatform'> | null
   floatingWorkspace?: boolean
+  emulatorFrameStreamingAvailable?: boolean
 }): ClientCreationActionPolicy {
   const browserStreamingAvailable = args.runtimeStatus?.capabilities?.includes(
     BROWSER_SCREENCAST_RUNTIME_CAPABILITY
@@ -53,8 +54,11 @@ export function resolveClientCreationActionPolicy(args: {
       : browserStreamingAvailable
         ? { state: 'enabled', provider: 'paired-runtime' }
         : { state: 'hidden', reason: MANAGED_BROWSER_UNAVAILABLE_MESSAGE },
-    // The web preload cannot stream emulator frames, even when the host can run emulator tasks.
-    'mobile-emulator': { state: 'hidden', reason: MOBILE_EMULATOR_UNAVAILABLE_MESSAGE }
+    // Our web preload streams Android frames and the same preview pane hosts desktop VNC.
+    'mobile-emulator':
+      args.emulatorFrameStreamingAvailable && !args.floatingWorkspace
+        ? { state: 'enabled', provider: 'paired-runtime' }
+        : { state: 'hidden', reason: MOBILE_EMULATOR_UNAVAILABLE_MESSAGE }
   }
 }
 
@@ -75,7 +79,11 @@ export function getClientCreationActionPolicy(
   return resolveClientCreationActionPolicy({
     surface: isPairedWebClientWindow() ? 'paired-web' : 'electron',
     runtimeStatus,
-    floatingWorkspace
+    floatingWorkspace,
+    emulatorFrameStreamingAvailable:
+      typeof window !== 'undefined' &&
+      typeof window.api?.emulator?.startFrameStream === 'function' &&
+      typeof window.api?.emulator?.onFrameStreamFrame === 'function'
   })
 }
 
