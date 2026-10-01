@@ -3,7 +3,9 @@ import { createWebOrcaProfilesApi } from './web-orca-profiles-api'
 import { callRuntimeResult } from './web-runtime-calls'
 
 vi.mock('./web-runtime-calls', () => ({ callRuntimeResult: vi.fn() }))
-beforeEach(() => vi.mocked(callRuntimeResult).mockReset())
+beforeEach(() => {
+  vi.mocked(callRuntimeResult).mockReset()
+})
 
 describe('browser artifact host account status', () => {
   it('reports the host account instead of claiming browser sign-in is unavailable', async () => {
