@@ -214,6 +214,27 @@
         "title": "Run each Codex terminal on its own server",
         "description": "Keeps Orca's status and closing tabs working correctly. Turn off to use Codex's shared server and its agents overview. Applies to new terminals."
       }
+    },
+    "artifacts": {
+      "local": {
+        "linkStepTitle": "Copy the server-hosted link",
+        "allowPublishing": "Allow publishing server-hosted artifact links",
+        "publishingDescription": "Artifacts stay on this Orca server. Anyone with the secret link and network access to the server can open them. Publishing approval is required on the host; no Orca Cloud account is needed."
+      }
+    },
+    "executionUsage": {
+      "title": "Usage across execution hosts",
+      "description": "Matching accounts share one quota reading. Credentials stay on their execution host.",
+      "shared": "same account",
+      "sharedCredential": "same credential; account identity not verified",
+      "unknownIdentity": "account identity not verified",
+      "pending": "Usage has not been verified yet",
+      "antigravity": "Antigravity usage"
+    },
+    "usage": {
+      "liveQuotas": "Live account quotas",
+      "liveQuotasDescription": "Subscription and provider limits across this server and its SSH hosts. Matching accounts are deduplicated; unavailable quotas show their actual status.",
+      "historySource": "Token and cost history below is scanned from logs on the connected Orca server. SSH account quotas are shown above; remote session-log history is not included."
     }
   },
   "menu": {
@@ -3540,7 +3561,9 @@
             "2148f65e04": "PowerShell",
             "ab589350e5": "Could not build launch command for {{value0}}.",
             "7a9b4af2af": "Scroll tabs left",
-            "232e075b07": "Scroll tabs right"
+            "232e075b07": "Scroll tabs right",
+            "92f4d1a6c8": "Go to Device Preview",
+            "341eb2875d": "New Device Preview"
           },
           "TabBarCreateEntry": {
             "d62d63b807": "Create file",
@@ -4543,7 +4566,8 @@
           "remoteShareNotice": "These skills live on {{host}}. Open Skills on that machine to share them.",
           "viewSwitch": "Show",
           "searchLinks": "Search links",
-          "deleteSkills": "Delete skills…"
+          "deleteSkills": "Delete skills…",
+          "localLibrary": "Local library"
         },
         "SkillFreshnessNudge": {
           "titleOne": "An installed Orca skill is out of date",
@@ -18656,5 +18680,87 @@
     "addTypedPath": "Add",
     "noDirectories": "No folders added yet.",
     "removePath": "Remove {{name}}"
+  },
+  "artifacts": {
+    "pdfUnavailable": "PDF preview unavailable. Open the shared link to view or download it.",
+    "pdfLoading": "Loading PDF…"
+  },
+  "skills": {
+    "library": {
+      "assignTitle": "Assign {{name}}",
+      "assignHelp": "Pin this version to a host and its native coding runtimes. Existing sessions stay running and may load skills only on their next normal start.",
+      "destination": "Installation destination",
+      "executionHost": "Execution host",
+      "queuedHost": " · unavailable (queued until connected)",
+      "scope": "Scope",
+      "global": "Global skills",
+      "workspace": "Registered workspace",
+      "sharedPlacementHelp": "Placements share .agents/skills. Selecting a runtime enables discovery; it is not an access-control restriction for other runtimes that read that shared directory. Local edits and unowned files are never discarded.",
+      "cancel": "Cancel",
+      "provisioning": "Provisioning…",
+      "assignPinned": "Assign pinned version",
+      "savedLabel": "Saved skill versions",
+      "savedVersions": "Saved versions ({{total}})",
+      "emptyVersions": "Review and import a discovered skill to save an immutable local copy.",
+      "files": "{{total}} files",
+      "assign": "Assign",
+      "deleteVersion": "Delete version",
+      "assignmentsLabel": "Skill assignments",
+      "assignments": "Assignments ({{total}})",
+      "emptyAssignments": "Assign a saved version to an execution host. No agent restart is required to provision files.",
+      "workspaceUnavailable": "Workspace unavailable",
+      "pinnedVersion": "Pinned version: {{version}}",
+      "removalRequested": "Removal requested",
+      "reconcile": "Reconcile",
+      "unassign": "Unassign",
+      "discoverLabel": "Discover skills to import",
+      "discover": "Discover and import",
+      "sourceHost": "Source host",
+      "unavailableHost": " · unavailable",
+      "working": "Working…",
+      "scan": "Scan host",
+      "searchLabel": "Search library and discovered skills",
+      "search": "Search skills…",
+      "scanHelp": "Scan only the selected host. Nothing is imported automatically.",
+      "noMatches": "No matching skills found. Check the selected host or search.",
+      "reviewImport": "Review import",
+      "reviewTitle": "Review {{name}}",
+      "reviewHelp": "All listed files enter the local library, including scripts and assets. Nothing is executed during import. Check for secrets and unwanted instructions.",
+      "includedFiles": "Included files ({{total}})",
+      "bytes": "{{total}} bytes",
+      "executable": " · executable",
+      "binary": " · binary",
+      "binaryPreview": "Binary or large file: contents are not rendered. The file is still included in the snapshot.",
+      "truncated": "[Preview truncated]",
+      "importApproval": "Import approval",
+      "reviewed": "I reviewed the files and want to import this snapshot.",
+      "allowVersion": "Allow a new version if this name already has different content.",
+      "import": "Import into local library",
+      "unexpectedImport": "Unexpected import response. Refresh the library before retrying.",
+      "deleteTitle": "Delete saved version: {{name}}",
+      "unassignTitle": "Unassign skill: {{name}}",
+      "deleteHelp": "Remove this unassigned snapshot from the library. Original skill folders are not deleted.",
+      "unassignHelp": "Remove only Orca-owned, unmodified placements. Edited files and unowned originals remain protected; an offline host queues removal.",
+      "back": "Skills",
+      "title": "Local skill library",
+      "refresh": "Refresh",
+      "close": "Close skills",
+      "storageHelp": "Stored on this Orca server, without Cloud. Importing preserves the original; assignments pin copies to native runtime skill directories.",
+      "loading": "Loading library…",
+      "connectHelp": "Connect to an updated Orca server and refresh.",
+      "operationFailed": "The library operation failed. Check the execution host and retry.",
+      "updateRequired": "This Orca server needs an update before it can manage a local skill library."
+    }
+  },
+  "usage": {
+    "unsupported": {
+      "label": "Usage tracking unavailable"
+    },
+    "execution": {
+      "expired": {
+        "label": "Sign-in expired on source host",
+        "message": "Refresh sign-in in the listed execution host. Orca does not rotate that host’s credentials."
+      }
+    }
   }
 }

@@ -213,7 +213,7 @@ export const electronViteConfig: UserConfig = {
       // Why: 'hidden' emits .js.map with no sourceMappingURL, so the shipped
       // bundle never references maps that packaging strips out. Release CI
       // uploads them so minified crash traces stay decodable.
-      sourcemap: 'hidden',
+      sourcemap: process.env.ORCA_BUILD_SOURCEMAPS === '0' ? false : 'hidden',
       // Why: daemon-entry.js is asar-unpacked so child_process.fork() can
       // execute it from disk. Node's module resolution from the unpacked
       // directory cannot reach into app.asar; startup-critical pure JS must

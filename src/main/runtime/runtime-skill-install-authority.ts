@@ -26,9 +26,19 @@ export async function resolveSkillSshTarget(
   destination: SkillInstallRequest['destination'],
   requireSsh: (connectionId: string) => IPtyProvider
 ): Promise<{ provider: () => IPtyProvider; workspace?: SkillSshWorkspaceAuthority } | null> {
+  const target = await resolveSkillSshDestination(host, destination)
+  return target
+    ? { provider: () => requireSsh(target.connectionId), workspace: target.workspace }
+    : null
+}
+
+export async function resolveSkillSshDestination(
+  host: RuntimeSkillCommandHost,
+  destination: SkillInstallRequest['destination']
+): Promise<{ connectionId: string; workspace?: SkillSshWorkspaceAuthority } | null> {
   if (destination.scope === 'global') {
     const target = destination.executionTarget
-    return target?.kind === 'ssh' ? { provider: () => requireSsh(target.connectionId) } : null
+    return target?.kind === 'ssh' ? { connectionId: target.connectionId } : null
   }
   if (destination.worktreeId) {
     const repos = host
@@ -63,7 +73,7 @@ export async function resolveSkillSshTarget(
     }
     const worktree = worktrees[0]
     return {
-      provider: () => requireSsh(executionHost.targetId),
+      connectionId: executionHost.targetId,
       workspace: { kind: 'worktree', id: worktree.id, path: worktree.path }
     }
   }
@@ -85,7 +95,7 @@ export async function resolveSkillSshTarget(
     return null
   }
   return {
-    provider: () => requireSsh(executionHost.targetId),
+    connectionId: executionHost.targetId,
     workspace: { kind: 'folder', id: folder.id, path: folder.folderPath }
   }
 }

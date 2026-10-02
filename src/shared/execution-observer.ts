@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ProviderRateLimits } from './rate-limit-types'
+import { skillLibraryWorkerRequestSchema } from './skill-library-worker-contract'
 
 export const executionCredentialSchema = z.object({
   sourceRef: z.string().min(1).max(200),
@@ -26,7 +27,8 @@ const workspaceProbeSchema = z.object({
 export const executionObserverRequestSchema = z.discriminatedUnion('operation', [
   z.object({ operation: z.literal('discover') }),
   z.object({ operation: z.literal('usage'), credential: executionCredentialSchema }),
-  z.object({ operation: z.literal('ports'), workspaces: z.array(workspaceProbeSchema).max(2000) })
+  z.object({ operation: z.literal('ports'), workspaces: z.array(workspaceProbeSchema).max(2000) }),
+  ...skillLibraryWorkerRequestSchema.options
 ])
 export type ExecutionObserverRequest = z.infer<typeof executionObserverRequestSchema>
 

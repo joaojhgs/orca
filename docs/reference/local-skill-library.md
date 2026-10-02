@@ -1,0 +1,238 @@
+# Local skill library
+
+## Brief and completion contract
+
+Implement an Orca-owned, server-local library of immutable skill snapshots, with explicit
+imports from native and connected SSH execution environments. Users choose skills and
+assign a pinned version to a host, a global or registered workspace scope, and coding
+runtimes. Provisioning is independent of the launcher and of Multica/Orca Cloud.
+
+## Architecture invariants
+
+- No Cloud account, public links, or Multica dependency for library operations.
+- Import only explicitly selected discovery IDs; never arbitrary caller-supplied paths.
+- The execution host scans, packages, and mutates its own files. Unreachable hosts must
+  never fall back to local execution or be reported as empty/successfully synchronized.
+- Reuse the incumbent archive validation, version receipts, modification checks,
+  provider placements, locks, and transaction recovery. Never discard local edits.
+- Skills are data, not executed during import or provisioning; include scripts/binary
+  assets and preserve executable bits. Review must precede import.
+- Assignments pin immutable versions. Same-name content collisions remain visible.
+- Do not stop/restart agents or replace live relay daemons to roll out this feature.
+- Existing sessions may retain their loaded skill list until their next normal start.
+- Mutating APIs require an authenticated Orca caller. CLI defaults to its execution
+  environment; cross-host operations require an explicit selector.
+- Deleting catalog entries must not delete original source folders. Removing an
+  assignment must not remove unowned or locally modified installations.
+
+## Durable implementation ledger
+
+OMX's skill package is installed but its CLI/runtime is unavailable in this environment.
+This document records the implementation and verification handoff instead. The Codex
+goal slot tracks the library objective. The user explicitly resumed implementation
+after the interrupted session; only separate, capped validation services are permitted.
+
+| Story | Scope | State |
+| --- | --- | --- |
+| G001 | Contracts, local storage, validated snapshots, import/version/conflict tests | Implemented and focused checks passed; final review pending |
+| G002 | Execution-host discovery/export and safe provisioning/reconciliation | Implemented; real SSH verification pending |
+| G003 | CLI, browser/desktop library, import review and assignment management | Implemented; disposable hidden renderer validation passed |
+| G004 | Adversarial regression/e2e tests, independent review, safe deployment | Pending |
+
+## Verification required before completion
+
+Test native and SSH imports, duplicate content, same-name different content, malicious
+paths/symlinks, scripts/binary assets, local modifications, failed/disconnected hosts,
+retry/restart persistence, pinned updates, protected removal, workspace authority,
+runtime coverage, and caller scope. Run targeted type/lint/unit checks and real hidden
+browser/desktop workflows. Record independent security and architecture reviews and
+check terminal identities before/after deploying the main server only.
+
+No real skill imports or assignments are automatically created for the user's machines.
+End-to-end fixtures must use disposable, explicitly created test skills/workspaces.
+
+## Safety checkpoint — 2026-10-02
+
+The native full `pnpm tc:node` check triggered global OOM at 11:07:54 local time.
+The kernel killed its `tsc` process (about 3.1 GiB anonymous RSS) inside Orca's
+terminal-daemon scope. That scope failed; Orca created a replacement daemon at
+11:07:56. The main Orca service was not explicitly restarted.
+
+The user requested stopping the activity that killed the session. No full checks,
+builds, tests, deployments, or service restarts may resume in the terminal-daemon
+scope. The existing `config/scripts/run-isolated-validation.mjs` now defaults to
+a separate systemd service capped at 768 MiB, no swap, and one CPU, with any OOM
+confined to that service. Its configurable ceiling is 1 GiB. Large checks must
+be split or run elsewhere; never raise this cap to make a check pass.
+
+Implementation has resumed at the user's explicit request. Production is unchanged.
+The existing eight snapshot tests passed before the failed full typecheck.
+
+## Read-only deployed-state audit after the interruption
+
+Public `orca-ide status --json` reports runtime 1.4.214 ready. The main service
+has zero restarts since its 2026-10-01 start, and the replacement terminal-daemon
+scope remains active. No lifecycle or provisioning command was issued.
+
+`orca-ide account list --json` uses `accounts.list` with `refreshUsage:false`,
+so this audit did not force provider refreshes. Its cached snapshot contains:
+
+- Codex shared across Orca server, personal distrobox and notebook-personal.
+- Personal Claude shared across Orca server, personal distrobox and university;
+  notebook-work Claude is independently identified and has working quota data.
+- Cursor personal and Antigravity have working quotas; notebook-work Cursor
+  reports a stale-token error, not empty/free capacity.
+- OpenCode Go, ZAI coding plan, GitHub Copilot and OpenRouter expose quota data.
+  Google and Perplexity collectors are not implemented for the detected credential
+  types; ordinary Anthropic API credentials require different usage authority.
+
+`orca-ide artifacts list --json` lists three artifacts. Read-only HTTP HEAD
+requests to their existing share URLs return 200: one HTML view and two PDFs
+with `application/pdf`. No artifact was created, changed, deleted or republished.
+
+These checks do not prove complete browser rendering, SSH port ownership,
+caller-scope behavior, or unsupported provider quotas. They do not justify
+completing the older automatic goal. Implementation and execution-heavy work
+were held until the user's explicit continuation.
+
+## Safe implementation checkpoint — 2026-10-02 12:40 local
+
+- Verified separate validation-service cgroup and actual memory.max, swap.max,
+  cpu.max controls. Checks cannot join the terminal-daemon scope.
+- Native library tests and existing Skills page: 30 passed together.
+- CLI scope/review tests and snapshot review-change guard: 15 passed.
+- Runtime restart, folder-host-change, registered offline target, arbitrary
+  workspace rejection, and browser review/import tests: 6 passed.
+- Focused CLI native TypeScript checker passed. A broader CLI checker exceeded
+  768 MiB and was killed in its own service; no cap increase or full retry.
+- Standalone execution observer, including native installer dependencies, builds
+  to /home/skyron/.cache/orca-skill-library-build. Live relays are untouched.
+- Global receipt ownership now uses the persistent profile identity, not Orca's
+  ephemeral runtime ID. Folder/worktree assignments fence the saved host.
+- Catalog transactions reuse the existing filesystem lock and atomic state writer.
+- Browser requests pass the reviewed digest; CLI offers --expected-digest.
+- MainPID=1731439, NRestarts=0; terminal daemon remains
+  orca-daemon-fb885499-b3e3-4135-96ae-9c12e2b623db.scope.
+
+Still required: focused backend/renderer type checks, changed-code quality and
+localization gates, standalone SSH worker integration tests, real native/SSH e2e,
+hidden rendered UI validation, independent cleanup/security/architecture reviews,
+then safe main/frontend/CLI deployment without replacing SSH relays or terminals.
+
+## Implementation and RAM cleanup checkpoint — 2026-10-02 13:46 local
+
+- Post-cleanup regression run: 117 passed, one incumbent platform-specific test
+  skipped, across 13 suites. Includes all supported runtime placements/removal
+  at both global and registered-folder scopes, new mobile/browser RPC permissions,
+  source discovery completeness, archive quota accounting, and overlapping intent
+  protection. Standalone observer was rebuilt before worker tests.
+- OpenCode workspace discovery now includes `.opencode/skills`; its custom XDG
+  root is accepted by the incumbent recovery journal. Existing providers retain
+  their registry order and native roots.
+- Host identity is required in stored assignments. Both resolution and catalog
+  result commits reject unknown/stale ownership; an old install result cannot
+  overwrite a newer removal request or version/provider pin.
+- Import approval is keyed to the candidate and digest. Renderer snapshots,
+  operation state, and pending selections are fenced to the runtime target,
+  including same-ID re-pairs. The host-switch regression passed.
+- Focused core/CLI native typechecks passed. Default lint and React Doctor passed
+  with zero warnings/errors. Broader type-aware lint and renderer typechecking
+  exceeded their isolated cap; they are not claimed as passed.
+- English declarations and the generated runtime-required English catalog are
+  synchronized, including missing declarations for earlier local customizations.
+  Locale catalog/extraction verification remains a final check.
+- The actual library component built successfully as a disposable browser fixture.
+  Hidden Electron/CDP validation passed: manual review before import, host selection,
+  assignment rendering, light desktop/dark mobile screenshots, no horizontal overflow,
+  no page errors, and every BrowserWindow remained invisible. No production backend
+  or real skill folders were used. Build and render execute in separate services;
+  running Vite's dev server and Electron together exceeded the original cap.
+- Render evidence: `/home/skyron/.cache/orca-skill-library-renderer.VUuGAt/`.
+  Reproduce with `config/scripts/probe-skill-library-renderer.mjs build <disposable-dir>`
+  then `render <disposable-dir>`, each through the isolated validation wrapper.
+- Production main builds exceeded 768 MiB even without source maps/minification
+  and with one Rust worker. `ORCA_BUILD_SOURCEMAPS=0` is an optional main-build
+  diagnostic; release/default behavior is unchanged. No main/frontend/CLI/relay
+  deployment has occurred. Full packaged RPC and real SSH CLI e2e remain unverified.
+- Independent review is unavailable: installed native `code-reviewer`/`architect`
+  roles and a role-aware delegation surface are absent. Under the code-review and
+  Ultragoal skills this is not approval; no author self-review substitutes for it.
+- User authorized non-disruptive RAM/tmpfs cleanup. `/tmp` used 9.8 GiB; a September
+  27 game-recorder scratch copy contained about 4.1 GiB of native builds. No open
+  file references or modifications within the preceding day were found for that
+  build directory. It was moved, recoverably, to
+  `/home/skyron/tmpfs-recovery-20261002.NvjiuZ/kstyle-native-builds` on disk.
+  Sources/captures and two other scratch workspaces with open shells were untouched.
+- `/tmp` fell to 5.8 GiB and available RAM rose from about 4 GiB to 8 GiB. Checked
+  active agent/shell PIDs survived. Orca MainPID remains 1731439 with NRestarts=0;
+  terminal-daemon scope remains `orca-daemon-fb885499-b3e3-4135-96ae-9c12e2b623db.scope`.
+- Raising the build-only isolated cap requires the user's explicit direction.
+  Cleanup itself did not change the 768 MiB default or its 1 GiB ceiling.
+
+### Bounded cleanup report
+
+Scope: feature-owned files only. Behavior locked by the suites above. Removed
+unknown-owner local defaults, silent recovery/retry failures, duplicate RPC result
+schemas, and post-effect review resets. Queue error catches are intentional queue
+settlement, not successful-operation claims; remote export cleanup is best-effort
+when disconnected. Offline provisioning never executes locally. No dependency or
+live-relay replacement was introduced. UI uses the incumbent controls and confirmation
+dialog. Mobile UUID metadata is dense but readable; further visual polish is not a
+completion claim. Final type-aware/full-build/independent-review gates remain pending.
+
+### Explicit build-limit steering — 2026-10-02
+
+The user approved "Allow a 2 GiB isolated build" after RAM cleanup. The wrapper's
+default remains 768 MiB and ordinary checks retain a 1 GiB ceiling. Only an explicit
+`--build` invocation permits the approved 2 GiB ceiling, still with no swap,
+one CPU/job, its own systemd service and a 30-minute lifetime. Build output remains
+staged outside the live `out` tree; this approval does not authorize stopping active
+sessions or replacing relays. Locale catalog verification and extraction passed.
+
+## Final source checkpoint — 2026-10-02
+
+- Approved 2 GiB main build passed: 6,603 transformed modules, 1.1 GiB peak,
+  zero swap. Output: `/home/skyron/.cache/orca-skill-library-build/main`.
+- Full CLI native TypeScript compilation/emission passed into
+  `tmp/orca-skill-library-build.TwUDpF/out`; new library command help and five
+  existing read-only/dry-run skills commands passed. Packaged dependency-closure
+  verification did not pass: the repository's existing `node_modules` symlink
+  resolves into a separate deployed directory, outside the checker artifact root.
+  Dependencies were not copied or reinstalled to hide that limitation.
+- Full renderer build exceeded the approved 2 GiB cap twice, including with a
+  smaller 512 MiB JavaScript heap. Both failures were isolated. No further cap
+  increase is authorized yet, and no production output was replaced.
+- Focused core typechecking passed after required-host schema changes. RPC catalog,
+  bundled guide, localization catalog and extraction checks passed.
+- Changed-line default, casting, native plugins, React Doctor and design-system
+  checks passed with zero new findings after fixing the wrapper's braces and
+  moving the assignment dialog scrollbar to its ordinary content container.
+  Type-aware quality and full renderer typechecking remain unverified.
+- Production remains MainPID 1731439, NRestarts 0. Available memory is about
+  8 GiB; `/tmp` remains 5.8 GiB. Independent review remains unavailable.
+- Post-cleanup final regression: 117 passed, one incumbent platform-specific
+  skip across 13 suites. Hidden desktop/mobile renderer probe rebuilt and passed
+  again after the dialog scrollbar fix; windows remained hidden, 261 MiB peak.
+- Saving a local implementation checkpoint is not a merge-ready approval or
+  deployment. A further 4 GiB isolated frontend attempt was offered to the user;
+  it remains unauthorized until their explicit reply.
+
+### Architecture-invariant evidence audit
+
+Source: the brief and invariants at the top of this document, plus the user's
+explicit session-safety and build-limit steering. This is implementation/test
+evidence, not an independent review verdict. Every row still requires independent
+review; real-host and packaged e2e are additional open gates.
+
+| Required invariant | Implementation evidence | Verification evidence |
+| --- | --- | --- |
+| Local, launcher-independent library; no Cloud or Multica dependency | `skill-library-service.ts`, `skill-library-placement.ts` reuse native archive/placement services | Service and all-runtime global/workspace placement suites passed |
+| Explicit selection and review; snapshots remain immutable | Shared schemas, candidate lookup, expected-digest import, version conflict handling | Unknown path, unreviewed import, changed review digest, same-name version and dedup tests passed |
+| Execution host owns filesystem work; no offline local fallback | Runtime destination authority, standalone SSH worker, provider/generation fences | Offline host, moved folder, unknown owner, arbitrary host/workspace and upload-disconnect tests passed; real SSH pending |
+| Reuse incumbent validation, ownership, locks and recovery | Store filesystem lock; installer/remover receipt ownership guards and existing recovery | Original-folder protection, edited placement, serialized import, stale result and existing transaction suites passed |
+| Never execute imported data; preserve scripts/assets/permissions | Validated archives and manifest-only preview; no script runner | Binary and executable metadata test and standalone worker integration passed |
+| Pinned versions and explicit update/removal intent | Saved version IDs and compare-before-commit reconciliation | Pin update, offline retry, restart identity and overlapping install/removal tests passed |
+| Authenticated transport and explicit CLI cross-host scope | Existing authenticated RPC registry and mobile allowlist; trusted caller host selector | Mobile registry/permission and six CLI scope tests passed; packaged RPC pending |
+| No automatic user provisioning, source deletion or session interruption | Disposable fixtures; assigned-version deletion guard; bounded staging services | Source preservation, protected removal, hidden-window probe, unchanged server/terminal identities |
+
+Overall invariant gate: **pending independent review and real packaged/native/SSH e2e**.

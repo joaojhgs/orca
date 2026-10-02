@@ -254,6 +254,20 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     load: async () => (await import('./handlers/skill-sharing.js')).SKILL_SHARING_HANDLERS
   },
   {
+    name: 'skill-library',
+    keys: [
+      'skills library list',
+      'skills library discover',
+      'skills library preview',
+      'skills library import',
+      'skills library assign',
+      'skills library unassign',
+      'skills library reconcile',
+      'skills library delete'
+    ],
+    load: async () => (await import('./handlers/skill-library.js')).SKILL_LIBRARY_HANDLERS
+  },
+  {
     name: 'skills',
     keys: ['skills list', 'skills get', 'skills install', 'skills update'],
     load: async () => (await import('./handlers/skills.js')).SKILL_HANDLERS

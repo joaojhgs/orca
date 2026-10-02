@@ -2,6 +2,7 @@ import { executionObserverRequestSchema } from '../../shared/execution-observer'
 import { discoverExecutionCredentials } from './credential-discovery'
 import { collectExecutionUsage } from './usage-collector'
 import { scanWorkspacePorts } from '../ports/local-workspace-port-scanner'
+import { observeSkillLibrary } from './skill-library-worker'
 
 async function main() {
   const encoded = process.env.ORCA_OBSERVER_REQUEST
@@ -16,6 +17,16 @@ async function main() {
   }
   if (request.operation === 'usage') {
     return collectExecutionUsage(request.credential)
+  }
+  if (
+    request.operation === 'library-discover' ||
+    request.operation === 'library-package' ||
+    request.operation === 'library-cleanup' ||
+    request.operation === 'library-stage' ||
+    request.operation === 'library-install' ||
+    request.operation === 'library-remove'
+  ) {
+    return observeSkillLibrary(request)
   }
   // Why: non-Linux command scanning needs the host's bundled worker, not a host-side fallback.
   if (process.platform !== 'linux') {

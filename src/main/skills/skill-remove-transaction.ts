@@ -38,6 +38,7 @@ export type LocalSkillRemovalInput = {
   allowedProviderRoots: readonly string[]
   conflictResolution?: 'replace-and-discard-local' | 'cancel'
   filesystem?: SkillInstallFilesystem
+  expectedPackageId?: string
 }
 
 export type SkillRemovalTransactionDependencies = {
@@ -117,6 +118,9 @@ export async function removeLocalSharedSkill(
     await recoverSkillInstallTransaction(input.stateDirectory, input.canonicalPath, filesystem)
     await recoverSkillPlacementTransaction(input.stateDirectory, input.canonicalPath, filesystem)
     const receipt = await readSkillInstallReceipt(input.stateDirectory, input.canonicalPath)
+    if (input.expectedPackageId && receipt?.packageId !== input.expectedPackageId) {
+      return conflictResult(input, receipt, 'unowned')
+    }
     const state = await inspectCanonicalRemoval(input, receipt)
     if (!receipt) {
       return conflictResult(input, null, 'unowned')

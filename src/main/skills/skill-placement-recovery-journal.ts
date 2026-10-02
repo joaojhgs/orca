@@ -84,7 +84,7 @@ function validProviderRootOverrides(value: unknown): value is SkillProviderRootO
   }
   return Object.entries(value).every(
     ([provider, root]) =>
-      (provider === 'claude' || provider === 'grok') &&
+      (provider === 'claude' || provider === 'grok' || provider === 'opencode') &&
       typeof root === 'string' &&
       root.length > 0 &&
       root.length <= 32_768 &&

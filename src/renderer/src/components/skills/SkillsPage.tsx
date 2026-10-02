@@ -14,6 +14,7 @@ import { SkillShareDialog } from './SkillShareDialog'
 import { SkillInstallDialog } from './SkillInstallDialog'
 import { SkillInstallManagementDialog } from './SkillInstallManagementDialog'
 import { SkillsPageHeader } from './SkillsPageHeader'
+import { SkillLibraryView } from './SkillLibraryView'
 import { SkillsFilterToolbar } from './SkillsFilterToolbar'
 import { SkillsSelectionHeader } from './SkillsSelectionHeader'
 import {
@@ -234,6 +235,12 @@ export default function SkillsPage(): React.JSX.Element {
     setInstallOpen(true)
   }
 
+  if (view === 'library') {
+    return (
+      <SkillLibraryView target={runtimeTarget} onBack={exitSharedLinks} onClose={closeSkillsPage} />
+    )
+  }
+
   return (
     <main className="flex min-h-0 flex-1 flex-col bg-background">
       {selectionMode ? (
@@ -297,6 +304,7 @@ export default function SkillsPage(): React.JSX.Element {
           }}
           onInstallFromLink={openInstallDialog}
           onManageInstalls={() => setManagementOpen(true)}
+          onOpenLibrary={() => setView('library')}
           onOpenSharedLinks={openSharedLinks}
         />
       )}

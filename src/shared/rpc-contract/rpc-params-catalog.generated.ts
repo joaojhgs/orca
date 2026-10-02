@@ -563,6 +563,15 @@ import {
   SkillRemoveRequestSchema
 } from '../skill-install-contract'
 import {
+  SkillLibraryAssignParams,
+  SkillLibraryAssignmentParams,
+  SkillLibraryDiscoverParams,
+  SkillLibraryImportParams,
+  SkillLibraryPreviewParams,
+  SkillLibraryReconcileParams,
+  SkillLibraryVersionParams
+} from '../skill-library-contract'
+import {
   SkillUploadBeginRequestSchema,
   SkillUploadChunkRequestSchema,
   SkillUploadCommitRequestSchema
@@ -1138,6 +1147,14 @@ export const RPC_PARAMS_BY_METHOD = {
   'skills.getInstallProgress': SkillsGetInstallProgressParams,
   'skills.install': SkillInstallRequestSchema,
   'skills.installBundle': SkillBundleInstallRequestSchema,
+  'skills.library.assign': SkillLibraryAssignParams,
+  'skills.library.deleteVersion': SkillLibraryVersionParams,
+  'skills.library.discover': SkillLibraryDiscoverParams,
+  'skills.library.import': SkillLibraryImportParams,
+  'skills.library.list': null,
+  'skills.library.preview': SkillLibraryPreviewParams,
+  'skills.library.reconcile': SkillLibraryReconcileParams,
+  'skills.library.unassign': SkillLibraryAssignmentParams,
   'skills.listManagedInstalls': null,
   'skills.previewDelete': SkillDeleteRequestSchema,
   'skills.previewInstall': SkillInstallPreviewRequestSchema,

@@ -32,9 +32,11 @@ export function resolveEnvironmentSkillProviderRoots(
 ): SkillProviderRootOverrides {
   const claudeConfig = normalizedRoot(env.CLAUDE_CONFIG_DIR)
   const grokHome = normalizedRoot(env.GROK_HOME)
+  const xdgConfig = normalizedRoot(env.XDG_CONFIG_HOME)
   return {
     ...(claudeConfig ? { claude: join(claudeConfig, 'skills') } : {}),
-    ...(grokHome ? { grok: join(grokHome, 'skills') } : {})
+    ...(grokHome ? { grok: join(grokHome, 'skills') } : {}),
+    ...(xdgConfig ? { opencode: join(xdgConfig, 'opencode', 'skills') } : {})
   }
 }
 

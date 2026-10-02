@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.node.json",
+  "include": [
+    "../src/main/skills/skill-library-service.ts",
+    "../src/main/skills/skill-library-store.ts",
+    "../src/main/skills/skill-library-assignments.ts"
+  ],
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "noEmit": true,
+    "types": ["node", "electron-vite/node"]
+  }
+}

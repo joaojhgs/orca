@@ -4,6 +4,7 @@ export const CLI_GLOBAL_FLAGS: readonly string[] = ['help', 'json', ...CLI_GLOBA
 export const CLI_BOOLEAN_FLAGS = new Set([
   'all',
   'all-hosts',
+  'add-version',
   'allow-failed-archive-hook',
   'attachments',
   'children',
@@ -37,6 +38,7 @@ export const CLI_BOOLEAN_FLAGS = new Set([
   'parent-current',
   'provision',
   'ready',
+  'reviewed',
   'recipe-json',
   'references',
   'relations',
