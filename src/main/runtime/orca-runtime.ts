@@ -9,8 +9,23 @@ import {
 } from '../workspace-space-analysis'
 import type { WorkspaceSpaceAnalyzeResult } from '../../shared/workspace-space-types'
 import type { Store } from '../persistence'
+import type { UsageAnalyticsRequest } from '../../shared/rpc-contract/usage-analytics-params'
+import { controlUsageAnalytics, type UsageAnalyticsStores } from './runtime-usage-analytics'
 
 class OrcaRuntimeService extends OrcaRuntimeWithResolveWaiter {
+  private usageAnalyticsStores: UsageAnalyticsStores | null = null
+
+  setUsageAnalyticsStores(stores: UsageAnalyticsStores): void {
+    this.usageAnalyticsStores = stores
+  }
+
+  controlUsageAnalytics(request: UsageAnalyticsRequest): unknown {
+    if (!this.usageAnalyticsStores) {
+      throw new Error('Usage analytics are unavailable on this runtime')
+    }
+    return controlUsageAnalytics(this.usageAnalyticsStores, request)
+  }
+
   private workspaceSpaceAbortController: AbortController | null = null
   private workspaceSpaceAnalysisPromise: Promise<WorkspaceSpaceAnalyzeResult> | null = null
 

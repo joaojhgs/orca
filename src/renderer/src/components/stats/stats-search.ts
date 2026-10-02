@@ -9,6 +9,12 @@ export const getStatsPaneSearchEntries = createLocalizedCatalog(() => [
       'Orca stats plus Claude, Codex, OpenCode, Muse token analytics and Grok subscription usage.'
     ),
     keywords: [
+      'quota',
+      'ssh',
+      'distrobox',
+      'cursor',
+      'antigravity',
+      'subscription',
       translate('auto.components.stats.stats.search.372debfac0', 'stats'),
       translate('auto.components.stats.stats.search.0e2a0b6431', 'usage'),
       translate('auto.components.stats.stats.search.0bba8ca244', 'statistics'),

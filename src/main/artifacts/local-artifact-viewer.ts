@@ -104,6 +104,24 @@ export class LocalArtifactViewer {
         response.end('Artifact not found')
         return
       }
+      if (record.content_type === 'application/pdf') {
+        const pdf = Buffer.from(record.content, 'base64')
+        // Why: native PDF viewers cannot run in an opaque HTML sandbox. This separate
+        // capability origin serves only PDF bytes with nosniff; HTML keeps its sandbox.
+        response.setHeader(
+          'Content-Security-Policy',
+          "default-src 'none'; base-uri 'none'; form-action 'none'"
+        )
+        // Why: Orca renders PDFs with its existing PDF.js viewer rather than unsandboxing an iframe.
+        response.setHeader('Access-Control-Allow-Origin', '*')
+        response.writeHead(200, {
+          'Content-Type': 'application/pdf',
+          'Content-Length': pdf.length,
+          'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(record.file_name)}`
+        })
+        response.end(request.method === 'HEAD' ? undefined : pdf)
+        return
+      }
       const content =
         record.content_type === 'text/markdown'
           ? `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:16px system-ui;max-width:72ch;margin:2rem auto;padding:0 1rem;line-height:1.6}pre{overflow:auto}img{max-width:100%}</style></head><body>${await marked.parse(record.content)}</body></html>`

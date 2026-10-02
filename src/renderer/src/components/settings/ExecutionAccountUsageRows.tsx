@@ -11,13 +11,13 @@ import { useResetCountdownClock } from '@/hooks/useResetCountdownClock'
 export function ExecutionAccountUsageRows({
   provider
 }: {
-  provider: ExecutionCredential['provider']
+  provider?: ExecutionCredential['provider']
 }): React.JSX.Element | null {
   const accounts = useAppStore((state) => state.rateLimits.executionAccounts)
   const display = normalizeUsagePercentageDisplay(
     useAppStore((state) => state.usagePercentageDisplay)
   )
-  const rows = accounts?.filter((account) => account.provider === provider) ?? []
+  const rows = accounts?.filter((account) => !provider || account.provider === provider) ?? []
   const now = useResetCountdownClock(
     rows.flatMap((account) => [
       account.rateLimits?.session?.resetsAt,
@@ -36,7 +36,15 @@ export function ExecutionAccountUsageRows({
         'settings.executionUsage.description',
         'Matching accounts share one quota reading. Credentials stay on their execution host.'
       )}
-      keywords={[provider, 'usage', 'quota', 'ssh', 'distrobox', 'account', 'rate limit']}
+      keywords={[
+        provider ?? 'providers',
+        'usage',
+        'quota',
+        'ssh',
+        'distrobox',
+        'account',
+        'rate limit'
+      ]}
       className="flex flex-col gap-4"
     >
       {rows.map((account) => {

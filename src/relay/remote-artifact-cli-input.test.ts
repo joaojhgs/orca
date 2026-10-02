@@ -26,6 +26,19 @@ afterEach(async () => {
 })
 
 describe('prepareRemoteArtifactCliInput', () => {
+  it('transfers PDFs as base64, preserving binary content on SSH hosts', async () => {
+    const cwd = await remoteFolder()
+    const pdf = Buffer.from([37, 80, 68, 70, 45, 10, 255, 0])
+    await writeFile(join(cwd, 'remote.pdf'), pdf)
+    expect(await prepareRemoteArtifactCliInput(['artifacts', 'share', 'remote.pdf'], cwd)).toEqual({
+      stdin: pdf.toString('base64'),
+      artifactInput: {
+        sourceKey: join(cwd, 'remote.pdf'),
+        fileName: 'remote.pdf',
+        contentType: 'application/pdf'
+      }
+    })
+  })
   it('reads a folder-workspace file on the SSH host and preserves its source path', async () => {
     const cwd = await remoteFolder()
     await writeFile(join(cwd, 'report.md'), '# Remote report', 'utf8')

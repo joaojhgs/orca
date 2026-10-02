@@ -5,6 +5,7 @@ import { translate } from '@/i18n/i18n'
 import { artifactName } from './artifact-display-labels'
 import { ArtifactDetailHeader } from './ArtifactDetailHeader'
 import { ArtifactPreview } from './ArtifactPreview'
+import { PdfArtifactPreview } from './PdfArtifactPreview'
 
 export function ArtifactDetailDrawer({
   item,
@@ -50,7 +51,11 @@ export function ArtifactDetailDrawer({
               onClose={onClose}
               onDelete={onDelete}
             />
-            <ArtifactPreview shareUrl={item.shareUrl} />
+            {item.artifact.renderedContentType === 'application/pdf' ? (
+              <PdfArtifactPreview shareUrl={item.shareUrl} fileName={artifactName(item)} />
+            ) : (
+              <ArtifactPreview shareUrl={item.shareUrl} />
+            )}
           </div>
         ) : null}
       </SheetContent>

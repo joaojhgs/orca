@@ -41,6 +41,15 @@ export function createMarkdownArtifactRequest(
   }
 }
 
+export function createPdfArtifactRequest(file: OpenFile, content: string): ArtifactWriteRequest {
+  return {
+    sourceKey: markdownArtifactSourceKey(file),
+    content,
+    contentType: 'application/pdf',
+    fileName: basename(file.filePath)
+  }
+}
+
 export function createCurrentMarkdownArtifactRequest(
   file: OpenFile,
   contentFileId: string,

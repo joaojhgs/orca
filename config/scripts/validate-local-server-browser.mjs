@@ -127,6 +127,29 @@ try {
     await settingsButton.click()
   }
   await backButton.waitFor({ timeout: 15000 })
+  await page.getByRole('button', { name: /Usage Tracking/ }).click()
+  const quotas = page.getByTestId('usage-tracking-live-quotas')
+  await quotas.locator('[data-execution-account]').first().waitFor({ timeout: 30000 })
+  const usageTracking = await page.evaluate(async () => {
+    const states = {}
+    for (const provider of ['claudeUsage', 'codexUsage', 'openCodeUsage', 'museUsage']) {
+      const state = await window.api[provider].getScanState()
+      if (typeof state?.enabled !== 'boolean') {
+        throw new Error(`${provider} returned a stub`)
+      }
+      states[provider] = {
+        enabled: state.enabled,
+        scanning: state.isScanning,
+        error: state.lastScanError
+      }
+    }
+    return states
+  })
+  const quotaRows = await quotas.locator('[data-execution-account]').count()
+  if (quotaRows < 5) {
+    throw new Error('Usage Tracking is missing execution-host quotas')
+  }
+  console.log(JSON.stringify({ phase: 'usage-tracking', quotaRows, states: usageTracking }))
   await page.getByRole('button', { name: /AI Provider Accounts/ }).click()
   await page.locator('[data-execution-account]').first().waitFor({ timeout: 30000 })
   for (const section of [
@@ -161,6 +184,20 @@ try {
       sandbox: await page.locator('iframe[title="Artifact preview"]').getAttribute('sandbox')
     })
   )
+  if (process.env.ORCA_VALIDATION_PDF_NAME) {
+    await page.getByRole('button', { name: 'Close', exact: true }).click()
+    await page
+      .getByRole('button', { name: new RegExp(process.env.ORCA_VALIDATION_PDF_NAME) })
+      .click()
+    const pdf = page.getByTestId('artifact-pdf-preview')
+    await pdf.locator('canvas').first().waitFor({ timeout: 30000 })
+    if (await pdf.getByRole('alert').count()) {
+      throw new Error('PDF preview failed')
+    }
+    console.log(
+      JSON.stringify({ phase: 'pdf-preview', canvases: await pdf.locator('canvas').count() })
+    )
+  }
 } finally {
   await browser?.close()
   if (child && child.exitCode === null && child.signalCode === null) {

@@ -50,7 +50,9 @@ function contentTypeForPath(path: string): NonNullable<RemoteArtifactInput['cont
     ? 'text/html'
     : ['.md', '.markdown'].includes(extension)
       ? 'text/markdown'
-      : null
+      : extension === '.pdf'
+        ? 'application/pdf'
+        : null
 }
 
 export async function prepareRemoteArtifactCliInput(
@@ -70,9 +72,13 @@ export async function prepareRemoteArtifactCliInput(
   }
   const contentType = contentTypeForPath(sourceKey)
   if (!contentType) {
-    throw new Error('Artifacts must be HTML or Markdown files.')
+    throw new Error('Artifacts must be HTML, Markdown or PDF files.')
   }
-  const result = await readArtifactFileWithinLimit(sourceKey, ARTIFACT_CLI_MAX_RPC_BYTES)
+  const result = await readArtifactFileWithinLimit(
+    sourceKey,
+    ARTIFACT_CLI_MAX_RPC_BYTES,
+    contentType === 'application/pdf' ? 'base64' : 'utf8'
+  )
   if (result.status === 'not-file') {
     throw new Error('Artifact file was not found or is not a file.')
   }

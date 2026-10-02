@@ -13,6 +13,13 @@ ORCA artifacts delete <id> --json
 ```
 
 - `share`, `update`, and `unshare` accept `.html`, `.htm`, `.md`, and `.markdown` files.
+  Updated local artifact servers also accept `.pdf` files; Cloud hosting does not.
+- With server-local hosting, links and content stay on the Orca server and no Cloud login
+  is required. The user's publishing approval is still required. Listing and revocation
+  work within the active local profile, including while publishing is disabled.
+- PDF content is transported as base64 and served as `application/pdf`, never as HTML.
+  CLI requests retain the 800 KiB envelope cap (about 600 KiB of PDF bytes); larger files
+  can be shared from the editor up to its encoded-content limit of 10 MiB.
 - `share` saves the returned edit token in the active Orca profile and never includes it
   in CLI output. `update` and `unshare` look up that record by the resolved local file
   path, so use the same path and Orca profile that originally shared the file.

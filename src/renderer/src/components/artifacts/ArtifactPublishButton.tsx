@@ -10,6 +10,7 @@ import { useAppStore } from '@/store'
 import { ArtifactPublishedLinkPanel } from './ArtifactPublishedLinkPanel'
 import { getPublishedArtifactLink } from './artifact-published-link-client'
 import { publishArtifactFromSurface } from './artifact-publish-flow'
+import { artifactAccountIdentity } from './useArtifactPagination'
 
 type PublishedLinkLookup = {
   key: string
@@ -51,17 +52,9 @@ export function ArtifactPublishButton({
   const openSettingsPage = useAppStore((state) => state.openSettingsPage)
   const openSettingsTarget = useAppStore((state) => state.openSettingsTarget)
   const settings = useAppStore((state) => state.settings)
-  const signedIn = authStatus?.state === 'connected'
+  const accountKey = artifactAccountIdentity(authStatus)
+  const signedIn = accountKey !== null
   const sharingEnabled = settings?.artifactSharingEnabled === true
-  const accountKey =
-    authStatus?.state === 'connected'
-      ? JSON.stringify([
-          authStatus.activeProfileId,
-          authStatus.cloud?.userId ?? null,
-          authStatus.cloud?.cloudProfileId ?? null,
-          authStatus.cloud?.activeOrgId ?? null
-        ])
-      : null
   const lookupKey = accountKey ? JSON.stringify([accountKey, sourceKey]) : null
   const currentLookup = linkLookup?.key === lookupKey ? linkLookup : null
   const checkingLink =

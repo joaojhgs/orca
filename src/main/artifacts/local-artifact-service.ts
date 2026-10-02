@@ -46,6 +46,7 @@ export class LocalArtifactService {
       backend: 'local',
       identity: `local:${profile.profile.id}`,
       requiresCloudLogin: false,
+      supportsPdf: true,
       sharingEnabled: this.isSharingEnabled(),
       viewerOrigin: await this.viewer.start()
     }

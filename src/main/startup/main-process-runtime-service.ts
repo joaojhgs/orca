@@ -181,6 +181,16 @@ export function configureRuntimeServices(runtime: OrcaRuntimeService): void {
   const claudeAccounts = state.claudeAccounts
   const codexAccounts = state.codexAccounts
   const rateLimits = state.rateLimits
+  const { claudeUsage, codexUsage, openCodeUsage, museUsage } = state
+  if (!claudeUsage || !codexUsage || !openCodeUsage || !museUsage) {
+    throw new Error('Usage analytics must be initialized before runtime wiring')
+  }
+  runtime.setUsageAnalyticsStores({
+    claude: claudeUsage,
+    codex: codexUsage,
+    opencode: openCodeUsage,
+    muse: museUsage
+  })
   if (!store || !claudeAccounts || !codexAccounts || !rateLimits) {
     throw new Error('Account services must be initialized before runtime wiring')
   }

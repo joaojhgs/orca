@@ -6,11 +6,15 @@ const CLOUD_FLAGS = ['api-url']
 export const ARTIFACT_COMMAND_SPECS: CommandSpec[] = [
   {
     path: ['artifacts', 'share'],
-    summary: 'Share an HTML or Markdown file with your Orca account',
+    summary: 'Share HTML, Markdown or a server-local PDF artifact',
     usage: 'orca artifacts share <file> [--api-url <url>] [--json]',
     allowedFlags: [...GLOBAL_FLAGS, ...CLOUD_FLAGS, 'file'],
     positionalArgs: ['file'],
-    examples: ['orca artifacts share ./report.html', 'orca artifacts share ./notes.md --json']
+    examples: [
+      'orca artifacts share ./report.html',
+      'orca artifacts share ./notes.md --json',
+      'orca artifacts share ./report.pdf --json'
+    ]
   },
   {
     path: ['artifacts', 'update'],

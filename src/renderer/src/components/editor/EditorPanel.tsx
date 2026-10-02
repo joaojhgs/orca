@@ -23,7 +23,10 @@ import {
   selectEditorPanelGitStatusEntries
 } from './editor-panel-git-entry-selector'
 import { createEditorPanelDraftSelector } from './editor-panel-draft-selector'
-import { createCurrentMarkdownArtifactRequest } from './markdown-artifact-upload'
+import {
+  createCurrentMarkdownArtifactRequest,
+  createPdfArtifactRequest
+} from './markdown-artifact-upload'
 import { useEditorPanelSave } from './useEditorPanelSave'
 
 function EditorPanelInner({
@@ -321,13 +324,18 @@ function EditorPanelInner({
     markdownFrontmatterVisible[markdownDocumentStateFileId] ?? true
   const isMarkdownTableOfContentsVisible =
     markdownTableOfContentsVisible[markdownDocumentStateFileId] ?? false
-  const createActiveMarkdownArtifactRequest = () =>
+  const pdfContent = activeFile.filePath.toLowerCase().endsWith('.pdf')
+    ? (fileContents[activeFile.id]?.content ?? null)
+    : null
+  const createActiveArtifactRequest = () =>
     Promise.resolve(
-      createCurrentMarkdownArtifactRequest(
-        activeFile,
-        markdownDocumentStateFileId,
-        activeMarkdownContent ?? ''
-      )
+      pdfContent !== null
+        ? createPdfArtifactRequest(activeFile, pdfContent)
+        : createCurrentMarkdownArtifactRequest(
+            activeFile,
+            markdownDocumentStateFileId,
+            activeMarkdownContent ?? ''
+          )
     )
 
   return (
@@ -370,8 +378,10 @@ function EditorPanelInner({
         onExportMarkdownToPdf={() =>
           void exportActiveMarkdownToPdf({ fileId: activeFile.id, root: panelRef.current })
         }
-        createMarkdownArtifactRequest={
-          activeMarkdownContent === null ? undefined : createActiveMarkdownArtifactRequest
+        createArtifactRequest={
+          activeMarkdownContent === null && pdfContent === null
+            ? undefined
+            : createActiveArtifactRequest
         }
         onContentChange={handleContentChange}
         onContentChangeForFile={handleContentChangeForFile}

@@ -12,6 +12,7 @@
     "../src/main/ipc/workspace-ports.ts",
     "../src/main/orca-profiles/profile-cloud-auth-status.ts",
     "../src/main/runtime/rpc/methods/accounts.ts",
+    "../src/main/runtime/rpc/methods/usage-analytics.ts",
     "../src/main/runtime/rpc/methods/artifacts.ts",
     "../src/main/runtime/rpc/methods/workspace-ports.ts"
   ],

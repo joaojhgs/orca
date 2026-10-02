@@ -38,6 +38,66 @@ afterEach(async () => {
 })
 
 describe('server-local artifacts', () => {
+  it('hosts PDF bytes with correct metadata, HEAD, stable updates and revocation', async () => {
+    const service = await fixture()
+    const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n')
+    const request = {
+      ...write,
+      sourceKey: 'test-pdf',
+      fileName: 'report é.pdf',
+      contentType: 'application/pdf' as const,
+      content: pdf.toString('base64')
+    }
+    expect(await service.hostingStatus()).toMatchObject({ supportsPdf: true })
+    const published = await service.publish(request)
+    if (published.status !== 'ok') {
+      throw new Error('PDF publish failed')
+    }
+    expect(published.value.item.artifact).toMatchObject({
+      renderedContentType: 'application/pdf',
+      sourceContentType: 'application/pdf',
+      byteSize: pdf.length
+    })
+    const url = published.value.item.shareUrl
+    const response = await fetch(url)
+    expect(response.headers.get('content-type')).toBe('application/pdf')
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(response.headers.get('content-disposition')).toContain(
+      "filename*=UTF-8''report%20%C3%A9.pdf"
+    )
+    expect(Buffer.from(await response.arrayBuffer())).toEqual(pdf)
+    const head = await fetch(url, { method: 'HEAD' })
+    expect(head.headers.get('content-length')).toBe(String(pdf.length))
+    expect(await head.text()).toBe('')
+    expect(await service.publish(request)).toMatchObject({
+      status: 'ok',
+      value: { change: 'updated', item: { shareUrl: url } }
+    })
+    await service.unshare({ sourceKey: request.sourceKey })
+    expect((await fetch(url)).status).toBe(404)
+  })
+
+  it('refuses malformed PDF/base64 and preserves the human publishing gate for PDFs', async () => {
+    const service = await fixture()
+    for (const content of [
+      Buffer.from('<script>oops</script>').toString('base64'),
+      '%PDF-plain-text',
+      'JVBERi0=\n'
+    ]) {
+      await expect(
+        service.share({ ...write, contentType: 'application/pdf', content })
+      ).rejects.toThrow('Invalid PDF')
+    }
+    expect(await service.list({})).toEqual({ status: 'ok', value: { artifacts: [] } })
+    const disabled = await fixture(false)
+    await expect(
+      disabled.share({
+        ...write,
+        contentType: 'application/pdf',
+        content: Buffer.from('%PDF-1.4').toString('base64')
+      })
+    ).rejects.toThrow()
+  })
   it('serves saved links after startup without listing or republishing artifacts', async () => {
     const service = await fixture()
     const published = await service.share(write)

@@ -25,6 +25,7 @@ import {
 import { MobileWebBundleChunkParamsSchema } from '../mobile-web-bundle/bundle-rpc-contract'
 import { pluginConsentRequestSchema } from '../plugins/plugin-consent-request'
 import {
+  AccountControlParams,
   AccountsUnsubscribeParams,
   AddClaudeFromConfigDirParams,
   AddCodexFromHomeParams,
@@ -537,6 +538,7 @@ import {
   TerminalUpdateViewport
 } from './terminal-viewport-schemas-params'
 import { UpdaterCheckParams } from './updater-params'
+import { UsageAnalyticsParams } from './usage-analytics-params'
 import { WorkspacePortKillParams, WorkspacePortScanParams } from './workspace-ports-params'
 import { WorktreeCreate, WorktreePrefetchCreateBase } from './worktree-create-params'
 import {
@@ -573,6 +575,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'accounts.addClaudeFromConfigDir': AddClaudeFromConfigDirParams,
   'accounts.addCodexFromHome': AddCodexFromHomeParams,
   'accounts.consumeCodexResetCredit': ConsumeCodexResetCreditParams,
+  'accounts.control': AccountControlParams,
   'accounts.list': ListAccountsParams,
   'accounts.removeClaude': RemoveAccountParams,
   'accounts.removeCodex': RemoveAccountParams,
@@ -628,6 +631,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'artifacts.authStatus': null,
   'artifacts.delete': ArtifactsDeleteParams,
   'artifacts.getPublishedLink': SourceRequest,
+  'artifacts.hostingStatus': null,
   'artifacts.list': ListOptions,
   'artifacts.publish': WriteRequest,
   'artifacts.share': WriteRequest,
@@ -1200,6 +1204,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'updater.download': null,
   'updater.getStatus': null,
   'updater.install': null,
+  'usage.analytics': UsageAnalyticsParams,
   'workspacePorts.kill': WorkspacePortKillParams,
   'workspacePorts.scan': WorkspacePortScanParams,
   'workspaceSpace.analyze': null,

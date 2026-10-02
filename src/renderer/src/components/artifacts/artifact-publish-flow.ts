@@ -101,7 +101,10 @@ export async function publishArtifactFromSurface(
 
 async function ensureArtifactAccountConnected(): Promise<boolean> {
   const state = useAppStore.getState()
-  if (state.orcaProfileAuthStatus?.artifactHosting?.backend === 'local') {
+  if (
+    state.orcaProfileAuthStatus?.artifactHosting?.backend === 'local' ||
+    state.orcaProfileAuthStatus?.state === 'connected'
+  ) {
     return true
   }
   const hosting = await callRuntimeRpc<ArtifactHostingStatus>(
@@ -109,9 +112,6 @@ async function ensureArtifactAccountConnected(): Promise<boolean> {
     'artifacts.hostingStatus'
   ).catch(() => null)
   if (hosting?.backend === 'local' && !hosting.requiresCloudLogin) {
-    return true
-  }
-  if (state.orcaProfileAuthStatus?.state === 'connected') {
     return true
   }
   return (await state.connectCurrentOrcaProfile())?.status === 'connected'

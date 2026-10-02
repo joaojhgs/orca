@@ -17,7 +17,7 @@ const RecordSchema = z.object({
   source_key: z.string(),
   view_token: z.string().regex(/^[a-f0-9]{64}$/),
   content: z.string(),
-  content_type: z.enum(['text/html', 'text/markdown']),
+  content_type: z.enum(['text/html', 'text/markdown', 'application/pdf']),
   file_name: z.string(),
   title: z.string().nullable(),
   created_at: z.string(),
@@ -89,8 +89,16 @@ export class LocalArtifactStore {
     ) {
       throw new Error('Invalid artifact metadata')
     }
-    if (request.contentType !== 'text/html' && request.contentType !== 'text/markdown') {
+    if (!['text/html', 'text/markdown', 'application/pdf'].includes(request.contentType)) {
       throw new Error('Unsupported artifact content type')
+    }
+    let documentBytes = bytes
+    if (request.contentType === 'application/pdf') {
+      const pdf = Buffer.from(request.content, 'base64')
+      if (pdf.toString('base64') !== request.content || pdf.subarray(0, 5).toString() !== '%PDF-') {
+        throw new Error('Invalid PDF artifact: expected canonical base64 PDF content')
+      }
+      documentBytes = pdf.byteLength
     }
     this.db.exec('BEGIN IMMEDIATE')
     try {
@@ -103,12 +111,13 @@ export class LocalArtifactStore {
         .parse(
           this.db
             .prepare(
-              'SELECT COALESCE(SUM(byte_size), 0) AS bytes, COUNT(*) AS count FROM artifacts'
+              'SELECT COALESCE(SUM(length(CAST(content AS BLOB))), 0) AS bytes, COUNT(*) AS count FROM artifacts'
             )
             .get()
         )
       if (
-        totals.bytes - (existing?.byte_size ?? 0) + bytes > MAX_STORED_BYTES ||
+        totals.bytes - (existing ? artifactContentByteLength(existing.content) : 0) + bytes >
+          MAX_STORED_BYTES ||
         (!existing && totals.count >= MAX_ARTIFACTS)
       ) {
         throw new Error('Local artifact storage limit reached; remove unused artifacts')
@@ -124,7 +133,7 @@ export class LocalArtifactStore {
         title: request.title ?? null,
         created_at: existing?.created_at ?? timestamp,
         updated_at: timestamp,
-        byte_size: bytes
+        byte_size: documentBytes
       }
       this.db
         .prepare(`INSERT INTO artifacts VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -167,7 +176,8 @@ export function localArtifactItem(
       title: record.title,
       originalFileName: record.file_name,
       sourceContentType: record.content_type,
-      renderedContentType: 'text/html',
+      renderedContentType:
+        record.content_type === 'application/pdf' ? 'application/pdf' : 'text/html',
       createdAt: record.created_at,
       updatedAt: record.updated_at,
       expiresAt: '9999-12-31T23:59:59.999Z',
