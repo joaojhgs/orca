@@ -79,6 +79,7 @@ export function getStoredSettings(): GlobalSettings {
       ...defaults,
       floatingTerminalEnabled: false,
       rightSidebarOpenByDefault: false,
+      showSkillsButton: true,
       activeRuntimeEnvironmentId: null
     },
     migratedStored

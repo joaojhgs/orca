@@ -50,6 +50,7 @@ describe('ShareSkillsSettingsPane', () => {
     mocks.updateSettings.mockReset()
     mocks.state.orcaProfileAuthStatus = { configured: true, state: 'connected' }
     mocks.state.isWebClient = false
+    mocks.state.settings = { showSkillsButton: false, agentSkillSharingEnabled: false }
     Object.defineProperty(window, 'api', {
       configurable: true,
       value: {
@@ -127,12 +128,44 @@ describe('ShareSkillsSettingsPane', () => {
     )
 
     expect(screen.getByText(/available in the Orca desktop app/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Open Skills/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Open Skills/ })).toBeEnabled()
     expect(screen.queryByRole('button', { name: 'Sign in to Orca' })).not.toBeInTheDocument()
     expect(
       screen.getByRole('switch', {
         name: 'Allow agents and the Orca CLI to publish skill links'
       })
     ).toBeDisabled()
+  })
+
+  it('opens Skills and enables its sidebar shortcut in the browser without Cloud sign-in', async () => {
+    const user = userEvent.setup()
+    mocks.state.isWebClient = true
+    mocks.state.orcaProfileAuthStatus = { configured: true, state: 'local' }
+    render(
+      <TooltipProvider>
+        <ShareSkillsSettingsPane />
+      </TooltipProvider>
+    )
+
+    await user.click(screen.getByRole('button', { name: /Open Skills/ }))
+    expect(mocks.openSkillsPage).toHaveBeenCalledOnce()
+    await user.click(screen.getByRole('switch', { name: 'Show Skills Button' }))
+    expect(mocks.updateSettings).toHaveBeenCalledWith({ showSkillsButton: true })
+    expect(mocks.connect).not.toHaveBeenCalled()
+    expect(mocks.updateSettings).not.toHaveBeenCalledWith({ agentSkillSharingEnabled: true })
+  })
+
+  it('lets the browser hide its Skills sidebar shortcut', async () => {
+    const user = userEvent.setup()
+    mocks.state.isWebClient = true
+    mocks.state.settings.showSkillsButton = true
+    render(
+      <TooltipProvider>
+        <ShareSkillsSettingsPane />
+      </TooltipProvider>
+    )
+
+    await user.click(screen.getByRole('switch', { name: 'Show Skills Button' }))
+    expect(mocks.updateSettings).toHaveBeenCalledWith({ showSkillsButton: false })
   })
 })

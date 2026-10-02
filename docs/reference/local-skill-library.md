@@ -289,3 +289,20 @@ only. Active agents and live SSH relays remain protected.
   unavailable. Under the code-review/Ultragoal contracts this is not approval and
   the goal must not be marked complete. Full renderer typechecking/type-aware
   quality and a real paired-browser interaction test are not claimed as passed.
+
+## Browser navigation follow-up — 2026-10-02
+
+- The paired browser now exposes Settings → Share Skills → Open Skills and
+  Show Skills Button. From Skills, choose Local library in the page header.
+  These controls do not enable Cloud publishing or require Cloud sign-in.
+- New browser profiles show the Skills sidebar shortcut by default. Existing
+  explicit hide preferences remain intact; settings can restore the shortcut.
+- All 71 targeted settings, browser-preferences, sidebar and Skills page tests
+  passed. Five non-type-aware changed-line quality scans reported no new findings.
+  Full renderer build, boot graph and browser projection/verification passed.
+- Updated only frontend assets and atomically replaced HTML entrypoints, retaining
+  old chunks for open clients. No server/daemon/relay restart or dependency rebuild.
+  Server MainPID remained 2480400, active, with zero automatic restarts.
+- The served HTML, its 43 bootstrap/style/preload references and the lazy Settings
+  chunk matched staged build bytes over HTTP. This does not constitute a real
+  paired-browser interaction test or independent review approval.
