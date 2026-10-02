@@ -456,6 +456,10 @@ export class SshRelaySession {
     return this.remoteCliBridgeEnv?.remoteHome ?? null
   }
 
+  getRemoteNodePath(): string | null {
+    return this.remoteCliBridgeEnv?.nodePath ?? null
+  }
+
   getAiVaultHostInfo(): SshRelayAiVaultHostInfo | null {
     const env = this.remoteCliBridgeEnv
     if (!env) {

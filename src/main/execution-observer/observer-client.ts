@@ -13,6 +13,10 @@ import {
 import { runProcess } from '../../shared/child-process/run-process'
 import type { SshConnection } from '../ssh/ssh-connection'
 import { execCommand } from '../ssh/ssh-relay-exec-command'
+import { activeSessions } from '../ipc/ssh-active-relay-sessions'
+import { shellEscape } from '../ssh/ssh-connection-utils'
+import { isWindowsRemoteHost } from '../ssh/ssh-remote-platform'
+import { powerShellCommand, powerShellLiteral } from '../ssh/ssh-remote-powershell'
 
 export class ExecutionObserverClient {
   private bundle: Promise<string> | null = null
@@ -27,13 +31,36 @@ export class ExecutionObserverClient {
     const input = `process.env.ORCA_OBSERVER_REQUEST = ${JSON.stringify(encoded)};\n${await this.bundle}`
     let output: string
     if (connection) {
-      if (connection.getState().status !== 'connected') {
-        throw new Error('SSH observation is unverifiable while disconnected')
+      const generation = connection.getState().connectionGeneration
+      const assertOwner = () => {
+        if (
+          connection.getState().status !== 'connected' ||
+          connection.getState().connectionGeneration !== generation
+        ) {
+          throw new Error('SSH observation is unverifiable while disconnected or reconnected')
+        }
       }
-      output = await execCommand(connection, 'node -', { input, timeoutMs: 70000 })
-      if (connection.getState().status !== 'connected') {
+      assertOwner()
+      const session = activeSessions.get(connection.getTarget().id)
+      const nodePath = session?.getRemoteNodePath()
+      const host = session?.getHostPlatform()
+      if (session?.getState() !== 'ready' || !nodePath || !host) {
+        throw new Error('SSH observation is unverifiable until the relay runtime is ready')
+      }
+      // Why: SSH exec does not inherit the interactive shell's version-manager PATH.
+      const windows = isWindowsRemoteHost(host)
+      const command = windows
+        ? powerShellCommand(`& ${powerShellLiteral(nodePath)} -; exit $LASTEXITCODE`)
+        : `${shellEscape(nodePath)} -`
+      output = await execCommand(connection, command, {
+        input,
+        timeoutMs: 70000,
+        ...(windows ? { wrapCommand: false } : {})
+      })
+      if (activeSessions.get(connection.getTarget().id) !== session) {
         throw new Error('SSH observation became unverifiable')
       }
+      assertOwner()
     } else {
       const result = await runProcess({
         program: process.execPath,
