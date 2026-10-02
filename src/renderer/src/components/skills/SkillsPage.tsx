@@ -88,7 +88,7 @@ export default function SkillsPage(): React.JSX.Element {
   const [installLink, setInstallLink] = useState('')
   const [managementOpen, setManagementOpen] = useState(false)
   const [filters, setFilters] = useState<SkillsFilterState>(NO_FILTERS)
-  const [view, setView] = useState<SkillsPageView>('skills')
+  const [view, setView] = useState<SkillsPageView>('library')
   const ownedShares = useOwnedSkillShares()
   const mountedRef = useMountedRef()
   const scanGenerationRef = useRef(0)
@@ -148,14 +148,20 @@ export default function SkillsPage(): React.JSX.Element {
   )
 
   useEffect(() => {
-    void loadSkills()
-  }, [loadSkills])
+    if (view === 'skills') {
+      void loadSkills()
+    }
+  }, [loadSkills, view])
 
   useEffect(() => {
-    const refresh = (): void => void loadSkills()
+    const refresh = (): void => {
+      if (view === 'skills') {
+        void loadSkills()
+      }
+    }
     window.addEventListener(INSTALLED_AGENT_SKILLS_CHANGED_EVENT, refresh)
     return () => window.removeEventListener(INSTALLED_AGENT_SKILLS_CHANGED_EVENT, refresh)
-  }, [loadSkills])
+  }, [loadSkills, view])
 
   useEffect(() => {
     if (pendingSkillsSharedView) {
@@ -169,6 +175,7 @@ export default function SkillsPage(): React.JSX.Element {
     if (!pendingSkillShareId) {
       return
     }
+    setView('skills')
     setInstallLink(`https://app.orca.dev/skills/share/${pendingSkillShareId}`)
     setInstallOpen(true)
     clearPendingSkillShare()

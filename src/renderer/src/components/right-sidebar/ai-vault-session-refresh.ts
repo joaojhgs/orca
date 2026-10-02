@@ -40,11 +40,7 @@ export const isAiVaultScanCancellation = isAiVaultScanCancelledError
 
 type AiVaultRefreshArgs = { force?: boolean; background?: boolean; reuseLoadedDepth?: boolean }
 
-// Shares main's request resolver, so this is exactly the scope that fans out on
-// the desktop IPC path. Deliberately over-inclusive: the paired web transport
-// drops the scope and serves one host, so 'all' there costs a redundant
-// reconcile. Erring the other way would re-enable the stamp fast-path on a real
-// merge, which is the bug this guard exists to prevent.
+// All-host snapshots merge independent clocks, on both desktop and paired web.
 function isMergedAiVaultHostScope(scope: ExecutionHostScope): boolean {
   return requestedExecutionHostScope(scope) === ALL_EXECUTION_HOSTS_SCOPE
 }

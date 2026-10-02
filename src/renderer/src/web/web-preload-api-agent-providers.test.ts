@@ -211,7 +211,10 @@ describe('web AI Vault preload API', () => {
           return Promise.resolve({
             id: `call-${runtimeCalls.length}`,
             ok: true,
-            result: scanResult,
+            result:
+              method === 'status.get'
+                ? { capabilities: ['aiVault.execution-hosts.v1'] }
+                : scanResult,
             _meta: { runtimeId: 'runtime-1' }
           })
         }
@@ -234,13 +237,15 @@ describe('web AI Vault preload API', () => {
       })
     ).resolves.toEqual(scanResult)
     expect(runtimeCalls).toEqual([
+      { method: 'status.get', params: undefined },
       {
         method: 'aiVault.listSessions',
         params: {
           limit: 25,
           force: true,
           scopePaths: ['/srv/app'],
-          executionHostId: 'runtime:web-env-1'
+          executionHostId: 'runtime:web-env-1',
+          executionHostScope: 'all'
         }
       }
     ])
@@ -270,12 +275,12 @@ describe('web AI Vault preload API', () => {
     installWebPreloadApi()
 
     await expect(
-      globals.window.api.aiVault.listSessions({ executionHostScope: 'local' })
+      globals.window.api.aiVault.listSessions({ executionHostScope: 'runtime:other' })
     ).resolves.toEqual({
       sessions: [],
       issues: [
         expect.objectContaining({
-          executionHostId: 'local',
+          executionHostId: 'runtime:other',
           agent: 'codex'
         })
       ],

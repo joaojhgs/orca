@@ -306,3 +306,54 @@ only. Active agents and live SSH relays remain protected.
 - The served HTML, its 43 bootstrap/style/preload references and the lazy Settings
   chunk matched staged build bytes over HTTP. This does not constitute a real
   paired-browser interaction test or independent review approval.
+
+## Library landing and SSH history follow-up — 2026-10-02
+
+- Skills now lands on **Local skill library**, not the legacy installed-skills/sharing
+  view. The latter remains available through **Installed skills and sharing**, and
+  incoming legacy share links still open their install dialog.
+- Discovery defaults to **All connected hosts**. Scans run serially; candidates
+  retain their host label and identity. Review, file preview and import use the
+  candidate's original host even when multiple hosts return the same candidate ID.
+  Failed/offline hosts are reported explicitly without dropping successful results.
+- Imports remain explicit and reviewed. Saved versions expose **Assign**, selecting
+  the execution host, coding runtimes, and global or registered workspace scope.
+  No real user skills or assignments were created by this follow-up.
+- Paired-browser session list, title and search requests now forward SSH scope to
+  the existing execution-host routes, guarded by `aiVault.execution-hosts.v1`.
+  Old servers report unavailable rather than returning native sessions for an SSH
+  request. Search consent, browser deletion restrictions and existing local behavior
+  remain unchanged. SSH Codex resume preparation never copies transcripts locally.
+- The large personal-distrobox history corpus exposed a cancellation crash in its
+  separate helper. A late stream error listener prevents the unhandled abort, and
+  the helper now returns completed rows within a twenty-second scan budget with an
+  explicit partial-history issue. Completed parse-cache entries survive subsequent
+  refreshes; this is not a claim that the whole cold corpus has been scanned.
+- Main and renderer builds passed in separate build-only services under the user's
+  approved 4 GiB cap. Browser projection and boot graph verification passed. One
+  announced restart affected only `orca-server.service`; all 29 previous terminal
+  PTY/incarnation identities reattached and remained present after the helper update.
+  The server stayed active at MainPID 2569861 with zero automatic restarts afterward.
+- Updated only the standalone history helper on personal distrobox, notebook-personal
+  and notebook-university, with recoverable backups and checksum verification. Their
+  `relay.js` bytes were unchanged; no terminal relay, agent or daemon was stopped.
+  The old personal helper retired through its existing idle policy before the new
+  one started. Future bundled helper distribution was also updated, without changing
+  the parent relay bundle or protocol.
+- Live skill discovery returned 73 native, 631 personal-distrobox, 74 notebook-personal,
+  14 notebook-work and 1 notebook-university candidates. Live SSH history returned
+  100 notebook-work sessions initially, 54 notebook-personal sessions and one university
+  session, all correctly host-stamped with resolved titles. Personal history completed
+  successive partial passes within 21 seconds, increasing from 6 to 23 rows,
+  including three scoped to Aurora, and covering Claude, Codex, OpenCode,
+  Antigravity and Cursor.
+- Notebook-work later became unavailable independently during validation. Its raw
+  SSH environment no longer exposed the Node runtime/current helper. It is explicitly
+  reported unavailable; no environment reinstall or terminal-relay replacement was
+  attempted. It will receive the bundled helper on its next normal supported deployment.
+- Targeted UI, RPC, host-scope, SSH routing, scanner and cancellation suites passed;
+  the final combined run passed 99 tests, plus two scoped browser-adapter tests.
+  Five non-type-aware changed-line quality scans passed over all staged files.
+  Full web typechecking exhausted its isolated 1 GiB limit; only that validation
+  service was killed. Full typechecking, a real paired-browser interaction and
+  independent reviewer approval are still not claimed.

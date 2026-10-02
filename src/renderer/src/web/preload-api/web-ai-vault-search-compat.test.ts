@@ -61,18 +61,70 @@ describe('web session search preload compatibility', () => {
     }
     expect(callRuntimeResult).toHaveBeenCalledTimes(1)
     callRuntimeResult.mockClear()
-    for (const scope of ['runtime:other-host', 'ssh:box', 'local'] as const) {
+    for (const scope of ['runtime:other-host'] as const) {
       expect(await api.searchSessions({ query: 'needle' }, scope)).toEqual({
         kind: 'unavailable',
         reason: 'no-service'
       })
       expect(await api.searchStatus(scope)).toEqual(unavailableSessionSearchStatus())
     }
-    // The desktop merges every host; a browser has one runtime and answers for that one only.
+    callRuntimeResult.mockResolvedValue({ capabilities: [] })
     expect(await api.searchSessions({ query: 'needle' }, 'all')).toEqual({
       kind: 'unavailable',
       reason: 'no-service'
     })
-    expect(callRuntimeResult).not.toHaveBeenCalled()
+    expect(callRuntimeResult).toHaveBeenCalledExactlyOnceWith('status.get', undefined, 15000)
+  })
+  it('routes SSH search and titles only when the paired server advertises host routing', async () => {
+    const api = createWebAiVaultApi()
+    callRuntimeResult.mockImplementation(async (method) =>
+      method === 'status.get'
+        ? { capabilities: ['aiVault.execution-hosts.v1'] }
+        : method === 'aiVault.resolveSessionTitles'
+          ? { titles: [] }
+          : searchResults()
+    )
+    await expect(api.searchSessions({ query: 'needle' }, 'ssh:box')).resolves.toMatchObject({
+      kind: 'results'
+    })
+    expect(callRuntimeResult).toHaveBeenCalledWith('aiVault.searchSessions', {
+      query: 'needle',
+      limit: 20,
+      executionHostScope: 'ssh:box'
+    })
+    await api.resolveSessionTitles({ executionHostScope: 'ssh:box', requests: [] })
+    expect(callRuntimeResult).toHaveBeenCalledWith('aiVault.resolveSessionTitles', {
+      requests: [],
+      executionHostScope: 'ssh:box'
+    })
+    callRuntimeResult.mockReset().mockResolvedValue({ capabilities: [] })
+    await expect(api.searchSessions({ query: 'needle' }, 'ssh:box')).resolves.toEqual({
+      kind: 'unavailable',
+      reason: 'no-service'
+    })
+    expect(callRuntimeResult).toHaveBeenCalledTimes(1)
+  })
+  it('preserves SSH scopes for list requests and forwards unlimited depth', async () => {
+    const api = createWebAiVaultApi()
+    const result = { sessions: [], issues: [], scannedAt: '2026-10-02T00:00:00Z' }
+    callRuntimeResult.mockImplementation(async (method) =>
+      method === 'status.get' ? { capabilities: ['aiVault.execution-hosts.v1'] } : result
+    )
+    expect(
+      await api.listSessions({
+        executionHostScope: 'ssh:box',
+        unlimited: true,
+        scopePaths: ['/srv/project']
+      })
+    ).toEqual(result)
+    expect(callRuntimeResult).toHaveBeenCalledWith(
+      'aiVault.listSessions',
+      expect.objectContaining({
+        executionHostScope: 'ssh:box',
+        unlimited: true,
+        scopePaths: ['/srv/project'],
+        executionHostId: 'runtime:owning-host'
+      })
+    )
   })
 })

@@ -81,7 +81,7 @@ const resolveAiVaultSessionTitles = (
 ): Promise<AiVaultSessionTitlesResult> =>
   resolveAiVaultSessionTitlesByHost(args, handlerOptions.resolveRuntimeAiVaultSessionTitles)
 
-async function listAiVaultSessions(
+export async function listAiVaultSessions(
   args?: AiVaultListArgs,
   options: { signal?: AbortSignal } = {}
 ): Promise<AiVaultListResult> {

@@ -25,7 +25,7 @@ afterEach(async () => {
   vi.resetAllMocks()
 })
 
-async function fixture() {
+async function fixture(remote = false) {
   const candidate = {
     id: 'candidate',
     name: 'fixture',
@@ -61,7 +61,15 @@ async function fixture() {
     schemaVersion: 1,
     versions: [],
     assignments: [],
-    hosts: [{ id: 'local', label: 'Orca server', reachable: true }],
+    hosts: [
+      { id: 'local', label: 'Orca server', reachable: true },
+      ...(remote
+        ? [
+            { id: 'ssh:personal', label: 'Personal distrobox', reachable: true },
+            { id: 'ssh:offline', label: 'Offline host', reachable: false }
+          ]
+        : [])
+    ],
     providers: [{ id: 'codex', displayName: 'Codex' }],
     workspaces: []
   }
@@ -140,9 +148,36 @@ async function fixture() {
 }
 
 describe('browser local skill library', () => {
+  it('scans connected hosts and keeps colliding discovery IDs bound to their source host', async () => {
+    const f = await fixture(true)
+    await f.click('Scan hosts')
+    expect(
+      rpc.mock.calls
+        .filter(([, method]) => method === 'skills.library.discover')
+        .map((call) => call[2])
+    ).toEqual([{ hostId: 'local' }, { hostId: 'ssh:personal' }])
+    expect(document.body.textContent).toContain('Offline host: unavailable')
+    const reviews = [...document.querySelectorAll('button')].filter(
+      (button) => button.textContent === 'Review import'
+    )
+    expect(reviews).toHaveLength(2)
+    await act(async () => fireEvent.click(reviews[1]!))
+    expect(
+      rpc.mock.calls.find(([, method]) => method === 'skills.library.preview')?.[2]
+    ).toMatchObject({ hostId: 'ssh:personal', candidateId: 'candidate' })
+    const approval = document.querySelector('button[role="checkbox"]')
+    if (!approval) {
+      throw new Error('Missing review acknowledgement')
+    }
+    await act(async () => fireEvent.click(approval))
+    await f.click('Import into local library')
+    expect(
+      rpc.mock.calls.find(([, method]) => method === 'skills.library.import')?.[2]
+    ).toMatchObject({ hostId: 'ssh:personal', candidateIds: ['candidate'], reviewed: true })
+  })
   it('drops the previous host inventory and review while a new host is loading', async () => {
     const f = await fixture()
-    await f.click('Scan host')
+    await f.click('Scan hosts')
     await f.click('Review import')
     expect(document.body.textContent).toContain('Instructions to review')
     const original = rpc.getMockImplementation()
@@ -162,7 +197,7 @@ describe('browser local skill library', () => {
   it('requires review approval, pins the reviewed digest, and shows imported files', async () => {
     const f = await fixture()
     expect(rpc.mock.calls.some(([, method]) => method === 'skills.library.import')).toBe(false)
-    await f.click('Scan host')
+    await f.click('Scan hosts')
     await f.click('Review import')
     expect(f.button('Import into local library').disabled).toBe(true)
     expect(document.body.textContent).toContain('Instructions to review')
@@ -186,7 +221,7 @@ describe('browser local skill library', () => {
   it('keeps collision results visible instead of treating them as success', async () => {
     const f = await fixture()
     f.setConflict()
-    await f.click('Scan host')
+    await f.click('Scan hosts')
     await f.click('Review import')
     const approval = document.querySelector('button[role="checkbox"]')
     if (!approval) {

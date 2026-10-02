@@ -10,7 +10,17 @@ import {
 import { defineMethod } from '../core'
 import { restampAiVaultListResult } from '../../../ai-vault/session-list-results'
 import type { AiVaultPrepareSessionResumeArgs } from '../../../../shared/ai-vault-resume-preparation'
-import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host'
+import { LOCAL_EXECUTION_HOST_ID, parseExecutionHostId } from '../../../../shared/execution-host'
+import type { AiVaultListResult } from '../../../../shared/ai-vault-types'
+import { resolveAiVaultSessionTitlesByHost } from '../../../ipc/ai-vault-session-title-routing'
+import { z } from 'zod'
+import { ExecutionHostScanScopeSchema } from '../../../../shared/rpc-contract/execution-host-scan-scope'
+import {
+  searchAiVaultSessionsByHost,
+  aiVaultSearchStatusByHost
+} from '../../../ipc/ai-vault-search'
+import { redactForTransport } from '../../../../shared/ai-vault-search-transport'
+
 import { describeAiVaultScanError } from '../../../../shared/ai-vault-scan-error-message'
 import { STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY } from '../../../../shared/protocol-version'
 import {
@@ -25,18 +35,29 @@ import {
 } from '../../../../shared/rpc-contract/ai-vault-params'
 export { AiVaultListSessionsParams, AiVaultPrepareSessionResumeParams, AiVaultSessionTitlesParams }
 
+const HostSearchScope = z.object({ executionHostScope: ExecutionHostScanScopeSchema.optional() })
+
 export const AI_VAULT_METHODS = [
   defineMethod({
     name: 'aiVault.searchSessions',
-    params: AiVaultSearchRequestSchema,
-    handler: (params, { clientKind }) =>
-      searchSessionService(params, clientKind ? 'relay' : 'runtime')
+    params: AiVaultSearchRequestSchema.and(HostSearchScope),
+    handler: async (params, { clientKind }) => {
+      if (!params.executionHostScope || params.executionHostScope === 'local') {
+        return searchSessionService(params, clientKind ? 'relay' : 'runtime')
+      }
+      const result = await searchAiVaultSessionsByHost(params, params.executionHostScope)
+      return result.kind === 'results' && clientKind
+        ? { ...result, hits: result.hits.map((hit) => redactForTransport(hit, 'relay')) }
+        : result
+    }
   }),
   defineMethod({
     name: 'aiVault.searchStatus',
-    params: AiVaultSearchStatusRequestSchema,
+    params: AiVaultSearchStatusRequestSchema.and(HostSearchScope),
     handler: (params, { clientKind }) =>
-      sessionSearchServiceStatus(params, clientKind ? 'relay' : 'runtime')
+      params.executionHostScope?.startsWith('ssh:')
+        ? aiVaultSearchStatusByHost(params.executionHostScope)
+        : sessionSearchServiceStatus(params, clientKind ? 'relay' : 'runtime')
   }),
   defineMethod({
     name: 'aiVault.setSearchEnabled',
@@ -61,7 +82,12 @@ export const AI_VAULT_METHODS = [
     name: 'aiVault.resolveSessionTitles',
     params: AiVaultSessionTitlesParams,
     handler: (params, { runtime, signal }) =>
-      runtime.resolveAiVaultSessionTitles(params.requests, signal)
+      params.executionHostScope?.startsWith('ssh:')
+        ? resolveAiVaultSessionTitlesByHost({
+            executionHostScope: parseExecutionHostId(params.executionHostScope)?.id,
+            requests: params.requests
+          })
+        : runtime.resolveAiVaultSessionTitles(params.requests, signal)
   }),
   defineMethod({
     name: 'aiVault.listSessions',
@@ -76,7 +102,8 @@ export const AI_VAULT_METHODS = [
           limit: params.unlimited ? undefined : params.limit,
           unlimited: params.unlimited,
           force: params.force,
-          scopePaths: params.scopePaths
+          scopePaths: params.scopePaths,
+          ...(params.executionHostScope ? { executionHostScope: params.executionHostScope } : {})
         })
       } catch (error) {
         if (error instanceof Error) {
@@ -88,7 +115,7 @@ export const AI_VAULT_METHODS = [
       // Why: web clients consume this response directly (no parent-side retag),
       // so sessions must come back stamped as the runtime host they addressed.
       const stamped = params.executionHostId
-        ? restampAiVaultListResult(result, params.executionHostId)
+        ? stampRuntimeOwnedSessions(result, params.executionHostId)
         : result
       return projectStructuredAiVaultSessions(
         stamped,
@@ -101,6 +128,11 @@ export const AI_VAULT_METHODS = [
     name: 'aiVault.prepareSessionResume',
     params: AiVaultPrepareSessionResumeParams,
     handler: async (params, { runtime }) => {
+      const requestedHost = parseExecutionHostId(params.executionHostId)
+      if (requestedHost?.kind === 'ssh') {
+        // SSH transcripts are already on their owning host; never materialize them locally.
+        return { useRealCodexHome: false }
+      }
       const args: AiVaultPrepareSessionResumeArgs = {
         agent: params.agent,
         ...(params.sessionId ? { sessionId: params.sessionId } : {}),
@@ -118,3 +150,19 @@ export const AI_VAULT_METHODS = [
     }
   })
 ]
+
+function stampRuntimeOwnedSessions(
+  result: AiVaultListResult,
+  executionHostId: `runtime:${string}`
+) {
+  const stamped = restampAiVaultListResult(result, executionHostId)
+  return {
+    ...result,
+    sessions: result.sessions.map((session, index) =>
+      session.executionHostId === 'local' ? stamped.sessions[index] : session
+    ),
+    issues: result.issues.map((issue, index) =>
+      !issue.executionHostId || issue.executionHostId === 'local' ? stamped.issues[index] : issue
+    )
+  }
+}

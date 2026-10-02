@@ -62,12 +62,7 @@ export function registerAiVaultSearchHandlers(options: AiVaultSearchHandlerOptio
   handlerOptions = options
   // Async so a refused scope reaches the renderer as a rejection, like every other parse failure.
   ipcMain.handle('aiVault:searchSessions', async (_event, raw: unknown, rawScope?: unknown) => {
-    const request = AiVaultSearchRequestSchema.parse(raw)
-    // Only the desktop fans out: a runtime or CLI caller would make it two hops.
-    if (scopeSchema.parse(rawScope) === ALL_EXECUTION_HOSTS_SCOPE) {
-      return searchAllExecutionHosts(request, allExecutionHostLegs())
-    }
-    return searchByExecutionHostScope(request, requestedSearchScope(rawScope))
+    return searchAiVaultSessionsByHost(AiVaultSearchRequestSchema.parse(raw), rawScope)
   })
   ipcMain.handle('aiVault:searchStatus', async (_event, rawScope?: unknown) => {
     const scope = requestedSearchScope(rawScope)
@@ -81,6 +76,20 @@ export function registerAiVaultSearchHandlers(options: AiVaultSearchHandlerOptio
     }
   )
   ipcMain.handle('aiVault:clearSearchIndex', () => clearSessionSearchInService())
+}
+
+export async function searchAiVaultSessionsByHost(
+  request: AiVaultSearchRequest,
+  rawScope?: unknown
+) {
+  if (scopeSchema.parse(rawScope) === ALL_EXECUTION_HOSTS_SCOPE) {
+    return searchAllExecutionHosts(request, allExecutionHostLegs())
+  }
+  return searchByExecutionHostScope(request, requestedSearchScope(rawScope))
+}
+
+export async function aiVaultSearchStatusByHost(rawScope?: unknown) {
+  return statusByExecutionHost(requestedSearchScope(rawScope))
 }
 
 /**

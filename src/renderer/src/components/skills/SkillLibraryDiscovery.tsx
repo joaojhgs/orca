@@ -10,24 +10,22 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import type {
-  SkillLibraryCandidate,
-  SkillLibrarySnapshot
-} from '../../../../shared/skill-library-contract'
+import type { SkillLibrarySnapshot } from '../../../../shared/skill-library-contract'
+import type { HostedSkillCandidate } from './skill-library-host-discovery'
 
 export function SkillLibraryDiscovery(props: {
   hosts: SkillLibrarySnapshot['hosts']
   hostId: string
-  candidates: SkillLibraryCandidate[] | null
+  candidates: HostedSkillCandidate[] | null
   query: string
   busy: boolean
   onHost(value: string): void
   onQuery(value: string): void
   onScan(): void
-  onPreview(candidateId: string): void
+  onPreview(candidate: HostedSkillCandidate): void
 }) {
   const visible = props.candidates?.filter((candidate) =>
-    `${candidate.name} ${candidate.description ?? ''} ${candidate.sourceLabel}`
+    `${candidate.name} ${candidate.description ?? ''} ${candidate.sourceLabel} ${candidate.hostLabel}`
       .toLowerCase()
       .includes(props.query.toLowerCase())
   )
@@ -50,6 +48,9 @@ export function SkillLibraryDiscovery(props: {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
+                <SelectItem value="all">
+                  {translate('skills.library.allHosts', 'All connected hosts')}
+                </SelectItem>
                 {props.hosts.map((host) => (
                   <SelectItem key={host.id} value={host.id} disabled={!host.reachable}>
                     {host.label}
@@ -64,13 +65,18 @@ export function SkillLibraryDiscovery(props: {
         </div>
         <Button
           disabled={
-            props.busy || !props.hosts.some((host) => host.id === props.hostId && host.reachable)
+            props.busy ||
+            !props.hosts.some(
+              (host) => (props.hostId === 'all' || host.id === props.hostId) && host.reachable
+            )
           }
           onClick={props.onScan}
         >
           {props.busy
             ? translate('skills.library.working', 'Working…')
-            : translate('skills.library.scan', 'Scan host')}
+            : props.hostId === 'all'
+              ? translate('skills.library.scanHosts', 'Scan hosts')
+              : translate('skills.library.scan', 'Scan host')}
         </Button>
       </div>
       <Input
@@ -82,8 +88,8 @@ export function SkillLibraryDiscovery(props: {
       {props.candidates === null ? (
         <p className="text-xs text-muted-foreground">
           {translate(
-            'skills.library.scanHelp',
-            'Scan only the selected host. Nothing is imported automatically.'
+            'skills.library.scanHostsHelp',
+            'Scan installed skills on the selected hosts. Review imports before assigning them to runtimes; nothing is imported automatically.'
           )}
         </p>
       ) : visible?.length === 0 ? (
@@ -97,19 +103,21 @@ export function SkillLibraryDiscovery(props: {
         <ul className="flex flex-col gap-3">
           {visible?.map((candidate) => (
             <li
-              key={candidate.id}
+              key={`${candidate.hostId}:${candidate.id}`}
               className="flex items-start justify-between gap-3 border-b border-border pb-3"
             >
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-medium">{candidate.name}</h3>
                 <p className="text-xs text-muted-foreground">{candidate.description}</p>
-                <p className="text-xs text-muted-foreground">{candidate.sourceLabel}</p>
+                <p className="text-xs text-muted-foreground">
+                  {candidate.hostLabel} · {candidate.sourceLabel}
+                </p>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={props.busy}
-                onClick={() => props.onPreview(candidate.id)}
+                onClick={() => props.onPreview(candidate)}
               >
                 {translate('skills.library.reviewImport', 'Review import')}
               </Button>

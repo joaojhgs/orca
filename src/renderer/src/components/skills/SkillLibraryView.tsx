@@ -5,12 +5,9 @@ import { useConfirmationDialog } from '@/components/confirmation-dialog-context'
 import { callRuntimeRpc, type RuntimeClientTarget } from '@/runtime/runtime-rpc-client'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
-import { z } from 'zod'
 import {
-  SkillLibraryCandidateSchema,
   SkillLibraryImportResultSchema,
   SkillLibraryPreviewSchema,
-  type SkillLibraryCandidate,
   type SkillLibraryPreview,
   type SkillLibraryVersion
 } from '../../../../shared/skill-library-contract'
@@ -20,6 +17,10 @@ import { SkillLibraryReviewDialog } from './SkillLibraryReviewDialog'
 import { SkillLibraryAssignDialog } from './SkillLibraryAssignDialog'
 import { SkillLibraryCatalog } from './SkillLibraryCatalog'
 import { SkillLibraryDiscovery } from './SkillLibraryDiscovery'
+import {
+  discoverSkillLibraryHosts,
+  type HostedSkillCandidate
+} from './skill-library-host-discovery'
 
 type Confirmation = { kind: 'delete' | 'unassign'; id: string; name: string }
 
@@ -29,10 +30,11 @@ export function SkillLibraryView(props: {
   onClose(): void
 }) {
   const library = useSkillLibrary(props.target)
-  const [hostId, setHostId] = useState('local')
+  const [hostId, setHostId] = useState('all')
   const [query, setQuery] = useState('')
-  const [candidates, setCandidates] = useState<SkillLibraryCandidate[] | null>(null)
+  const [candidates, setCandidates] = useState<HostedSkillCandidate[] | null>(null)
   const [review, setReview] = useState<SkillLibraryPreview | null>(null)
+  const [reviewHostId, setReviewHostId] = useState<string | null>(null)
   const [assignVersion, setAssignVersion] = useState<SkillLibraryVersion | null>(null)
   const confirmDialog = useConfirmationDialog()
   const owner = useRef(props.target)
@@ -45,44 +47,41 @@ export function SkillLibraryView(props: {
     setReview(null)
     setAssignVersion(null)
     setNotice(null)
-    setHostId('local')
+    setReviewHostId(null)
+    setHostId('all')
     setQuery('')
   }
   const scan = async () => {
-    const result = await library.run(async (target) => {
-      const response = await callRuntimeRpc(
-        target,
-        'skills.library.discover',
-        { hostId },
-        { timeoutMs: 120000 }
-      )
-      return z.object({ candidates: z.array(SkillLibraryCandidateSchema) }).parse(response)
-    })
+    const result = await library.run((target) =>
+      discoverSkillLibraryHosts(target, library.snapshot?.hosts ?? [], hostId)
+    )
     if (result) {
       setCandidates(result.candidates)
+      setNotice(result.issues.length ? result.issues.join(' · ') : null)
     }
   }
-  const preview = async (candidateId: string, filePath?: string) => {
+  const preview = async (sourceHostId: string, candidateId: string, filePath?: string) => {
     const result = await library.run(async (target) =>
       SkillLibraryPreviewSchema.parse(
         await callRuntimeRpc(
           target,
           'skills.library.preview',
-          { hostId, candidateId, filePath },
+          { hostId: sourceHostId, candidateId, filePath },
           { timeoutMs: 120000 }
         )
       )
     )
     if (result) {
       setReview(result)
+      setReviewHostId(sourceHostId)
     }
   }
   const importReview = async (addVersion: boolean) => {
-    if (!review) {
+    if (!review || !reviewHostId) {
       return
     }
     const response = await library.mutate('skills.library.import', {
-      hostId,
+      hostId: reviewHostId,
       candidateIds: [review.candidate.id],
       reviewed: true,
       addVersion,
@@ -160,7 +159,7 @@ export function SkillLibraryView(props: {
         <div className={cn(SKILLS_PAGE_COLUMN, 'flex flex-wrap items-center gap-2 py-3')}>
           <Button variant="ghost" size="sm" onClick={props.onBack}>
             <ArrowLeft data-icon="inline-start" />
-            {translate('skills.library.back', 'Skills')}
+            {translate('skills.library.installedBack', 'Installed skills and sharing')}
           </Button>
           <h1 className="min-w-0 flex-1 text-sm font-semibold">
             {translate('skills.library.title', 'Local skill library')}
@@ -227,7 +226,7 @@ export function SkillLibraryView(props: {
                 }}
                 onQuery={setQuery}
                 onScan={() => void scan()}
-                onPreview={(candidateId) => void preview(candidateId)}
+                onPreview={(candidate) => void preview(candidate.hostId, candidate.id)}
               />
               <SkillLibraryCatalog
                 snapshot={snapshot}
@@ -286,8 +285,8 @@ export function SkillLibraryView(props: {
           setNotice(null)
         }}
         onFile={(filePath) => {
-          if (review) {
-            void preview(review.candidate.id, filePath)
+          if (review && reviewHostId) {
+            void preview(reviewHostId, review.candidate.id, filePath)
           }
         }}
         onImport={(addVersion) => void importReview(addVersion)}

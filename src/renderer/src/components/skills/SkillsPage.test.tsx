@@ -63,7 +63,7 @@ function setRuntimeOwner(environmentId: string | null): void {
   })
 }
 
-async function renderPage(): Promise<void> {
+async function renderPage(installed = true): Promise<void> {
   container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
@@ -76,6 +76,9 @@ async function renderPage(): Promise<void> {
       </TooltipProvider>
     )
   })
+  if (installed) {
+    await act(async () => fireEvent.click(buttonNamed('Installed skills and sharing')))
+  }
 }
 
 async function flushMicrotasks(): Promise<void> {
@@ -156,6 +159,18 @@ afterEach(async () => {
 })
 
 describe('SkillsPage', () => {
+  it('opens the import and assignment library by default without scanning the legacy sharing inventory', async () => {
+    const discover = vi.fn()
+    Object.defineProperty(window, 'api', {
+      configurable: true,
+      value: { skills: skillsApi(discover), runtimeEnvironments: { call: vi.fn() } }
+    })
+    await renderPage(false)
+    await flushMicrotasks()
+    expect(container?.textContent).toContain('Local skill library')
+    expect(container?.textContent).toContain('Installed skills and sharing')
+    expect(discover).not.toHaveBeenCalled()
+  })
   it('uses platform-neutral Escape navigation without stealing editable input Escape', async () => {
     const closeSkillsPage = vi.fn()
     const discover = vi.fn().mockResolvedValue(discoveryResult(['alpha']))
