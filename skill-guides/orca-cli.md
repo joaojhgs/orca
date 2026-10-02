@@ -22,6 +22,32 @@ Use `orca` when Orca's running editor/runtime is the source of truth. Use plain 
 
 Prefer `--json` for agent-driven calls. If the CLI is missing, say so explicitly instead of inspecting source files first.
 
+## Account usage and dispatch scope
+
+```text
+ORCA account usage --json
+ORCA account usage --all-hosts --json
+ORCA account usage --host ssh:<target-name-or-id> --json
+ORCA account usage --host local --json
+```
+
+The default is the caller's execution environment: local on the Orca server, or the
+SSH target bound by the relay bridge. `--host` selects an execution host; `--environment`
+still selects a paired Orca server. A managing agent uses `--all-hosts` to coordinate
+across that server's execution hosts. Do not combine `--host` and `--all-hosts`.
+
+JSON returns `result.scope` and `result.rateLimits.executionAccounts`. Scoped rows only
+list sources in the selected execution host. The underlying quota and retry deadline
+remain shared across hosts using the same account; filtering does not reset capacity.
+Account fingerprints deduplicate verified identities; identical OpenCode credentials
+are also grouped but remain explicitly unverified. Different keys are never assumed to
+belong to one account. OpenCode rows include `providerId` for provider-level dispatch.
+
+Check `sources[].reachable`, `checkedAt`, `retryAt`, `rateLimits.status`, and
+`rateLimits.usageMetadata.failureKind` before assigning work. An unavailable collector,
+expired sign-in, disconnected source, or missing quota is **not** evidence of unused
+capacity. Credentials stay on their execution host and are never included in output.
+
 ## Full Handoffs
 
 A full handoff transfers ownership to another agent or worktree, then the original agent stops. Treat requests phrased as "hand off", "handoff", "handover", "give this to another agent", "give this to another worktree", "another agent", or "another worktree" as full handoffs unless the user explicitly asks to supervise, monitor, wait for results, track completion, coordinate a DAG, use decision gates, or manage ask/reply.

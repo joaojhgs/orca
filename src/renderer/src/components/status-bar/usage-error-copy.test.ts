@@ -56,3 +56,34 @@ describe('unsubscribed OpenCode Go accounts', () => {
     expect(getProviderUsageErrorMessage(noSubscription)).toBe(noSubscription.error)
   })
 })
+
+describe('execution-host diagnostics', () => {
+  const expired = {
+    provider: 'claude',
+    session: null,
+    weekly: null,
+    updatedAt: 0,
+    status: 'error',
+    error: 'Expired token',
+    usageMetadata: { failureKind: 'stale-token', credentialSource: 'claude:default' }
+  } as const
+  it('does not claim to refresh a remote sign-in owned by the agent runtime', () => {
+    expect(getProviderUsageStatusLabel(expired)).toBe('Sign-in expired on source host')
+    expect(getProviderUsageErrorMessage(expired)).toContain('listed execution host')
+    expect(
+      getProviderUsageStatusLabel({
+        ...expired,
+        usageMetadata: { ...expired.usageMetadata, credentialSource: 'credentials-file' }
+      })
+    ).toBe('Refreshing sign-in')
+  })
+  it('does not label an unsupported OpenCode collector as a failed login or refresh', () => {
+    expect(
+      getProviderUsageStatusLabel({
+        ...expired,
+        provider: 'opencode',
+        usageMetadata: { failureKind: 'usage-unavailable' }
+      })
+    ).toBe('Usage tracking unavailable')
+  })
+})

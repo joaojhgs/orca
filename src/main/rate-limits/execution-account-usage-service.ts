@@ -20,14 +20,16 @@ export function executionAccountUsageId(
   const identity =
     credential.identityConfidence === 'account' && credential.accountKey
       ? ['account', credential.provider, credential.providerId, credential.accountKey]
-      : [
-          'unverified',
-          host.id,
-          host.generation,
-          credential.provider,
-          credential.sourceRef,
-          credential.credentialRevision
-        ]
+      : credential.provider === 'opencode' && credential.credentialRevision
+        ? ['credential', credential.provider, credential.providerId, credential.credentialRevision]
+        : [
+            'unverified',
+            host.id,
+            host.generation,
+            credential.provider,
+            credential.sourceRef,
+            credential.credentialRevision
+          ]
   return createHash('sha256').update(JSON.stringify(identity)).digest('hex')
 }
 
@@ -105,7 +107,26 @@ export class ExecutionAccountUsageService {
         continue
       }
       try {
-        const credentials = await host.discover()
+        const credentials = (await host.discover()).map((credential) => {
+          // A failed read-only identity lookup must not split a previously verified token.
+          const known = previous?.credentials.find(
+            (candidate) =>
+              credential.provider === 'opencode' &&
+              credential.identityConfidence === 'unknown' &&
+              candidate.identityConfidence === 'account' &&
+              candidate.provider === credential.provider &&
+              candidate.providerId === credential.providerId &&
+              credential.credentialRevision &&
+              candidate.credentialRevision === credential.credentialRevision
+          )
+          return known
+            ? {
+                ...credential,
+                accountKey: known.accountKey,
+                identityConfidence: known.identityConfidence
+              }
+            : credential
+        })
         this.inventories.set(host.id, { generation: host.generation, credentials, reachable: true })
       } catch {
         this.inventories.set(host.id, {

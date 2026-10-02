@@ -3,7 +3,7 @@ import type { ExecutionAccountUsage } from './execution-observer'
 export type RateLimitWindow = {
   /** Percentage of the window consumed (0–100). */
   usedPercent: number
-  /** Window duration in minutes: 300 (5h) or 10080 (7d). */
+  /** Window duration in minutes: 300 (5h) or 10080 (7d); 0 for a total/lifetime budget. */
   windowMinutes: number
   /** Unix ms timestamp when the window resets, if known. */
   resetsAt: number | null

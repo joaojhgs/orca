@@ -65,7 +65,7 @@ export function ExecutionAccountUsageRows({
                 ? ` · ${translate('settings.executionUsage.shared', 'same account')}`
                 : ''}
               {account.identityConfidence === 'unknown'
-                ? ` · ${translate('settings.executionUsage.unknownIdentity', 'account identity not verified')}`
+                ? ` · ${account.sources.length > 1 ? translate('settings.executionUsage.sharedCredential', 'same credential; account identity not verified') : translate('settings.executionUsage.unknownIdentity', 'account identity not verified')}`
                 : ''}
             </p>
             {limits ? (

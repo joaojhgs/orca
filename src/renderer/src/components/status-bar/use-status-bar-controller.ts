@@ -244,6 +244,7 @@ export function useStatusBarController(floatingTerminalOpen: boolean) {
   }
 
   return {
+    executionAccounts: rateLimits.executionAccounts,
     anyFetching,
     anyVisible,
     barRef,

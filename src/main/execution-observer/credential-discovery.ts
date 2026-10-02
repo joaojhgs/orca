@@ -4,6 +4,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { ExecutionCredential } from '../../shared/execution-observer'
 import { readCursorAuthSession } from '../rate-limits/cursor-auth'
+import { getProxyUrlFromEnvironment } from '../../shared/network-proxy'
 
 export function readCredentialRecord(file: string): Record<string, unknown> | null {
   try {
@@ -72,7 +73,9 @@ function descriptor(
   }
 }
 /** Credential values stay on this execution host; only account fingerprints cross SSH. */
-export async function discoverExecutionCredentials(): Promise<ExecutionCredential[]> {
+export async function discoverExecutionCredentials(
+  options: { resolveProviderIdentity?: boolean } = {}
+): Promise<ExecutionCredential[]> {
   const paths = credentialPaths()
   const result: ExecutionCredential[] = []
   const codex = record(readCredentialRecord(join(paths.codexHome, 'auth.json'))?.tokens)
@@ -115,9 +118,13 @@ export async function discoverExecutionCredentials(): Promise<ExecutionCredentia
       continue
     }
     if (text(credential.key) || text(credential.access) || text(credential.refresh)) {
-      // Why: an API key proves credential presence, not the owning account's identity.
+      const identity =
+        options.resolveProviderIdentity === false
+          ? []
+          : await resolveOpenCodeIdentity(providerId, credential)
+      // Why: different keys are not proof of different accounts; only a provider's stable ID is.
       result.push({
-        ...descriptor('opencode', `opencode:${providerId}`, [], providerId),
+        ...descriptor('opencode', `opencode:${providerId}`, identity, providerId),
         credentialRevision: createHash('sha256')
           .update(
             JSON.stringify([credential.type, credential.key, credential.access, credential.refresh])
@@ -141,4 +148,34 @@ export async function discoverExecutionCredentials(): Promise<ExecutionCredentia
       credentialRevision: createHash('sha256').update(JSON.stringify(stored)).digest('hex')
     }
   })
+}
+
+async function resolveOpenCodeIdentity(
+  providerId: string,
+  credential: Record<string, unknown>
+): Promise<string[]> {
+  const token = text(credential.refresh)
+  const proxy = getProxyUrlFromEnvironment(process.env)
+  if (providerId !== 'github-copilot' || !token || !proxy.ok || proxy.value) {
+    return []
+  }
+  try {
+    // Read-only, on the credential owner. Neither the token nor the API response crosses SSH.
+    const response = await fetch('https://api.github.com/user', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'Orca-usage-observer'
+      },
+      signal: AbortSignal.timeout(8000),
+      redirect: 'error'
+    })
+    if (!response.ok) {
+      return []
+    }
+    const id = record(await response.json())?.id
+    return typeof id === 'number' && Number.isSafeInteger(id) && id > 0 ? [String(id)] : []
+  } catch {
+    return []
+  }
 }

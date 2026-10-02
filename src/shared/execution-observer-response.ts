@@ -4,7 +4,8 @@ import type { WorkspacePortScanResult } from './workspace-ports'
 
 const windowSchema = z.object({
   usedPercent: z.number().finite().min(0).max(100),
-  windowMinutes: z.number().finite().positive(),
+  // Zero denotes a total/lifetime budget, not a recurring quota window.
+  windowMinutes: z.number().finite().nonnegative(),
   resetsAt: z.number().finite().nullable(),
   resetDescription: z.string().max(1000).nullable()
 })

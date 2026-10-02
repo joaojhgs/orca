@@ -21,6 +21,7 @@ vi.mock('@/hooks/useResetCountdownClock', () => ({
   useResetCountdownClock: mocks.useResetCountdownClock
 }))
 vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenuGroup: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   DropdownMenuItem: ({
     children,
     onSelect: _onSelect,
@@ -30,6 +31,8 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { UsageRosterPanel, UsageRow } from './UsageRosterPanel'
+import { ExecutionUsageGroup } from './ExecutionUsageGroup'
+import type { ExecutionAccountUsage } from '../../../../shared/execution-observer'
 
 const signedOutCodex: ProviderRateLimits = {
   provider: 'codex',
@@ -39,6 +42,76 @@ const signedOutCodex: ProviderRateLimits = {
   error: 'ChatGPT authentication required to read rate limits',
   status: 'error'
 }
+
+describe('execution-account drilldown', () => {
+  it('expands distinct accounts, source hosts and OpenCode provider quota rows without closing the roster', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    const account = (id: string, providerId: string): ExecutionAccountUsage => ({
+      id,
+      provider: 'opencode',
+      providerId,
+      sourceRef: `opencode:${providerId}`,
+      accountKey: null,
+      identityConfidence: 'unknown',
+      checkedAt: 1,
+      retryAt: 1,
+      sources: [
+        {
+          executionHostId: 'ssh:personal',
+          label: 'Personal distrobox',
+          sourceRef: providerId,
+          reachable: true
+        }
+      ],
+      rateLimits: {
+        ...signedOutCodex,
+        provider: 'opencode',
+        status: 'ok',
+        error: null,
+        weekly: {
+          usedPercent: id === 'first' ? 20 : 40,
+          windowMinutes: 10080,
+          resetsAt: null,
+          resetDescription: null
+        }
+      }
+    })
+    try {
+      await act(async () =>
+        root.render(
+          <ExecutionUsageGroup
+            accounts={[account('first', 'zai-coding-plan'), account('second', 'opencode-go')]}
+            label="OpenCode · 2 providers"
+            renderRow={(account) => (
+              <UsageRow
+                p={account.rateLimits!}
+                display="used"
+                state={{ kind: 'usage', statusLabel: null }}
+                showSignInAction={false}
+                now={mocks.now}
+              />
+            )}
+          />
+        )
+      )
+      expect(container.querySelectorAll('[data-execution-account]')).toHaveLength(0)
+      await act(async () =>
+        (container.querySelector('[data-slot="collapsible-trigger"]') as HTMLElement).click()
+      )
+      expect(container.querySelectorAll('[data-execution-account]')).toHaveLength(2)
+      expect(container.textContent).toContain('Personal distrobox')
+      expect(container.textContent).toContain('zai-coding-plan')
+      expect(container.textContent).toContain('opencode-go')
+      expect(container.textContent).toContain('20%')
+      expect(container.textContent).toContain('40%')
+    } finally {
+      await act(async () => root.unmount())
+      container.remove()
+    }
+  })
+})
 
 describe('UsageRow', () => {
   beforeEach(() => {

@@ -59,6 +59,7 @@ export function StatusBarSurface({
   }
   const {
     anyFetching,
+    executionAccounts,
     anyVisible,
     barRef,
     collapseUsage,
@@ -181,6 +182,7 @@ export function StatusBarSurface({
                   onCloseAutoFocus={usageMenuFocusHandoff.onCloseAutoFocus}
                 >
                   <UsageRosterPanel
+                    executionAccounts={executionAccounts}
                     providers={rosterProviders}
                     display={usagePercentageDisplay}
                     statusBarUsageMode={statusBarUsageMode}

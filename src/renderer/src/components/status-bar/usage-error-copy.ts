@@ -85,6 +85,17 @@ function getDelegatedCliRefreshProvider(
 }
 
 export function getProviderUsageStatusLabel(p: ProviderRateLimits): string {
+  if (p.usageMetadata?.failureKind === 'usage-unavailable') {
+    return translate('usage.unsupported.label', 'Usage tracking unavailable')
+  }
+  if (
+    /^(codex|claude|cursor|antigravity):default$|^opencode:/.test(
+      p.usageMetadata?.credentialSource ?? ''
+    ) &&
+    p.usageMetadata?.failureKind === 'stale-token'
+  ) {
+    return translate('usage.execution.expired.label', 'Sign-in expired on source host')
+  }
   const delegatedCliProvider = getDelegatedCliRefreshProvider(p)
   if (delegatedCliProvider === 'grok') {
     return translate('auto.components.status.bar.tooltip.e2c6a4f917', 'Run Grok to refresh')
@@ -146,6 +157,17 @@ export function getProviderUsageStatusLabel(p: ProviderRateLimits): string {
 }
 
 export function getProviderUsageErrorMessage(p: ProviderRateLimits): string {
+  if (
+    /^(codex|claude|cursor|antigravity):default$|^opencode:/.test(
+      p.usageMetadata?.credentialSource ?? ''
+    ) &&
+    p.usageMetadata?.failureKind === 'stale-token'
+  ) {
+    return translate(
+      'usage.execution.expired.message',
+      'Refresh sign-in in the listed execution host. Orca does not rotate that host’s credentials.'
+    )
+  }
   const fallback = translate(
     'auto.components.status.bar.tooltip.2c35eca8d4',
     'Unable to fetch usage'

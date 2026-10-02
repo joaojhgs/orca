@@ -50,7 +50,7 @@ describe('ExecutionAccountUsageService', () => {
     ])
   })
 
-  it('never merges different accounts, different providers or unknown identities', async () => {
+  it('keeps different accounts and providers separate but groups identical OpenCode credentials', async () => {
     const unknown: ExecutionCredential = {
       provider: 'opencode',
       providerId: 'opencode-go',
@@ -69,7 +69,66 @@ describe('ExecutionAccountUsageService', () => {
     ]
     const service = new ExecutionAccountUsageService(() => hosts, vi.fn())
     await service.refresh()
-    expect(service.getState()).toHaveLength(5)
+    expect(service.getState()).toHaveLength(4)
+    const shared = service.getState().find((row) => row.provider === 'opencode')
+    expect(shared?.identityConfidence).toBe('unknown')
+    expect(shared?.sources).toHaveLength(2)
+  })
+
+  it('does not merge different OpenCode keys or equal digests belonging to different providers', async () => {
+    const key: ExecutionCredential = {
+      provider: 'opencode',
+      providerId: 'zai-coding-plan',
+      sourceRef: 'opencode:zai-coding-plan',
+      accountKey: null,
+      identityConfidence: 'unknown',
+      credentialRevision: 'b'.repeat(64)
+    }
+    const owners = [
+      host('local', [key]),
+      host('ssh:personal', [
+        { ...key, credentialRevision: 'c'.repeat(64) },
+        { ...key, providerId: 'openrouter', sourceRef: 'opencode:openrouter' }
+      ])
+    ]
+    const service = new ExecutionAccountUsageService(() => owners, vi.fn())
+    await service.refresh()
+    expect(service.getState()).toHaveLength(3)
+  })
+
+  it('retains a verified identity across a failed lookup only while the credential is unchanged', async () => {
+    let now = 100000
+    const known: ExecutionCredential = {
+      ...account,
+      provider: 'opencode',
+      providerId: 'github-copilot',
+      sourceRef: 'opencode:github-copilot',
+      credentialRevision: 'c'.repeat(64)
+    }
+    const owner = host('local', [known])
+    const service = new ExecutionAccountUsageService(
+      () => [owner],
+      vi.fn(),
+      () => now
+    )
+    await service.refresh()
+    owner.discover = vi
+      .fn()
+      .mockResolvedValue([{ ...known, accountKey: null, identityConfidence: 'unknown' }])
+    now += 30001
+    await service.refresh()
+    expect(service.getState()[0]?.accountKey).toBe(known.accountKey)
+    owner.discover = vi.fn().mockResolvedValue([
+      {
+        ...known,
+        credentialRevision: 'd'.repeat(64),
+        accountKey: null,
+        identityConfidence: 'unknown'
+      }
+    ])
+    now += 30001
+    await service.refresh()
+    expect(service.getState()[0]?.accountKey).toBeNull()
   })
 
   it('uses a fresh credential for the same account and remembers its owner without bypassing backoff', async () => {

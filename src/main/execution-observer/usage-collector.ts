@@ -25,14 +25,18 @@ function failed(
     session: null,
     weekly: null,
     updatedAt: Date.now(),
-    status: 'error',
+    status: failureKind === 'usage-unavailable' ? 'unavailable' : 'error',
     error:
       failureKind === 'rate-limited'
         ? 'Usage is rate limited; waiting before retry'
         : failureKind === 'stale-token'
           ? 'Usage credentials are expired'
           : 'Execution-host usage is unavailable',
-    usageMetadata: { failureKind, ...(retryAtMs ? { retryAtMs } : {}) }
+    usageMetadata: {
+      failureKind,
+      credentialSource: credential.sourceRef,
+      ...(retryAtMs ? { retryAtMs } : {})
+    }
   }
 }
 
@@ -40,10 +44,12 @@ export async function collectExecutionUsage(
   credential: ExecutionCredential
 ): Promise<ProviderRateLimits> {
   const matches = async () =>
-    (await discoverExecutionCredentials()).some(
+    (await discoverExecutionCredentials({ resolveProviderIdentity: false })).some(
       (found) =>
         found.sourceRef === credential.sourceRef &&
-        found.accountKey === credential.accountKey &&
+        (credential.provider === 'opencode'
+          ? found.credentialRevision === credential.credentialRevision
+          : found.accountKey === credential.accountKey) &&
         found.provider === credential.provider &&
         found.providerId === credential.providerId &&
         (credential.identityConfidence === 'account' ||
@@ -126,7 +132,10 @@ export async function collectExecutionUsage(
     return {
       ...result,
       error: result.error
-        ? `${credential.providerId || credential.provider} usage: ${result.usageMetadata?.failureKind || result.status}`
+        ? credential.provider === 'opencode' &&
+          result.usageMetadata?.failureKind === 'usage-unavailable'
+          ? result.error
+          : `${credential.providerId || credential.provider} usage: ${result.usageMetadata?.failureKind || result.status}`
         : null,
       usageMetadata: {
         ...result.usageMetadata,
