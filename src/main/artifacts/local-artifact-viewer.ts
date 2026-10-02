@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { marked } from 'marked'
 import { getOrcaProfileDirectory } from '../orca-profiles/profile-storage-paths'
 import { LocalArtifactStore } from './local-artifact-store'
+import { serveLocalSkillShare } from '../skills/local-skill-share-viewer'
 
 export const LOCAL_ARTIFACT_DATABASE = 'local-artifacts.sqlite'
 
@@ -81,6 +82,9 @@ export class LocalArtifactViewer {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       response.writeHead(405, { Allow: 'GET, HEAD' })
       response.end()
+      return
+    }
+    if (await serveLocalSkillShare(this.userDataPath, request, response)) {
       return
     }
     const url = new URL(request.url ?? '/', 'http://localhost')

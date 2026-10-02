@@ -1,4 +1,6 @@
 import { defineMethod } from '../core'
+import { publishImportedSkillsFromAgent } from '../../../skills/local-agent-skill-sharing'
+import { ArtifactSharingDisabledError } from '../../../../shared/artifact-sharing-gate'
 import type { z } from 'zod'
 import { getAppEnvironment } from '../../../../shared/app-environment'
 import { SkillDeleteRequestSchema } from '../../../../shared/skill-delete-contract'
@@ -108,6 +110,20 @@ export const SKILL_METHODS = [
         throw new AgentSkillSharingError(
           AGENT_SKILL_SHARING_UNSUPPORTED_ENVIRONMENT_CODE,
           'Publishing skills through a paired client is not supported. Run the command from Orca on the machine that stores the skills.'
+        )
+      }
+      const hosting = await runtime.getArtifactHostingStatus()
+      if (hosting.backend === 'local') {
+        if (!hosting.sharingEnabled) {
+          throw new ArtifactSharingDisabledError()
+        }
+        if (!hosting.viewerOrigin) {
+          throw new Error('Server-local hosting is unavailable. No Cloud upload was attempted.')
+        }
+        return publishImportedSkillsFromAgent(
+          runtime.getLocalSkillLibrary().library,
+          params,
+          hosting.viewerOrigin
         )
       }
       const resolvedTarget = resolveDiscoveryTarget(params.target ?? {}, runtime)

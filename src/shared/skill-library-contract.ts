@@ -1,8 +1,13 @@
 import { z } from 'zod'
 import { SkillInstallDestinationSchema, SkillPackageIdentitySchema } from './skill-install-contract'
 import { SkillPackageFileSchema } from './skill-package-manifest'
+import { LocalSkillShareSchema, LOCAL_SKILL_SHARING_CAPABILITY } from './local-skill-sharing'
 
 export const SKILL_LIBRARY_CAPABILITY = 'skills.local-library.v1' as const
+export const SKILL_LIBRARY_RUNTIME_CAPABILITIES = [
+  SKILL_LIBRARY_CAPABILITY,
+  LOCAL_SKILL_SHARING_CAPABILITY
+] as const
 export const SKILL_LIBRARY_RPC_METHODS = [
   'skills.library.list',
   'skills.library.discover',
@@ -11,7 +16,11 @@ export const SKILL_LIBRARY_RPC_METHODS = [
   'skills.library.assign',
   'skills.library.unassign',
   'skills.library.reconcile',
-  'skills.library.deleteVersion'
+  'skills.library.deleteVersion',
+  'skills.library.previewVersion',
+  'skills.library.share',
+  'skills.library.revokeShare',
+  'skills.library.listShares'
 ] as const
 export const SkillLibraryIdSchema = z.string().uuid()
 export const SkillLibraryHostSchema = z.string().min(1).max(200)
@@ -73,7 +82,8 @@ export type SkillLibraryAssignment = z.infer<typeof SkillLibraryAssignmentSchema
 export const SkillLibraryCatalogSchema = z.object({
   schemaVersion: z.literal(1),
   versions: z.array(SkillLibraryVersionSchema).max(2048),
-  assignments: z.array(SkillLibraryAssignmentSchema).max(2048)
+  assignments: z.array(SkillLibraryAssignmentSchema).max(2048),
+  shares: z.array(LocalSkillShareSchema).max(128).optional()
 })
 export type SkillLibraryCatalog = z.infer<typeof SkillLibraryCatalogSchema>
 
@@ -102,6 +112,9 @@ export const SkillLibraryAssignParams = z.object({
 })
 export const SkillLibraryAssignmentParams = z.object({ assignmentId: SkillLibraryIdSchema })
 export const SkillLibraryVersionParams = z.object({ versionId: SkillLibraryIdSchema })
+export const SkillLibraryVersionPreviewParams = SkillLibraryVersionParams.extend({
+  filePath: z.string().min(1).max(500).optional()
+})
 export const SkillLibraryPreviewParams = z.object({
   hostId: SkillLibraryHostSchema.default('local'),
   candidateId: z.string().min(1).max(200),

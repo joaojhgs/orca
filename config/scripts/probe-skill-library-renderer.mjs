@@ -21,6 +21,9 @@ if (phase === 'build') {
     cacheDir: join(output, 'vite'),
     resolve: {
       alias: {
+        '@/hooks/use-active-skill-discovery-runtime-target': resolve(
+          'config/fixtures/skill-library-probe-active-target.ts'
+        ),
         '@/runtime/runtime-rpc-client': resolve('config/fixtures/skill-library-probe-rpc.ts'),
         '@': resolve('src/renderer/src'),
         '@renderer': resolve('src/renderer/src')
@@ -60,23 +63,37 @@ try {
   })
   const page = await app.firstWindow()
   page.on('pageerror', (error) => errors.push(error.message))
-  await expect(
-    page.getByRole('heading', { name: 'Local skill library', exact: true })
-  ).toBeVisible()
-  await page.getByRole('button', { name: 'Scan host', exact: true }).click()
-  await page.getByRole('button', { name: 'Review import', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Skills', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Imported skills (0)', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Import skills', exact: true }).click()
+  await page.getByRole('button', { name: 'Scan hosts', exact: true }).click()
+  await page.getByRole('button', { name: 'Review import', exact: true }).first().click()
   await expect(
     page.getByRole('button', { name: 'Import into local library', exact: true })
   ).toBeDisabled()
   await page.getByRole('checkbox').first().check()
   await page.screenshot({ path: join(output, 'desktop-review.png') })
   await page.getByRole('button', { name: 'Import into local library', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Saved versions (1)', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Imported skills (1)', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Review import', exact: true })).toHaveCount(0)
+  await page.getByRole('option').filter({ hasText: 'probe-skill' }).dblclick()
   await page.getByRole('button', { name: 'Assign', exact: true }).click()
   await page.getByRole('dialog').getByRole('combobox').first().click()
   await page.getByRole('option', { name: 'Fixture distrobox', exact: true }).click()
   await page.getByRole('button', { name: 'Assign pinned version', exact: true }).click()
+  await page.getByRole('tab', { name: 'Assignments', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Assignments (1)', exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: 'Imported skills (1)', exact: true }).click()
+  await page.getByRole('button', { name: 'Share skills', exact: true }).click()
+  await page.getByRole('checkbox', { name: 'Select probe-skill', exact: true }).check()
+  await page.getByRole('button', { name: 'Review share', exact: true }).click()
+  await expect(
+    page.getByRole('button', { name: 'Create local share link', exact: true })
+  ).toBeDisabled()
+  await page.getByRole('dialog').getByRole('checkbox').check()
+  await page.getByRole('button', { name: 'Create local share link', exact: true }).click()
+  await expect(page.getByRole('dialog')).toContainText('http://fixture.local/skills/share/fixture')
+  await page.getByRole('button', { name: 'Done', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
   await page.evaluate(() => document.documentElement.classList.add('dark'))
   await page.screenshot({ path: join(output, 'mobile-library.png') })

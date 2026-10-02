@@ -2,11 +2,7 @@
 // run `pnpm run generate:rpc-params-catalog`.
 import type { z } from 'zod'
 import { AgentSkillShareRequestSchema } from '../agent-skill-sharing-contract'
-import {
-  AiVaultSearchRequestSchema,
-  AiVaultSearchStatusRequestSchema,
-  AiVaultSetSearchEnabledParamsSchema
-} from '../ai-vault-search-contract'
+import { AiVaultSetSearchEnabledParamsSchema } from '../ai-vault-search-contract'
 import {
   BrowserClientFileChannelAbortParams,
   BrowserClientFileChannelReadParams,
@@ -18,6 +14,7 @@ import {
   BrowserNetworkTunnelAttachParams
 } from '../browser-client-host-protocol'
 import { BrowserClientPageMetadataParams } from '../browser-client-page-metadata-protocol'
+import { LocalSkillPublishParams, LocalSkillRevokeParams } from '../local-skill-sharing'
 import {
   PairingGetEndpointsParamsSchema,
   PairingProvisionRelayParamsSchema
@@ -569,7 +566,8 @@ import {
   SkillLibraryImportParams,
   SkillLibraryPreviewParams,
   SkillLibraryReconcileParams,
-  SkillLibraryVersionParams
+  SkillLibraryVersionParams,
+  SkillLibraryVersionPreviewParams
 } from '../skill-library-contract'
 import {
   SkillUploadBeginRequestSchema,
@@ -634,8 +632,6 @@ export const RPC_PARAMS_BY_METHOD = {
   'aiVault.listSessions': AiVaultListSessionsParams,
   'aiVault.prepareSessionResume': AiVaultPrepareSessionResumeParams,
   'aiVault.resolveSessionTitles': AiVaultSessionTitlesParams,
-  'aiVault.searchSessions': AiVaultSearchRequestSchema,
-  'aiVault.searchStatus': AiVaultSearchStatusRequestSchema,
   'aiVault.setSearchEnabled': AiVaultSetSearchEnabledParamsSchema,
   'artifacts.authStatus': null,
   'artifacts.delete': ArtifactsDeleteParams,
@@ -1152,8 +1148,12 @@ export const RPC_PARAMS_BY_METHOD = {
   'skills.library.discover': SkillLibraryDiscoverParams,
   'skills.library.import': SkillLibraryImportParams,
   'skills.library.list': null,
+  'skills.library.listShares': null,
   'skills.library.preview': SkillLibraryPreviewParams,
+  'skills.library.previewVersion': SkillLibraryVersionPreviewParams,
   'skills.library.reconcile': SkillLibraryReconcileParams,
+  'skills.library.revokeShare': LocalSkillRevokeParams,
+  'skills.library.share': LocalSkillPublishParams,
   'skills.library.unassign': SkillLibraryAssignmentParams,
   'skills.listManagedInstalls': null,
   'skills.previewDelete': SkillDeleteRequestSchema,
@@ -1248,6 +1248,8 @@ export const RPC_PARAMS_BY_METHOD = {
 // Why: these methods bind a schema the shared contract cannot hold because its value
 // graph reaches into src/main. Listing them keeps the gap visible instead of absent.
 export const RPC_METHODS_WITHOUT_SHARED_PARAMS: readonly string[] = [
+  'aiVault.searchSessions',
+  'aiVault.searchStatus',
   'emulator.install',
   'orchestration.send',
   'orchestration.taskUpdate'

@@ -1,196 +1,193 @@
-import { useRef, useState } from 'react'
-import { ArrowLeft, RefreshCw, X } from 'lucide-react'
+import { ArrowLeft, Download, RefreshCw, Share2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useConfirmationDialog } from '@/components/confirmation-dialog-context'
-import { callRuntimeRpc, type RuntimeClientTarget } from '@/runtime/runtime-rpc-client'
+import { Input } from '@/components/ui/input'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
-import {
-  SkillLibraryImportResultSchema,
-  SkillLibraryPreviewSchema,
-  type SkillLibraryPreview,
-  type SkillLibraryVersion
-} from '../../../../shared/skill-library-contract'
 import { SKILLS_PAGE_COLUMN } from './skills-page-column'
-import { useSkillLibrary } from './use-skill-library'
 import { SkillLibraryReviewDialog } from './SkillLibraryReviewDialog'
 import { SkillLibraryAssignDialog } from './SkillLibraryAssignDialog'
 import { SkillLibraryCatalog } from './SkillLibraryCatalog'
 import { SkillLibraryDiscovery } from './SkillLibraryDiscovery'
-import {
-  discoverSkillLibraryHosts,
-  type HostedSkillCandidate
-} from './skill-library-host-discovery'
+import { SkillLibraryImportedList } from './SkillLibraryImportedList'
+import { SkillLibraryShareDialog } from './SkillLibraryShareDialog'
+import { SkillsSelectionHeader } from './SkillsSelectionHeader'
+import { SkillSharedLinksView } from './SkillSharedLinksView'
+import { useSkillLibraryPage, type SkillLibraryPageProps } from './use-skill-library-page'
 
-type Confirmation = { kind: 'delete' | 'unassign'; id: string; name: string }
-
-export function SkillLibraryView(props: {
-  target: RuntimeClientTarget | null
-  onBack(): void
-  onClose(): void
-}) {
-  const library = useSkillLibrary(props.target)
-  const [hostId, setHostId] = useState('all')
-  const [query, setQuery] = useState('')
-  const [candidates, setCandidates] = useState<HostedSkillCandidate[] | null>(null)
-  const [review, setReview] = useState<SkillLibraryPreview | null>(null)
-  const [reviewHostId, setReviewHostId] = useState<string | null>(null)
-  const [assignVersion, setAssignVersion] = useState<SkillLibraryVersion | null>(null)
-  const confirmDialog = useConfirmationDialog()
-  const owner = useRef(props.target)
-  owner.current = props.target
-  const [notice, setNotice] = useState<string | null>(null)
-  const [stateTarget, setStateTarget] = useState(props.target)
-  if (stateTarget !== props.target) {
-    setStateTarget(props.target)
-    setCandidates(null)
-    setReview(null)
-    setAssignVersion(null)
-    setNotice(null)
-    setReviewHostId(null)
-    setHostId('all')
-    setQuery('')
-  }
-  const scan = async () => {
-    const result = await library.run((target) =>
-      discoverSkillLibraryHosts(target, library.snapshot?.hosts ?? [], hostId)
-    )
-    if (result) {
-      setCandidates(result.candidates)
-      setNotice(result.issues.length ? result.issues.join(' · ') : null)
-    }
-  }
-  const preview = async (sourceHostId: string, candidateId: string, filePath?: string) => {
-    const result = await library.run(async (target) =>
-      SkillLibraryPreviewSchema.parse(
-        await callRuntimeRpc(
-          target,
-          'skills.library.preview',
-          { hostId: sourceHostId, candidateId, filePath },
-          { timeoutMs: 120000 }
-        )
-      )
-    )
-    if (result) {
-      setReview(result)
-      setReviewHostId(sourceHostId)
-    }
-  }
-  const importReview = async (addVersion: boolean) => {
-    if (!review || !reviewHostId) {
-      return
-    }
-    const response = await library.mutate('skills.library.import', {
-      hostId: reviewHostId,
-      candidateIds: [review.candidate.id],
-      reviewed: true,
-      addVersion,
-      expectedDigests: [{ candidateId: review.candidate.id, packageDigest: review.packageDigest }]
-    })
-    if (!response) {
-      return
-    }
-    const result = SkillLibraryImportResultSchema.safeParse(response)
-    if (!result.success) {
-      setNotice(
-        translate(
-          'skills.library.unexpectedImport',
-          'Unexpected import response. Refresh the library before retrying.'
-        )
-      )
-      return
-    }
-    setNotice(
-      result.data.results
-        .map((row) => `${row.status}${row.message ? `: ${row.message}` : ''}`)
-        .join(' · ')
-    )
-    if (
-      result.data.results.every((row) => row.status === 'imported' || row.status === 'unchanged')
-    ) {
-      setReview(null)
-    }
-  }
-  const confirm = async (confirmation: Confirmation) => {
-    const target = props.target
-    const approved = await confirmDialog({
-      title:
-        confirmation.kind === 'delete'
-          ? translate('skills.library.deleteTitle', 'Delete saved version: {{name}}', {
-              name: confirmation.name
-            })
-          : translate('skills.library.unassignTitle', 'Unassign skill: {{name}}', {
-              name: confirmation.name
-            }),
-      description:
-        confirmation.kind === 'delete'
-          ? translate(
-              'skills.library.deleteHelp',
-              'Remove this unassigned snapshot from the library. Original skill folders are not deleted.'
-            )
-          : translate(
-              'skills.library.unassignHelp',
-              'Remove only Orca-owned, unmodified placements. Edited files and unowned originals remain protected; an offline host queues removal.'
-            ),
-      confirmLabel:
-        confirmation.kind === 'delete'
-          ? translate('skills.library.deleteVersion', 'Delete version')
-          : translate('skills.library.unassign', 'Unassign'),
-      confirmVariant: 'destructive'
-    })
-    if (!approved || owner.current !== target) {
-      return
-    }
-    const response = await library.mutate(
-      confirmation.kind === 'delete' ? 'skills.library.deleteVersion' : 'skills.library.unassign',
-      confirmation.kind === 'delete'
-        ? { versionId: confirmation.id }
-        : { assignmentId: confirmation.id }
-    )
-    if (response !== undefined) {
-      setNotice(null)
-    }
-  }
+export function SkillLibraryView(props: SkillLibraryPageProps) {
+  const page = useSkillLibraryPage(props)
+  const {
+    library,
+    shares,
+    view,
+    setView,
+    query,
+    setQuery,
+    review,
+    reviewSource,
+    savedReview,
+    assignVersion,
+    setAssignVersion,
+    selecting,
+    setSelecting,
+    selected,
+    setSelected,
+    shareVersions,
+    setShareVersions,
+    notice,
+    setNotice
+  } = page
   const snapshot = library.snapshot
-  const importProblem = notice && review ? notice : null
   return (
     <main className="flex min-h-0 flex-1 flex-col bg-background">
-      <header className="shrink-0 border-b border-border">
-        <div className={cn(SKILLS_PAGE_COLUMN, 'flex flex-wrap items-center gap-2 py-3')}>
-          <Button variant="ghost" size="sm" onClick={props.onBack}>
-            <ArrowLeft data-icon="inline-start" />
-            {translate('skills.library.installedBack', 'Installed skills and sharing')}
-          </Button>
-          <h1 className="min-w-0 flex-1 text-sm font-semibold">
-            {translate('skills.library.title', 'Local skill library')}
-          </h1>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={library.busy}
-            onClick={() => void library.refresh()}
+      {selecting ? (
+        <SkillsSelectionHeader
+          title={translate('skills.library.selectImported', 'Select imported skills to share')}
+          icon={<Share2 />}
+          actionIcon={<Share2 />}
+          actionLabel={translate('skills.library.reviewShare', 'Review share')}
+          selectedCount={selected.size}
+          eligibleCount={snapshot?.versions.length ?? 0}
+          busy={library.busy}
+          onCancel={() => {
+            setSelecting(false)
+            setSelected(new Set())
+          }}
+          onClear={() => setSelected(new Set())}
+          onSelectAll={() => {
+            const names = new Set<string>()
+            setSelected(
+              new Set(
+                (snapshot?.versions ?? [])
+                  .filter((version) => {
+                    if (names.has(version.name)) {
+                      return false
+                    }
+                    names.add(version.name)
+                    return true
+                  })
+                  .slice(0, 50)
+                  .map((version) => version.versionId)
+              )
+            )
+          }}
+          onSubmit={() =>
+            setShareVersions(
+              snapshot?.versions.filter((version) => selected.has(version.versionId)) ?? []
+            )
+          }
+        />
+      ) : (
+        <header className="shrink-0 border-b border-border">
+          <div className={cn(SKILLS_PAGE_COLUMN, 'flex flex-wrap items-center gap-2 py-3')}>
+            {view === 'import' ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={library.busy}
+                onClick={() => {
+                  setView('catalog')
+                  setNotice(null)
+                }}
+              >
+                <ArrowLeft data-icon="inline-start" />
+                {translate('skills.library.backImported', 'Back to imported skills')}
+              </Button>
+            ) : null}
+            <h1 className="min-w-0 flex-1 text-sm font-semibold">
+              {translate('skills.library.skillsTitle', 'Skills')}
+            </h1>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={library.busy}
+              onClick={() => {
+                setView('import')
+                setNotice(null)
+              }}
+            >
+              <Download data-icon="inline-start" />
+              {translate('skills.library.importSkills', 'Import skills')}
+            </Button>
+            <Button
+              size="sm"
+              disabled={library.busy || !snapshot?.versions.length}
+              onClick={() => {
+                setView('catalog')
+                setSelecting(true)
+                setSelected(new Set())
+              }}
+            >
+              <Share2 data-icon="inline-start" />
+              {translate('skills.library.shareSkills', 'Share skills')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              disabled={library.busy}
+              onClick={() => {
+                void library.refresh()
+                shares.refresh()
+              }}
+              aria-label={translate('skills.library.refresh', 'Refresh')}
+            >
+              <RefreshCw />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={props.onClose}
+              aria-label={translate('skills.library.close', 'Close skills')}
+            >
+              <X />
+            </Button>
+          </div>
+        </header>
+      )}
+      {view !== 'import' ? (
+        <div className={cn(SKILLS_PAGE_COLUMN, 'flex w-full flex-wrap items-center gap-3 py-3')}>
+          <Tabs
+            value={view}
+            onValueChange={(next) => {
+              if (next === 'catalog' || next === 'assignments' || next === 'shared') {
+                setView(next)
+                setNotice(null)
+                setSelecting(false)
+                setSelected(new Set())
+              }
+            }}
           >
-            <RefreshCw data-icon="inline-start" />
-            {translate('skills.library.refresh', 'Refresh')}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={props.onClose}
-            aria-label={translate('skills.library.close', 'Close skills')}
-          >
-            <X />
-          </Button>
-        </div>
-      </header>
-      <section className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto">
-        <div className={cn(SKILLS_PAGE_COLUMN, 'flex flex-col gap-6 py-4')}>
-          <p className="text-xs text-muted-foreground">
-            {translate(
-              'skills.library.storageHelp',
-              'Stored on this Orca server, without Cloud. Importing preserves the original; assignments pin copies to native runtime skill directories.'
+            <TabsList>
+              <TabsTrigger value="catalog">
+                {translate('skills.library.importedTab', 'Imported skills')} (
+                {snapshot?.versions.length ?? 0})
+              </TabsTrigger>
+              <TabsTrigger value="assignments">
+                {translate('skills.library.assignmentsTab', 'Assignments')}
+              </TabsTrigger>
+              <TabsTrigger value="shared">
+                {translate('skills.library.sharedTab', 'Shared links')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            aria-label={translate(
+              'skills.library.searchImported',
+              'Search imported skills or links'
             )}
-          </p>
+            placeholder={translate(
+              'skills.library.searchImported',
+              'Search imported skills or links'
+            )}
+            className="min-w-0 flex-1"
+          />
+        </div>
+      ) : null}
+      <section className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto">
+        <div className={cn(SKILLS_PAGE_COLUMN, 'flex flex-col gap-4 py-3')}>
           {library.error ? (
             <p role="alert" className="text-sm text-destructive">
               {library.error}
@@ -202,7 +199,7 @@ export function SkillLibraryView(props: {
             </p>
           ) : null}
           {!snapshot ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {library.busy
                 ? translate('skills.library.loading', 'Loading library…')
                 : translate(
@@ -212,44 +209,67 @@ export function SkillLibraryView(props: {
             </p>
           ) : (
             <>
-              <SkillLibraryDiscovery
-                hosts={snapshot.hosts}
-                hostId={hostId}
-                candidates={candidates}
-                query={query}
-                busy={library.busy}
-                onHost={(value) => {
-                  setHostId(value)
-                  setCandidates(null)
-                  setReview(null)
-                  setNotice(null)
-                }}
-                onQuery={setQuery}
-                onScan={() => void scan()}
-                onPreview={(candidate) => void preview(candidate.hostId, candidate.id)}
-              />
-              <SkillLibraryCatalog
-                snapshot={snapshot}
-                busy={library.busy}
-                query={query}
-                onAssign={setAssignVersion}
-                onDelete={(version) =>
-                  void confirm({ kind: 'delete', id: version.versionId, name: version.name })
-                }
-                onRetry={(assignment) =>
-                  void library.mutate('skills.library.reconcile', { assignmentId: assignment.id })
-                }
-                onUnassign={(assignment) =>
-                  void confirm({
-                    kind: 'unassign',
-                    id: assignment.id,
-                    name:
-                      snapshot.versions.find(
-                        (version) => version.versionId === assignment.versionId
-                      )?.name ?? assignment.id
-                  })
-                }
-              />
+              {view === 'import' ? (
+                <SkillLibraryDiscovery
+                  hosts={snapshot.hosts}
+                  hostId={page.hostId}
+                  candidates={page.candidates}
+                  query={page.importQuery}
+                  busy={library.busy}
+                  onHost={(value) => {
+                    page.setHostId(value)
+                    page.setCandidates(null)
+                    setNotice(null)
+                  }}
+                  onQuery={page.setImportQuery}
+                  onScan={() => void page.scan()}
+                  onPreview={(candidate) =>
+                    void page.preview({ hostId: candidate.hostId, candidateId: candidate.id })
+                  }
+                />
+              ) : null}
+              {view === 'catalog' ? (
+                <SkillLibraryImportedList
+                  snapshot={snapshot}
+                  query={query}
+                  busy={library.busy}
+                  selecting={selecting}
+                  selected={selected}
+                  onSelected={page.select}
+                  onReview={(version) => void page.preview(version)}
+                  onAssign={setAssignVersion}
+                  onShare={(version) => setShareVersions([version])}
+                  onDelete={(version) =>
+                    void page.confirm({ kind: 'delete', id: version.versionId, name: version.name })
+                  }
+                />
+              ) : null}
+              {view === 'shared' ? <SkillSharedLinksView query={query} shares={shares} /> : null}
+              {view === 'assignments' ? (
+                <SkillLibraryCatalog
+                  assignmentsOnly
+                  snapshot={snapshot}
+                  busy={library.busy}
+                  query={query}
+                  onAssign={setAssignVersion}
+                  onDelete={(version) =>
+                    void page.confirm({ kind: 'delete', id: version.versionId, name: version.name })
+                  }
+                  onRetry={(assignment) =>
+                    void library.mutate('skills.library.reconcile', { assignmentId: assignment.id })
+                  }
+                  onUnassign={(assignment) =>
+                    void page.confirm({
+                      kind: 'unassign',
+                      id: assignment.id,
+                      name:
+                        snapshot.versions.find(
+                          (version) => version.versionId === assignment.versionId
+                        )?.name ?? assignment.id
+                    })
+                  }
+                />
+              ) : null}
               <SkillLibraryAssignDialog
                 version={assignVersion}
                 snapshot={snapshot}
@@ -278,18 +298,45 @@ export function SkillLibraryView(props: {
       </section>
       <SkillLibraryReviewDialog
         review={review}
+        saved={Boolean(savedReview)}
         busy={library.busy}
-        error={library.error ?? importProblem}
+        error={library.error ?? notice}
         onClose={() => {
-          setReview(null)
+          page.setReview(null)
+          page.setReviewSource(null)
+          page.setSavedReview(null)
           setNotice(null)
         }}
         onFile={(filePath) => {
-          if (review && reviewHostId) {
-            void preview(reviewHostId, review.candidate.id, filePath)
+          if (savedReview) {
+            void page.preview(savedReview, filePath)
+          } else if (reviewSource) {
+            void page.preview(reviewSource, filePath)
           }
         }}
-        onImport={(addVersion) => void importReview(addVersion)}
+        onImport={(addVersion) => void page.importReview(addVersion)}
+        onAssign={() => {
+          setAssignVersion(savedReview)
+          page.setReview(null)
+          page.setSavedReview(null)
+        }}
+      />
+      <SkillLibraryShareDialog
+        versions={shareVersions}
+        busy={library.busy}
+        error={library.error}
+        onClose={() => {
+          setShareVersions([])
+          setSelecting(false)
+          setSelected(new Set())
+        }}
+        onManageLinks={() => {
+          setShareVersions([])
+          setSelecting(false)
+          setView('shared')
+          shares.refresh()
+        }}
+        onPublish={page.publish}
       />
     </main>
   )

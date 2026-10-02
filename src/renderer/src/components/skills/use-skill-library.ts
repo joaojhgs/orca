@@ -20,14 +20,20 @@ export function useSkillLibrary(target: RuntimeClientTarget | null) {
   }>({ target, busy: false, error: null })
   const owner = useRef(target)
   const generation = useRef(0)
+  const inFlight = useRef<{ target: RuntimeClientTarget; generation: number } | null>(null)
   owner.current = target
 
   const run = useCallback(
     async <T>(operation: (target: RuntimeClientTarget) => Promise<T>): Promise<T | undefined> => {
-      if (!target) {
+      if (
+        !target ||
+        (inFlight.current?.target === target && inFlight.current.generation === generation.current)
+      ) {
         return undefined
       }
       const current = ++generation.current
+      const flight = { target, generation: current }
+      inFlight.current = flight
       setActivity({ target, busy: true, error: null })
       try {
         const result = await operation(target)
@@ -51,6 +57,9 @@ export function useSkillLibrary(target: RuntimeClientTarget | null) {
         }
         return undefined
       } finally {
+        if (inFlight.current === flight) {
+          inFlight.current = null
+        }
         if (owner.current === target && current === generation.current) {
           setActivity((state) => ({ ...state, busy: false }))
         }
@@ -83,16 +92,24 @@ export function useSkillLibrary(target: RuntimeClientTarget | null) {
 
   const mutate = useCallback(
     async (method: string, params: unknown) => {
+      let committedResponse: unknown
+      const requestGeneration = generation.current + 1
       const result = await run(async (runtime) => {
         const response = await callRuntimeRpc<unknown>(runtime, method, params, {
           timeoutMs: 600000
         })
+        committedResponse = response
         return { response, snapshot: await load(runtime) }
       })
       if (result) {
         setCatalog({ target, snapshot: result.snapshot })
       }
-      return result?.response
+      return (
+        result?.response ??
+        (owner.current === target && generation.current === requestGeneration
+          ? committedResponse
+          : undefined)
+      )
     },
     [load, run, target]
   )

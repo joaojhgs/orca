@@ -12,9 +12,13 @@ import {
   type SkillLibrarySnapshot,
   type SkillLibraryVersion
 } from '../../../../shared/skill-library-contract'
+import { LOCAL_SKILL_SHARING_CAPABILITY } from '../../../../shared/local-skill-sharing'
 
 const rpc = vi.hoisted(() => vi.fn())
 vi.mock('@/runtime/runtime-rpc-client', () => ({ callRuntimeRpc: rpc }))
+vi.mock('@/hooks/use-active-skill-discovery-runtime-target', () => ({
+  useActiveSkillDiscoveryRuntimeTarget: () => null
+}))
 Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true)
 
 let root: Root | null = null
@@ -76,7 +80,17 @@ async function fixture(remote = false) {
   let conflict = false
   rpc.mockImplementation(async (_target, method, params) => {
     if (method === 'status.get') {
-      return { capabilities: [SKILL_LIBRARY_CAPABILITY] }
+      return { capabilities: [SKILL_LIBRARY_CAPABILITY, LOCAL_SKILL_SHARING_CAPABILITY] }
+    }
+    if (method === 'skills.library.listShares') {
+      return { supported: true, enabled: true, shares: [] }
+    }
+    if (method === 'skills.library.share') {
+      return {
+        id: 'share',
+        url: 'http://fixture/skills/share/saved',
+        packageDigest: version.packageDigest
+      }
     }
     if (method === 'skills.library.list') {
       return structuredClone(snapshot)
@@ -143,13 +157,82 @@ async function fixture(remote = false) {
     renderTarget,
     setConflict: () => {
       conflict = true
-    }
+    },
+    snapshot,
+    version
   }
 }
 
 describe('browser local skill library', () => {
+  it('shows only imported snapshots on normal navigation and Back returns there without rescanning', async () => {
+    const f = await fixture()
+    expect(document.body.textContent).toContain('No imported skills yet')
+    expect(rpc.mock.calls.some(([, method]) => method === 'skills.library.discover')).toBe(false)
+    await f.click('Import skills')
+    await f.click('Scan hosts')
+    expect(document.body.textContent).toContain('Review import')
+    await f.click('Back to imported skills')
+    expect(document.body.textContent).not.toContain('Review import')
+    expect(document.body.textContent).toContain('No imported skills yet')
+    expect(document.body.textContent).not.toContain('Installed skills and sharing')
+  })
+  it('surfaces preview failures and allows retrying the same review', async () => {
+    const f = await fixture()
+    await f.click('Import skills')
+    await f.click('Scan hosts')
+    const original = rpc.getMockImplementation()
+    let failed = false
+    rpc.mockImplementation((target, method, params) => {
+      if (method === 'skills.library.preview' && !failed) {
+        failed = true
+        throw new Error('Fixture host unavailable; retry')
+      }
+      return original?.(target, method, params)
+    })
+    await f.click('Review import')
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain(
+      'Fixture host unavailable'
+    )
+    await f.click('Review import')
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+      'Instructions to review'
+    )
+  })
+  it('publishes only selected imported IDs after explicit review, without invoking Cloud', async () => {
+    const f = await fixture()
+    f.snapshot.versions = [f.version]
+    const refresh = document.querySelector('button[aria-label="Refresh"]')
+    if (!refresh) {
+      throw new Error('Missing refresh')
+    }
+    await act(async () => fireEvent.click(refresh))
+    await f.click('Share skills')
+    const select = document.querySelector('button[role="checkbox"][aria-label="Select fixture"]')
+    if (!select) {
+      throw new Error('Missing imported selection')
+    }
+    await act(async () => fireEvent.click(select))
+    await f.click('Review share')
+    expect(f.button('Create local share link').disabled).toBe(true)
+    const approval = document.querySelector('[role="dialog"] button[role="checkbox"]')
+    if (!approval) {
+      throw new Error('Missing share review')
+    }
+    await act(async () => fireEvent.click(approval))
+    await f.click('Create local share link')
+    expect(rpc.mock.calls.find(([, method]) => method === 'skills.library.share')?.[2]).toEqual({
+      versionIds: [f.version.versionId],
+      bundleName: 'fixture',
+      reviewed: true
+    })
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+      'http://fixture/skills/share/saved'
+    )
+    expect(rpc.mock.calls.some(([, method]) => method === 'skills.library.discover')).toBe(false)
+  })
   it('scans connected hosts and keeps colliding discovery IDs bound to their source host', async () => {
     const f = await fixture(true)
+    await f.click('Import skills')
     await f.click('Scan hosts')
     expect(
       rpc.mock.calls
@@ -177,6 +260,7 @@ describe('browser local skill library', () => {
   })
   it('drops the previous host inventory and review while a new host is loading', async () => {
     const f = await fixture()
+    await f.click('Import skills')
     await f.click('Scan hosts')
     await f.click('Review import')
     expect(document.body.textContent).toContain('Instructions to review')
@@ -197,6 +281,7 @@ describe('browser local skill library', () => {
   it('requires review approval, pins the reviewed digest, and shows imported files', async () => {
     const f = await fixture()
     expect(rpc.mock.calls.some(([, method]) => method === 'skills.library.import')).toBe(false)
+    await f.click('Import skills')
     await f.click('Scan hosts')
     await f.click('Review import')
     expect(f.button('Import into local library').disabled).toBe(true)
@@ -213,14 +298,15 @@ describe('browser local skill library', () => {
       reviewed: true,
       expectedDigests: [{ candidateId: 'candidate', packageDigest: 'a'.repeat(64) }]
     })
-    expect(document.body.textContent).toContain('Saved versions (1)')
-    expect(document.body.textContent).toContain('2 files')
+    expect(document.body.textContent).toContain('Imported skills (1)')
+    expect(document.querySelector('[data-skill-name]')?.textContent).toBe('fixture')
     expect(document.querySelector('[role="dialog"]')).toBeNull()
   })
 
   it('keeps collision results visible instead of treating them as success', async () => {
     const f = await fixture()
     f.setConflict()
+    await f.click('Import skills')
     await f.click('Scan hosts')
     await f.click('Review import')
     const approval = document.querySelector('button[role="checkbox"]')
@@ -232,6 +318,6 @@ describe('browser local skill library', () => {
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
       'Existing name differs'
     )
-    expect(document.body.textContent).toContain('Saved versions (0)')
+    expect(document.body.textContent).not.toContain('imported:')
   })
 })

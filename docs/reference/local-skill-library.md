@@ -32,12 +32,12 @@ This document records the implementation and verification handoff instead. The C
 goal slot tracks the library objective. The user explicitly resumed implementation
 after the interrupted session; only separate, capped validation services are permitted.
 
-| Story | Scope | State |
-| --- | --- | --- |
-| G001 | Contracts, local storage, validated snapshots, import/version/conflict tests | Implemented and focused checks passed; final review pending |
-| G002 | Execution-host discovery/export and safe provisioning/reconciliation | Implemented; real personal-distrobox e2e and all connected notebook scans passed |
-| G003 | CLI, browser/desktop library, import review and assignment management | Implemented; disposable hidden renderer validation passed |
-| G004 | Adversarial regression/e2e tests, independent review, safe deployment | Deployed and live native/SSH checks passed; independent review and broader type-aware gates pending |
+| Story | Scope                                                                        | State                                                                                               |
+| ----- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| G001  | Contracts, local storage, validated snapshots, import/version/conflict tests | Implemented and focused checks passed; final review pending                                         |
+| G002  | Execution-host discovery/export and safe provisioning/reconciliation         | Implemented; real personal-distrobox e2e and all connected notebook scans passed                    |
+| G003  | CLI, browser/desktop library, import review and assignment management        | Implemented; disposable hidden renderer validation passed                                           |
+| G004  | Adversarial regression/e2e tests, independent review, safe deployment        | Deployed and live native/SSH checks passed; independent review and broader type-aware gates pending |
 
 ## Verification required before completion
 
@@ -224,16 +224,16 @@ explicit session-safety and build-limit steering. This is implementation/test
 evidence, not an independent review verdict. Every row still requires independent
 review; real-host and packaged e2e are additional open gates.
 
-| Required invariant | Implementation evidence | Verification evidence |
-| --- | --- | --- |
-| Local, launcher-independent library; no Cloud or Multica dependency | `skill-library-service.ts`, `skill-library-placement.ts` reuse native archive/placement services | Service and all-runtime global/workspace placement suites passed |
-| Explicit selection and review; snapshots remain immutable | Shared schemas, candidate lookup, expected-digest import, version conflict handling | Unknown path, unreviewed import, changed review digest, same-name version and dedup tests passed |
-| Execution host owns filesystem work; no offline local fallback | Runtime destination authority, standalone SSH worker, provider/generation fences | Offline host, moved folder, unknown owner, arbitrary host/workspace and upload-disconnect tests passed; real SSH pending |
-| Reuse incumbent validation, ownership, locks and recovery | Store filesystem lock; installer/remover receipt ownership guards and existing recovery | Original-folder protection, edited placement, serialized import, stale result and existing transaction suites passed |
-| Never execute imported data; preserve scripts/assets/permissions | Validated archives and manifest-only preview; no script runner | Binary and executable metadata test and standalone worker integration passed |
-| Pinned versions and explicit update/removal intent | Saved version IDs and compare-before-commit reconciliation | Pin update, offline retry, restart identity and overlapping install/removal tests passed |
-| Authenticated transport and explicit CLI cross-host scope | Existing authenticated RPC registry and mobile allowlist; trusted caller host selector | Mobile registry/permission and six CLI scope tests passed; packaged RPC pending |
-| No automatic user provisioning, source deletion or session interruption | Disposable fixtures; assigned-version deletion guard; bounded staging services | Source preservation, protected removal, hidden-window probe, unchanged server/terminal identities |
+| Required invariant                                                      | Implementation evidence                                                                          | Verification evidence                                                                                                    |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Local, launcher-independent library; no Cloud or Multica dependency     | `skill-library-service.ts`, `skill-library-placement.ts` reuse native archive/placement services | Service and all-runtime global/workspace placement suites passed                                                         |
+| Explicit selection and review; snapshots remain immutable               | Shared schemas, candidate lookup, expected-digest import, version conflict handling              | Unknown path, unreviewed import, changed review digest, same-name version and dedup tests passed                         |
+| Execution host owns filesystem work; no offline local fallback          | Runtime destination authority, standalone SSH worker, provider/generation fences                 | Offline host, moved folder, unknown owner, arbitrary host/workspace and upload-disconnect tests passed; real SSH pending |
+| Reuse incumbent validation, ownership, locks and recovery               | Store filesystem lock; installer/remover receipt ownership guards and existing recovery          | Original-folder protection, edited placement, serialized import, stale result and existing transaction suites passed     |
+| Never execute imported data; preserve scripts/assets/permissions        | Validated archives and manifest-only preview; no script runner                                   | Binary and executable metadata test and standalone worker integration passed                                             |
+| Pinned versions and explicit update/removal intent                      | Saved version IDs and compare-before-commit reconciliation                                       | Pin update, offline retry, restart identity and overlapping install/removal tests passed                                 |
+| Authenticated transport and explicit CLI cross-host scope               | Existing authenticated RPC registry and mobile allowlist; trusted caller host selector           | Mobile registry/permission and six CLI scope tests passed; packaged RPC pending                                          |
+| No automatic user provisioning, source deletion or session interruption | Disposable fixtures; assigned-version deletion guard; bounded staging services                   | Source preservation, protected removal, hidden-window probe, unchanged server/terminal identities                        |
 
 Overall invariant gate: **pending independent review and real packaged/native/SSH e2e**.
 
@@ -357,3 +357,34 @@ only. Active agents and live SSH relays remain protected.
   Full web typechecking exhausted its isolated 1 GiB limit; only that validation
   service was killed. Full typechecking, a real paired-browser interaction and
   independent reviewer approval are still not claimed.
+
+## Imported-only navigation and server-local sharing update
+
+Skills navigation opens **Imported skills**, the reviewed snapshots stored in the active Orca profile. It does not scan homes on navigation. **Import skills** opens discovery on the server and connected SSH hosts; Review reads a bounded preview of the complete package. Import records a content digest and refuses a source that changed after review. Back, Escape and a successful import return to the imported list. Preview errors are visible and retryable.
+
+Imported skills can be reviewed from their immutable archive, assigned, shared or deleted. Import does not install the skill into an agent. Assignment installs a pinned version on the selected execution host, globally or in an exact worktree/folder workspace. It preserves locally modified or unowned files rather than overwriting them. Unassign removes only Orca-owned, unchanged placements.
+
+## Local sharing
+
+Share selects imported version IDs, never arbitrary paths or unimported scan results. One version per skill name can be included in a bundle. Publishing requires explicit file review and the existing human artifact-publishing approval. Agent/CLI publishing additionally requires the separate agent skill-sharing permission; agents must not enable either permission themselves.
+
+When artifacts use the local backend, links use the same artifact viewer origin and port. The unlisted page lists the bundle's files and offers a downloadable archive and verified manifest. Scripts are not executed by publishing or downloading. Executable metadata and checksums are preserved. The local flow does not upload to Orca Cloud or require an Orca account.
+
+Anyone who can reach that server and has the link can download the bundle. A tailnet-only origin is not an Internet-public link. Treat the URL as a credential. Revoking blocks future requests, not copies already downloaded. Sharing pins its own archive: edits to the original, new imports, and removal of an imported version do not change a previously published bundle. Existing Cloud install deep-links remain supported separately; local pages currently provide downloads rather than the Cloud one-click installation dialog.
+
+With local hosting, `orca skills share --skill <imported-name-or-version-id> --bundle-name <name>` shares imported snapshots. Use `orca skills library list --json` for selectors; ambiguous names require exact version IDs. The existing CLI command retains its forwarded-session restriction, so run it on the Orca server. Browser sharing works with server-owned snapshots imported from any supported connected host and requires no relay update.
+
+## What “injection” means
+
+Assignment is filesystem provisioning, not a launch hook or direct prompt injection. Orca creates a canonical `.agents/skills/<name>` placement and any selected provider-specific placements. For example, Claude uses `.claude/skills`; OpenCode uses `~/.config/opencode/skills` globally and `.opencode/skills` in a workspace. Supported global environment overrides and managed Claude profile directories are resolved on the executing host. Provider selection is placement policy, not access control: another runtime that reads the canonical root can still see it.
+
+| Agent launch                         | Can it discover an assignment?                                                                       |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Orca CLI launch                      | Yes, when its user/configuration and workspace match the assignment.                                 |
+| Manually typed into an Orca terminal | Same filesystem rules; no special CLI launch is required.                                            |
+| Outside Orca                         | Same rules, provided the runtime supports that directory and uses the same environment.              |
+| Multica task                         | Only directories visible to the task's effective environment; not automatic library synchronization. |
+
+Global assignments apply to that host/user/configuration; workspace assignments apply to the selected folder, not automatically to every new worktree. The agent still decides when to use a discovered skill. Running agents may require their own reload or a new session; Orca does not hot-inject instructions or restart them to apply assignments.
+
+The installed Multica source prepares isolated Codex task homes and seeds user skills from the shared `~/.codex/skills`, while Orca's Codex placement uses `.agents/skills`. Therefore isolated Multica Codex tasks are not guaranteed to see a global Orca assignment through that seeding path. Multica's own attached skills can also take precedence by name. Use an assignment to the actual task workspace when native workspace discovery is available, or explicitly import/attach the skill in Multica. Orca's Multica PTY bridge does not synchronize the two libraries.

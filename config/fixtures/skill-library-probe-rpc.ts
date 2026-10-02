@@ -3,6 +3,17 @@ import {
   type SkillLibrarySnapshot,
   type SkillLibraryVersion
 } from '../../src/shared/skill-library-contract'
+import { LOCAL_SKILL_SHARING_CAPABILITY } from '../../src/shared/local-skill-sharing'
+
+const shares: {
+  id: string
+  url: string
+  name: string
+  description: string
+  packageId: string
+  createdAt: string
+  names: string[]
+}[] = []
 
 const candidate = {
   id: 'fixture',
@@ -59,7 +70,7 @@ export async function callRuntimeRpc(
   }
 ) {
   if (method === 'status.get') {
-    return { capabilities: [SKILL_LIBRARY_CAPABILITY] }
+    return { capabilities: [SKILL_LIBRARY_CAPABILITY, LOCAL_SKILL_SHARING_CAPABILITY] }
   }
   if (method === 'skills.library.list') {
     return structuredClone(snapshot)
@@ -67,7 +78,22 @@ export async function callRuntimeRpc(
   if (method === 'skills.library.discover') {
     return { candidates: [candidate] }
   }
-  if (method === 'skills.library.preview') {
+  if (method === 'skills.library.listShares') {
+    return { supported: true, enabled: true, shares: structuredClone(shares) }
+  }
+  if (method === 'skills.library.share') {
+    shares.push({
+      id: 'fixture-share',
+      url: 'http://fixture.local/skills/share/fixture',
+      name: 'probe-skill',
+      description: candidate.description,
+      packageId: version.packageId,
+      createdAt: version.createdAt,
+      names: [version.name]
+    })
+    return { id: 'fixture-share', url: shares[0].url, packageDigest: version.packageDigest }
+  }
+  if (method === 'skills.library.preview' || method === 'skills.library.previewVersion') {
     return {
       candidate,
       packageDigest: version.packageDigest,

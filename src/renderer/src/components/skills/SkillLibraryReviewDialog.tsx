@@ -28,6 +28,8 @@ type ReviewDialogProps = {
   onClose(): void
   onFile(path: string): void
   onImport(addVersion: boolean): void
+  saved?: boolean
+  onAssign?(): void
 }
 
 export function SkillLibraryReviewDialog(props: ReviewDialogProps) {
@@ -58,8 +60,10 @@ function SkillLibraryReviewForm(props: ReviewDialogProps) {
           </DialogTitle>
           <DialogDescription>
             {translate(
-              'skills.library.reviewHelp',
-              'All listed files enter the local library, including scripts and assets. Nothing is executed during import. Check for secrets and unwanted instructions.'
+              props.saved ? 'skills.library.savedReviewHelp' : 'skills.library.reviewHelp',
+              props.saved
+                ? 'This is the imported immutable snapshot, not the source folder. Assign it to runtimes to provision its files.'
+                : 'All listed files enter the local library, including scripts and assets. Nothing is executed during import. Check for secrets and unwanted instructions.'
             )}
           </DialogDescription>
         </DialogHeader>
@@ -101,33 +105,35 @@ function SkillLibraryReviewForm(props: ReviewDialogProps) {
                 ? `\n${translate('skills.library.truncated', '[Preview truncated]')}`
                 : ''}
             </pre>
-            <fieldset className="flex flex-col gap-3" disabled={props.busy}>
-              <legend className="sr-only">
-                {translate('skills.library.importApproval', 'Import approval')}
-              </legend>
-              <Label htmlFor={`${id}-reviewed`}>
-                <Checkbox
-                  id={`${id}-reviewed`}
-                  checked={reviewed}
-                  onCheckedChange={(value) => setReviewed(value === true)}
-                />
-                {translate(
-                  'skills.library.reviewed',
-                  'I reviewed the files and want to import this snapshot.'
-                )}
-              </Label>
-              <Label htmlFor={`${id}-version`}>
-                <Checkbox
-                  id={`${id}-version`}
-                  checked={addVersion}
-                  onCheckedChange={(value) => setAddVersion(value === true)}
-                />
-                {translate(
-                  'skills.library.allowVersion',
-                  'Allow a new version if this name already has different content.'
-                )}
-              </Label>
-            </fieldset>
+            {!props.saved ? (
+              <fieldset className="flex flex-col gap-3" disabled={props.busy}>
+                <legend className="sr-only">
+                  {translate('skills.library.importApproval', 'Import approval')}
+                </legend>
+                <Label htmlFor={`${id}-reviewed`}>
+                  <Checkbox
+                    id={`${id}-reviewed`}
+                    checked={reviewed}
+                    onCheckedChange={(value) => setReviewed(value === true)}
+                  />
+                  {translate(
+                    'skills.library.reviewed',
+                    'I reviewed the files and want to import this snapshot.'
+                  )}
+                </Label>
+                <Label htmlFor={`${id}-version`}>
+                  <Checkbox
+                    id={`${id}-version`}
+                    checked={addVersion}
+                    onCheckedChange={(value) => setAddVersion(value === true)}
+                  />
+                  {translate(
+                    'skills.library.allowVersion',
+                    'Allow a new version if this name already has different content.'
+                  )}
+                </Label>
+              </fieldset>
+            ) : null}
           </>
         ) : null}
         {props.error ? (
@@ -139,10 +145,15 @@ function SkillLibraryReviewForm(props: ReviewDialogProps) {
           <Button variant="outline" disabled={props.busy} onClick={props.onClose}>
             {translate('skills.library.cancel', 'Cancel')}
           </Button>
-          <Button disabled={!reviewed || props.busy} onClick={() => props.onImport(addVersion)}>
+          <Button
+            disabled={(!props.saved && !reviewed) || props.busy}
+            onClick={() => (props.saved ? props.onAssign?.() : props.onImport(addVersion))}
+          >
             {props.busy
               ? translate('skills.library.working', 'Working…')
-              : translate('skills.library.import', 'Import into local library')}
+              : props.saved
+                ? translate('skills.library.assign', 'Assign')
+                : translate('skills.library.import', 'Import into local library')}
           </Button>
         </DialogFooter>
       </DialogContent>

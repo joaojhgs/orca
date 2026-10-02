@@ -3,7 +3,11 @@
   "include": [
     "../src/main/skills/skill-library-service.ts",
     "../src/main/skills/skill-library-store.ts",
-    "../src/main/skills/skill-library-assignments.ts"
+    "../src/main/skills/skill-library-assignments.ts",
+    "../src/main/skills/local-skill-library-sharing.ts",
+    "../src/main/skills/local-skill-share-viewer.ts",
+    "../src/main/skills/local-agent-skill-sharing.ts",
+    "../src/main/skills/skill-library-snapshot-preview.ts"
   ],
   "compilerOptions": {
     "composite": false,

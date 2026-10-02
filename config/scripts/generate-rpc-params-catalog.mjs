@@ -2,15 +2,7 @@
 // schema. Reading it back — instead of hand-listing 600 methods — is what keeps the
 // shared catalog and the dispatcher from drifting apart.
 import { execFileSync } from 'node:child_process'
-import {
-  existsSync,
-  globSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync
-} from 'node:fs'
+import { existsSync, globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import process from 'node:process'
@@ -24,14 +16,9 @@ const RPC_DIR = path.join(REPO_ROOT, 'src', 'main', 'runtime', 'rpc')
 const REGISTRY_ENTRY = path.join(RPC_DIR, 'methods', 'index.ts')
 const OUTPUT_PATH = path.join(CONTRACT_DIR, 'rpc-params-catalog.generated.ts')
 
-// Why mkdirSync first: out/ is gitignored and absent on a fresh checkout, so
-// mkdtempSync threw ENOENT and took `pnpm lint` down with it. Why not os.tmpdir():
-// the bundle keeps its node_modules deps external and oxfmt reads .oxfmtrc.json by
-// walking up, so both scratch files have to sit under the repo to resolve at all.
+// Keep scratch under the repo for dependency/config resolution, never under a linked live out/.
 function scratchDir(prefix) {
-  const root = path.join(REPO_ROOT, 'out')
-  mkdirSync(root, { recursive: true })
-  return mkdtempSync(path.join(root, prefix))
+  return mkdtempSync(path.join(REPO_ROOT, `.${prefix}`))
 }
 
 const posix = (value) => value.split(path.sep).join('/')

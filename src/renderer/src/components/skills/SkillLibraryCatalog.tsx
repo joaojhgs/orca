@@ -15,6 +15,7 @@ export function SkillLibraryCatalog(props: {
   onDelete(version: SkillLibraryVersion): void
   onRetry(assignment: SkillLibraryAssignment): void
   onUnassign(assignment: SkillLibraryAssignment): void
+  assignmentsOnly?: boolean
 }) {
   const matches = (name: string) => name.toLowerCase().includes(props.query.toLowerCase())
   const versions = props.snapshot.versions.filter((version) => matches(version.name))
@@ -28,69 +29,71 @@ export function SkillLibraryCatalog(props: {
   )
   return (
     <>
-      <section
-        className="flex flex-col gap-3"
-        aria-label={translate('skills.library.savedLabel', 'Saved skill versions')}
-      >
-        <h2 className="text-sm font-semibold">
-          {translate('skills.library.savedVersions', 'Saved versions ({{total}})', {
-            total: versions.length
-          })}
-        </h2>
-        {versions.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            {translate(
-              'skills.library.emptyVersions',
-              'Review and import a discovered skill to save an immutable local copy.'
-            )}
-          </p>
-        ) : null}
-        <ul className="flex flex-col gap-3">
-          {versions.map((version) => (
-            <li
-              key={version.versionId}
-              className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3"
-            >
-              <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-medium">{version.name}</h3>
-                <p className="text-xs text-muted-foreground">{version.description}</p>
-                <p className="break-all font-mono text-xs text-muted-foreground">
-                  {version.versionId} ·{' '}
-                  {translate('skills.library.files', '{{total}} files', {
-                    total: version.files.length
-                  })}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {version.origins
-                    .map(
-                      (origin) =>
-                        `${props.snapshot.hosts.find((host) => host.id === origin.hostId)?.label ?? origin.hostId}: ${origin.sourceLabel}`
-                    )
-                    .join(' · ')}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" disabled={props.busy} onClick={() => props.onAssign(version)}>
-                  {translate('skills.library.assign', 'Assign')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={
-                    props.busy ||
-                    props.snapshot.assignments.some(
-                      (row) => row.versionId === version.versionId && row.status !== 'removed'
-                    )
-                  }
-                  onClick={() => props.onDelete(version)}
-                >
-                  {translate('skills.library.deleteVersion', 'Delete version')}
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {!props.assignmentsOnly ? (
+        <section
+          className="flex flex-col gap-3"
+          aria-label={translate('skills.library.savedLabel', 'Saved skill versions')}
+        >
+          <h2 className="text-sm font-semibold">
+            {translate('skills.library.savedVersions', 'Saved versions ({{total}})', {
+              total: versions.length
+            })}
+          </h2>
+          {versions.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {translate(
+                'skills.library.emptyVersions',
+                'Review and import a discovered skill to save an immutable local copy.'
+              )}
+            </p>
+          ) : null}
+          <ul className="flex flex-col gap-3">
+            {versions.map((version) => (
+              <li
+                key={version.versionId}
+                className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-medium">{version.name}</h3>
+                  <p className="text-xs text-muted-foreground">{version.description}</p>
+                  <p className="break-all font-mono text-xs text-muted-foreground">
+                    {version.versionId} ·{' '}
+                    {translate('skills.library.files', '{{total}} files', {
+                      total: version.files.length
+                    })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {version.origins
+                      .map(
+                        (origin) =>
+                          `${props.snapshot.hosts.find((host) => host.id === origin.hostId)?.label ?? origin.hostId}: ${origin.sourceLabel}`
+                      )
+                      .join(' · ')}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" disabled={props.busy} onClick={() => props.onAssign(version)}>
+                    {translate('skills.library.assign', 'Assign')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      props.busy ||
+                      props.snapshot.assignments.some(
+                        (row) => row.versionId === version.versionId && row.status !== 'removed'
+                      )
+                    }
+                    onClick={() => props.onDelete(version)}
+                  >
+                    {translate('skills.library.deleteVersion', 'Delete version')}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <section
         className="flex flex-col gap-3"
         aria-label={translate('skills.library.assignmentsLabel', 'Skill assignments')}
