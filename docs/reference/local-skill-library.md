@@ -35,9 +35,9 @@ after the interrupted session; only separate, capped validation services are per
 | Story | Scope | State |
 | --- | --- | --- |
 | G001 | Contracts, local storage, validated snapshots, import/version/conflict tests | Implemented and focused checks passed; final review pending |
-| G002 | Execution-host discovery/export and safe provisioning/reconciliation | Implemented; real SSH verification pending |
+| G002 | Execution-host discovery/export and safe provisioning/reconciliation | Implemented; real personal-distrobox e2e and all connected notebook scans passed |
 | G003 | CLI, browser/desktop library, import review and assignment management | Implemented; disposable hidden renderer validation passed |
-| G004 | Adversarial regression/e2e tests, independent review, safe deployment | Pending |
+| G004 | Adversarial regression/e2e tests, independent review, safe deployment | Deployed and live native/SSH checks passed; independent review and broader type-aware gates pending |
 
 ## Verification required before completion
 
@@ -236,3 +236,56 @@ review; real-host and packaged e2e are additional open gates.
 | No automatic user provisioning, source deletion or session interruption | Disposable fixtures; assigned-version deletion guard; bounded staging services | Source preservation, protected removal, hidden-window probe, unchanged server/terminal identities |
 
 Overall invariant gate: **pending independent review and real packaged/native/SSH e2e**.
+
+## Resumed rollout — explicit 4 GiB build approval
+
+The user directed "bump to 4gb and finish this". Build-only invocations may now
+use 4 GiB, with the same separate service, zero swap, one CPU and staged output.
+Ordinary validation retains its 768 MiB default and 1 GiB ceiling. Earlier cap
+restrictions above record historical checkpoints and are superseded for builds
+only. Active agents and live SSH relays remain protected.
+
+## Live rollout checkpoint — 2026-10-02
+
+- Full production renderer build passed at the explicitly approved 4 GiB service
+  cap (1 GiB JavaScript heap); renderer boot graph passed, 349 chunks / 4,635.4 KiB.
+  Preload and browser projection/verification passed. No dependency install or
+  native rebuild was performed.
+- Assembled release:
+  `/home/skyron/.local/share/orca/deployments/skill-library-66b413ebb5-20261002`.
+  Dependencies are hardlinked from the existing verified dependency tree; do not
+  install/rebuild into either shared tree. Old chunks and all relay binaries were
+  retained. Relay trees compare byte-for-byte equal to the previous deployment.
+- Full staged CLI dependency closure passed (630 files), and five read-only/dry-run
+  skills commands passed. Preserved mobile bundle integrity passed (122 assets,
+  build `fbe64ec591a3a2607a2784f0ed6029cddb946e3257295f1d8b417048b47a7632`).
+- Switched source `out` to the release output. The previous complete output is
+  recoverable at `tmp/out.pre-skill-library-20261002`. Local Git exclusion covers
+  the generated `out` symlink; no generated build files are committed.
+- Restarted only `orca-server.service`, through a separate validation service.
+  MainPID changed from 1731439 to 2480400, with no automatic restarts. Runtime is
+  ready and advertises `skills.local-library.v1`; browser HTTP endpoint returns 200.
+- All 29 previous terminal PTY IDs AND incarnation IDs survived and reattached.
+  The daemon scope and checked Codex/OpenCode/Claude/shell PIDs remain live. Relay
+  handshake still reports `0.1.0+5cdca4731a41`; no relay was replaced or restarted.
+- Live disposable e2e passed: native preview/review-digest import, Codex global
+  placement, binary asset equality and executable bit preservation; real SSH
+  preview/import from personal distrobox deduplicated the same version with two
+  host origins. OpenCode and Antigravity SSH provisioning and removal passed.
+- The existing distrobox CLI bridge served the new library command without any
+  bridge/relay deployment. Default scope selected the personal distrobox and
+  omitted the local assignment. Local CLI default scope selected only local.
+- Edited disposable native placement was preserved and reported as `conflict` on
+  removal. After restoring the test bytes, both native and SSH removals succeeded.
+  Snapshot deletion preserved originals. All fixture source files were then
+  explicitly removed; library returned to zero versions and zero assignments.
+  No actual user skill was imported, assigned, changed or deleted.
+- Discovery succeeded on notebook-work (14 candidates), notebook-personal (74),
+  and notebook-university (1), using real SSH workers. No live relay updates.
+- Previous changed-file cleanup and 117-test / hidden renderer evidence remains
+  valid; rollout changes only the build cap and this evidence record. No new
+  fallback, dependency or app/runtime behavior was introduced in this final pass.
+- Independent `code-reviewer`/`architect` roles and role-aware delegation remain
+  unavailable. Under the code-review/Ultragoal contracts this is not approval and
+  the goal must not be marked complete. Full renderer typechecking/type-aware
+  quality and a real paired-browser interaction test are not claimed as passed.

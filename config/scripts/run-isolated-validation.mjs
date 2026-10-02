@@ -17,7 +17,7 @@ if (process.platform !== 'linux') {
   throw new Error('This validation wrapper requires Linux systemd user services')
 }
 const memoryMb = Number(process.env.ORCA_VALIDATION_MEMORY_MB ?? 768)
-const memoryCeilingMb = buildOnly ? 2048 : 1024
+const memoryCeilingMb = buildOnly ? 4096 : 1024
 if (!Number.isInteger(memoryMb) || memoryMb < 128 || memoryMb > memoryCeilingMb) {
   throw new Error(`ORCA_VALIDATION_MEMORY_MB must be an integer between 128 and ${memoryCeilingMb}`)
 }
