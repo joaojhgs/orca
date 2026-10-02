@@ -123,11 +123,18 @@ try {
       }))
     )
   )
-  if (!(await backButton.isVisible())) {
+  const usageNavigation = page.getByRole('button', { name: /Stats & Usage/ })
+  // Why: host preferences can restore Settings after the initial app shell has painted.
+  // Wait for that destination, not an instantaneous Back-button visibility snapshot.
+  const settingsRestored = await usageNavigation.waitFor({ timeout: 5000 }).then(
+    () => true,
+    () => false
+  )
+  if (!settingsRestored) {
     await settingsButton.click()
   }
   await backButton.waitFor({ timeout: 15000 })
-  await page.getByRole('button', { name: /Usage Tracking/ }).click()
+  await usageNavigation.click()
   const quotas = page.getByTestId('usage-tracking-live-quotas')
   await quotas.locator('[data-execution-account]').first().waitFor({ timeout: 30000 })
   const usageTracking = await page.evaluate(async () => {
@@ -198,6 +205,24 @@ try {
       JSON.stringify({ phase: 'pdf-preview', canvases: await pdf.locator('canvas').count() })
     )
   }
+} catch (error) {
+  const page = browser?.contexts()[0]?.pages()[0]
+  if (page) {
+    console.log(
+      JSON.stringify(
+        await page.evaluate(() => ({
+          phase: 'failure-diagnostic',
+          headings: [...document.querySelectorAll('h1,h2,h3')].map(
+            (element) => element.textContent
+          ),
+          buttons: [...document.querySelectorAll('button')]
+            .map((element) => element.getAttribute('aria-label') || element.textContent?.trim())
+            .slice(0, 80)
+        }))
+      )
+    )
+  }
+  throw error
 } finally {
   await browser?.close()
   if (child && child.exitCode === null && child.signalCode === null) {
