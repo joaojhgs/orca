@@ -139,6 +139,21 @@ describe('web UI preload API', () => {
     expect(writeText.mock.calls).toEqual([['copy me'], ['terminal copy']])
   })
 
+  it('starts ordinary writes before returning to preserve the click gesture', async () => {
+    const globals = installBrowserGlobals('Linux')
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', {
+      userAgent: 'Linux',
+      hardwareConcurrency: 8,
+      clipboard: { writeText }
+    })
+    const { installWebPreloadApi } = await import('./web-preload-api')
+    installWebPreloadApi()
+    const result = globals.window.api.ui.writeClipboardText('Codex answer')
+    expect(writeText).toHaveBeenCalledExactlyOnceWith('Codex answer')
+    await expect(result).resolves.toBeUndefined()
+  })
+
   it('copies through execCommand when navigator.clipboard is unavailable (insecure context)', async () => {
     const globals = installBrowserGlobals('Linux')
     vi.stubGlobal('navigator', { userAgent: 'Linux', hardwareConcurrency: 8 })

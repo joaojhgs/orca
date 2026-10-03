@@ -1,6 +1,7 @@
 import type { ITerminalOptions } from '@xterm/xterm'
 import { DESKTOP_TERMINAL_SCROLLBACK_ROWS_DEFAULT } from '../../../../shared/terminal-scrollback-policy'
 import { LIGHT_BG_MIN_CONTRAST } from '@/lib/terminal-contrast-correction'
+import { isPairedWebClientWindow } from '@/lib/desktop-window-chrome'
 
 type TerminalCursorStyle = NonNullable<ITerminalOptions['cursorStyle']>
 type TerminalCursorInactiveStyle = NonNullable<ITerminalOptions['cursorInactiveStyle']>
@@ -53,6 +54,8 @@ export function buildDefaultTerminalOptions(): ITerminalOptions {
     // Why: on macOS, non-US layouts rely on Option to compose characters like @ and €.
     macOptionIsMeta: false,
     macOptionClickForcesSelection: true,
+    // Web drags copy locally, not through the TUI's host clipboard. Alt preserves TUI clicks.
+    mouseEventsRequireAlt: isPairedWebClientWindow(),
     drawBoldTextInBrightColors: true,
     scrollbar: {
       // Why: slim VS Code-style scrollbar (VS Code uses 14). FitAddon reserves

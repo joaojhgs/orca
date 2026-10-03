@@ -32,6 +32,8 @@ import { translate } from '@/i18n/i18n'
 import { isMacPlatform, nativeChatToggleShortcutLabel } from './native-chat-shortcut'
 import { TabWorkspaceLayoutMenuSection } from '@/components/tab-bar/TabWorkspaceLayoutMenuSection'
 import type { TabSplitDirection } from '@/store/slices/tabs'
+import { copyNativeChatText } from './native-chat-clipboard'
+import { useNativeChatCopyShortcut } from './use-native-chat-copy-shortcut'
 
 type NativeChatContextMenuState = {
   open: boolean
@@ -117,6 +119,7 @@ export function useNativeChatContextMenu({
     selectedText: ''
   })
   const shortcutLabel = nativeChatToggleShortcutLabel(isMacPlatform())
+  useNativeChatCopyShortcut(rootRef, enabled)
 
   const rememberCurrentSelection = useCallback(() => {
     const selectedText = getNativeChatSelectedText(rootRef.current)
@@ -182,7 +185,7 @@ export function useNativeChatContextMenu({
         >
           <DropdownMenuItem
             disabled={state.selectedText.trim().length === 0}
-            onSelect={() => void window.api.ui.writeClipboardText(state.selectedText)}
+            onSelect={() => void copyNativeChatText(state.selectedText)}
           >
             <Copy />
             {translate('auto.components.nativeChat.contextMenu.copy', 'Copy')}
