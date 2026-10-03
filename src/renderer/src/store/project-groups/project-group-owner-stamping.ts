@@ -1,7 +1,7 @@
 import type { ProjectGroup } from '../../../../shared/project-group-types'
-import { LOCAL_EXECUTION_HOST_ID, toSshExecutionHostId } from '../../../../shared/execution-host'
 import type { RuntimeClientTarget } from '../../runtime/runtime-rpc-client'
 import { getRuntimeTargetHostId } from '../runtime-target-host'
+import { getProjectGroupHostId } from '../slices/project-group-owner-routing'
 
 export function projectGroupWithFetchedOwner(
   projectGroup: ProjectGroup,
@@ -10,8 +10,6 @@ export function projectGroupWithFetchedOwner(
   if (target.kind === 'environment') {
     return { ...projectGroup, executionHostId: getRuntimeTargetHostId(target) }
   }
-  if (projectGroup.connectionId) {
-    return { ...projectGroup, executionHostId: toSshExecutionHostId(projectGroup.connectionId) }
-  }
-  return { ...projectGroup, executionHostId: LOCAL_EXECUTION_HOST_ID }
+  // Why: the web preload already stamps the paired owner even on the local API path.
+  return { ...projectGroup, executionHostId: getProjectGroupHostId(projectGroup) }
 }

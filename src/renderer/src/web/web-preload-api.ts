@@ -35,6 +35,7 @@ import { createNotificationsApi } from './preload-api/web-notifications-api'
 import { createWebOnboardingApi } from './preload-api/web-onboarding-api'
 import { createWebOrcaProfilesApi } from './preload-api/web-orca-profiles-api'
 import { createWebPlatformApi } from './preload-api/web-platform-api'
+import { createWebProjectGroupsApi } from './preload-api/web-project-groups-api'
 import { createRateLimitsApi } from './preload-api/web-rate-limits-api'
 import { createReposApi } from './preload-api/web-repositories-api'
 import { createHooksApi, createRuntimeNamespaceApi } from './preload-api/web-review-api'
@@ -82,6 +83,7 @@ function createWebPreloadApi(): Partial<PreloadApi> {
     nativeChat: createWebNativeChatApi(),
     runtimeEnvironments: createRuntimeEnvironmentsApi(),
     repos: createReposApi(),
+    projectGroups: createWebProjectGroupsApi(),
     worktrees: createWorktreesApi(),
     fs: createFileApi(),
     git: createGitApi(),
