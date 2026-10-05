@@ -1,4 +1,4 @@
-import { connect, createServer, type Server } from 'node:net'
+import { connect, createServer, Socket, type Server } from 'node:net'
 import { once } from 'node:events'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -148,5 +148,31 @@ describe('fenced SSH desktop VNC route', () => {
     })
     await expect(probeDesktopVncTarget(target)).resolves.toBe(true)
     expect(close).toHaveBeenCalled()
+  })
+  it('allows fresh SSH setup beyond four seconds but keeps the probe bounded', async () => {
+    vi.useFakeTimers()
+    try {
+      const { target } = policy()
+      const socket = new Socket()
+      const close = vi.fn()
+      mocks.route.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5500))
+        return { connect: () => socket, close, isValid: () => true }
+      })
+      const probe = probeDesktopVncTarget(target)
+      await vi.advanceTimersByTimeAsync(5500)
+      socket.emit('data', Buffer.from('RFB 003.008\n'))
+      await expect(probe).resolves.toBe(true)
+      expect(close).toHaveBeenCalled()
+
+      const unavailable = new Socket()
+      mocks.route.mockResolvedValue({ connect: () => unavailable, close, isValid: () => true })
+      const missing = probeDesktopVncTarget(target)
+      await vi.advanceTimersByTimeAsync(15000)
+      await expect(missing).resolves.toBe(false)
+      expect(unavailable.destroyed).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

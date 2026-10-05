@@ -125,7 +125,8 @@ export async function probeDesktopVncTarget(target: DesktopVncTicketTarget): Pro
       void channel?.close()
       resolve(live)
     }
-    const timer = setTimeout(() => finish(false), 4000)
+    // Fresh system SSH forwards allow 10 seconds to start; leave time for the RFB banner.
+    const timer = setTimeout(() => finish(false), target.ssh ? 15000 : 4000)
     void openDesktopVncRoute(target, abort.signal)
       .then((opened) => {
         channel = opened
