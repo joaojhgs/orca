@@ -93,7 +93,8 @@ function installRuntimeRpc(
           preferPinnedWsPort: true
         }
       : {}),
-    webClientRoot: getBundledWebClientRoot()
+    webClientRoot: getBundledWebClientRoot(),
+    advertisedPairingAddress: serveOptions?.pairingAddress ?? undefined
   })
   state.runtimeRpc = runtimeRpc
   registerMobileHandlers(runtimeRpc, {

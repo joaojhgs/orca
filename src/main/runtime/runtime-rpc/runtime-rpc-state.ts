@@ -28,6 +28,7 @@ import type {
   PairingOfferUnavailable
 } from './runtime-rpc-pairing-types'
 import { DEFAULT_WS_PORT } from './runtime-rpc-pairing-types'
+import type { PairingAdministrationApi } from '../mobile-pairing-administration'
 
 export class RuntimeRpcState {
   protected readonly runtime: OrcaRuntimeService
@@ -41,6 +42,7 @@ export class RuntimeRpcState {
   protected readonly exposeNetworkByDefault: boolean
   protected readonly pinnedBindHost: string | null
   protected readonly webClientRoot: string | undefined
+  protected pairingAdministration?: PairingAdministrationApi
   // Why: STA-2370 — the host the WS listener is currently bound to, so pairing can widen loopback→all-interfaces once.
   protected wsBoundHost: string | null = null
   // Why: STA-2370 — in-flight widen so concurrent pairing requests share a single rebind.

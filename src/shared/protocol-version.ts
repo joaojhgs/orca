@@ -11,7 +11,7 @@ import {
   SKILL_MANAGEMENT_CAPABILITY,
   SKILL_UPLOAD_CAPABILITY
 } from './skill-install-capability'
-export { SKILL_INSTALL_RESULT_V2_CAPABILITY } from './skill-install-capability'
+export { REMOTE_SERVER_UPDATE_CAPABILITY, SKILL_INSTALL_RESULT_V2_CAPABILITY }
 
 // Why: declares the Orca runtime RPC compatibility contract. Desktop,
 // headless server, CLI, and mobile builds may drift in app version, but
@@ -153,7 +153,6 @@ export const SESSION_TABS_RETIREMENT_PROOF_DELTA_RUNTIME_CAPABILITY =
   'session-tabs.retirement-proof-delta.v1' as const
 export const AGENT_SESSION_BOUNDARY_RUNTIME_CAPABILITY =
   'agent-session.session-boundary.v1' as const
-export { REMOTE_SERVER_UPDATE_CAPABILITY } from './remote-server-update'
 export const AGENT_SESSION_HOST_AUTHORITY_RUNTIME_CAPABILITY =
   'agent-session.host-authority.v1' as const
 // Older launch schemas reject unknown fields; advertise before clients send keyboard support.
@@ -348,6 +347,7 @@ export const AGENT_SESSION_CREATE_TAB_ID_RUNTIME_CAPABILITY =
   'agentSession.create.tab-id.v1' as const
 
 export const RUNTIME_CAPABILITIES = [
+  'pairing.administration.v1',
   AI_VAULT_EXECUTION_HOSTS_CAPABILITY,
   AGENT_SESSION_CREATE_TAB_ID_RUNTIME_CAPABILITY,
   ANTIGRAVITY_CONFIGURED_MODEL_RUNTIME_CAPABILITY,

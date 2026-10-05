@@ -11,6 +11,7 @@ import type {
 import type { RuntimeCapability } from '../../../shared/protocol-version'
 import type { OrchestrationCompatibilityEvidence } from '../../../shared/orchestration-compatibility-evidence'
 import type { OrchestrationSessionCaller } from '../orchestration/orchestration-caller-identity'
+import type { PairingAdministrationApi } from '../mobile-pairing-administration'
 
 export type PairingRpcContext = {
   getEndpoints(params: PairingGetEndpointsParams): Promise<PairingGetEndpointsResult>
@@ -108,6 +109,7 @@ export type RpcContext = {
   // Why: federation pins the authenticated saved-environment caller without exposing its token to handlers or storage.
   authenticatedCallerFingerprint?: string
   pairing?: PairingRpcContext
+  pairingAdministration?: PairingAdministrationApi
   // Why: mobile terminal traffic bypasses JSON streaming; undefined on Unix/socket and non-E2EE WebSocket paths.
   sendBinary?: (bytes: Uint8Array<ArrayBufferLike>) => boolean | void
   // Why: binary terminal frames arrive outside JSON-RPC once a stream is established; handlers register only the stream IDs they created.

@@ -32,7 +32,16 @@ const reviewed = (source: HostedSkillCandidate): ReviewedHostSkill => ({
   }
 })
 describe('batch skill import', () => {
+  it('does not claim a timeout proves failure or retry the import automatically', async () => {
+    rpc.mockReset()
+    rpc.mockRejectedValue(new Error('Request timed out: skills.library.import'))
+    const results = await importSkillBatch(target, [reviewed(candidate('ssh:personal'))], false)
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(results[0]).toMatchObject({ status: 'unconfirmed' })
+    expect(results[0]?.message).toContain('server may still be importing')
+  })
   it('reviews every host-bound selection before importing anything', async () => {
+    rpc.mockReset()
     rpc.mockImplementation(async (_target, method, params) => {
       expect(method).toBe('skills.library.preview')
       return reviewed(candidate(params.hostId)).preview

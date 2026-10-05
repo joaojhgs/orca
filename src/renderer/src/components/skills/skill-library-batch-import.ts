@@ -69,12 +69,16 @@ export async function importSkillBatch(
         })
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Host import failed'
+      const unconfirmed = /timed out|disconnect|closed|connection|network/i.test(message)
       results.push(
         ...rows.map((row) => ({
           key: candidateSelectionKey(row.source),
           name: row.source.name,
-          status: 'failed',
-          message: error instanceof Error ? error.message : 'Host import failed'
+          status: unconfirmed ? 'unconfirmed' : 'failed',
+          message: unconfirmed
+            ? `${message}. The server may still be importing; refresh the imported library before retrying.`
+            : message
         }))
       )
     }

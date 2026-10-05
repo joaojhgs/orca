@@ -413,6 +413,10 @@ import {
 import { WorkerStartParams } from './orchestration-worker-start-params'
 import { WorkerDispatchParams as WorkerDispatchParamsOfOrchestrationWorkerStopParams } from './orchestration-worker-stop-params'
 import {
+  PairingAdministrationDeviceParams,
+  PairingAdministrationQrParams
+} from './pairing-administration-params'
+import {
   PluginInvokeCommandParams,
   PluginReadPanelEntryParams,
   PluginSetEnabledParams,
@@ -1063,6 +1067,13 @@ export const RPC_PARAMS_BY_METHOD = {
   'orchestration.workerStart': WorkerStartParams,
   'orchestration.workerStop': WorkerDispatchParamsOfOrchestrationWorkerStopParams,
   'orchestration.workerTerminalUserInput': OrchestrationWorkerTerminalUserInputParams,
+  'pairing.admin.getPairingQR': PairingAdministrationQrParams,
+  'pairing.admin.isWebSocketReady': null,
+  'pairing.admin.listDevices': null,
+  'pairing.admin.listNetworkInterfaces': null,
+  'pairing.admin.listRuntimeAccessGrants': null,
+  'pairing.admin.revokeDevice': PairingAdministrationDeviceParams,
+  'pairing.admin.revokeRuntimeAccess': PairingAdministrationDeviceParams,
   'pairing.getEndpoints': PairingGetEndpointsParamsSchema,
   'pairing.provisionRelay': PairingProvisionRelayParamsSchema,
   'plugins.consent': pluginConsentRequestSchema,

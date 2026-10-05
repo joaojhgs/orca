@@ -148,6 +148,7 @@ export class RuntimeRpcWebSocketDispatch extends RuntimeRpcRequestAdmission {
               }
             : undefined,
         pairing: pairingContext,
+        pairingAdministration: device.scope === 'runtime' ? this.pairingAdministration : undefined,
         signal: abortRegistration?.signal,
         sendBinary,
         registerBinaryStreamHandler: (streamId, handler) =>

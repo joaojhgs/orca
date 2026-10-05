@@ -82,7 +82,11 @@ export async function callRuntimeRpc<TResult>(
     : params
   const response =
     target.kind === 'local'
-      ? await window.api.runtime.call({ method, params: nextParams })
+      ? await window.api.runtime.call({
+          method,
+          params: nextParams,
+          ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs })
+        })
       : await callRuntimeEnvironmentWithRevision({
           environmentId: target.environmentId,
           method,
