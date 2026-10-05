@@ -2,15 +2,18 @@ import { z } from 'zod'
 import { SkillInstallDestinationSchema, SkillPackageIdentitySchema } from './skill-install-contract'
 import { SkillPackageFileSchema } from './skill-package-manifest'
 import { LocalSkillShareSchema, LOCAL_SKILL_SHARING_CAPABILITY } from './local-skill-sharing'
+import { SKILL_LIBRARY_LINK_CAPABILITY } from './skill-library-link-capability'
 
 export const SKILL_LIBRARY_CAPABILITY = 'skills.local-library.v1' as const
 export const SKILL_LIBRARY_RUNTIME_CAPABILITIES = [
   SKILL_LIBRARY_CAPABILITY,
+  SKILL_LIBRARY_LINK_CAPABILITY,
   LOCAL_SKILL_SHARING_CAPABILITY
 ] as const
 export const SKILL_LIBRARY_RPC_METHODS = [
   'skills.library.list',
   'skills.library.discover',
+  'skills.library.discoverUrl',
   'skills.library.preview',
   'skills.library.import',
   'skills.library.assign',

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,6 +13,9 @@ import {
 } from '@/components/ui/select'
 import type { SkillLibrarySnapshot } from '../../../../shared/skill-library-contract'
 import type { HostedSkillCandidate } from './skill-library-host-discovery'
+import { SkillLibraryBulkImport } from './SkillLibraryBulkImport'
+import type { useSkillLibrary } from './use-skill-library'
+import { SkillLibraryLinkImport } from './SkillLibraryLinkImport'
 
 export function SkillLibraryDiscovery(props: {
   hosts: SkillLibrarySnapshot['hosts']
@@ -19,15 +23,21 @@ export function SkillLibraryDiscovery(props: {
   candidates: HostedSkillCandidate[] | null
   query: string
   busy: boolean
+  library: ReturnType<typeof useSkillLibrary>
+  onLinkCandidates(candidates: HostedSkillCandidate[]): void
   onHost(value: string): void
   onQuery(value: string): void
   onScan(): void
   onPreview(candidate: HostedSkillCandidate): void
 }) {
-  const visible = props.candidates?.filter((candidate) =>
-    `${candidate.name} ${candidate.description ?? ''} ${candidate.sourceLabel} ${candidate.hostLabel}`
-      .toLowerCase()
-      .includes(props.query.toLowerCase())
+  const visible = useMemo(
+    () =>
+      props.candidates?.filter((candidate) =>
+        `${candidate.name} ${candidate.description ?? ''} ${candidate.sourceLabel} ${candidate.hostLabel}`
+          .toLowerCase()
+          .includes(props.query.toLowerCase())
+      ),
+    [props.candidates, props.query]
   )
   return (
     <section
@@ -37,6 +47,7 @@ export function SkillLibraryDiscovery(props: {
       <h2 className="text-sm font-semibold">
         {translate('skills.library.discover', 'Discover and import')}
       </h2>
+      <SkillLibraryLinkImport library={props.library} onCandidates={props.onLinkCandidates} />
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <Label htmlFor="skill-library-source-host">
@@ -100,30 +111,12 @@ export function SkillLibraryDiscovery(props: {
           )}
         </p>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {visible?.map((candidate) => (
-            <li
-              key={`${candidate.hostId}:${candidate.id}`}
-              className="flex items-start justify-between gap-3 border-b border-border pb-3"
-            >
-              <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-medium">{candidate.name}</h3>
-                <p className="text-xs text-muted-foreground">{candidate.description}</p>
-                <p className="text-xs text-muted-foreground">
-                  {candidate.hostLabel} · {candidate.sourceLabel}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={props.busy}
-                onClick={() => props.onPreview(candidate)}
-              >
-                {translate('skills.library.reviewImport', 'Review import')}
-              </Button>
-            </li>
-          ))}
-        </ul>
+        <SkillLibraryBulkImport
+          key={JSON.stringify(visible?.map((row) => [row.hostId, row.id]))}
+          candidates={visible ?? []}
+          library={props.library}
+          onPreview={props.onPreview}
+        />
       )}
     </section>
   )

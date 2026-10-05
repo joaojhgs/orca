@@ -1,4 +1,9 @@
 import { defineMethod } from '../core'
+import { SkillLibraryLinkParams } from '../../../../shared/skill-library-link-contract'
+import {
+  discoverLinkedSkills,
+  resolveLinkSkillSource
+} from '../../../skills/skill-library-link-source'
 import {
   skillLibraryHosts,
   skillLibraryProviders,
@@ -28,6 +33,12 @@ import { basename } from 'node:path'
 import { ArtifactSharingDisabledError } from '../../../../shared/artifact-sharing-gate'
 
 export const SKILL_LIBRARY_METHODS = [
+  defineMethod({
+    name: 'skills.library.discoverUrl',
+    params: SkillLibraryLinkParams,
+    handler: (params, { runtime }) =>
+      discoverLinkedSkills(runtime.getLocalSkillLibrary().library, params.url)
+  }),
   defineMethod({
     name: 'skills.library.previewVersion',
     params: SkillLibraryVersionPreviewParams,
@@ -116,7 +127,13 @@ export const SKILL_LIBRARY_METHODS = [
     handler: (params, { runtime }) =>
       runtime
         .getLocalSkillLibrary()
-        .library.preview(skillLibrarySource(params.hostId), params.candidateId, params.filePath)
+        .library.preview(
+          params.hostId.startsWith('url:')
+            ? resolveLinkSkillSource(runtime.getLocalSkillLibrary().library, params.hostId)
+            : skillLibrarySource(params.hostId),
+          params.candidateId,
+          params.filePath
+        )
   }),
   defineMethod({
     name: 'skills.library.import',
@@ -124,7 +141,12 @@ export const SKILL_LIBRARY_METHODS = [
     handler: (params, { runtime }) =>
       runtime
         .getLocalSkillLibrary()
-        .library.importSelected(params, skillLibrarySource(params.hostId))
+        .library.importSelected(
+          params,
+          params.hostId.startsWith('url:')
+            ? resolveLinkSkillSource(runtime.getLocalSkillLibrary().library, params.hostId)
+            : skillLibrarySource(params.hostId)
+        )
   }),
   defineMethod({
     name: 'skills.library.assign',

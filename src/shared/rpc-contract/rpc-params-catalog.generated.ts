@@ -569,6 +569,7 @@ import {
   SkillLibraryVersionParams,
   SkillLibraryVersionPreviewParams
 } from '../skill-library-contract'
+import { SkillLibraryLinkParams } from '../skill-library-link-contract'
 import {
   SkillUploadBeginRequestSchema,
   SkillUploadChunkRequestSchema,
@@ -1146,6 +1147,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'skills.library.assign': SkillLibraryAssignParams,
   'skills.library.deleteVersion': SkillLibraryVersionParams,
   'skills.library.discover': SkillLibraryDiscoverParams,
+  'skills.library.discoverUrl': SkillLibraryLinkParams,
   'skills.library.import': SkillLibraryImportParams,
   'skills.library.list': null,
   'skills.library.listShares': null,

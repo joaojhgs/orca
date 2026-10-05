@@ -1,6 +1,12 @@
 import { expect, it } from 'vitest'
 import { readDesktopAwayState } from './desktop-away-state'
 
+it('treats headless Electron as away even when Xvfb reports zero idle', () => {
+  expect(
+    readDesktopAwayState({ getSystemIdleState: () => 'active', getSystemIdleTime: () => 0 }, true)
+  ).toBe(true)
+})
+
 it.each([
   [179, false],
   [180, true],

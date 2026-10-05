@@ -3,6 +3,7 @@ import {
   installChildSessionSearchService
 } from '../ai-vault-search/session-search-enablement'
 import { LOCAL_EXECUTION_HOST_ID } from '../../shared/execution-host'
+import { createHeadlessNotificationDelivery } from '../notifications/headless-notification-delivery'
 import { sessionSearchScopeCatalogFromStore } from '../ai-vault-search/session-search-store-scope-catalog'
 import { getCanonicalUserDataPath } from '../persistence/loading-store/user-data-path'
 import { app } from 'electron'
@@ -76,6 +77,7 @@ export function initializeMainProcessRuntime(): OrcaRuntimeService {
   // Why here and not in the window listener: `subscribeEnrichedStatus` also fires under headless
   // `orca serve`, which never opens one, and the fleet path runs there too.
   const observedPaneIdentities = new AgentStatusObservedPaneIdentities()
+  let headlessNotifications: ReturnType<typeof createHeadlessNotificationDelivery> | null = null
   const runtime = new OrcaRuntimeService(store, stats, {
     prepareClaudeAuth: (target) => state.claudeRuntimeAuth!.prepareForClaudeLaunch(target),
     agentSessionClaimSigner: loadAgentSessionClaimSigner(
@@ -90,6 +92,7 @@ export function initializeMainProcessRuntime(): OrcaRuntimeService {
     onTerminalAgentStatus: (event) => agentHookServer.ingestTerminalStatus(event),
     // Why: serve can be promoted in place, so wire the listener from startup; runtime enables desktop-only scanners only for a ready renderer.
     onTerminalSideEffects: (batch: TerminalSideEffectBatch) => {
+      headlessNotifications?.sideEffects(batch)
       if (state.mainWindow && !state.mainWindow.isDestroyed()) {
         state.mainWindow.webContents.send('pty:sideEffect', batch)
       }
@@ -164,6 +167,12 @@ export function initializeMainProcessRuntime(): OrcaRuntimeService {
   })
   app.once('will-quit', () => sessionSearch?.dispose())
   state.runtime = runtime
+  headlessNotifications = createHeadlessNotificationDelivery({
+    enabled: () => state.isServeMode && (!state.mainWindow || state.mainWindow.isDestroyed()),
+    settings: () => store.getSettings().notifications,
+    dispatch: (event) => runtime.dispatchMobileNotification(event)
+  })
+  agentHookServer.subscribeEnrichedStatus((event) => headlessNotifications?.status(event))
   agentHookServer.subscribeEnrichedStatus((enriched) =>
     recordObservedAgentStatusPaneIdentity(observedPaneIdentities, enriched.paneKey, runtime)
   )

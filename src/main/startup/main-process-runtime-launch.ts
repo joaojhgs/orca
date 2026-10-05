@@ -166,8 +166,8 @@ async function launchServeMode(
     throw error
   })
   reconnectHeadlessSshTargets(sshStore)
-  // Why: a phone paired to a headless host still registers and unregisters its token;
-  // it simply never receives a push, because nothing dispatches notifications here.
+  // Headless notification delivery consumes the host's accepted status and bell
+  // evidence without relying on a renderer to dispatch completion notifications.
   startDesktopPushService(runtimeRpc)
   settleDesktopActivation()
   // Why: every attempt must reach app.quit(); a page beforeunload can veto an earlier signal.

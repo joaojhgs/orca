@@ -216,6 +216,8 @@ export function SkillLibraryView(props: SkillLibraryPageProps) {
                   candidates={page.candidates}
                   query={page.importQuery}
                   busy={library.busy}
+                  library={library}
+                  onLinkCandidates={page.setCandidates}
                   onHost={(value) => {
                     page.setHostId(value)
                     page.setCandidates(null)

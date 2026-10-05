@@ -248,7 +248,7 @@ describe('browser local skill library', () => {
     expect(
       rpc.mock.calls.find(([, method]) => method === 'skills.library.preview')?.[2]
     ).toMatchObject({ hostId: 'ssh:personal', candidateId: 'candidate' })
-    const approval = document.querySelector('button[role="checkbox"]')
+    const approval = document.querySelector('[role="dialog"] button[role="checkbox"]')
     if (!approval) {
       throw new Error('Missing review acknowledgement')
     }
@@ -286,7 +286,7 @@ describe('browser local skill library', () => {
     await f.click('Review import')
     expect(f.button('Import into local library').disabled).toBe(true)
     expect(document.body.textContent).toContain('Instructions to review')
-    const approval = [...document.querySelectorAll('button[role="checkbox"]')][0]
+    const approval = document.querySelector('[role="dialog"] button[role="checkbox"]')
     if (!approval) {
       throw new Error('Missing review acknowledgement')
     }
@@ -309,7 +309,7 @@ describe('browser local skill library', () => {
     await f.click('Import skills')
     await f.click('Scan hosts')
     await f.click('Review import')
-    const approval = document.querySelector('button[role="checkbox"]')
+    const approval = document.querySelector('[role="dialog"] button[role="checkbox"]')
     if (!approval) {
       throw new Error('Missing review acknowledgement')
     }
