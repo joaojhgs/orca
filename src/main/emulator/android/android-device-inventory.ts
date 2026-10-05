@@ -13,8 +13,24 @@ export async function listRunningAdbDevices(
   runner: AndroidCommandRunner,
   sdk: AndroidSdkPaths
 ): Promise<AndroidAdbDevice[]> {
+  await connectRunningWaydroid(runner, sdk)
   const result = await runner(sdk.adb, adbDevicesArgs)
   return parseAdbDevices(result.stdout).filter((device) => device.state === 'device')
+}
+
+async function connectRunningWaydroid(
+  runner: AndroidCommandRunner,
+  sdk: AndroidSdkPaths
+): Promise<void> {
+  if (process.platform !== 'linux') {
+    return
+  }
+  const status = await runner('waydroid', ['status']).catch(() => null)
+  const ip = status?.stdout.match(/^IP address:\s*([^\s]+)$/m)?.[1]
+  if (!ip || ip === 'UNKNOWN') {
+    return
+  }
+  await runner(sdk.adb, ['connect', `${ip}:5555`]).catch(() => {})
 }
 
 export async function resolveRunningAvdNames(
@@ -58,9 +74,9 @@ export async function listAndroidDevices(
 ): Promise<EmulatorDevice[]> {
   const [running, avdsResult] = await Promise.all([
     listRunningAdbDevices(runner, sdk),
-    runner(sdk.emulator, listAvdsArgs)
+    runner(sdk.emulator, listAvdsArgs).catch(() => null)
   ])
-  const avds = parseAvdList(avdsResult.stdout)
+  const avds = avdsResult ? parseAvdList(avdsResult.stdout) : []
   const runningAvdBySerial = await resolveRunningAvdNames(runner, sdk, running)
   return mergeAndroidDevices(running, avds, runningAvdBySerial)
 }

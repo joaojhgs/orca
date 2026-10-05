@@ -1,5 +1,6 @@
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import type { StatusBarItem } from '../../../../shared/ui-chrome-types'
+import type { ExecutionAccountUsage } from '../../../../shared/execution-observer'
 
 // Why: CLI-backed usage bars are surface noise when the underlying
 // CLI isn't installed (e.g. a fresh Ubuntu install showing "Gemini Usage"
@@ -16,6 +17,27 @@ const CLI_GATED_ITEMS: ReadonlySet<StatusBarItem> = new Set([
   'grok',
   'zcode'
 ])
+
+export function withExecutionAgentIds(
+  detected: TuiAgent[] | null,
+  accounts: readonly ExecutionAccountUsage[] = []
+): TuiAgent[] | null {
+  if (detected === null) {
+    return null
+  }
+  const agents = new Set(detected)
+  for (const account of accounts) {
+    if (account.provider === 'opencode') {
+      agents.add('opencode')
+      if (account.providerId === 'zai-coding-plan') {
+        agents.add('zcode')
+      }
+    } else {
+      agents.add(account.provider)
+    }
+  }
+  return [...agents]
+}
 
 export function isStatusBarItemAvailable(
   id: StatusBarItem,

@@ -6,6 +6,7 @@ import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import { ClaudeIcon } from '../status-bar/icons'
 import { SearchableSetting } from './SearchableSetting'
+import { ExecutionAccountUsageRows } from './ExecutionAccountUsageRows'
 import {
   getProviderAccountRuntime,
   providerAccountIsActiveInView
@@ -45,6 +46,7 @@ export function renderClaudeAccountsSection(model: AccountsPaneSectionModel): Re
         </p>
       </div>
 
+      <ExecutionAccountUsageRows provider="claude" />
       <SearchableSetting
         title={translate('auto.components.settings.AccountsPane.8bbfd74556', 'Claude Accounts')}
         description={translate(

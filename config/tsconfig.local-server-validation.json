@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.node.json",
+  "include": [
+    "../src/main/execution-observer/**/*.ts",
+    "../src/main/artifacts/local-artifact*.ts",
+    "../src/main/runtime/runtime-account-control.ts",
+    "../src/main/ports/execution-workspace-port-scanner.ts",
+    "../src/main/rate-limits/execution-*.ts",
+    "../src/shared/execution-observer*.ts",
+    "../src/types/**/*",
+    "../src/main/startup/main-process-runtime-service.ts",
+    "../src/main/ipc/workspace-ports.ts",
+    "../src/main/orca-profiles/profile-cloud-auth-status.ts",
+    "../src/main/runtime/rpc/methods/accounts.ts",
+    "../src/main/runtime/rpc/methods/usage-analytics.ts",
+    "../src/main/runtime/rpc/methods/artifacts.ts",
+    "../src/main/runtime/rpc/methods/workspace-ports.ts"
+  ],
+  "exclude": ["../node_modules", "../**/*.test.ts", "../**/*.test.tsx"],
+  "compilerOptions": { "composite": false, "incremental": false, "noEmit": true }
+}

@@ -82,7 +82,8 @@ export class SshPtyProvider implements IPtyProvider {
     connectionId: string,
     mux: SshChannelMultiplexer,
     private readonly remoteCliBridgeEnv?: RemoteCliBridgeEnv,
-    readonly providerGeneration = 1
+    readonly providerGeneration = 1,
+    private readonly forwardHostGuiEnv = false
   ) {
     this.connectionId = connectionId
     this.mux = mux
@@ -177,7 +178,8 @@ export class SshPtyProvider implements IPtyProvider {
       params: buildSshPtySpawnRequest({
         options: opts,
         remoteCliBridgeEnv: this.remoteCliBridgeEnv,
-        supportsCreateOperation
+        supportsCreateOperation,
+        forwardHostGuiEnv: this.forwardHostGuiEnv
       }),
       exitRaceTracker: this.spawnExitRaces,
       installSourceActivation: (id, activation) =>

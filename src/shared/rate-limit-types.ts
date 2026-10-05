@@ -1,7 +1,9 @@
+import type { ExecutionAccountUsage } from './execution-observer'
+
 export type RateLimitWindow = {
   /** Percentage of the window consumed (0–100). */
   usedPercent: number
-  /** Window duration in minutes: 300 (5h) or 10080 (7d). */
+  /** Window duration in minutes: 300 (5h) or 10080 (7d); 0 for a total/lifetime budget. */
   windowMinutes: number
   /** Unix ms timestamp when the window resets, if known. */
   resetsAt: number | null
@@ -41,6 +43,8 @@ export type UsageRateLimitMetadata = {
   failureKind?: UsageRateLimitFailureKind
   credentialSource?: string
   authProvenance?: string
+  /** Token digest binds a selected reading to its host source, never to a cross-host account. */
+  executionCredentialRevision?: string
   deferredByLiveClaudeSession?: boolean
   lastSuccessfulSource?: UsageRateLimitSource
   /** Unix ms timestamp before which usage refetches should not be attempted (from HTTP Retry-After). */
@@ -59,6 +63,7 @@ export type ProviderRateLimits = {
     | 'antigravity'
     | 'cursor'
     | 'zcode'
+    | 'opencode'
   /** 5-hour session window, null if not available. */
   session: RateLimitWindow | null
   /** 7-day weekly window, null if not available. */
@@ -131,6 +136,8 @@ export type CursorAccountStatus = {
 }
 
 export type RateLimitState = {
+  /** Credential-owner and account-aware quota records. Tokens are never included. */
+  executionAccounts?: ExecutionAccountUsage[]
   claude: ProviderRateLimits | null
   codex: ProviderRateLimits | null
   gemini: ProviderRateLimits | null

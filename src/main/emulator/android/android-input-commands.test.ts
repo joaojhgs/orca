@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AndroidCommandResult, AndroidCommandRunner } from './android-command-runner'
 import type { AndroidSdkPaths } from './android-sdk-discovery'
-import { androidExec, androidTap } from './android-input-commands'
+import { androidExec, androidRotate, androidTap } from './android-input-commands'
 
 const SDK: AndroidSdkPaths = {
   sdkRoot: '/sdk',
@@ -34,5 +34,33 @@ describe('android input commands', () => {
       code: 'emulator_error',
       message: 'adb exec failed: device offline'
     })
+  })
+
+  it('maps requested orientation relative to a landscape-native display', async () => {
+    const runner = vi.fn<AndroidCommandRunner>(async () => ok)
+
+    await androidRotate(runner, SDK, 'waydroid', 'portrait', 'landscape')
+    await androidRotate(runner, SDK, 'waydroid', 'landscape_left', 'landscape')
+
+    expect(runner).toHaveBeenCalledWith(SDK.adb, [
+      '-s',
+      'waydroid',
+      'shell',
+      'settings',
+      'put',
+      'system',
+      'user_rotation',
+      '1'
+    ])
+    expect(runner).toHaveBeenLastCalledWith(SDK.adb, [
+      '-s',
+      'waydroid',
+      'shell',
+      'settings',
+      'put',
+      'system',
+      'user_rotation',
+      '0'
+    ])
   })
 })

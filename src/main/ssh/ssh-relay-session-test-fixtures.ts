@@ -5,6 +5,33 @@ import type { PersistPtyBindingArgs } from '../persistence/loading-store/pty-bin
 import type { Store } from '../persistence'
 import type { SshPortForwardManager } from './ssh-port-forward'
 import { deployAndLaunchRelay } from './ssh-relay-deploy'
+import type {
+  OpenSshPtyConsumerSessionOptions,
+  SshPtyConsumerAdmission
+} from './ssh-pty-consumer-session'
+
+export function createMockConsumerAdmission(
+  options: OpenSshPtyConsumerSessionOptions
+): SshPtyConsumerAdmission {
+  return {
+    state: {
+      mode: 'negotiated',
+      clientInstanceId: options.clientInstanceId,
+      clientGeneration: 1,
+      ownerGeneration: 1,
+      ownerLease: 'test-owner-lease',
+      ...(options.outputFlowControl
+        ? {
+            outputFlowControl: {
+              version: 1 as const,
+              windowSu: options.outputFlowControl.requestedWindowSu
+            }
+          }
+        : {})
+    },
+    resumed: options.resume !== undefined
+  }
+}
 
 type SshRelaySessionTestDeps = {
   mockConn: SshConnection
@@ -26,6 +53,7 @@ export function createMockDeps(): SshRelaySessionTestDeps {
   // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: The relay fixture implements the Store methods exercised by session establishment and teardown.
   const mockStore = {
     getRepos: vi.fn().mockReturnValue([]),
+    getSshTarget: vi.fn().mockReturnValue(null),
     getSshPtyConsumerRecovery: vi.fn().mockReturnValue(null),
     upsertSshPtyConsumerRecovery: vi.fn(),
     removeSshPtyConsumerRecovery: vi.fn(),

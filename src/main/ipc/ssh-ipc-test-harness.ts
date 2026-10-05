@@ -21,6 +21,7 @@ export type RelayDisposeCallback = (reason: 'shutdown' | 'connection_lost') => v
 /** Lease + consumer-recovery slice of the app store the SSH handlers write through. */
 export type SshLeaseStoreMock = {
   getRepos: () => unknown[]
+  getSshTarget: Mock
   getSshPtyConsumerRecovery: Mock
   upsertSshPtyConsumerRecovery: Mock
   removeSshPtyConsumerRecovery: Mock
@@ -99,6 +100,7 @@ export function createSshIpcHarness(mocks: SshIpcMocks): SshIpcHarness {
   const handlers = new Map<string, (_event: unknown, args: unknown) => unknown>()
   const mockStore = {
     getRepos: () => [],
+    getSshTarget: vi.fn((targetId: string) => mockSshStore.getTarget(targetId)),
     getSshPtyConsumerRecovery: vi.fn().mockReturnValue(null),
     upsertSshPtyConsumerRecovery: vi.fn(),
     removeSshPtyConsumerRecovery: vi.fn(),

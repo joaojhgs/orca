@@ -15,6 +15,24 @@ describe('web settings preload API', () => {
     vi.unstubAllGlobals()
   })
 
+  it('shows Skills by default for new browser profiles without enabling publishing', async () => {
+    const { api } = await installApi('Linux')
+    const settings = await api.settings.get()
+
+    expect(settings.showSkillsButton).toBe(true)
+    expect(settings.agentSkillSharingEnabled).toBe(false)
+  })
+
+  it('preserves and persists an explicit browser Skills sidebar preference', async () => {
+    const { api, storage } = await installApi('Linux')
+    await api.settings.set({ showSkillsButton: false })
+    expect((await api.settings.get()).showSkillsButton).toBe(false)
+    expect(JSON.parse(storage.getItem('orca.web.settings.v1') ?? '{}').showSkillsButton).toBe(false)
+
+    await api.settings.set({ showSkillsButton: true })
+    expect((await api.settings.get()).showSkillsButton).toBe(true)
+  })
+
   it('migrates first-work branch auto-rename on for stored legacy web settings once', async () => {
     const globals = installBrowserGlobals('Linux')
     globals.storage.setItem(

@@ -92,6 +92,16 @@ export function parseWmSize(stdout: string): { width: number; height: number } |
   return { width: Number(match[1]), height: Number(match[2]) }
 }
 
+export function parseActiveInputDisplaySize(
+  stdout: string
+): { width: number; height: number } | null {
+  const activeViewport = stdout
+    .split('\n')
+    .find((line) => line.includes('Viewport INTERNAL:') && line.includes('isActive=[1]'))
+  const match = /deviceSize=\[(\d+),\s*(\d+)\]/.exec(activeViewport ?? '')
+  return match ? { width: Number(match[1]), height: Number(match[2]) } : null
+}
+
 /** `adb shell getprop sys.boot_completed` prints `1` once the framework is up. */
 export function isBootCompleted(getpropStdout: string): boolean {
   return getpropStdout.trim() === '1'
@@ -105,6 +115,10 @@ export function adbShellArgs(serial: string, command: readonly string[]): string
 
 export function wmSizeArgs(serial: string): string[] {
   return adbShellArgs(serial, ['wm', 'size'])
+}
+
+export function inputDisplaySizeArgs(serial: string): string[] {
+  return adbShellArgs(serial, ['dumpsys', 'input'])
 }
 
 export function bootCompletedArgs(serial: string): string[] {

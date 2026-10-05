@@ -27,6 +27,7 @@ describe('WebSocketTransport static web client', () => {
     mkdirSync(join(staticRoot, 'assets'))
     writeFileSync(join(staticRoot, 'web-index.html'), '<html>web</html>')
     writeFileSync(join(staticRoot, 'assets', 'app.js'), 'console.log("web")')
+    writeFileSync(join(staticRoot, 'assets', 'worker.mjs'), 'export default "worker"')
     const transport = createStaticTransport(staticRoot)
 
     await transport.start()
@@ -40,6 +41,13 @@ describe('WebSocketTransport static web client', () => {
     expect(assetResponse.status).toBe(200)
     expect(assetResponse.headers.get('cache-control')).toContain('immutable')
     await expect(assetResponse.text()).resolves.toBe('console.log("web")')
+
+    const moduleWorkerResponse = await fetch(
+      `http://127.0.0.1:${transport.resolvedPort}/assets/worker.mjs`
+    )
+    expect(moduleWorkerResponse.status).toBe(200)
+    expect(moduleWorkerResponse.headers.get('content-type')).toContain('text/javascript')
+    await expect(moduleWorkerResponse.text()).resolves.toBe('export default "worker"')
   })
 
   it('serves web assets when a reverse-proxy path prefix is forwarded', async () => {

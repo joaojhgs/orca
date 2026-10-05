@@ -147,7 +147,9 @@ export const EmulatorUnregisterActiveParams = z
   .object({ worktree: z.string().optional() })
   .partial()
 
-export const EmulatorListDevicesParams = z.object({ worktree: z.string().optional() }).partial()
+export const EmulatorListDevicesParams = z
+  .object({ worktree: z.string().optional(), executionHosts: z.boolean().optional() })
+  .partial()
 
 export const EmulatorAvailabilityParams = z.object({ worktree: z.string().optional() }).partial()
 

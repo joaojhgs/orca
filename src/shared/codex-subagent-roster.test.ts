@@ -8,12 +8,32 @@ import {
   codexRosterChildWorkLiveness,
   codexRosterToSnapshots,
   finishCodexSubagent,
+  seedCodexSubagentRoster,
   setCodexSubagentModel,
   upsertCodexSubagent,
   type CodexSubagentRoster
 } from './codex-subagent-roster'
 
 describe('Codex subagent roster', () => {
+  it('seeds canonical snapshots without losing host-private transcript metadata', () => {
+    const roster: CodexSubagentRoster = new Map()
+    upsertCodexSubagent(
+      roster,
+      'child-1',
+      { state: 'working', transcriptPath: '/host/child.jsonl' },
+      10
+    )
+
+    seedCodexSubagentRoster(roster, [{ id: 'child-1', state: 'idle', startedAt: 10 }])
+
+    expect(roster.get('child-1')).toMatchObject({
+      state: 'idle',
+      transcriptPath: '/host/child.jsonl'
+    })
+    expect(codexRosterToSnapshots(roster)?.[0]).not.toHaveProperty('transcriptPath')
+    expect(codexRosterChildWorkLiveness(roster)).toBeNull()
+  })
+
   it('normalizes retained identity fields before storing them', () => {
     const roster: CodexSubagentRoster = new Map()
 
@@ -37,7 +57,7 @@ describe('Codex subagent roster', () => {
     expect(snapshot?.model).toHaveLength(AGENT_MODEL_MAX_LENGTH)
 
     finishCodexSubagent(roster, ' child-1 ')
-    expect(roster.size).toBe(0)
+    expect(codexRosterToSnapshots(roster)?.[0]).toMatchObject({ state: 'idle' })
   })
 
   it('rejects an id that would normalize to an invisible child', () => {
@@ -99,13 +119,26 @@ describe('Codex subagent roster', () => {
 
     it('never creates a row for a child that is no longer tracked', () => {
       const roster: CodexSubagentRoster = new Map()
-      upsertCodexSubagent(roster, 'child-1', { state: 'working' }, 10)
-      finishCodexSubagent(roster, 'child-1')
 
-      // A model read racing a completed child must not resurrect its row.
       setCodexSubagentModel(roster, 'child-1', 'gpt-5.6-terra')
 
       expect(roster.size).toBe(0)
+    })
+
+    it('keeps completed history idle when a model read arrives late', () => {
+      const roster: CodexSubagentRoster = new Map()
+      upsertCodexSubagent(roster, 'child-1', { state: 'working' }, 10)
+      finishCodexSubagent(roster, 'child-1')
+
+      setCodexSubagentModel(roster, 'child-1', 'gpt-5.6-terra')
+
+      expect(roster.size).toBe(1)
+      expect(roster.get('child-1')).toMatchObject({
+        state: 'idle',
+        model: 'gpt-5.6-terra',
+        startedAt: 10
+      })
+      expect(codexRosterChildWorkLiveness(roster)).toBeNull()
     })
 
     it('keeps a known model when the new value is empty', () => {

@@ -95,7 +95,10 @@ describe('Codex subagent transcript reconciliation', () => {
     reconcileCodexSubagentTranscript(state, roster, parentPath)
 
     expect(hasTrackedCodexTranscriptSubagents(state)).toBe(false)
-    expect(codexRosterToSnapshots(roster)).toBeUndefined()
+    expect(codexRosterToSnapshots(roster)?.[0]).toMatchObject({
+      state: 'idle',
+      transcriptPath: childPath
+    })
   })
 
   it('resolves a child rollout filed under a later session day than the parent', () => {
@@ -124,7 +127,7 @@ describe('Codex subagent transcript reconciliation', () => {
     reconcileCodexSubagentTranscript(state, roster, parentPath)
 
     // Why: only a cross-day lookup can observe the completion; the parent-directory scan never finds this file.
-    expect(roster.size).toBe(0)
+    expect(codexRosterToSnapshots(roster)?.[0]).toMatchObject({ state: 'idle' })
     expect(hasTrackedCodexTranscriptSubagents(state)).toBe(false)
   })
 
@@ -148,7 +151,7 @@ describe('Codex subagent transcript reconciliation', () => {
 
       vi.advanceTimersByTime(31_000)
       reconcileCodexSubagentTranscript(state, roster, parentPath)
-      expect(roster.size).toBe(0)
+      expect(codexRosterToSnapshots(roster)?.[0]).toMatchObject({ state: 'idle' })
       expect(hasTrackedCodexTranscriptSubagents(state)).toBe(false)
     } finally {
       vi.useRealTimers()
@@ -168,7 +171,7 @@ describe('Codex subagent transcript reconciliation', () => {
     reconcileCodexSubagentTranscript(state, roster, parentPath)
 
     expect(hasTrackedCodexTranscriptSubagents(state)).toBe(false)
-    expect(roster.size).toBe(0)
+    expect(codexRosterToSnapshots(roster)?.[0]).toMatchObject({ state: 'idle' })
   })
 
   describe('child model identity', () => {
@@ -270,7 +273,12 @@ describe('Codex subagent transcript reconciliation', () => {
 
       reconcileCodexSubagentTranscript(state, roster, parentPath)
 
-      expect(roster.size).toBe(0)
+      expect(roster.size).toBe(1)
+      expect(roster.get(CHILD_ID)).toMatchObject({
+        state: 'idle',
+        model: 'gpt-5.6-terra',
+        startedAt: 1234
+      })
       expect(hasTrackedCodexTranscriptSubagents(state)).toBe(false)
     })
 

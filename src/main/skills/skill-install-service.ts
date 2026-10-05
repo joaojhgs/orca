@@ -45,6 +45,7 @@ export type SkillRemoveServiceInput = {
   providerRootOverrides?: SkillProviderRootOverrides
   conflictResolution?: 'replace-and-discard-local' | 'cancel'
   filesystem?: SkillInstallFilesystem
+  expectedPackageId?: string
 }
 
 function canonicalRoot(input: {
@@ -76,7 +77,8 @@ export function skillInstallLocalInput(input: SkillInstallServiceInput): LocalSk
     conflictResolution: input.conflictResolution,
     filesystem: input.filesystem,
     wslDistro: input.wslDistro,
-    signal: input.signal
+    signal: input.signal,
+    requirePackageOwnership: input.requirePackageOwnership
   }
 }
 
@@ -163,6 +165,7 @@ export async function removeSharedSkill(
       .filter((destination) => !destination.readsCanonicalRoot)
       .map((destination) => destination.rootPath),
     conflictResolution: input.conflictResolution,
+    expectedPackageId: input.expectedPackageId,
     filesystem: input.filesystem
   })
 }

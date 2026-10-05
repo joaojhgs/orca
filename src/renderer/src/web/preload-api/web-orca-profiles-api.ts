@@ -4,16 +4,27 @@ import {
   createDefaultLocalOrcaProfile
 } from '../../../../shared/orca-profiles'
 import { noopUnsubscribe } from './web-storage'
+import type { OrcaProfileAuthStatus } from '../../../../shared/orca-profiles'
+import { callRuntimeResult } from './web-runtime-calls'
 
 export function createWebOrcaProfilesApi(): Partial<PreloadApi> {
-  const webOrcaProfileAuthStatus = () =>
-    Promise.resolve({
-      activeProfileId: DEFAULT_LOCAL_ORCA_PROFILE_ID,
-      configured: false,
-      state: 'unconfigured' as const,
-      persistence: 'none' as const,
-      setupMessage: 'Orca Cloud sign-in is not available in the browser fallback.'
-    })
+  const webOrcaProfileAuthStatus = async (): Promise<OrcaProfileAuthStatus> => {
+    try {
+      return await callRuntimeResult<OrcaProfileAuthStatus>('artifacts.authStatus')
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'method_not_found')) {
+        throw error
+      }
+      return {
+        activeProfileId: DEFAULT_LOCAL_ORCA_PROFILE_ID,
+        configured: false,
+        state: 'unconfigured' as const,
+        persistence: 'none' as const,
+        setupMessage:
+          'Sign in to Orca Cloud on the host device. This older host cannot report account status to the browser.'
+      }
+    }
+  }
   return {
     orcaProfiles: {
       list: () =>

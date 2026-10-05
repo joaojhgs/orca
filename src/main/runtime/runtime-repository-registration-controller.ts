@@ -16,6 +16,8 @@ import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
 import type { RuntimeStore } from './runtime-store-contract'
 import { runtimePathsEqual } from './runtime-worktree-path-identity'
 import { runtimeRepoMatchesExecutionHost } from './runtime-worktree-selection'
+import { addRemoteRepoFromPath } from '../ipc/repos/remote-repo-registration'
+import type { Store } from '../persistence'
 
 type RuntimeRepositoryRegistrationDependencies = {
   getStore: () => RuntimeStore | null
@@ -34,6 +36,22 @@ export class RuntimeRepositoryRegistrationController {
     displayName?: string
   ): Promise<Repo> {
     const store = this.requireStore()
+    const host = parseExecutionHostId(executionHostId)
+    if (host?.kind === 'ssh') {
+      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: Runtime hosts supply the profile Store; this contract narrows its public surface.
+      const profileStore = store as Store
+      const result = await addRemoteRepoFromPath(profileStore, {
+        connectionId: host.targetId,
+        remotePath: path,
+        displayName,
+        kind
+      })
+      if ('error' in result) {
+        throw new Error(result.error)
+      }
+      this.invalidate(result.repo.id)
+      return result.repo
+    }
     if (!isAbsolute(path)) {
       throw new Error('Project path must be an absolute path')
     }

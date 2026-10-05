@@ -18,6 +18,7 @@ import type {
 import type { IPtyProvider } from '../providers/types'
 import type { SkillUploadSessionService } from '../skills/skill-upload-session-service'
 import type { RuntimeSkillCommands } from './runtime-skill-command-surface'
+import type { getRuntimeSkillLibrary, skillLibraryWorkspaces } from './runtime-skill-library'
 import type {
   SkillCloudDownloadGrant,
   SkillCloudOperation,
@@ -36,6 +37,8 @@ import type {
   SkillRemoveRequest
 } from './runtime-skill-types'
 export type RuntimeSkillCommandSurface = {
+  getLocalSkillLibrary(): ReturnType<typeof getRuntimeSkillLibrary>
+  listSkillLibraryWorkspaces(): ReturnType<typeof skillLibraryWorkspaces>
   setSkillCloudService(service: SkillCloudService): void
   assertAgentSkillSharingAllowed(): void
   publishDiscoveredSkillsFromAgent(

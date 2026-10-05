@@ -30,7 +30,12 @@ export const WORKSPACE_PORT_ALL_HOSTS_SCAN_KEY = 'all-hosts:all'
 export function canStopWorkspacePort(
   port: WorkspacePort
 ): port is WorkspacePort & { kind: 'workspace'; pid: number } {
-  return port.kind === 'workspace' && Boolean(port.pid) && port.processName !== 'Electron'
+  return (
+    port.kind === 'workspace' &&
+    !port.connectionId &&
+    Boolean(port.pid) &&
+    port.processName !== 'Electron'
+  )
 }
 
 type BrowserTabCreator = ReturnType<typeof useAppStore.getState>['createBrowserTab']
@@ -112,6 +117,9 @@ export async function openWorkspacePortInBrowser(args: {
     return { ok: false, reason: WORKSPACE_PORT_TARGET_UNAVAILABLE_REASON }
   }
   const rawUrl = browserUrlForPort(args.port)
+  if (args.port.connectionId && !args.port.forwardedPort) {
+    return { ok: false, reason: 'Forward this SSH listener to the Orca server before opening it.' }
+  }
   let url = rawUrl
   if (args.runtimeTarget.kind === 'local' && args.localhostLabelRoute) {
     try {

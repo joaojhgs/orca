@@ -13,6 +13,7 @@ export function getUsageProviderAccountsSectionId(
       // Why: Antigravity usage currently shares Gemini's OAuth configuration.
       return 'accounts-gemini'
     case 'opencode-go':
+    case 'opencode':
       return 'accounts-opencode-go'
     case 'minimax':
       return 'accounts-minimax'

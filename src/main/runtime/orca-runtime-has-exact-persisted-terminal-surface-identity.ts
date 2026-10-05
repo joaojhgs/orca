@@ -16,7 +16,7 @@ import type {
 } from './runtime-legacy-worker-terminal-recovery-types'
 import { getLatestPtyTitle } from './runtime-worktree-status-projection'
 import type { AutomationService } from '../automations/service'
-import type { ArtifactCloudService } from '../artifacts/artifact-cloud-service'
+import type { ArtifactService } from '../artifacts/artifact-service-contract'
 import type {
   ArtifactCloudOperation,
   ArtifactCloudOptions,
@@ -205,7 +205,11 @@ export class OrcaRuntimeWithHasExactPersistedTerminalSurfaceIdentity extends Orc
     this.automation.setService(service)
   }
 
-  setArtifactService(service: ArtifactCloudService): void {
+  getArtifactHostingStatus() {
+    return this.artifacts.hostingStatus()
+  }
+
+  setArtifactService(service: ArtifactService): void {
     this.artifacts.setService(service)
   }
 

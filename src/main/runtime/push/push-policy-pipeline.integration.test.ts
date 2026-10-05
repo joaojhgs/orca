@@ -9,6 +9,7 @@ import { setRuntimeDesktopSurface } from '../runtime-desktop-surface'
 import { DesktopPushService } from './desktop-push-service'
 import { PushUnregisterOutbox } from './push-unregister-outbox'
 import { createPushHostKeypair } from './push-host-challenge-fixtures'
+import { createHeadlessNotificationDelivery } from '../../notifications/headless-notification-delivery'
 
 const paths: string[] = []
 const services: DesktopPushService[] = []
@@ -112,6 +113,55 @@ it('keeps headless presence unknown and legacy socket events readable', async ()
   await flush()
   expect(events[0]).not.toHaveProperty('desktopAway')
   expect(h.client.send).toHaveBeenCalledTimes(1)
+})
+
+it('delivers accepted headless SSH completion through the mobile replay and push pipeline', async () => {
+  setRuntimeDesktopSurface({
+    isAwayForMobileNotifications: () =>
+      readDesktopAwayState(
+        { getSystemIdleState: () => 'active', getSystemIdleTime: () => 0 },
+        true
+      ),
+    showNotification: () => false,
+    findWindowById: () => null,
+    onIpc: () => {},
+    removeIpcListener: () => {}
+  })
+  const h = await pipeline()
+  const delivery = createHeadlessNotificationDelivery({
+    enabled: () => true,
+    settings: () => ({
+      enabled: true,
+      agentTaskComplete: true,
+      terminalBell: true,
+      suppressWhenFocused: true,
+      customSoundId: 'system',
+      customSoundPath: null,
+      customSoundVolume: 1
+    }),
+    dispatch: (event) => h.controller.dispatch(event)
+  })
+  const host = {
+    paneKey: 'game-pane',
+    connectionId: 'personal',
+    worktreeId: 'game-worktree',
+    receivedAt: Date.now(),
+    stateStartedAt: Date.now()
+  }
+  delivery.status({ ...host, payload: { state: 'working', prompt: 'Build game' } })
+  delivery.status({ ...host, payload: { state: 'done', prompt: 'Build game' } })
+  await flush()
+  expect(h.client.send).toHaveBeenCalledTimes(1)
+  expect(h.controller.getMissedSince(0)).toEqual([
+    expect.objectContaining({
+      source: 'agent-task-complete',
+      agentState: 'done',
+      desktopAway: true,
+      worktreeId: 'game-worktree',
+      notificationSeq: 1,
+      notificationEpoch: expect.any(String)
+    })
+  ])
 })
 
 it('expires persisted registration at seven days despite host activity and renews explicitly', async () => {

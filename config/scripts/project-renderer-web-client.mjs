@@ -12,8 +12,8 @@ import {
 import { dirname, join, posix, resolve, sep } from 'node:path'
 import { transform } from 'esbuild'
 
-const rendererOutput = resolve('out/renderer')
-const webOutput = resolve('out/web')
+const rendererOutput = resolve(process.env.ORCA_BUILD_OUTPUT_DIR || 'out', 'renderer')
+const webOutput = resolve(process.env.ORCA_BUILD_OUTPUT_DIR || 'out', 'web')
 const stagingOutput = resolve(dirname(webOutput), `.web-projection-${process.pid}`)
 const manifestPath = join(rendererOutput, '.vite', 'manifest.json')
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))

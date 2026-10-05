@@ -51,6 +51,7 @@ export function configureRelaySessionCallbacks(session: SshRelaySession): void {
       return
     }
     const t = getSshTargetRegistryStore()?.getTarget(tid)
+    const persistentReconnect = t?.connectOnStartup !== false
 
     // Why: bounded exponential backoff — without it, a remote bug that closes every fresh --connect channel becomes an infinite relay-deploy loop.
     const state = relayLostBackoff.get(tid) ?? {
@@ -72,7 +73,7 @@ export function configureRelaySessionCallbacks(session: SshRelaySession): void {
     // manual-reconnect banner, which would tell the user to act on a link that is still auto-recovering.
     const transportStatus = connectionManager?.getState(tid)?.status
     const transportConnected = transportStatus === 'connected'
-    if (transportConnected && state.attempts >= RELAY_LOST_MAX_ATTEMPTS) {
+    if (transportConnected && !persistentReconnect && state.attempts >= RELAY_LOST_MAX_ATTEMPTS) {
       console.warn(
         `[ssh] Relay channel for ${tid} kept dying across ${state.attempts} attempts; giving up. User must reconnect manually.`
       )
@@ -102,7 +103,7 @@ export function configureRelaySessionCallbacks(session: SshRelaySession): void {
           if (!attemptCharged) {
             // Why: waiting is free, but the deploy it defers is real — charge it here so a transport that
             // flaps back to 'connected' can't redeploy forever on an uncharged budget.
-            state.attempts += 1
+            state.attempts = Math.min(state.attempts + 1, RELAY_LOST_MAX_ATTEMPTS)
           }
           void s.reconnect(liveConn, relayGracePeriodForTarget(t))
           return
@@ -135,7 +136,7 @@ export function configureRelaySessionCallbacks(session: SshRelaySession): void {
     }
 
     const delay = Math.min(RELAY_LOST_BASE_DELAY_MS * 2 ** state.attempts, RELAY_LOST_MAX_DELAY_MS)
-    state.attempts += 1
+    state.attempts = Math.min(state.attempts + 1, RELAY_LOST_MAX_ATTEMPTS)
     publishRelayOverride(
       getCurrentMainWindow,
       tid,

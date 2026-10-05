@@ -91,11 +91,17 @@ function wrapChildProcess(proc: ChildProcess): SystemSshProcess {
 
 function wrapCommandProcess(proc: ChildProcess): SystemSshCommandChannel {
   const duplex = new Duplex({
+    // Why: stream EOF is not the SSH process exit; only its close event carries the exit code.
+    autoDestroy: false,
     read() {
       proc.stdout?.resume()
     },
     write(chunk, encoding, cb) {
       proc.stdin!.write(chunk, encoding, cb)
+    },
+    final(cb) {
+      // Why: stdin scripts such as execution probes cannot finish before remote EOF.
+      proc.stdin!.end(cb)
     }
   })
   const channel = duplex as unknown as SystemSshCommandChannel

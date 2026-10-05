@@ -106,7 +106,7 @@ export const REPO_METHODS = [
     params: RepoPath,
     handler: async (params, context) => ({
       repo: projectRepoVisibilityForClient(
-        await context.runtime.addRepo(params.path, params.kind, undefined, params.displayName),
+        await context.runtime.addRepo(params.path, params.kind, params.host, params.displayName),
         context
       )
     })

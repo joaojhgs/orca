@@ -8,6 +8,7 @@ import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import type { CursorAccountStatus } from '../../../../shared/rate-limit-types'
 import { SearchableSetting } from './SearchableSetting'
+import { ExecutionAccountUsageRows } from './ExecutionAccountUsageRows'
 
 const CURSOR_USAGE_DASHBOARD_URL = 'https://cursor.com/dashboard/spending'
 const SEARCH_KEYWORDS = ['cursor', 'usage', 'plan', 'spend', 'billing', 'rate limit']
@@ -134,6 +135,7 @@ export function CursorAccountsSection(): React.JSX.Element {
         </a>
       </div>
 
+      <ExecutionAccountUsageRows provider="cursor" />
       <div
         className={cn(
           'flex items-start gap-3 rounded-lg border bg-muted/20 p-3',

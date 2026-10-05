@@ -30,6 +30,31 @@ export abstract class RemoteRuntimeTerminalResponseController extends RemoteRunt
     if (event.type === 'ready') {
       this.ready = true
       this.resolveReadyIfConnected()
+      if (this.transportInterrupted) {
+        this.transportInterrupted = false
+        for (const stream of this.streams.values()) {
+          if (!stream.subscriptionRequested) {
+            continue
+          }
+          discardOutputAcknowledgements(stream)
+          clearSnapshot(stream)
+          clearResyncTimer(stream)
+          rejectPendingSnapshotRequest(stream, 'Remote terminal transport is recovering.')
+          stream.initialSnapshotReceived = false
+          stream.expectedSeq = undefined
+          stream.commandProbeBaselineSeq = undefined
+          stream.recoverySnapshotSeq = undefined
+          stream.streamGeneration = null
+          stream.sourceAckedEndByte = 0
+          stream.resyncInFlight = false
+          stream.resyncPendingSend = false
+          stream.resyncAttempts = 0
+          if (!this.sendStreamSubscription(stream)) {
+            this.handleClose('Remote terminal stream could not be restored after reconnect.')
+            break
+          }
+        }
+      }
       return
     }
 

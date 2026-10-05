@@ -9,6 +9,7 @@ import type {
 import type { AiVaultListArgs, AiVaultListResult } from '../../shared/ai-vault-types'
 import { listAiVaultSessions } from '../ai-vault/cached-session-list'
 import { resolveLocalAiVaultSessionTitles } from '../ai-vault/session-title-resolver'
+import { listAiVaultSessions as listHostAiVaultSessions } from '../ipc/ai-vault'
 
 export class RuntimeAiVaultCommands {
   constructor(
@@ -18,6 +19,9 @@ export class RuntimeAiVaultCommands {
   ) {}
 
   list(args?: AiVaultListArgs): Promise<AiVaultListResult> {
+    if (args?.executionHostScope && args.executionHostScope !== 'local') {
+      return listHostAiVaultSessions(args)
+    }
     return listAiVaultSessions(args)
   }
 

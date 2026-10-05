@@ -3,6 +3,7 @@ import { parseExecutionHostId } from '../execution-host'
 import { AI_VAULT_AGENTS, AI_VAULT_SCOPE_PATHS_MAX_COUNT } from '../ai-vault-types'
 import { OptionalBoolean } from './rpc-param-primitives'
 import { AI_VAULT_SESSION_TITLE_REQUEST_MAX_COUNT } from '../ai-vault-session-title'
+import { ExecutionHostScanScopeSchema } from './execution-host-scan-scope'
 
 // Why: bound limit + scopePaths so a client cannot force an unbounded scan.
 // Each scopePath is a host-local match prefix (validated/capped, never used for
@@ -44,7 +45,8 @@ export const AiVaultListSessionsParams = z
     // Why: desktop/web callers name the runtime host they are addressing; mobile
     // omits it. The scan itself is host-local either way, so the id must never
     // change what is scanned — it only restamps the shared cached result.
-    executionHostId: executionHostIdSchema.optional()
+    executionHostId: executionHostIdSchema.optional(),
+    executionHostScope: ExecutionHostScanScopeSchema.optional()
   })
   .superRefine((params, ctx) => {
     if (params.unlimited !== true && params.limit && params.limit > AI_VAULT_LIMIT_MAX) {
@@ -61,6 +63,7 @@ export const AiVaultPrepareSessionResumeParams = z.object({
 })
 
 export const AiVaultSessionTitlesParams = z.object({
+  executionHostScope: ExecutionHostScanScopeSchema.optional(),
   requests: z
     .array(
       z.object({

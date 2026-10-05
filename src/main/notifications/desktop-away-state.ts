@@ -5,7 +5,12 @@ type IdleMonitor = {
   getSystemIdleTime(): number
 }
 
-export function readDesktopAwayState(monitor: IdleMonitor): boolean | undefined {
+export function readDesktopAwayState(monitor: IdleMonitor, headless = false): boolean | undefined {
+  // Xvfb often reports idle=0 indefinitely. A server without a desktop window
+  // cannot represent a user at the desktop and must not suppress phone alerts.
+  if (headless) {
+    return true
+  }
   try {
     const state = monitor.getSystemIdleState(MOBILE_NOTIFICATION_AWAY_SECONDS)
     if (state === 'locked' || state === 'idle') {

@@ -16,6 +16,29 @@ describe('web preload runtime calls', () => {
     vi.doUnmock('./web-runtime-client')
   })
 
+  it('preserves the skill import timeout through the local browser runtime adapter', async () => {
+    const call = vi.fn(async (method: string) => ({
+      id: method,
+      ok: true,
+      result: { results: [] },
+      _meta: { runtimeId: 'runtime-a' }
+    }))
+    vi.doMock('./web-runtime-client', () => ({
+      WebRuntimeClient: class {
+        call = call
+        close(): void {}
+      }
+    }))
+    const globals = installBrowserGlobals('Linux')
+    writeStoredRuntimeEnvironment(globals.storage, 'web-server-a')
+    const { installWebPreloadApi } = await import('./web-preload-api')
+    installWebPreloadApi()
+    const { callRuntimeRpc } = await import('../runtime/runtime-rpc-client')
+    const params = { hostId: 'ssh:personal', candidateIds: ['example'], reviewed: true }
+    await callRuntimeRpc({ kind: 'local' }, 'skills.library.import', params, { timeoutMs: 600000 })
+    expect(call).toHaveBeenCalledWith('skills.library.import', params, { timeoutMs: 600000 })
+  })
+
   it('preserves success and failure envelopes while persisting response runtime metadata', async () => {
     vi.doMock('./web-runtime-client', () => ({
       WebRuntimeClient: class {

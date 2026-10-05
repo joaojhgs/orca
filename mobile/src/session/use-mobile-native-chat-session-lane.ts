@@ -14,6 +14,7 @@ export function useMobileNativeChatSessionLane({
   agent,
   resolvedAgent,
   transcriptPath,
+  executionHostId,
   sessionId,
   sourceIdentity,
   callerIdentity,
@@ -31,6 +32,7 @@ export function useMobileNativeChatSessionLane({
   /** Agent resolved from the terminal, for the bridge transcript reader. */
   resolvedAgent: string | null
   transcriptPath: string | null
+  executionHostId?: string | null
   sessionId: string | null
   sourceIdentity: Parameters<typeof useMobileNativeChatSession>[0]['sourceIdentity']
   callerIdentity: string
@@ -56,7 +58,8 @@ export function useMobileNativeChatSessionLane({
     sourceIdentity,
     agent: structured ? null : resolvedAgent,
     sessionId: structured ? null : sessionId,
-    transcriptPath: structured ? null : transcriptPath
+    transcriptPath: structured ? null : transcriptPath,
+    executionHostId: structured ? null : executionHostId
   })
   const structuredSession = useMobileStructuredAgentSession({
     client,

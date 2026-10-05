@@ -55,8 +55,19 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
   const scanTargets = useMemo(
     () =>
       buildExecutionHostRegistry({ repos, settings })
-        .map((host) => runtimeTargetForExecutionHostId(host.id))
-        .filter((target): target is NonNullable<typeof target> => target !== null),
+        .map((host) =>
+          host.kind === 'ssh'
+            ? { kind: 'local' as const }
+            : runtimeTargetForExecutionHostId(host.id)
+        )
+        .filter((target): target is NonNullable<typeof target> => target !== null)
+        .filter(
+          (target, index, targets) =>
+            targets.findIndex(
+              (candidate) =>
+                workspacePortScanKeyForTarget(candidate) === workspacePortScanKeyForTarget(target)
+            ) === index
+        ),
     [repos, settings]
   )
   const scanTargetsSignature = useMemo(

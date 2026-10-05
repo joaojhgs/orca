@@ -17,6 +17,9 @@ export type WorkspacePortOwner = {
 
 type WorkspacePortBase = {
   id: string
+  /** Execution owner. A remote pid must never be interpreted as a local pid. */
+  connectionId?: string
+  forwardedPort?: number
   /** Address reported by the OS listener. May be a wildcard bind. */
   bindHost: string
   /** Address the renderer should copy/open. Wildcard binds are normalized to localhost. */
@@ -47,6 +50,8 @@ export type WorkspacePort =
 
 export type WorkspacePortScanRequest = {
   repoId?: string
+  /** Opt-in prevents older clients treating remote pids as local Stop targets. */
+  includeSsh?: boolean
 }
 
 export type WorkspacePortAdvertisedUrlChangedEvent = {
@@ -56,6 +61,7 @@ export type WorkspacePortAdvertisedUrlChangedEvent = {
 
 export type WorkspacePortKillRequest = {
   repoId?: string
+  connectionId?: string
   pid: number
   port: number
 }

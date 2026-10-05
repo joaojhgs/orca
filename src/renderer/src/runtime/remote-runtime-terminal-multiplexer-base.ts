@@ -2,7 +2,8 @@ import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import { isRecoverableRemoteRuntimeConnectionError } from '../../../shared/remote-runtime-client-error-classification'
 import {
   encodeTerminalStreamFrame,
-  type TerminalStreamOpcode
+  encodeTerminalStreamJson,
+  TerminalStreamOpcode
 } from '../../../shared/terminal-stream-protocol'
 import {
   recordE2eRemoteStreamFrame,
@@ -11,6 +12,7 @@ import {
 } from './remote-runtime-terminal-e2e-control'
 import {
   clearResyncTimer,
+  CONTROL_STREAM_ID,
   clearSnapshot,
   discardOutputAcknowledgements,
   rejectPendingSnapshotRequest
@@ -28,6 +30,7 @@ export abstract class RemoteRuntimeTerminalMultiplexerBase {
   protected readyResolver: (() => void) | null = null
   protected readyRejecter: ((error: Error) => void) | null = null
   protected ready = false
+  protected transportInterrupted = false
   protected nextStreamId = 1
   protected nextSnapshotRequestId = 1
 
@@ -100,7 +103,15 @@ export abstract class RemoteRuntimeTerminalMultiplexerBase {
                 this.failConnection(Object.assign(new Error(error.message), { code: error.code }))
               }
             },
-            onClose: () => this.handleClose('Remote Orca runtime closed the connection.')
+            onClose: () => this.handleClose('Remote Orca runtime closed the connection.'),
+            onTransportInterrupted: () => {
+              this.ready = false
+              this.transportInterrupted = true
+            },
+            onTransportReplayed: () => {
+              this.ready = false
+              this.transportInterrupted = true
+            }
           }
         )
         .then((subscription) => {
@@ -125,6 +136,26 @@ export abstract class RemoteRuntimeTerminalMultiplexerBase {
     })
     this.connectPromise = connectPromise
     return this.connectPromise
+  }
+
+  protected sendStreamSubscription(stream: RemoteRuntimeMultiplexedTerminalState): boolean {
+    return this.sendFrame(
+      CONTROL_STREAM_ID,
+      TerminalStreamOpcode.Subscribe,
+      encodeTerminalStreamJson({
+        streamId: stream.streamId,
+        terminal: stream.terminal,
+        client: stream.client,
+        viewport: stream.viewport,
+        capabilities: {
+          ackOutput: 1,
+          ackOutputSourceRanges: 1,
+          outputPause: 1,
+          writeUnavailable: 1,
+          ...(stream.client.type === 'desktop' ? { desktopViewportClaims: 1 } : {})
+        }
+      })
+    )
   }
 
   protected sendFrame(

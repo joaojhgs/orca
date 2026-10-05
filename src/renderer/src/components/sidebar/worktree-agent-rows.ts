@@ -29,6 +29,7 @@ import {
 } from './worktree-agent-row-fallback-tab'
 import { resolveRowAgentType } from './worktree-agent-row-type'
 import { entryWithRuntimeOrchestration } from './worktree-agent-row-orchestration'
+import { resolveAgentRowLiveTurnState } from './agent-row-live-turn-state'
 
 function countTerminalLayoutLeaves(node: TerminalPaneLayoutNode | null | undefined): number {
   if (!node) {
@@ -188,7 +189,9 @@ export function buildWorktreeAgentRows(args: {
         tab,
         agentType: resolveRowAgentType(rowEntry, tab),
         rowSource: 'live',
-        state: shouldDecay ? resolveDecayedAgentRowState(rowEntry, hasLivePty) : rowEntry.state,
+        state: shouldDecay
+          ? resolveDecayedAgentRowState(rowEntry, hasLivePty)
+          : resolveAgentRowLiveTurnState({ ...args, entry: rowEntry }),
         startedAt
       })
       rows.push(...buildSubagentChildRows({ parentEntry: rowEntry, tab, parentIsFresh: isFresh }))

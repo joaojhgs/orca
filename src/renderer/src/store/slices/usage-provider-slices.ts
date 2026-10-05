@@ -145,7 +145,7 @@ function createUsageProviderSlice<
       try {
         const api = config.getApi()
         const scanState = (await api.getScanState()) as T['snapshot']['scanState'] | undefined
-        // Desktop-only usage APIs resolve undefined in paired web clients.
+        // Older paired hosts may not expose analytics. Current browsers use the server's stores.
         if (!scanState) {
           return
         }

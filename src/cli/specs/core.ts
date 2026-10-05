@@ -4,6 +4,7 @@ import { WORKTREE_LISTING_SCOPE_NOTES } from './worktree-listing-scope-notes'
 import { SERVE_COMMAND_SPECS } from './serve'
 import { TERMINAL_SEND_COMMAND_SPEC } from './terminal-send'
 import { TERMINAL_CLOSE_COMMAND_SPEC } from './terminal-close'
+import { REPO_ADD_COMMAND_SPEC } from './repo-add'
 
 export const CORE_COMMAND_SPECS: CommandSpec[] = [
   {
@@ -39,12 +40,7 @@ export const CORE_COMMAND_SPECS: CommandSpec[] = [
     usage: 'orca repo list [--json]',
     allowedFlags: [...GLOBAL_FLAGS]
   },
-  {
-    path: ['repo', 'add'],
-    summary: 'Add a project to Orca by filesystem path',
-    usage: 'orca repo add --path <path> [--json]',
-    allowedFlags: [...GLOBAL_FLAGS, 'path']
-  },
+  REPO_ADD_COMMAND_SPEC,
   {
     path: ['repo', 'show'],
     summary: 'Show one registered repo',

@@ -264,7 +264,13 @@ export function getExecutableAppArgs(executable: string): string[] {
 }
 
 function shouldDisableExtractedAppImageSandbox(executable: string): boolean {
-  if (process.platform !== 'linux' || !existsSync(join(dirname(executable), 'AppRun'))) {
+  if (process.platform !== 'linux') {
+    return false
+  }
+  if (process.env.ORCA_APPIMAGE_NO_SANDBOX === '1') {
+    return true
+  }
+  if (!existsSync(join(dirname(executable), 'AppRun'))) {
     return false
   }
   // An extracted AppImage has no root-owned setuid sandbox; mirror AppRun's userns fallback.

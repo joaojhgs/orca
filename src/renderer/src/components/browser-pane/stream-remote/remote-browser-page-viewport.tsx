@@ -26,6 +26,8 @@ import {
 } from './remote-browser-stream-status'
 import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
 import type { RemoteBrowserRuntimeTarget } from './remote-browser-page-input-model'
+import type { GrabModeHook } from '../annotate/useGrabMode'
+import GrabConfirmationSheet, { formatGrabPayloadAsText } from '../annotate/GrabConfirmationSheet'
 
 export function RemoteBrowserPageViewport({
   remoteViewportRef,
@@ -34,6 +36,8 @@ export function RemoteBrowserPageViewport({
   frameMetadata,
   busy,
   markup,
+  grab,
+  directWeb,
   browserTab,
   remoteError,
   streamStatus,
@@ -58,6 +62,8 @@ export function RemoteBrowserPageViewport({
   frameMetadata: BrowserScreencastFrameMetadata | null
   busy: boolean
   markup: MarkupModeController
+  grab: GrabModeHook
+  directWeb: { url: string | null; error: string | null }
   browserTab: BrowserPageState
   remoteError: string | null
   streamStatus: RemoteBrowserStreamStatus
@@ -98,7 +104,13 @@ export function RemoteBrowserPageViewport({
           onCancel={markup.cancel}
         />
       ) : null}
-      {frameUrl ? (
+      {directWeb.url && grab.state === 'idle' && !markup.isActive ? (
+        <iframe
+          title="Workspace web preview"
+          src={directWeb.url}
+          className="absolute inset-0 h-full w-full border-0"
+        />
+      ) : frameUrl ? (
         <img
           data-testid="remote-browser-frame"
           ref={imageRef}
@@ -141,6 +153,33 @@ export function RemoteBrowserPageViewport({
           </div>
         </div>
       )}
+      {grab.state === 'confirming' && grab.contextMenu && grab.payload ? (
+        <GrabConfirmationSheet
+          payload={grab.payload}
+          onCopy={() => {
+            if (grab.payload) {
+              void window.api.ui
+                .writeClipboardText(formatGrabPayloadAsText(grab.payload))
+                .then(grab.rearm)
+                .catch(() => {})
+            }
+          }}
+          onCopyScreenshot={null}
+          onAttach={null}
+          onCancel={grab.cancel}
+        />
+      ) : null}
+      {grab.state === 'armed' || grab.state === 'awaiting' || grab.state === 'error' ? (
+        <div
+          role="status"
+          className="absolute top-2 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md"
+        >
+          <span>{grab.error ?? 'Click an element to copy its context. Esc cancels.'}</span>
+          <Button size="sm" variant="secondary" onClick={grab.cancel}>
+            Cancel
+          </Button>
+        </div>
+      ) : null}
       {showRemoteFailureOverlay && browserTab.loadError ? (
         <BrowserLoadFailureOverlay
           loadError={browserTab.loadError}

@@ -48,7 +48,10 @@ describe('SSH IPC handlers', () => {
     useSlowRelayLaunchOnce
   } = harness
 
-  beforeEach(harness.reset)
+  beforeEach(async () => {
+    vi.stubEnv('ORCA_DISABLE_SSH_PTY_OUTPUT_FLOW_CONTROL', '')
+    await harness.reset()
+  })
 
   it('ssh:connect throws for unknown targetId', async () => {
     mockSshStore.getTarget.mockReturnValue(undefined)
@@ -521,6 +524,7 @@ describe('SSH IPC handlers', () => {
     vi.useFakeTimers()
     vi.setSystemTime(0)
     const target: SshTarget = {
+      connectOnStartup: false,
       id: 'ssh-1',
       label: 'Server',
       host: 'example.com',
@@ -572,6 +576,7 @@ describe('SSH IPC handlers', () => {
 
   describe('relay loss while the SSH transport is down', () => {
     const relayLostTarget: SshTarget = {
+      connectOnStartup: false,
       id: 'ssh-1',
       label: 'Server',
       host: 'example.com',

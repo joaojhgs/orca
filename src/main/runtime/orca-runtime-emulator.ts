@@ -8,16 +8,10 @@ import {
 import { resolveDefaultAttachDevice } from '../emulator/emulator-default-attach-device'
 import { setConfiguredAndroidSdkPath } from '../emulator/android/android-sdk-host-discovery'
 import type { EmulatorGesturePoint } from '../emulator/emulator-gesture-sender'
-import type { EmulatorSessionInfo } from '../emulator/emulator-types'
+import type { EmulatorSessionInfo, EmulatorHostSettings } from '../emulator/emulator-types'
 import type { SimulatorDevice } from '../emulator/simctl-simulator-devices'
 import type { EmulatorDevice } from '../emulator/backends/emulator-backend'
-import type { GlobalSettings } from '../../shared/global-settings-types'
-
-// Settings slice the emulator surface needs; keeps the host contract honest (no widening cast).
-type EmulatorHostSettings = Pick<
-  GlobalSettings,
-  'mobileEmulatorEnabled' | 'mobileEmulatorDefaultDeviceUdid' | 'androidSdkPath'
->
+import { captureEmulatorScreenshot } from '../emulator/emulator-screenshot'
 
 // Why: dedicated file for "one surface" separation (emulator), parallel to orca-runtime-browser.ts. Keeps OrcaRuntimeService focused; emulator routing easy to scan. No max-lines disable (split further if grows; per AGENTS + plan Phase 3).
 export type RuntimeEmulatorCommandHost = {
@@ -120,6 +114,15 @@ export class RuntimeEmulatorCommands {
       emulator: params.emulator,
       worktreeId
     })
+  }
+
+  async emulatorScreenshot(params: EmulatorTargetParams): Promise<{ pngBase64: string }> {
+    const worktreeId = await this.resolveWorktreeId(params.worktree)
+    const pngBase64 = await captureEmulatorScreenshot(this.requireEmulatorBridge(), {
+      device: params.device ?? params.emulator,
+      worktreeId
+    })
+    return { pngBase64 }
   }
 
   async emulatorAttach(params: {
@@ -340,12 +343,7 @@ export class RuntimeEmulatorCommands {
   }
 
   // Raw for extensibility.
-  async emulatorExecRaw(params: {
-    command: string
-    device?: string
-    emulator?: string
-    worktree?: string
-  }): Promise<unknown> {
+  async emulatorExecRaw(params: EmulatorTargetParams & { command: string }): Promise<unknown> {
     return this.emulatorExec(params)
   }
 }

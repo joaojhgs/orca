@@ -8,7 +8,8 @@ export const WORKSPACE_PORT_METHODS = [
   defineMethod({
     name: 'workspacePorts.scan',
     params: WorkspacePortScanParams,
-    handler: async (params, { runtime }) => runtime.scanWorkspacePorts(params.repoId)
+    handler: async (params, { runtime }) =>
+      runtime.scanWorkspacePorts(params.repoId, params.includeSsh === true)
   }),
   defineMethod({
     name: 'workspacePorts.kill',
@@ -16,6 +17,7 @@ export const WORKSPACE_PORT_METHODS = [
     handler: async (params, { runtime }) =>
       runtime.killWorkspacePort({
         repoId: params.repoId,
+        connectionId: params.connectionId,
         pid: params.pid,
         port: params.port
       })

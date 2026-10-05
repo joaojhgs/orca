@@ -62,7 +62,7 @@ export type MiniMaxResolvedConfig = {
 }
 
 export type GeminiCliOAuthEnabledResolver = () => boolean
-export type ActiveRateLimitProvider = ProviderRateLimits['provider']
+export type ActiveRateLimitProvider = Exclude<ProviderRateLimits['provider'], 'opencode'>
 export type ActiveProviderState = {
   provider: ActiveRateLimitProvider
   limits: ProviderRateLimits | null

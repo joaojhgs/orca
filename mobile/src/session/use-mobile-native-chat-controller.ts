@@ -93,6 +93,7 @@ export function useMobileNativeChatController(args: {
       agent: activeChatAgent,
       resolvedAgent: activeChatResolution?.agent ?? null,
       transcriptPath: activeChatResolution?.transcriptPath ?? null,
+      executionHostId: activeChatResolution?.connectionId ?? null,
       sessionId: activeChatSessionId,
       sourceIdentity,
       callerIdentity: deviceTokenRef.current ?? '',

@@ -17,6 +17,8 @@ export type SkillInstallProviderId =
   | 'aug'
   | 'muse'
   | 'zcode'
+  | 'opencode'
+  | 'antigravity'
 
 export type SkillInstallProviderDefinition = {
   id: SkillInstallProviderId
@@ -96,6 +98,18 @@ export const SKILL_INSTALL_PROVIDERS: readonly SkillInstallProviderDefinition[] 
     id: 'zcode',
     displayName: 'ZCode',
     globalSegments: ['.zcode', 'skills'],
+    workspaceSegments: null
+  },
+  {
+    id: 'opencode',
+    displayName: 'OpenCode',
+    globalSegments: ['.config', 'opencode', 'skills'],
+    workspaceSegments: ['.opencode', 'skills']
+  },
+  {
+    id: 'antigravity',
+    displayName: 'Antigravity',
+    globalSegments: ['.gemini', 'config', 'skills'],
     workspaceSegments: null
   }
 ]

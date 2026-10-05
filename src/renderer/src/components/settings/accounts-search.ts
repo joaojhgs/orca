@@ -98,6 +98,14 @@ export const getAccountsCodexSearchEntries = createLocalizedCatalog(() => [
 
 export const getAccountsGeminiSearchEntries = createLocalizedCatalog(() => [
   {
+    title: translate('settings.executionUsage.antigravity', 'Antigravity usage'),
+    description: translate(
+      'settings.executionUsage.description',
+      'Matching accounts share one quota reading. Credentials stay on their execution host.'
+    ),
+    keywords: ['antigravity', 'usage', 'quota', 'ssh', 'distrobox']
+  },
+  {
     title: translate(
       'auto.components.settings.accounts.search.d819755b02',
       'Use Gemini CLI credentials'

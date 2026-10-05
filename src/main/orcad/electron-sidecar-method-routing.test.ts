@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { BROWSER_CORE_METHODS } from '../runtime/rpc/methods/browser-core'
 import { BROWSER_EXTRA_METHODS } from '../runtime/rpc/methods/browser-extras'
 import { BROWSER_SCREENCAST_METHODS } from '../runtime/rpc/methods/browser-screencast'
+import { BROWSER_GRAB_METHODS } from '../runtime/rpc/methods/browser-grab'
 import { electronSidecarRuntimeMethodName } from './electron-sidecar-method-routing'
 
 /**
@@ -13,7 +14,8 @@ import { electronSidecarRuntimeMethodName } from './electron-sidecar-method-rout
 const BROWSER_RPC_METHODS = [
   ...BROWSER_CORE_METHODS,
   ...BROWSER_SCREENCAST_METHODS,
-  ...BROWSER_EXTRA_METHODS
+  ...BROWSER_EXTRA_METHODS,
+  ...BROWSER_GRAB_METHODS
 ]
 
 /**
@@ -23,8 +25,11 @@ const BROWSER_RPC_METHODS = [
  */
 const UNROUTABLE_RUNTIME_COMMANDS = new Set(['browserConsoleLog', 'browserNetworkLog'])
 
-/** `browser.screencast.unsubscribe` cleans up a subscription without a browser command. */
-const RPC_METHODS_WITHOUT_BROWSER_COMMAND = new Set(['browser.screencast.unsubscribe'])
+/** Proxy setup and subscription cleanup do not dispatch browser commands. */
+const RPC_METHODS_WITHOUT_BROWSER_COMMAND = new Set([
+  'browser.webProxyOpen',
+  'browser.screencast.unsubscribe'
+])
 
 /** Records the `runtime.browserX` the handler dispatches to, without a live runtime. */
 async function runtimeCommandFor(

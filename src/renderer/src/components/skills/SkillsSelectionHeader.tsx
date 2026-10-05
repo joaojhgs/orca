@@ -51,6 +51,7 @@ export function SkillsSelectionHeader({
               variant="ghost"
               size="icon"
               className="size-7 shrink-0 rounded-full"
+              disabled={busy}
               onClick={onCancel}
               aria-label={translate(
                 'auto.components.skills.SkillsSelectionHeader.exit',
@@ -80,7 +81,7 @@ export function SkillsSelectionHeader({
               type="button"
               variant="link"
               className={SKILLS_SUBTITLE_ACTION_CLASS}
-              disabled={eligibleCount === 0}
+              disabled={busy || eligibleCount === 0}
               onClick={onSelectAll}
             >
               {translate(
@@ -94,7 +95,7 @@ export function SkillsSelectionHeader({
               type="button"
               variant="link"
               className={SKILLS_SUBTITLE_ACTION_CLASS}
-              disabled={selectedCount === 0}
+              disabled={busy || selectedCount === 0}
               onClick={onClear}
             >
               {translate('auto.components.skills.SkillsSelectionHeader.clear', 'Clear')}

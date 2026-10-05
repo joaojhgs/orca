@@ -2,6 +2,12 @@
 // Why: single authority for all relay lifecycle state per SSH target (previously scattered across module Maps/Sets with duplicated paths).
 
 import { randomUUID } from 'node:crypto'
+import {
+  registerRemoteResourceProvider,
+  unregisterRemoteResourceProvider,
+  type RemoteResourceSnapshot
+} from '../memory/remote-resource-provider-registry'
+import { collectLegacyRemoteResourceSnapshot } from '../memory/legacy-remote-resource-snapshot'
 import type { BrowserWindow } from 'electron'
 import { deployAndLaunchRelay } from './ssh-relay-deploy'
 import { RemoteRuntimeUnavailableError } from './ssh-relay-runtime-resolution'
@@ -451,6 +457,10 @@ export class SshRelaySession {
   /** The host's own `$HOME`, read on the host during relay deploy — never this client's. */
   getRemoteHomeDirectory(): string | null {
     return this.remoteCliBridgeEnv?.remoteHome ?? null
+  }
+
+  getRemoteNodePath(): string | null {
+    return this.remoteCliBridgeEnv?.nodePath ?? null
   }
 
   getAiVaultHostInfo(): SshRelayAiVaultHostInfo | null {
@@ -1186,7 +1196,10 @@ export class SshRelaySession {
       this.targetId,
       mux,
       this.remoteCliBridgeEnv ?? undefined,
-      providerGeneration
+      providerGeneration,
+      ['localhost', '127.0.0.1', '::1'].includes(
+        this.store.getSshTarget(this.targetId)?.host.trim().toLowerCase() ?? ''
+      )
     )
     // Why optional-call: session tests register partial provider stubs, same as the pause adapter below.
     ptyProvider.setTerminalUnavailableRecovery?.((cause) =>
@@ -1259,6 +1272,36 @@ export class SshRelaySession {
     }
     this.activePtyProviderGeneration = providerGeneration
     registerSshPtyProvider(this.targetId, ptyProvider)
+    registerRemoteResourceProvider(this.targetId, {
+      name: this.store.getSshTarget(this.targetId)?.label || this.targetId,
+      collect: async () => {
+        let snapshot: RemoteResourceSnapshot
+        try {
+          // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: resource.snapshot is the relay's typed resource response; older relays take the compatibility path below.
+          snapshot = (await mux.request('resource.snapshot', undefined, {
+            timeoutMs: 5_000
+          })) as RemoteResourceSnapshot
+        } catch (error) {
+          if (!isMethodNotFoundError(error)) {
+            throw error
+          }
+          snapshot = await collectLegacyRemoteResourceSnapshot(
+            this.requireReadyConnection(),
+            this.remoteCliBridgeEnv?.nodePath || 'node'
+          )
+        }
+        return {
+          ...snapshot,
+          worktrees: snapshot.worktrees.map((worktree) => ({
+            ...worktree,
+            sessions: worktree.sessions.map((session) => ({
+              ...session,
+              sessionId: toAppSshPtyId(this.targetId, session.sessionId)
+            }))
+          }))
+        }
+      }
+    })
     this.installPtyRecoveryNotifications(mux)
 
     const connection = this.requireReadyConnection()
@@ -1334,7 +1377,9 @@ export class SshRelaySession {
       clientInstanceId: this.ptyConsumerClientInstanceId,
       expectedServerBuildId: serverBuildId,
       allowSameBuildLegacyFallback: true,
-      outputFlowControl: { requestedWindowSu: DEFAULT_PTY_SOURCE_WINDOW_SU }
+      ...(process.env.ORCA_DISABLE_SSH_PTY_OUTPUT_FLOW_CONTROL === '1'
+        ? {}
+        : { outputFlowControl: { requestedWindowSu: DEFAULT_PTY_SOURCE_WINDOW_SU } })
     }
     let admission: SshPtyConsumerAdmission
     try {
@@ -1806,6 +1851,7 @@ export class SshRelaySession {
     }
 
     unregisterSshPtyProvider(this.targetId)
+    unregisterRemoteResourceProvider(this.targetId)
     unregisterSshFilesystemProvider(this.targetId)
     unregisterSshGitProvider(this.targetId)
     this.sourceIdentityByRelayPtyId.clear()
@@ -2618,7 +2664,9 @@ export class SshRelaySession {
           return
         }
       }
-      if (recoveryRequest && !existingDeliveryConfirmed) {
+      const requiresCheckpointRecovery =
+        recoveryRequest?.status === 'checkpoint' && !existingDeliveryConfirmed
+      if (requiresCheckpointRecovery) {
         const recovered = await this.finishSourceRecovery(
           ptyId,
           appPtyId,
@@ -2709,7 +2757,7 @@ export class SshRelaySession {
       pendingReattach.activated = true
       recoveryActivationLease?.commit()
       recoveryActivationLease = undefined
-      if (targetedDeliveryRecovery) {
+      if (!requiresCheckpointRecovery) {
         if (targetedDeliveryRecovery === 'fresh-activation') {
           this.retiredSourceDeliveries.activate(ptyId)
           this.sourceIdentityByRelayPtyId.delete(ptyId)
@@ -2731,7 +2779,7 @@ export class SshRelaySession {
         await this.acceptPtyExit(exitAfterActivation)
         return
       }
-      if (!recoveryRequest && !targetedDeliveryRecovery) {
+      if (!requiresCheckpointRecovery && !targetedDeliveryRecovery) {
         this.forwardReattachReplay(appPtyId, attachResult.replay ?? '')
       }
       sourceActivationLease?.commit()

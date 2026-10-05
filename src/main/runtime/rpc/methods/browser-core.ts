@@ -1,4 +1,6 @@
 import { defineMethod } from '../core'
+import { workspaceWebProxyManager } from '../../../browser/workspace-web-proxy'
+import { BrowserWebProxyOpen } from '../../../../shared/rpc-contract/browser-grab-params'
 import { BrowserTarget } from '../schemas'
 import {
   Check,
@@ -36,6 +38,11 @@ import { BROWSER_TEXT_METHODS } from './browser-text-rpc-methods'
 import { CertificateProceed } from '../../../../shared/rpc-contract/browser-core-params'
 
 export const BROWSER_CORE_METHODS = [
+  defineMethod({
+    name: 'browser.webProxyOpen',
+    params: BrowserWebProxyOpen,
+    handler: async ({ url }) => workspaceWebProxyManager.open(url)
+  }),
   defineMethod({
     name: 'browser.snapshot',
     params: BrowserTarget,

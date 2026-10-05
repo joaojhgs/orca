@@ -17,6 +17,8 @@ export async function* readRelayTranscriptBytes(
       throw new BinarySessionTranscriptError()
     }
     const input = handle.createReadStream({ start: 0, autoClose: false, signal })
+    // An abort can emit after iterator cleanup; the iterator still propagates read errors.
+    input.on('error', () => {})
     try {
       for await (const chunk of input) {
         throwIfAiVaultScanCancelled(signal)

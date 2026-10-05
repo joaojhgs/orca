@@ -87,7 +87,7 @@ describe('AgentHookServer Codex subagent transcript polling', () => {
       appendFileSync(childPath, line({ type: 'event_msg', payload: { type: 'task_complete' } }))
       await vi.waitFor(
         () => {
-          expect(server.getStatusSnapshot()[0]?.subagents).toBeUndefined()
+          expect(server.getStatusSnapshot()[0]?.subagents?.[0]).toMatchObject({ state: 'idle' })
         },
         { timeout: 2_000, interval: 50 }
       )
@@ -144,7 +144,10 @@ describe('AgentHookServer Codex subagent transcript polling', () => {
       appendFileSync(secondChildPath, complete)
       await vi.waitFor(
         () => {
-          expect(server.getStatusSnapshot()[0]?.subagents).toBeUndefined()
+          expect(server.getStatusSnapshot()[0]?.subagents).toEqual([
+            expect.objectContaining({ state: 'idle' }),
+            expect.objectContaining({ state: 'idle' })
+          ])
         },
         { timeout: 3_000, interval: 50 }
       )
@@ -196,7 +199,7 @@ describe('AgentHookServer Codex subagent transcript polling', () => {
       appendFileSync(childPath, line({ type: 'event_msg', payload: { type: 'task_complete' } }))
       await vi.waitFor(
         () => {
-          expect(server.getStatusSnapshot()[0]?.subagents).toBeUndefined()
+          expect(server.getStatusSnapshot()[0]?.subagents?.[0]).toMatchObject({ state: 'idle' })
         },
         { timeout: 3_000, interval: 50 }
       )

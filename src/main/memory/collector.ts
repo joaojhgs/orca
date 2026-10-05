@@ -33,6 +33,7 @@ import { ORPHAN_WORKTREE_ID } from '../../shared/constants'
 import { listRegisteredPtys } from './pty-registry'
 import { enumerateWindowsProcessResources } from './windows-process-resource-collector'
 import { collectHostMemory } from './host-memory'
+import { collectResourceHosts } from './remote-resource-host-snapshots'
 import { getProcessMemoryMetric } from './process-memory-metric'
 import {
   createEmptyWorktreeMemoryBucket,
@@ -387,6 +388,7 @@ async function runSnapshot(store: MemorySnapshotStore): Promise<MemorySnapshot> 
     app: { ...appBuckets, history: readAppMemoryHistory() },
     worktrees,
     host,
+    hosts: await collectResourceHosts(store, host, worktrees, appBuckets),
     processMemoryMetric: getProcessMemoryMetric(),
     ...snapshotCommitFields(
       processIndex.hasPrivateMemory,

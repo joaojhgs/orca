@@ -25,6 +25,7 @@ import {
 import { useResourceSessionInventory } from './use-resource-session-inventory'
 import { useResourceUsageActions } from './use-resource-usage-actions'
 import { useResourceUsageDerivedModel } from './use-resource-usage-derived-model'
+import { withRemoteResourceSamples } from './remote-resource-samples'
 
 const POLL_MS = 2_000
 
@@ -86,7 +87,7 @@ export function useResourceUsageStatusController() {
   const deferredSshSessionIdsByTabId = useAppStore((s) =>
     getResourceUsageDeferredSshSessionIdsByTabId(s, open)
   )
-  const resourceSnapshot = snapshot
+  const resourceSnapshot = useMemo(() => withRemoteResourceSamples(snapshot), [snapshot])
   // Why: ptyIdsByTabId tracks mounted/live panes only; Resource Manager reads restored wake hints only for classification.
   const resourceSessionBindings = useMemo<ResourceSessionBindingInputs>(
     () => ({

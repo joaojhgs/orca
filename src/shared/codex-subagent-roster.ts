@@ -19,8 +19,9 @@ type TrackedCodexSubagent = {
   agentType?: string
   description?: string
   model?: string
-  state: 'working' | 'waiting'
+  state: 'working' | 'waiting' | 'idle'
   startedAt: number
+  transcriptPath?: string
 }
 
 export function upsertCodexSubagent(
@@ -30,7 +31,8 @@ export function upsertCodexSubagent(
     agentType?: string
     description?: string
     model?: string
-    state: 'working' | 'waiting'
+    state: 'working' | 'waiting' | 'idle'
+    transcriptPath?: string
   },
   now: number
 ): void {
@@ -47,22 +49,37 @@ export function upsertCodexSubagent(
     existing.description = description ?? existing.description
     existing.model = model ?? existing.model
     existing.state = fields.state
+    existing.transcriptPath = fields.transcriptPath ?? existing.transcriptPath
     return
   }
   if (roster.size >= AGENT_STATUS_MAX_SUBAGENTS) {
-    return
+    const completed = [...roster].find(([, tracked]) => tracked.state === 'idle')
+    if (!completed) {
+      return
+    }
+    roster.delete(completed[0])
   }
   roster.set(normalizedId, {
     agentType,
     description,
     model,
     state: fields.state,
-    startedAt: now
+    startedAt: now,
+    transcriptPath: fields.transcriptPath
   })
 }
 
-export function finishCodexSubagent(roster: CodexSubagentRoster, id: string): void {
-  roster.delete(id.trim())
+export function finishCodexSubagent(
+  roster: CodexSubagentRoster,
+  id: string,
+  fields: { transcriptPath?: string } = {}
+): void {
+  const tracked = roster.get(id.trim())
+  if (!tracked) {
+    return
+  }
+  tracked.state = 'idle'
+  tracked.transcriptPath = fields.transcriptPath ?? tracked.transcriptPath
 }
 
 /**
@@ -92,7 +109,7 @@ export function seedCodexSubagentRoster(
   snapshots: readonly AgentSubagentSnapshot[]
 ): void {
   for (const snapshot of snapshots) {
-    if (snapshot.state !== 'working' && snapshot.state !== 'waiting') {
+    if (snapshot.state !== 'working' && snapshot.state !== 'waiting' && snapshot.state !== 'idle') {
       continue
     }
     upsertCodexSubagent(

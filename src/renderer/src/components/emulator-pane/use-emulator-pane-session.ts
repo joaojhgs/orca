@@ -8,7 +8,7 @@ import {
   type SimulatorDeviceRow
 } from './emulator-pane-types'
 import { markSimulatorDeviceBooted, markSimulatorDeviceShutdown } from './emulator-device-state'
-import { toSimulatorDeviceRows, type RawEmulatorDevice } from './emulator-device-row-mapping'
+import { listEmulatorPaneDevices } from './list-emulator-pane-devices'
 import { useEmulatorPaneControls } from './use-emulator-pane-controls'
 import { useEmulatorPaneSessionEvents } from './use-emulator-pane-session-events'
 import {
@@ -66,18 +66,14 @@ export function useEmulatorPaneSession({
     sendGesture,
     sendRotate,
     visualOrientation,
-    resetVisualOrientation
+    resetVisualOrientation,
+    syncVisualOrientationFromStream
   } = useEmulatorPaneControls(worktreeId, refreshStreamKey)
 
   const refreshDevices = useCallback(async (bootedTarget?: string | null) => {
     try {
       // Unified list so Android devices/AVDs appear alongside iOS simulators.
-      const raw = (await callRuntimeRpc(
-        { kind: 'local' },
-        'emulator.listDevices',
-        {}
-      )) as RawEmulatorDevice[]
-      const list = toSimulatorDeviceRows(raw)
+      const list = await listEmulatorPaneDevices()
       const next = markSimulatorDeviceBooted(list, bootedTarget)
       if (!mountedRef.current) {
         return next
@@ -310,6 +306,7 @@ export function useEmulatorPaneSession({
     sendButton,
     sendGesture,
     sendRotate,
+    syncVisualOrientationFromStream,
     visualOrientation,
     displayName: view.displayName,
     previewUrl: view.previewUrl,

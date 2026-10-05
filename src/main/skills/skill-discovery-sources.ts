@@ -103,7 +103,7 @@ export function buildSkillDiscoverySources(
     source(
       'home-opencode',
       'OpenCode home',
-      pathApi.join(home, '.config', 'opencode', 'skills'),
+      providerRootOverrides.opencode ?? pathApi.join(home, '.config', 'opencode', 'skills'),
       'home',
       ['agent-skills'],
       'opencode'
@@ -140,6 +140,14 @@ export function buildSkillDiscoverySources(
       'home',
       ['agent-skills'],
       'gemini'
+    ),
+    source(
+      'home-antigravity-config',
+      'Antigravity config',
+      providerRootOverrides.antigravity ?? pathApi.join(home, '.gemini', 'config', 'skills'),
+      'home',
+      ['agent-skills'],
+      'antigravity'
     ),
     source(
       'home-antigravity',
@@ -283,6 +291,14 @@ export function buildSkillDiscoverySources(
         'repo',
         ['agent-skills'],
         'aug'
+      ),
+      source(
+        `repo-opencode-${stablePathId(repoPath)}`,
+        `${label} .opencode`,
+        pathApi.join(repoPath, '.opencode', 'skills'),
+        'repo',
+        ['agent-skills'],
+        'opencode'
       )
     )
   }

@@ -30,6 +30,46 @@ const item: ArtifactListItem = {
 afterEach(() => vi.restoreAllMocks())
 
 describe('artifact CLI handlers', () => {
+  it('encodes a local PDF without corrupting binary bytes and checks host support', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'orca-artifact-cli-'))
+    const pdf = Buffer.from([37, 80, 68, 70, 45, 49, 46, 52, 10, 255, 0, 128])
+    await writeFile(join(cwd, 'report.pdf'), pdf)
+    const call = vi.fn().mockImplementation(async (method: string) => ({
+      id: 'request-1',
+      ok: true,
+      _meta: { runtimeId: 'runtime-1' },
+      result:
+        method === 'settings.get'
+          ? { settings: { artifactSharingEnabled: true } }
+          : method === 'artifacts.hostingStatus'
+            ? { backend: 'local', supportsPdf: true }
+            : { status: 'ok', value: item }
+    }))
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    await ARTIFACT_HANDLERS['artifacts share']!({
+      client: { call } as never,
+      cwd,
+      flags: new Map([['file', 'report.pdf']]),
+      json: true
+    })
+    expect(call).toHaveBeenCalledWith(
+      'artifacts.share',
+      expect.objectContaining({ content: pdf.toString('base64'), contentType: 'application/pdf' })
+    )
+  })
+
+  it('rejects PDF publishing to old or Cloud hosts before uploading content', async () => {
+    const call = vi.fn().mockResolvedValue({ result: {} })
+    await expect(
+      ARTIFACT_HANDLERS['artifacts share']!({
+        client: { call } as never,
+        cwd: '/does-not-exist',
+        flags: new Map([['file', 'report.pdf']]),
+        json: true
+      })
+    ).rejects.toThrow('updated local artifact server')
+    expect(call).not.toHaveBeenCalledWith('artifacts.share', expect.anything())
+  })
   it('reads a relative HTML file and sends sanitized content to the runtime', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'orca-artifact-cli-'))
     await writeFile(join(cwd, 'report.html'), '<h1>Hi</h1>', 'utf8')
@@ -72,7 +112,7 @@ describe('artifact CLI handlers', () => {
         flags: new Map([['file', 'report.txt']]),
         json: false
       })
-    ).rejects.toThrow(/HTML or Markdown/)
+    ).rejects.toThrow(/HTML, Markdown or PDF/)
     expect(call).not.toHaveBeenCalled()
   })
 

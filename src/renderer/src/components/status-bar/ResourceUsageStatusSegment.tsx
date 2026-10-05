@@ -16,6 +16,7 @@ import {
 } from './resource-usage-popover-body'
 import { renderResourceUsageKillDialog } from './resource-usage-kill-dialog'
 import { WorkspaceSpaceCompactPanel } from './WorkspaceSpaceCompactPanel'
+import { ResourceHostSummary } from './resource-host-summary'
 
 export { SessionRow, WorktreeRow } from './resource-usage-session-rows'
 
@@ -117,6 +118,7 @@ export function ResourceUsageStatusSegment({
             commitToneClass,
             orphanCount
           })}
+        {resourceSnapshot?.hosts ? <ResourceHostSummary hosts={resourceSnapshot.hosts} /> : null}
         {/* Why: fixed 420px height so the popover doesn't jump as worktrees expand/collapse or sessions change; inner tree owns its scroll. */}
         {renderResourceUsagePopoverBody({
           setPopoverBodyNode,

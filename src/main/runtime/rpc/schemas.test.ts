@@ -18,6 +18,7 @@ import {
 } from './methods/browser-schemas'
 import { TERMINAL_METHODS } from './methods/terminal'
 import { TERMINAL_ORPHAN_METHODS } from './methods/terminal-orphan'
+import { REPO_METHODS } from './methods/repo'
 import { WORKTREE_METHODS } from './methods/worktree'
 
 function expectParses(schema: ZodType, value: unknown): void {
@@ -84,6 +85,14 @@ describe('RPC optional pipe schemas', () => {
       linkedLinearIssueOrganizationUrlKey: 'stably'
     })
     expectParses(methodParams(WORKTREE_METHODS, 'worktree.prefetchCreateBase'), { repo: 'repo-1' })
+    expectParses(methodParams(REPO_METHODS, 'repo.add'), {
+      path: '/srv/repo',
+      host: 'ssh:ssh-personal'
+    })
+    expectRejects(methodParams(REPO_METHODS, 'repo.add'), {
+      path: '/srv/repo',
+      host: 'ssh:'
+    })
   })
 
   it('requires complete, bounded orphan adoption claims and a topology revision', () => {

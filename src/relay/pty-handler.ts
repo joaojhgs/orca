@@ -10,6 +10,7 @@ import type * as NodePty from 'node-pty'
 import { existsSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { collectRelayResourceSnapshot } from './resource-snapshot'
 import { resolveWindowsGitBashShellPath } from '../main/git-bash'
 import { isSupportedWindowsShellOverride } from '../shared/windows-terminal-shell'
 import type { RelayDispatcher, RequestContext } from './dispatcher'
@@ -1169,6 +1170,16 @@ export class PtyHandler {
       foregroundProcessEvidenceVersion: 1
     }))
     this.dispatcher.onRequest('pty.listProcesses', (params) => this.listProcesses(params))
+    this.dispatcher.onRequest('resource.snapshot', () =>
+      collectRelayResourceSnapshot(
+        Array.from(this.ptys.values(), (managed) => ({
+          id: managed.id,
+          pid: managed.pty.pid,
+          ...(managed.paneKey ? { paneKey: managed.paneKey } : {}),
+          ...(managed.worktreeId ? { worktreeId: managed.worktreeId } : {})
+        }))
+      )
+    )
     this.dispatcher.onRequest('pty.getDefaultShell', async () => resolveDefaultShell())
     this.dispatcher.onRequest('pty.serialize', (p) => this.serialize(p))
     this.dispatcher.onRequest('pty.revive', (p) => this.revive(p))

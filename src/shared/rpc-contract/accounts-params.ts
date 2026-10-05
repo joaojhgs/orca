@@ -73,6 +73,46 @@ export const ListAccountsParams = z.object({
   refreshUsage: z.boolean().default(true)
 })
 
+const LoginTarget = z.object({
+  runtime: z.enum(['host', 'wsl']).optional(),
+  wslDistro: z.string().max(255).nullable().optional()
+})
+
+export const AccountControlParams = z.discriminatedUnion('operation', [
+  LoginTarget.extend({ operation: z.enum(['claude.add', 'codex.add']) }),
+  z.object({
+    operation: z.enum([
+      'claude.cancelLogin',
+      'codex.cancelLogin',
+      'codex.pendingLoginUrl',
+      'cursor.status',
+      'grok.status',
+      'minimax.status',
+      'minimax.clearCookie',
+      'minimax.clearApiKey'
+    ])
+  }),
+  z.object({
+    operation: z.enum(['claude.reauthenticate', 'codex.reauthenticate']),
+    accountId: z.string().min(1).max(512),
+    activateIfSelectionWasEmpty: z.boolean().optional()
+  }),
+  LoginTarget.extend({
+    operation: z.literal('claude.select'),
+    accountId: z.string().min(1).nullable()
+  }),
+  z.object({
+    operation: z.enum(['codex.stalePanes', 'codex.recordedPaneLanes', 'codex.forgetStalePanes']),
+    ptyIds: z.array(z.string().min(1).max(512)).max(1000)
+  }),
+  z.object({
+    operation: z.enum(['minimax.saveCookie', 'minimax.saveApiKey']),
+    secret: z.string().trim().min(1).max(16384)
+  })
+])
+
+export type AccountControlRequest = z.infer<typeof AccountControlParams>
+
 export const AccountsUnsubscribeParams = z.object({
   subscriptionId: z
     .unknown()

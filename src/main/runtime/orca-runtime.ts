@@ -3,8 +3,70 @@ import { OrcaRuntimeWithResolveWaiter } from './orca-runtime-resolve-waiter'
 import type { RuntimeCommandSurfaceHost } from './orca-runtime-core'
 import { registerWorktreeChangeInvalidator } from '../ipc/worktree-change-invalidators'
 import { registerDetectedWorktreeScanInvalidation } from '../ipc/worktrees/listing/register-detected-worktree-scan-invalidation'
+import {
+  analyzeWorkspaceSpace,
+  WorkspaceSpaceScanCancelledError
+} from '../workspace-space-analysis'
+import type { WorkspaceSpaceAnalyzeResult } from '../../shared/workspace-space-types'
+import type { Store } from '../persistence'
+import type { UsageAnalyticsRequest } from '../../shared/rpc-contract/usage-analytics-params'
+import { controlUsageAnalytics, type UsageAnalyticsStores } from './runtime-usage-analytics'
 
 class OrcaRuntimeService extends OrcaRuntimeWithResolveWaiter {
+  private usageAnalyticsStores: UsageAnalyticsStores | null = null
+
+  setUsageAnalyticsStores(stores: UsageAnalyticsStores): void {
+    this.usageAnalyticsStores = stores
+  }
+
+  controlUsageAnalytics(request: UsageAnalyticsRequest): unknown {
+    if (!this.usageAnalyticsStores) {
+      throw new Error('Usage analytics are unavailable on this runtime')
+    }
+    return controlUsageAnalytics(this.usageAnalyticsStores, request)
+  }
+
+  private workspaceSpaceAbortController: AbortController | null = null
+  private workspaceSpaceAnalysisPromise: Promise<WorkspaceSpaceAnalyzeResult> | null = null
+
+  analyzeWorkspaceSpace(): Promise<WorkspaceSpaceAnalyzeResult> {
+    if (!this.store) {
+      throw new Error('runtime_unavailable')
+    }
+    if (this.workspaceSpaceAnalysisPromise) {
+      return this.workspaceSpaceAnalysisPromise
+    }
+    const controller = new AbortController()
+    this.workspaceSpaceAbortController = controller
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: Both production hosts supply their profile Store; RuntimeStore only narrows its declared surface.
+    const store = this.store as Store
+    const scan = analyzeWorkspaceSpace(store, { signal: controller.signal })
+      .then((analysis): WorkspaceSpaceAnalyzeResult => ({ ok: true, analysis }))
+      .catch((error: unknown): WorkspaceSpaceAnalyzeResult => {
+        if (error instanceof WorkspaceSpaceScanCancelledError) {
+          return { ok: false, cancelled: true }
+        }
+        throw error
+      })
+      .finally(() => {
+        if (this.workspaceSpaceAbortController === controller) {
+          this.workspaceSpaceAbortController = null
+          this.workspaceSpaceAnalysisPromise = null
+        }
+      })
+    this.workspaceSpaceAnalysisPromise = scan
+    return scan
+  }
+
+  cancelWorkspaceSpaceAnalysis(): boolean {
+    const controller = this.workspaceSpaceAbortController
+    if (!controller || controller.signal.aborted) {
+      return false
+    }
+    controller.abort()
+    return true
+  }
+
   constructor(...args: ConstructorParameters<typeof OrcaRuntimeWithResolveWaiter>) {
     super(...args)
     // Why: the runtime listing re-runs a scan the worktree-change generation overtook and re-lists

@@ -1725,6 +1725,27 @@ export class SshConnection {
     }
     const decision = this.reconnectLadder.next(Date.now())
     if (decision.kind === 'give-up') {
+      // Persisted auto-connect targets must not strand their relay after a
+      // container restart or a temporary network outage. The bounded ladder is
+      // useful for explicitly managed connections, but an auto-connect target
+      // should enter a slow background retry instead of requiring a manual
+      // Reconnect click. Explicit disconnect() sets disposed=true and therefore
+      // never reaches this path.
+      if (this.target.connectOnStartup !== false) {
+        this.reconnectLadder.reset()
+        this.state.reconnectAttempt = RECONNECT_BACKOFF_MS.length
+        this.setState('reconnecting')
+        console.warn(
+          `[ssh] Reconnect budget exhausted for ${this.target.label}; continuing automatic retry in ${RECONNECT_BACKOFF_MS.at(-1)}ms`
+        )
+        this.reconnectTimer = setTimeout(async () => {
+          this.reconnectTimer = null
+          if (!this.disposed) {
+            await this.runReconnectAttempt()
+          }
+        }, RECONNECT_BACKOFF_MS.at(-1))
+        return
+      }
       this.setState('reconnection-failed', 'Max reconnection attempts reached')
       return
     }

@@ -278,8 +278,10 @@ describe('WorkspacePortScanner', () => {
     expect(runtimeEnvironmentCall).toHaveBeenLastCalledWith({
       selector: 'env-1',
       method: 'workspacePorts.scan',
-      params: {},
-      timeoutMs: 15_000
+      params: { includeSsh: true },
+      timeoutMs: 60_000,
+      expectedEnvironmentPairingRevision: undefined,
+      expectedEnvironmentRuntimeId: undefined
     })
     const firstPublishedScan = useAppStore.getState().workspacePortScan
     expect(firstPublishedScan).not.toBeNull()
@@ -327,8 +329,10 @@ describe('WorkspacePortScanner', () => {
     expect(runtimeEnvironmentCall).toHaveBeenLastCalledWith({
       selector: 'env-2',
       method: 'workspacePorts.scan',
-      params: {},
-      timeoutMs: 15_000
+      params: { includeSsh: true },
+      timeoutMs: 60_000,
+      expectedEnvironmentPairingRevision: undefined,
+      expectedEnvironmentRuntimeId: undefined
     })
   })
 
@@ -362,8 +366,10 @@ describe('WorkspacePortScanner', () => {
     expect(runtimeEnvironmentCall).toHaveBeenLastCalledWith({
       selector: 'env-2',
       method: 'workspacePorts.scan',
-      params: {},
-      timeoutMs: 15_000
+      params: { includeSsh: true },
+      timeoutMs: 60_000,
+      expectedEnvironmentPairingRevision: undefined,
+      expectedEnvironmentRuntimeId: undefined
     })
     expect(getPublishedRemoteWorktreePorts()).toHaveLength(1)
   })
@@ -408,8 +414,10 @@ describe('WorkspacePortScanner', () => {
       expect(runtimeEnvironmentCall).toHaveBeenLastCalledWith({
         selector: 'env-2',
         method: 'workspacePorts.scan',
-        params: {},
-        timeoutMs: 15_000
+        params: { includeSsh: true },
+        timeoutMs: 60_000,
+        expectedEnvironmentPairingRevision: undefined,
+        expectedEnvironmentRuntimeId: undefined
       })
     } finally {
       restoreVisibilityState()

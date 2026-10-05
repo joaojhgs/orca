@@ -21,8 +21,11 @@ import {
   DEFAULT_POLL_MS
 } from './service-types'
 import { readGrokAuthSession } from '../grok-auth'
+import type { ExecutionAccountUsage } from '../../../shared/execution-observer'
 
 export abstract class RateLimitServiceState {
+  protected executionUsageResolver: (() => ExecutionAccountUsage[]) | null = null
+  protected executionUsageRefresh: (() => Promise<void>) | null = null
   protected state: InternalRateLimitState = {
     claude: null,
     codex: null,

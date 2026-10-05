@@ -77,12 +77,30 @@ export type HostMemory = {
   memoryUsagePercent: number
   cpuCoreCount: number
   loadAverage1m: number
+  cpuUsagePercent?: number
+  diskTotal?: number
+  diskUsed?: number
+  diskAvailable?: number
+  diskUsagePercent?: number
+}
+
+export type ResourceHostSnapshot = {
+  id: string
+  name: string
+  kind: 'local' | 'ssh'
+  connectionId: string | null
+  host: HostMemory | null
+  worktrees: WorktreeMemory[]
+  managedCpu: number
+  managedMemory: number
+  error?: string
 }
 
 export type MemorySnapshot = {
   app: AppMemory
   worktrees: WorktreeMemory[]
   host: HostMemory
+  hosts?: ResourceHostSnapshot[]
   /** Per-process byte metric used by app, session, worktree, history, and totalMemory values. */
   processMemoryMetric: ProcessMemoryMetric
   /**

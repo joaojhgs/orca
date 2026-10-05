@@ -9,6 +9,7 @@ import type { BrowserPageDocLocation } from '../../../../../shared/browser-works
 import { RemoteRuntimeEgressIndicator } from '../assemble-chrome/browser-egress-indicator'
 import { MarkupDrawButton } from '../annotate/MarkupDrawButton'
 import type { MarkupModeController } from '../annotate/useMarkupMode'
+import type { GrabModeHook } from '../annotate/useGrabMode'
 
 export function RemoteBrowserPageToolbar({
   runtimeEnvironmentId,
@@ -22,6 +23,8 @@ export function RemoteBrowserPageToolbar({
   busy,
   loading,
   markup,
+  grab,
+  grabSupported,
   frameUrl,
   isActive,
   onBack,
@@ -40,6 +43,8 @@ export function RemoteBrowserPageToolbar({
   busy: boolean
   loading: boolean
   markup: MarkupModeController
+  grab: GrabModeHook
+  grabSupported: boolean
   frameUrl: string | null
   isActive: boolean
   onBack: () => void
@@ -109,29 +114,24 @@ export function RemoteBrowserPageToolbar({
           <Button
             size="icon"
             variant="ghost"
-            className="h-7 w-7 opacity-50"
-            aria-disabled="true"
-            aria-label={translate(
-              'auto.components.browser.pane.BrowserPane.deb5293610',
-              'Browser annotations unavailable in remote runtime'
-            )}
-            onClick={(event) => {
-              event.preventDefault()
-            }}
+            className="h-7 w-7"
+            disabled={!grabSupported || !frameUrl || markup.isActive}
+            aria-pressed={grab.state !== 'idle' && grab.state !== 'error'}
+            aria-label="Select browser element"
+            onClick={grab.toggle}
           >
             <MessageSquarePlus className="size-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={4}>
-          {translate(
-            'auto.components.browser.pane.BrowserPane.8b7e6d1f5a',
-            'Browser annotations are only available in local browser tabs.'
-          )}
+          {grabSupported
+            ? 'Select browser element'
+            : 'Element selection unavailable on this runtime'}
         </TooltipContent>
       </Tooltip>
       <MarkupDrawButton
         onClick={() => (markup.isActive ? markup.cancel() : void markup.start())}
-        disabled={!frameUrl}
+        disabled={!frameUrl || (grab.state !== 'idle' && grab.state !== 'error')}
         active={markup.isActive}
         surfaceActive={isActive}
         className="h-7 w-7"

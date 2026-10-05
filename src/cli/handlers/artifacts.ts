@@ -4,6 +4,7 @@ import type {
   ArtifactCloudOptions,
   ArtifactListPage,
   ArtifactListItem,
+  ArtifactHostingStatus,
   ArtifactWriteRequest
 } from '../../shared/artifacts'
 import { ARTIFACT_CLI_MAX_RPC_BYTES } from '../../shared/artifacts'
@@ -58,7 +59,9 @@ function artifactContentType(path: string): ArtifactWriteRequest['contentType'] 
     ? 'text/html'
     : ['.md', '.markdown'].includes(extension)
       ? 'text/markdown'
-      : null
+      : extension === '.pdf'
+        ? 'application/pdf'
+        : null
 }
 
 async function readStdinWithinLimit(maxBytes: number): Promise<string> {
@@ -108,12 +111,28 @@ async function readArtifactRequest(ctx: HandlerContext): Promise<ArtifactWriteRe
   const sourceKey = remoteInput?.sourceKey ?? resolve(ctx.cwd, requireStringFlag(ctx, 'file'))
   const contentType = remoteInput?.contentType ?? artifactContentType(sourceKey)
   if (!contentType) {
-    throw new RuntimeClientError('invalid_argument', 'Artifacts must be HTML or Markdown files.')
+    throw new RuntimeClientError(
+      'invalid_argument',
+      'Artifacts must be HTML, Markdown or PDF files.'
+    )
   }
   await preflightPublishCapability(ctx)
+  if (contentType === 'application/pdf') {
+    const response = await ctx.client.call<ArtifactHostingStatus>('artifacts.hostingStatus')
+    if (!response.result.supportsPdf || response.result.backend !== 'local') {
+      throw new RuntimeClientError(
+        'unsupported_operation',
+        'PDF artifacts require an updated local artifact server.'
+      )
+    }
+  }
   const localRead = remoteInput
     ? null
-    : await readArtifactFileWithinLimit(sourceKey, ARTIFACT_CLI_MAX_RPC_BYTES)
+    : await readArtifactFileWithinLimit(
+        sourceKey,
+        ARTIFACT_CLI_MAX_RPC_BYTES,
+        contentType === 'application/pdf' ? 'base64' : 'utf8'
+      )
   if (localRead?.status === 'not-file') {
     throw new RuntimeClientError(
       'invalid_argument',

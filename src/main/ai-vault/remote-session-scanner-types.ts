@@ -18,6 +18,7 @@ export type RemoteScannerContext = {
   executionHostId: ExecutionHostId
   hostPlatform: RemoteHostPlatform
   signal?: AbortSignal
+  onSessionParsed?: (session: AiVaultSession) => void
   titleCaches: Map<string, Promise<Map<string, string>>>
   antigravityWorkspaceResolver: AntigravityWorkspaceResolver
 }

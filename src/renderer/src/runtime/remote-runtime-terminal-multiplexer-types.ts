@@ -150,6 +150,8 @@ export type RemoteRuntimeMultiplexedTerminal = {
 export type RemoteRuntimeMultiplexedTerminalState = {
   streamId: number
   terminal: string
+  client: { id: string; type: 'desktop' | 'mobile' }
+  viewport?: { cols: number; rows: number }
   callbacks: RemoteRuntimeMultiplexedTerminalCallbacks
   subscriptionRequested: boolean
   acknowledgeOutput: boolean

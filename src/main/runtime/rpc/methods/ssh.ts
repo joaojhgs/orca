@@ -39,9 +39,13 @@ export const SSH_METHODS = [
     handler: async (params) => {
       try {
         return { state: getPublicSshState(await connectRegisteredSshTarget(params.targetId)) }
-      } catch {
+      } catch (error) {
         const state = getRegisteredSshState(params.targetId)
-        throw new Error(getPublicSshError(state?.status ?? 'error'))
+        const publicError = getPublicSshError(state?.status ?? 'error')
+        const detail = error instanceof Error ? error.message : String(error)
+        throw new Error(
+          detail && detail !== publicError ? `${publicError}: ${detail}` : publicError
+        )
       }
     }
   }),

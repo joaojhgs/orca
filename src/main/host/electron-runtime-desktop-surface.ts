@@ -1,10 +1,16 @@
 import { BrowserWindow, ipcMain, Notification, powerMonitor } from 'electron'
 import { readDesktopAwayState } from '../notifications/desktop-away-state'
 import type { RuntimeDesktopSurface } from '../runtime/runtime-desktop-surface'
+import { mainProcessState } from '../startup/main-process-state'
 
 /** The desktop implementation of the runtime's optional desktop facilities. */
 export const electronRuntimeDesktopSurface: RuntimeDesktopSurface = {
-  isAwayForMobileNotifications: () => readDesktopAwayState(powerMonitor),
+  isAwayForMobileNotifications: () =>
+    readDesktopAwayState(
+      powerMonitor,
+      mainProcessState.isServeMode &&
+        (!mainProcessState.mainWindow || mainProcessState.mainWindow.isDestroyed())
+    ),
   showNotification: ({ title, body }) => {
     if (!Notification.isSupported()) {
       return false

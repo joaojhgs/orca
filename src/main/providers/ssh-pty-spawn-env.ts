@@ -5,8 +5,24 @@ export function buildSshPtySpawnEnv(args: {
   env: Record<string, string> | undefined
   envToDelete?: readonly string[]
   remoteCliBridgeEnv?: RemoteCliBridgeEnv
+  forwardHostGuiEnv?: boolean
 }): Record<string, string> {
   const merged = { ...args.env }
+  if (args.forwardHostGuiEnv && process.env.ORCA_HEADLESS_GUI_ENV === '1') {
+    for (const key of [
+      'DISPLAY',
+      'XAUTHORITY',
+      'DBUS_SESSION_BUS_ADDRESS',
+      'AT_SPI_BUS_ADDRESS',
+      'XDG_SESSION_TYPE'
+    ]) {
+      const value = process.env[key]
+      if (value) {
+        merged[key] = value
+      }
+    }
+    merged.NO_AT_BRIDGE = '0'
+  }
   if (args.remoteCliBridgeEnv) {
     const pathDelimiter = args.remoteCliBridgeEnv.pathDelimiter ?? ':'
     const pathKey = merged.PATH !== undefined ? 'PATH' : merged.Path !== undefined ? 'Path' : null

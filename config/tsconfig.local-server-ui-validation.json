@@ -1,0 +1,31 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "../src/renderer/src/env.d.ts",
+    "../src/renderer/src/components/stats/StatsPane.tsx",
+    "../src/renderer/src/components/editor/EditorPanel.tsx",
+    "../src/renderer/src/components/artifacts/ArtifactPublishButton.tsx",
+    "../src/renderer/src/web/web-preload-api.ts",
+    "../src/renderer/src/components/settings/ExecutionAccountUsageRows.tsx",
+    "../src/renderer/src/components/settings/ArtifactsSettingsPane.tsx",
+    "../src/renderer/src/components/settings/accounts-pane-claude-section.tsx",
+    "../src/renderer/src/components/settings/accounts-pane-codex-section.tsx",
+    "../src/renderer/src/components/settings/CursorAccountsSection.tsx",
+    "../src/renderer/src/components/settings/accounts-pane-provider-setting-sections.tsx",
+    "../src/renderer/src/components/artifacts/ArtifactPreview.tsx",
+    "../src/renderer/src/components/artifacts/ArtifactsPage.tsx",
+    "../src/renderer/src/components/artifacts/artifact-publish-flow.ts",
+    "../src/renderer/src/components/status-bar/use-status-bar-controller.ts",
+    "../src/renderer/src/components/status-bar/use-available-status-bar-toggles.ts",
+    "../src/renderer/src/components/ports/WorkspacePortScanner.tsx",
+    "../src/renderer/src/web/preload-api/web-agent-accounts-api.ts",
+    "../src/renderer/src/web/preload-api/web-workspace-ports-api.ts"
+  ],
+  "exclude": ["../node_modules", "../src/**/*.test.ts", "../src/**/*.test.tsx"],
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "noEmit": true,
+    "types": ["node", "electron"]
+  }
+}

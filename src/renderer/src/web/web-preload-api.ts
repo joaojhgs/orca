@@ -1,5 +1,5 @@
 import type { PreloadApi } from '../../../preload/api-types'
-import type { StatsSummary } from '../../../shared/process-stats-types'
+import type { MemorySnapshot, StatsSummary } from '../../../shared/process-stats-types'
 import { createWebE2EApi } from './preload-api/web-e2e-api'
 import {
   createClaudeAccountsApi,
@@ -35,6 +35,7 @@ import { createNotificationsApi } from './preload-api/web-notifications-api'
 import { createWebOnboardingApi } from './preload-api/web-onboarding-api'
 import { createWebOrcaProfilesApi } from './preload-api/web-orca-profiles-api'
 import { createWebPlatformApi } from './preload-api/web-platform-api'
+import { createWebProjectGroupsApi } from './preload-api/web-project-groups-api'
 import { createRateLimitsApi } from './preload-api/web-rate-limits-api'
 import { createReposApi } from './preload-api/web-repositories-api'
 import { createHooksApi, createRuntimeNamespaceApi } from './preload-api/web-review-api'
@@ -50,6 +51,7 @@ import { createPtyApi, createSshApi } from './preload-api/web-terminal-api'
 import { createWebUiApi } from './preload-api/web-ui-api'
 import { createUpdaterApi } from './preload-api/web-updater-api'
 import { createWebWorkspacePortsApi } from './preload-api/web-workspace-ports-api'
+import { createWebUsageAnalyticsApi } from './preload-api/web-usage-analytics-api'
 import { createWebWorkspaceSessionApi } from './preload-api/web-workspace-session-api'
 import { createWorktreesApi } from './preload-api/web-worktrees-api'
 import { readStoredWebRuntimeEnvironment } from './web-runtime-environment'
@@ -70,6 +72,7 @@ function createWebPreloadApi(): Partial<PreloadApi> {
     ...createWebOrcaProfilesApi(),
     ...createWebE2EApi(),
     ...createWebSettingsApi(),
+    ...createWebUsageAnalyticsApi(),
     keybindings: createWebKeybindingsApi(),
     ui: createWebUiApi(),
     ...createWebDiagnosticsApi(),
@@ -80,6 +83,7 @@ function createWebPreloadApi(): Partial<PreloadApi> {
     nativeChat: createWebNativeChatApi(),
     runtimeEnvironments: createRuntimeEnvironmentsApi(),
     repos: createReposApi(),
+    projectGroups: createWebProjectGroupsApi(),
     worktrees: createWorktreesApi(),
     fs: createFileApi(),
     git: createGitApi(),
@@ -100,7 +104,16 @@ function createWebPreloadApi(): Partial<PreloadApi> {
         }))
     },
     memory: {
-      getSnapshot: () => Promise.resolve(createEmptyMemorySnapshot())
+      getSnapshot: () =>
+        callRuntimeResult<MemorySnapshot>('diagnostics.memory').catch(() =>
+          createEmptyMemorySnapshot()
+        )
+    },
+    workspaceSpace: {
+      analyze: () => callRuntimeResult('workspaceSpace.analyze', undefined, 10 * 60_000),
+      cancel: () => callRuntimeResult<boolean>('workspaceSpace.cancel'),
+      getCachedAnalysis: () => Promise.resolve(null),
+      onProgress: () => () => {}
     },
     aiVault: createWebAiVaultApi(),
     preflight: createPreflightApi(),

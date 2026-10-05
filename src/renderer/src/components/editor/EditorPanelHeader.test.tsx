@@ -120,22 +120,32 @@ describe('EditorPanelHeader', () => {
       renderHeader({
         isDiffSurface: false,
         isMarkdown: true,
-        createMarkdownArtifactRequest: createRequest
+        createArtifactRequest: createRequest
       })
     ).toContain('data-artifact-publish="true"')
     expect(
       renderHeader({
         isDiffSurface: true,
         isMarkdown: true,
-        createMarkdownArtifactRequest: createRequest
+        createArtifactRequest: createRequest
       })
     ).not.toContain('data-artifact-publish')
     expect(
       renderHeader({
         isDiffSurface: false,
         isMarkdown: false,
-        createMarkdownArtifactRequest: createRequest
+        createArtifactRequest: createRequest
       })
     ).not.toContain('data-artifact-publish')
+  })
+
+  it('offers PDF sharing on file tabs, never on diff surfaces', () => {
+    const props = {
+      activeFile: { ...activeFile, filePath: '/repo/report.pdf', mode: 'edit' as const },
+      createArtifactRequest: vi.fn(),
+      isDiffSurface: false
+    }
+    expect(renderHeader(props)).toContain('data-artifact-publish="true"')
+    expect(renderHeader({ ...props, isDiffSurface: true })).not.toContain('data-artifact-publish')
   })
 })

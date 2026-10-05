@@ -21,7 +21,7 @@ export type ArtifactMetadata = {
   title: string | null
   originalFileName: string | null
   sourceContentType: string
-  renderedContentType: 'text/html'
+  renderedContentType: 'text/html' | 'application/pdf'
   createdAt: string
   updatedAt: string
   expiresAt: string
@@ -42,7 +42,8 @@ export type ArtifactListPage = {
 export type ArtifactWriteRequest = {
   sourceKey: string
   content: string
-  contentType: 'text/html' | 'text/markdown'
+  /** PDFs carry canonical base64; text artifacts carry UTF-8 text. */
+  contentType: 'text/html' | 'text/markdown' | 'application/pdf'
   fileName: string
   title?: string
   apiUrl?: string
@@ -61,6 +62,15 @@ export type ArtifactPublishedLink = {
 export type ArtifactCloudOptions = {
   apiUrl?: string
   authToken?: string
+}
+
+export type ArtifactHostingStatus = {
+  backend: 'local' | 'cloud'
+  identity: string
+  requiresCloudLogin: boolean
+  sharingEnabled: boolean
+  viewerOrigin?: string
+  supportsPdf?: boolean
 }
 
 export type ArtifactListOptions = ArtifactCloudOptions & {

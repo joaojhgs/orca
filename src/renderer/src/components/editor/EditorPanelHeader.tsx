@@ -53,7 +53,7 @@ type EditorPanelHeaderProps = {
   onToggleMarkdownTableOfContents: () => void
   onToggleMarkdownFrontmatter: () => void
   onExportMarkdownToPdf: () => void
-  createMarkdownArtifactRequest?: () => Promise<ArtifactWriteRequest>
+  createArtifactRequest?: () => Promise<ArtifactWriteRequest>
 }
 
 export function EditorPanelHeader({
@@ -88,7 +88,7 @@ export function EditorPanelHeader({
   onToggleMarkdownTableOfContents,
   onToggleMarkdownFrontmatter,
   onExportMarkdownToPdf,
-  createMarkdownArtifactRequest
+  createArtifactRequest
 }: EditorPanelHeaderProps): React.JSX.Element {
   const { comments: diffComments } = useVisibleWorktreeDiffComments(activeFile.worktreeId)
   const activeGroupId = useAppStore((s) => s.activeGroupIdByWorktree[activeFile.worktreeId])
@@ -315,11 +315,13 @@ export function EditorPanelHeader({
           </Tooltip>
         </TooltipProvider>
       )}
-      {isMarkdown && !isDiffSurface && createMarkdownArtifactRequest ? (
+      {(isMarkdown || activeFile.filePath.toLowerCase().endsWith('.pdf')) &&
+      !isDiffSurface &&
+      createArtifactRequest ? (
         <ArtifactPublishButton
           sourceKey={markdownArtifactSourceKey(activeFile)}
           className="size-6 [&_svg]:size-3.5!"
-          createRequest={createMarkdownArtifactRequest}
+          createRequest={createArtifactRequest}
         />
       ) : null}
       <EditorPanelMarkdownActionsMenu

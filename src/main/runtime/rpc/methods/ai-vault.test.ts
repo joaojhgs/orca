@@ -19,6 +19,14 @@ vi.mock('../../../ai-vault/session-scanner-worker-spawn', () => ({
   resolveAiVaultSessionTitlesInWorker,
   resetAiVaultScannerWorkerForTests: vi.fn()
 }))
+vi.mock('../../../ipc/ai-vault', () => ({ listAiVaultSessions: vi.fn() }))
+vi.mock('../../../ipc/ai-vault-search', () => ({
+  searchAiVaultSessionsByHost: vi.fn(),
+  aiVaultSearchStatusByHost: vi.fn()
+}))
+vi.mock('../../../ipc/ai-vault-session-title-routing', () => ({
+  resolveAiVaultSessionTitlesByHost: vi.fn()
+}))
 
 import {
   AI_VAULT_METHODS,
@@ -68,16 +76,22 @@ function makeSession(): AiVaultSession {
   }
 }
 
-function makeDispatcher(): RpcDispatcher {
+function makeDispatcher(
+  overrides: Partial<
+    Pick<OrcaRuntimeService, 'listAiVaultSessions' | 'prepareAiVaultSessionResume'>
+  > = {}
+): RpcDispatcher {
   // Why: the handler only needs getRuntimeId (envelope) + listAiVaultSessions,
   // which delegates to the shared cache module the IPC handler also uses.
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: These dispatcher fixtures implement every method exercised by the registered history handlers; unused service methods are never invoked.
   const runtime = {
     getRuntimeId: () => 'test-runtime',
     ensureStructuredAgentSessionHost: vi.fn(async () => undefined),
     listAiVaultSessions: (args?: Parameters<typeof listAiVaultSessions>[0]) =>
       listAiVaultSessions(args),
     resolveAiVaultSessionTitles: (requests: unknown[], signal?: AbortSignal) =>
-      resolveAiVaultSessionTitlesInWorker(requests, signal)
+      resolveAiVaultSessionTitlesInWorker(requests, signal),
+    ...overrides
   } as unknown as OrcaRuntimeService
   return new RpcDispatcher({ runtime, methods: AI_VAULT_METHODS })
 }
@@ -209,7 +223,7 @@ describe('aiVault.prepareSessionResume', () => {
         agent: 'codex',
         filePath: '/managed/sessions/rollout-a.jsonl',
         codexHome: '/managed',
-        executionHostId: 'ssh:spoofed'
+        executionHostId: 'runtime:spoofed'
       })
     )
 
@@ -225,6 +239,56 @@ describe('aiVault.prepareSessionResume', () => {
 
 // Session history and terminal resume are not chats: a process whose chats are refused still
 // serves them, while any other host failure still fails the request.
+describe('aiVault SSH ownership', () => {
+  it('does not materialize an SSH transcript on the Orca server', async () => {
+    const prepareAiVaultSessionResume = vi.fn()
+    const dispatcher = makeDispatcher({ prepareAiVaultSessionResume })
+    expect(
+      await dispatcher.dispatch(
+        makeRequest('aiVault.prepareSessionResume', {
+          agent: 'codex',
+          executionHostId: 'ssh:personal',
+          filePath: '/remote/session.jsonl',
+          codexHome: null
+        })
+      )
+    ).toMatchObject({ ok: true, result: { useRealCodexHome: false } })
+    expect(prepareAiVaultSessionResume).not.toHaveBeenCalled()
+  })
+  it('forwards host scope and restamps only the local leg of an aggregate', async () => {
+    const remote = {
+      ...makeSession(),
+      id: 'ssh:personal:session',
+      executionHostId: 'ssh:personal' as const
+    }
+    const list = vi.fn().mockResolvedValue({ ...makeResult(), sessions: [makeSession(), remote] })
+    const dispatcher = makeDispatcher({ listAiVaultSessions: list })
+    expect(
+      await dispatcher.dispatch(
+        makeRequest('aiVault.listSessions', {
+          executionHostScope: 'all',
+          executionHostId: 'runtime:browser'
+        })
+      )
+    ).toMatchObject({
+      ok: true,
+      result: {
+        sessions: [
+          { executionHostId: 'runtime:browser' },
+          { id: remote.id, executionHostId: 'ssh:personal' }
+        ]
+      }
+    })
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ executionHostScope: 'all' }))
+    expect(AiVaultListSessionsParams.safeParse({ executionHostScope: 'invalid' }).success).toBe(
+      false
+    )
+    expect(
+      AiVaultListSessionsParams.safeParse({ executionHostScope: 'ssh:personal' }).success
+    ).toBe(true)
+  })
+})
+
 describe('aiVault methods without a structured host', () => {
   const refusal = agentSessionRefusalError(
     'agent_session_journal_unreadable',

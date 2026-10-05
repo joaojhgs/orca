@@ -14,6 +14,7 @@ export type UsageProviderSettings = Pick<
   // requires geminiCliOAuthEnabled — the snapshot mirrors the Gemini fetch,
   // which never yields data while that opt-in is off.
   antigravityUsageConfigured: boolean
+  antigravityAuthConfigured?: boolean
   // Why: MiniMax/Grok sign-in live on disk, not in settings; main sets these each poll.
   minimaxCookieConfigured: boolean
   minimaxApiKeyConfigured: boolean
@@ -80,6 +81,7 @@ export function hasUsageProviderSettings(
     (settings?.codexManagedAccounts?.length ?? 0) > 0 ||
     (settings?.claudeManagedAccounts?.length ?? 0) > 0 ||
     settings?.geminiCliOAuthEnabled === true ||
+    settings?.antigravityAuthConfigured === true ||
     Boolean(settings?.opencodeSessionCookie?.trim()) ||
     settings?.opencodeGoApiKeyConfigured === true ||
     // Antigravity's durable signal requires geminiCliOAuthEnabled, so it is
@@ -117,7 +119,10 @@ export function hasUsageProviderSettingsForProvider(
     // Why: the Antigravity snapshot mirrors the Gemini fetch, which stays
     // 'unavailable' until the user opts into Gemini CLI OAuth. Without that
     // gate the default-on checked item would pin a permanently dead bar.
-    return settings.antigravityUsageConfigured === true && settings.geminiCliOAuthEnabled === true
+    return (
+      settings.antigravityAuthConfigured === true ||
+      (settings.antigravityUsageConfigured === true && settings.geminiCliOAuthEnabled === true)
+    )
   }
   if (providerId === 'minimax') {
     return settings.minimaxCookieConfigured === true || settings.minimaxApiKeyConfigured === true

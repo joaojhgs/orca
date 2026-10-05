@@ -7,6 +7,22 @@ import { GLOBAL_FLAGS, type CommandSpec } from '../args'
 // way to manage Claude and Codex accounts.
 export const ACCOUNT_COMMAND_SPECS: CommandSpec[] = [
   {
+    path: ['account', 'usage'],
+    summary: 'Show account-aware usage from the Orca server and its connected SSH hosts',
+    usage:
+      'orca account usage [--host local|ssh:<name-or-id>|runtime:<name-or-id> | --all-hosts] [--environment <name>] [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'host', 'all-hosts'],
+    notes: [
+      'Defaults to the caller’s execution host (the SSH bridge stamps its target). --all-hosts shows every account; --host selects an execution host, whereas --environment selects an Orca server.',
+      'Matching accounts and identical OpenCode credentials share quota readings. Scoped sources only include the selected host. Shared-account quotas and backoff remain global. Unsupported tracking and disconnected hosts never imply available capacity.'
+    ],
+    examples: [
+      'orca account usage --json',
+      'orca account usage --all-hosts --json',
+      'orca account usage --host ssh:personal-distrobox --json'
+    ]
+  },
+  {
     path: ['account', 'add'],
     summary: 'Add a managed Claude or Codex account by signing in on this Orca host',
     usage: 'orca account add [--agent claude|codex] [--json]',

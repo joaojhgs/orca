@@ -13,11 +13,15 @@ import type { CodexRateLimitResetOutcome, RateLimitState } from '../../shared/ra
 import type { CodexResetCreditExpectedScope } from '../../shared/codex-reset-credit-scope'
 import type { CommitMessageAgentEnvironmentResolvers } from '../text-generation/commit-message-agent-environment'
 import type { ClaudeAccountSelectionTarget } from '../claude-accounts/runtime-selection'
+import type { GlobalSettings } from '../../shared/global-settings-types'
+import type { AccountControlRequest } from '../../shared/rpc-contract/accounts-params'
+import { controlRuntimeAccount } from './runtime-account-control'
 
 export type RuntimeAccountServices = {
   claudeAccounts: ClaudeAccountService
   codexAccounts: CodexAccountService
   rateLimits: RateLimitService
+  getSettings?: () => GlobalSettings
 }
 
 export type AccountsSnapshot = {
@@ -44,6 +48,10 @@ export class RuntimeAccountController {
 
   setServices(services: RuntimeAccountServices): void {
     this.services = services
+  }
+
+  control(request: AccountControlRequest): Promise<unknown> {
+    return controlRuntimeAccount(this.requireServices(), request)
   }
 
   setCommitMessageAgentEnvironment(resolvers: CommitMessageAgentEnvironmentResolvers): void {

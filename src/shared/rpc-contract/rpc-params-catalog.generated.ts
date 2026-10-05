@@ -2,11 +2,7 @@
 // run `pnpm run generate:rpc-params-catalog`.
 import type { z } from 'zod'
 import { AgentSkillShareRequestSchema } from '../agent-skill-sharing-contract'
-import {
-  AiVaultSearchRequestSchema,
-  AiVaultSearchStatusRequestSchema,
-  AiVaultSetSearchEnabledParamsSchema
-} from '../ai-vault-search-contract'
+import { AiVaultSetSearchEnabledParamsSchema } from '../ai-vault-search-contract'
 import {
   BrowserClientFileChannelAbortParams,
   BrowserClientFileChannelReadParams,
@@ -18,6 +14,7 @@ import {
   BrowserNetworkTunnelAttachParams
 } from '../browser-client-host-protocol'
 import { BrowserClientPageMetadataParams } from '../browser-client-page-metadata-protocol'
+import { LocalSkillPublishParams, LocalSkillRevokeParams } from '../local-skill-sharing'
 import {
   PairingGetEndpointsParamsSchema,
   PairingProvisionRelayParamsSchema
@@ -25,6 +22,7 @@ import {
 import { MobileWebBundleChunkParamsSchema } from '../mobile-web-bundle/bundle-rpc-contract'
 import { pluginConsentRequestSchema } from '../plugins/plugin-consent-request'
 import {
+  AccountControlParams,
   AccountsUnsubscribeParams,
   AddClaudeFromConfigDirParams,
   AddCodexFromHomeParams,
@@ -42,6 +40,10 @@ import {
   AiVaultPrepareSessionResumeParams,
   AiVaultSessionTitlesParams
 } from './ai-vault-params'
+import {
+  ArtifactPublishingApprovalCheckParams,
+  ArtifactPublishingApprovalRequestParams
+} from './artifact-publishing-approval-params'
 import { ArtifactsDeleteParams, ListOptions, SourceRequest, WriteRequest } from './artifacts-params'
 import {
   AutomationCreate,
@@ -52,6 +54,12 @@ import {
 } from './automation-params'
 import { CertificateProceed } from './browser-core-params'
 import { MouseClick } from './browser-extras-params'
+import {
+  BrowserWebProxyOpen,
+  GrabAwaitSelection,
+  GrabCaptureScreenshot,
+  GrabSetMode
+} from './browser-grab-params'
 import { BrowserIdentitySet, ProfileCreate } from './browser-identity-params'
 import {
   Check,
@@ -121,7 +129,12 @@ import {
   SaveImageAsTempFile,
   StartImageUpload
 } from './clipboard-params'
-import { ComputerCapabilitiesParams, ComputerPermissionsStatusParams } from './computer-params'
+import {
+  ComputerCapabilitiesParams,
+  ComputerDesktopStreamTicketParams,
+  ComputerDesktopTargetsParams,
+  ComputerPermissionsStatusParams
+} from './computer-params'
 import {
   Click,
   ComputerObserveTarget,
@@ -345,6 +358,7 @@ import {
   WorkspaceSelection
 } from './linear-params'
 import { CreateProject } from './linear-project-create-params'
+import { MulticaListIssues, MulticaListProjects } from './multica-params'
 import { NativeChatSession, NativeChatUnsubscribe } from './native-chat-params'
 import {
   NotificationGetMissedSinceParams,
@@ -399,6 +413,10 @@ import {
 } from './orchestration-worker-release-schemas-params'
 import { WorkerStartParams } from './orchestration-worker-start-params'
 import { WorkerDispatchParams as WorkerDispatchParamsOfOrchestrationWorkerStopParams } from './orchestration-worker-stop-params'
+import {
+  PairingAdministrationDeviceParams,
+  PairingAdministrationQrParams
+} from './pairing-administration-params'
 import {
   PluginInvokeCommandParams,
   PluginReadPanelEntryParams,
@@ -522,6 +540,7 @@ import {
   TerminalUpdateViewport
 } from './terminal-viewport-schemas-params'
 import { UpdaterCheckParams } from './updater-params'
+import { UsageAnalyticsParams } from './usage-analytics-params'
 import { WorkspacePortKillParams, WorkspacePortScanParams } from './workspace-ports-params'
 import { WorktreeCreate, WorktreePrefetchCreateBase } from './worktree-create-params'
 import {
@@ -546,6 +565,17 @@ import {
   SkillRemoveRequestSchema
 } from '../skill-install-contract'
 import {
+  SkillLibraryAssignParams,
+  SkillLibraryAssignmentParams,
+  SkillLibraryDiscoverParams,
+  SkillLibraryImportParams,
+  SkillLibraryPreviewParams,
+  SkillLibraryReconcileParams,
+  SkillLibraryVersionParams,
+  SkillLibraryVersionPreviewParams
+} from '../skill-library-contract'
+import { SkillLibraryLinkParams } from '../skill-library-link-contract'
+import {
   SkillUploadBeginRequestSchema,
   SkillUploadChunkRequestSchema,
   SkillUploadCommitRequestSchema
@@ -558,6 +588,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'accounts.addClaudeFromConfigDir': AddClaudeFromConfigDirParams,
   'accounts.addCodexFromHome': AddCodexFromHomeParams,
   'accounts.consumeCodexResetCredit': ConsumeCodexResetCreditParams,
+  'accounts.control': AccountControlParams,
   'accounts.list': ListAccountsParams,
   'accounts.removeClaude': RemoveAccountParams,
   'accounts.removeCodex': RemoveAccountParams,
@@ -566,6 +597,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'accounts.selectCodexForTarget': SelectCodexAccountForTargetParams,
   'accounts.subscribe': null,
   'accounts.unsubscribe': AccountsUnsubscribeParams,
+  'accounts.usage': null,
   'agent.launch': AgentLaunch,
   'agent.launchReplay': AgentLaunchReplay,
   'agentHooks.prepareCodexForWslPane': PrepareCodexForWslPaneParams,
@@ -606,11 +638,11 @@ export const RPC_PARAMS_BY_METHOD = {
   'aiVault.listSessions': AiVaultListSessionsParams,
   'aiVault.prepareSessionResume': AiVaultPrepareSessionResumeParams,
   'aiVault.resolveSessionTitles': AiVaultSessionTitlesParams,
-  'aiVault.searchSessions': AiVaultSearchRequestSchema,
-  'aiVault.searchStatus': AiVaultSearchStatusRequestSchema,
   'aiVault.setSearchEnabled': AiVaultSetSearchEnabledParamsSchema,
+  'artifacts.authStatus': null,
   'artifacts.delete': ArtifactsDeleteParams,
   'artifacts.getPublishedLink': SourceRequest,
+  'artifacts.hostingStatus': null,
   'artifacts.list': ListOptions,
   'artifacts.publish': WriteRequest,
   'artifacts.share': WriteRequest,
@@ -657,6 +689,10 @@ export const RPC_PARAMS_BY_METHOD = {
   'browser.geolocation': Geolocation,
   'browser.get': Get,
   'browser.goto': Goto,
+  'browser.grab.awaitSelection': GrabAwaitSelection,
+  'browser.grab.cancel': BrowserTarget,
+  'browser.grab.captureScreenshot': GrabCaptureScreenshot,
+  'browser.grab.setMode': GrabSetMode,
   'browser.highlight': Highlight,
   'browser.hover': Element,
   'browser.identity.get': null,
@@ -714,6 +750,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'browser.upload': Upload,
   'browser.viewport': Viewport,
   'browser.wait': Wait,
+  'browser.webProxyOpen': BrowserWebProxyOpen,
   'clipboard.abortImageUpload': AbortImageUpload,
   'clipboard.appendImageUploadChunk': AppendImageUploadChunk,
   'clipboard.commitImageUpload': CommitImageUpload,
@@ -721,6 +758,8 @@ export const RPC_PARAMS_BY_METHOD = {
   'clipboard.startImageUpload': StartImageUpload,
   'computer.capabilities': ComputerCapabilitiesParams,
   'computer.click': Click,
+  'computer.desktopStreamTicket': ComputerDesktopStreamTicketParams,
+  'computer.desktopTargets': ComputerDesktopTargetsParams,
   'computer.drag': DragOfComputerSchemasParams,
   'computer.getAppState': ComputerObserveTarget,
   'computer.hotkey': Hotkey,
@@ -749,6 +788,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'emulator.logcat': LogcatParams,
   'emulator.permissions': PermissionsParams,
   'emulator.rotate': RotateParams,
+  'emulator.screenshot': AxParams,
   'emulator.shutdown': ShutdownParams,
   'emulator.tap': TapParams,
   'emulator.type': TypeParams,
@@ -976,6 +1016,9 @@ export const RPC_PARAMS_BY_METHOD = {
   'mobileWeb.bundle.chunk': MobileWebBundleChunkParamsSchema,
   'mobileWeb.bundle.manifest': null,
   'mobileWeb.bundle.range': MobileWebBundleChunkParamsSchema,
+  'multica.listIssues': MulticaListIssues,
+  'multica.listProjects': MulticaListProjects,
+  'multica.listWorkspaces': null,
   'nativeChat.readSession': NativeChatSession,
   'nativeChat.subscribe': NativeChatSession,
   'nativeChat.unsubscribe': NativeChatUnsubscribe,
@@ -1025,6 +1068,13 @@ export const RPC_PARAMS_BY_METHOD = {
   'orchestration.workerStart': WorkerStartParams,
   'orchestration.workerStop': WorkerDispatchParamsOfOrchestrationWorkerStopParams,
   'orchestration.workerTerminalUserInput': OrchestrationWorkerTerminalUserInputParams,
+  'pairing.admin.getPairingQR': PairingAdministrationQrParams,
+  'pairing.admin.isWebSocketReady': null,
+  'pairing.admin.listDevices': null,
+  'pairing.admin.listNetworkInterfaces': null,
+  'pairing.admin.listRuntimeAccessGrants': null,
+  'pairing.admin.revokeDevice': PairingAdministrationDeviceParams,
+  'pairing.admin.revokeRuntimeAccess': PairingAdministrationDeviceParams,
   'pairing.getEndpoints': PairingGetEndpointsParamsSchema,
   'pairing.provisionRelay': PairingProvisionRelayParamsSchema,
   'plugins.consent': pluginConsentRequestSchema,
@@ -1089,9 +1139,11 @@ export const RPC_PARAMS_BY_METHOD = {
   'session.tabs.unsubscribe': SessionTabsUnsubscribe,
   'session.tabs.unsubscribeAll': SessionTabsUnsubscribeAllParams,
   'session.tabs.updatePaneLayout': UpdatePaneLayout,
+  'settings.checkArtifactPublishingApproval': ArtifactPublishingApprovalCheckParams,
   'settings.get': null,
   'settings.getTerminalQuickCommands': null,
   'settings.mutateNativeChatSessionOptions': NativeChatSessionOptionsMutation,
+  'settings.requestArtifactPublishingApproval': ArtifactPublishingApprovalRequestParams,
   'settings.update': SettingsUpdate,
   'settings.updatePRBotAuthorOverride': PRBotAuthorOverrideUpdate,
   'settings.updateTerminalQuickCommands': TerminalQuickCommandsUpdate,
@@ -1104,6 +1156,19 @@ export const RPC_PARAMS_BY_METHOD = {
   'skills.getInstallProgress': SkillsGetInstallProgressParams,
   'skills.install': SkillInstallRequestSchema,
   'skills.installBundle': SkillBundleInstallRequestSchema,
+  'skills.library.assign': SkillLibraryAssignParams,
+  'skills.library.deleteVersion': SkillLibraryVersionParams,
+  'skills.library.discover': SkillLibraryDiscoverParams,
+  'skills.library.discoverUrl': SkillLibraryLinkParams,
+  'skills.library.import': SkillLibraryImportParams,
+  'skills.library.list': null,
+  'skills.library.listShares': null,
+  'skills.library.preview': SkillLibraryPreviewParams,
+  'skills.library.previewVersion': SkillLibraryVersionPreviewParams,
+  'skills.library.reconcile': SkillLibraryReconcileParams,
+  'skills.library.revokeShare': LocalSkillRevokeParams,
+  'skills.library.share': LocalSkillPublishParams,
+  'skills.library.unassign': SkillLibraryAssignmentParams,
   'skills.listManagedInstalls': null,
   'skills.previewDelete': SkillDeleteRequestSchema,
   'skills.previewInstall': SkillInstallPreviewRequestSchema,
@@ -1170,8 +1235,11 @@ export const RPC_PARAMS_BY_METHOD = {
   'updater.download': null,
   'updater.getStatus': null,
   'updater.install': null,
+  'usage.analytics': UsageAnalyticsParams,
   'workspacePorts.kill': WorkspacePortKillParams,
   'workspacePorts.scan': WorkspacePortScanParams,
+  'workspaceSpace.analyze': null,
+  'workspaceSpace.cancel': null,
   'worktree.activate': WorktreeActivate,
   'worktree.create': WorktreeCreate,
   'worktree.detectedList': WorktreeDetectedListParams,
@@ -1194,6 +1262,8 @@ export const RPC_PARAMS_BY_METHOD = {
 // Why: these methods bind a schema the shared contract cannot hold because its value
 // graph reaches into src/main. Listing them keeps the gap visible instead of absent.
 export const RPC_METHODS_WITHOUT_SHARED_PARAMS: readonly string[] = [
+  'aiVault.searchSessions',
+  'aiVault.searchStatus',
   'emulator.install',
   'orchestration.send',
   'orchestration.taskUpdate'

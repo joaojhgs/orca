@@ -12,7 +12,7 @@ export function createWebRuntimeApi(): NonNullable<Partial<PreloadApi>['runtime'
   return {
     syncWindowGraph: async (_graph: RuntimeSyncWindowGraph) => getRemoteRuntimeStatus(),
     getStatus: () => getRemoteRuntimeStatus(),
-    call: ({ method, params }) => callRuntimeEnvelope(method, params),
+    call: ({ method, params, timeoutMs }) => callRuntimeEnvelope(method, params, timeoutMs),
     subscribe: async ({ method, params }, callback) => {
       const environment = requireActiveEnvironment()
       const subscription = await getClientForEnvironment(environment).subscribe(method, params, {

@@ -17,6 +17,7 @@ import {
 } from '../ui/dropdown-menu'
 import { AgentIcon } from '@/lib/agent-catalog'
 import { getIntlLocale, translate } from '@/i18n/i18n'
+import { ExecutionAccountUsageRows } from '../settings/ExecutionAccountUsageRows'
 export { getStatsPaneSearchEntries } from './stats-search'
 
 function formatDuration(ms: number): string {
@@ -104,6 +105,7 @@ function UsageAnalyticsOptionIcon({ tab }: { tab: UsageTab }): React.JSX.Element
 export function StatsPane(): React.JSX.Element {
   const summary = useAppStore((s) => s.statsSummary)
   const fetchStatsSummary = useAppStore((s) => s.fetchStatsSummary)
+  const fetchRateLimits = useAppStore((s) => s.fetchRateLimits)
   const recordFeatureInteraction = useAppStore((s) => s.recordFeatureInteraction)
   const [activeUsageTab, setActiveUsageTab] = useState<UsageTab>('overview')
   const activeUsageOption =
@@ -113,10 +115,23 @@ export function StatsPane(): React.JSX.Element {
   useEffect(() => {
     recordFeatureInteraction('usage-tracking')
     void fetchStatsSummary()
-  }, [fetchStatsSummary, recordFeatureInteraction])
+    void fetchRateLimits()
+  }, [fetchStatsSummary, fetchRateLimits, recordFeatureInteraction])
 
   return (
     <div className="space-y-5">
+      <section className="space-y-4" data-testid="usage-tracking-live-quotas">
+        <h3 className="text-sm font-semibold">
+          {translate('settings.usage.liveQuotas', 'Live account quotas')}
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          {translate(
+            'settings.usage.liveQuotasDescription',
+            'Subscription and provider limits across this server and its SSH hosts. Matching accounts are deduplicated; unavailable quotas show their actual status.'
+          )}
+        </p>
+        <ExecutionAccountUsageRows />
+      </section>
       {summary ? (
         <div className="space-y-3">
           {summary.totalAgentsSpawned === 0 && summary.totalPRsCreated === 0 ? (
@@ -159,6 +174,12 @@ export function StatsPane(): React.JSX.Element {
       ) : null}
 
       <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          {translate(
+            'settings.usage.historySource',
+            'Token and cost history below is scanned from logs on the connected Orca server. SSH account quotas are shown above; remote session-log history is not included.'
+          )}
+        </p>
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold text-foreground">
             {translate('auto.components.stats.StatsPane.c79f073d4c', 'Usage Analytics')}

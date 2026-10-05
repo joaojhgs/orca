@@ -11,8 +11,37 @@ import { FeatureInteractionIdParam, UiUpdate } from './client-ui-schemas'
 // the typecheck graph so drift fails the build instead of a paired client.
 
 import { TerminalQuickCommandsUpdate } from './terminal-quick-command-rpc-schema'
+import {
+  ArtifactPublishingApprovalRequestParams,
+  ArtifactPublishingApprovalCheckParams
+} from '../../../../shared/rpc-contract/artifact-publishing-approval-params'
+import type { RpcContext } from '../core'
+
+function approvalOwner(context: RpcContext): string {
+  const owner = context.pairedDeviceId ?? context.clientId
+  if (context.clientKind !== 'runtime' || !owner) {
+    throw new Error('Publishing approval requests require a paired full-runtime client.')
+  }
+  return owner
+}
 
 export const CLIENT_UI_METHODS = [
+  defineMethod({
+    name: 'settings.requestArtifactPublishingApproval',
+    params: ArtifactPublishingApprovalRequestParams,
+    handler: (params, context) =>
+      context.runtime.requestArtifactPublishingApproval(params.enabled, approvalOwner(context))
+  }),
+  defineMethod({
+    name: 'settings.checkArtifactPublishingApproval',
+    params: ArtifactPublishingApprovalCheckParams,
+    handler: async (params, context) => ({
+      status: await context.runtime.checkArtifactPublishingApproval(
+        params.requestId,
+        approvalOwner(context)
+      )
+    })
+  }),
   defineMethod({
     name: 'settings.get',
     params: null,

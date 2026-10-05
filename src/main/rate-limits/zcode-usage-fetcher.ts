@@ -183,10 +183,20 @@ export async function fetchZcodeRateLimits(
   options: {
     configPath?: string
     signal?: AbortSignal
+    /** Read-only OpenCode credential adapter, restricted to the same Z.ai quota API. */
+    openCodeApiKey?: string
   } = {}
 ): Promise<ProviderRateLimits> {
   const configPath = options.configPath ?? join(homedir(), '.zcode', 'cli', 'config.json')
-  const credentials = readCredentials(configPath)
+  const key = options.openCodeApiKey?.trim()
+  const credentials =
+    key && !/[\r\n]/.test(key)
+      ? {
+          apiKey: key,
+          quotaUrl: 'https://api.z.ai/api/monitor/usage/quota/limit',
+          authProvenance: createHmac('sha256', CREDENTIAL_IDENTITY_KEY).update(key).digest('hex')
+        }
+      : readCredentials(configPath)
   if (!credentials) {
     return unavailable('ZCode Coding Plan credentials are not configured')
   }
@@ -270,7 +280,7 @@ export async function fetchZcodeRateLimits(
     status: 'ok',
     usageMetadata: {
       source: 'web',
-      credentialSource: configPath,
+      credentialSource: key ? 'OpenCode Z.ai credentials' : configPath,
       authProvenance: credentials.authProvenance
     }
   }

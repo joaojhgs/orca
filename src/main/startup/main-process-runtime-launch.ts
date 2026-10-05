@@ -1,4 +1,6 @@
 import { app, powerMonitor, type BrowserWindow } from 'electron'
+import { registerSshHandlers } from '../ipc/ssh'
+import { reconnectHeadlessSshTargets } from './headless-ssh-autoconnect'
 import { is } from '@electron-toolkit/utils'
 import { getOrcaCloudAuthConfig } from '../orca-profiles/profile-cloud-auth-config'
 import { getProfileUserDataPath } from '../orca-profiles/profile-storage-paths'
@@ -91,7 +93,8 @@ function installRuntimeRpc(
           preferPinnedWsPort: true
         }
       : {}),
-    webClientRoot: getBundledWebClientRoot()
+    webClientRoot: getBundledWebClientRoot(),
+    advertisedPairingAddress: serveOptions?.pairingAddress ?? undefined
   })
   state.runtimeRpc = runtimeRpc
   registerMobileHandlers(runtimeRpc, {
@@ -137,6 +140,7 @@ async function launchServeMode(
   // Why: headless PTYs must not start on the fallback provider, then get swept when an activated renderer registers desktop lifecycle handlers.
   await state.localPtyStartupReady
   await state.localPtyProviderStartupReady
+  const { sshStore } = registerSshHandlers(state.store!, () => null, runtime)
   await registerHeadlessPtyRuntime(
     runtime,
     prepareCodexRuntimeHomeForLaunch,
@@ -162,8 +166,9 @@ async function launchServeMode(
     console.error('[runtime] Failed to start headless RPC transport:', error)
     throw error
   })
-  // Why: a phone paired to a headless host still registers and unregisters its token;
-  // it simply never receives a push, because nothing dispatches notifications here.
+  reconnectHeadlessSshTargets(sshStore)
+  // Headless notification delivery consumes the host's accepted status and bell
+  // evidence without relying on a renderer to dispatch completion notifications.
   startDesktopPushService(runtimeRpc)
   settleDesktopActivation()
   // Why: every attempt must reach app.quit(); a page beforeunload can veto an earlier signal.

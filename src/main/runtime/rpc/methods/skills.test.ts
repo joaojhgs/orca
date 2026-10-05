@@ -10,6 +10,7 @@ vi.mock('../../../skills/skill-discovery-target', () => ({
   discoverSkillsOnTarget: vi.fn(async () => ({ skills: [], sources: [], scannedAt: 1 }))
 }))
 import { SKILL_METHODS } from './skills'
+import { SKILL_LIBRARY_METHODS } from './skill-library'
 import {
   discoverSkillsOnTarget,
   resolveSkillDiscoveryTarget
@@ -265,6 +266,23 @@ describe('skills.share RPC', () => {
     }))
   })
 
+  it('keeps the human approval gate in local CLI sharing before reading imported snapshots', async () => {
+    const context = makeContext({})
+    const getLocalSkillLibrary = vi.fn()
+    Object.assign(context.runtime, {
+      assertAgentSkillSharingAllowed: vi.fn(),
+      getArtifactHostingStatus: async () => ({
+        backend: 'local',
+        sharingEnabled: false,
+        viewerOrigin: 'http://localhost'
+      }),
+      getLocalSkillLibrary
+    })
+    await expect(method('skills.share').handler(request, context)).rejects.toThrow()
+    expect(getLocalSkillLibrary).not.toHaveBeenCalled()
+    expect(discoverSkillsOnTarget).not.toHaveBeenCalled()
+  })
+
   it('checks permission before discovery', async () => {
     const denial = new Error('denied')
     const assertAgentSkillSharingAllowed = vi.fn(() => {
@@ -292,7 +310,8 @@ describe('skills.share RPC', () => {
       resolveProjectRuntimeForWorktree: vi.fn(),
       resolveSkillDiscoveryProviderRoots: vi.fn(async () => ({})),
       listRepos: vi.fn(() => []),
-      publishDiscoveredSkillsFromAgent
+      publishDiscoveredSkillsFromAgent,
+      getArtifactHostingStatus: vi.fn(async () => ({ backend: 'cloud' }))
     }
     const signal = new AbortController().signal
 
@@ -315,7 +334,8 @@ describe('skills.share RPC', () => {
     })
     const runtime = {
       assertAgentSkillSharingAllowed: vi.fn(),
-      resolveProjectRuntimeForWorktree: vi.fn()
+      resolveProjectRuntimeForWorktree: vi.fn(),
+      getArtifactHostingStatus: vi.fn(async () => ({ backend: 'cloud' }))
     }
 
     await expect(
@@ -336,6 +356,58 @@ describe('skills.share RPC', () => {
       } as unknown as RpcContext)
     ).rejects.toMatchObject({ code: 'agent_skill_sharing_unsupported_environment' })
     expect(discoverSkillsOnTarget).not.toHaveBeenCalled()
+  })
+})
+
+describe('imported local skill share RPC approval', () => {
+  const publish = eraseRpcMethods(SKILL_LIBRARY_METHODS).find(
+    (entry) => entry.name === 'skills.library.share'
+  )!
+  const request = {
+    versionIds: ['00000000-0000-4000-8000-000000000001'],
+    bundleName: 'test',
+    reviewed: true
+  }
+  it('checks the independent agent gate before hosting or library access', async () => {
+    const context = makeContext({})
+    const hosting = vi.fn()
+    Object.assign(context.runtime, {
+      assertAgentSkillSharingAllowed: () => {
+        throw new Error('agent-denied')
+      },
+      getArtifactHostingStatus: hosting
+    })
+    await expect(publish.handler(request, context)).rejects.toThrow('agent-denied')
+    expect(hosting).not.toHaveBeenCalled()
+  })
+  it('paired human UI still needs the existing artifact publishing approval', async () => {
+    const context = makeContext({})
+    context.clientKind = 'runtime'
+    const agentGate = vi.fn()
+    const library = vi.fn()
+    Object.assign(context.runtime, {
+      assertAgentSkillSharingAllowed: agentGate,
+      getArtifactHostingStatus: async () => ({
+        backend: 'local',
+        sharingEnabled: false,
+        viewerOrigin: 'http://localhost'
+      }),
+      getLocalSkillLibrary: library
+    })
+    await expect(publish.handler(request, context)).rejects.toThrow()
+    expect(agentGate).not.toHaveBeenCalled()
+    expect(library).not.toHaveBeenCalled()
+  })
+  it('never silently uploads to Cloud when local hosting is unavailable', async () => {
+    const context = makeContext({})
+    context.clientKind = 'mobile'
+    const library = vi.fn()
+    Object.assign(context.runtime, {
+      getArtifactHostingStatus: async () => ({ backend: 'cloud' }),
+      getLocalSkillLibrary: library
+    })
+    await expect(publish.handler(request, context)).rejects.toThrow('No Cloud upload was attempted')
+    expect(library).not.toHaveBeenCalled()
   })
 })
 

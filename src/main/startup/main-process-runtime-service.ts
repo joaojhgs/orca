@@ -3,6 +3,7 @@ import {
   installChildSessionSearchService
 } from '../ai-vault-search/session-search-enablement'
 import { LOCAL_EXECUTION_HOST_ID } from '../../shared/execution-host'
+import { createHeadlessNotificationDelivery } from '../notifications/headless-notification-delivery'
 import { sessionSearchScopeCatalogFromStore } from '../ai-vault-search/session-search-store-scope-catalog'
 import { getCanonicalUserDataPath } from '../persistence/loading-store/user-data-path'
 import { app } from 'electron'
@@ -26,6 +27,9 @@ import { mainProcessState as state } from './main-process-state'
 import { prepareCodexRuntimeHomeForLaunch } from './codex-launch-preparation'
 import type { RuntimeDesktopWindowStatus } from '../../shared/runtime-types'
 import { ArtifactCloudService } from '../artifacts/artifact-cloud-service'
+import { LocalArtifactService } from '../artifacts/local-artifact-service'
+import { ExecutionAccountUsageService } from '../rate-limits/execution-account-usage-service'
+import { getUsageExecutionHosts } from '../execution-observer/usage-execution-hosts'
 import { SkillCloudService } from '../skills/skill-cloud-service'
 import { isArtifactSharingEnabled } from '../../shared/artifact-sharing-gate'
 import {
@@ -73,6 +77,7 @@ export function initializeMainProcessRuntime(): OrcaRuntimeService {
   // Why here and not in the window listener: `subscribeEnrichedStatus` also fires under headless
   // `orca serve`, which never opens one, and the fleet path runs there too.
   const observedPaneIdentities = new AgentStatusObservedPaneIdentities()
+  let headlessNotifications: ReturnType<typeof createHeadlessNotificationDelivery> | null = null
   const runtime = new OrcaRuntimeService(store, stats, {
     prepareClaudeAuth: (target) => state.claudeRuntimeAuth!.prepareForClaudeLaunch(target),
     agentSessionClaimSigner: loadAgentSessionClaimSigner(
@@ -87,6 +92,7 @@ export function initializeMainProcessRuntime(): OrcaRuntimeService {
     onTerminalAgentStatus: (event) => agentHookServer.ingestTerminalStatus(event),
     // Why: serve can be promoted in place, so wire the listener from startup; runtime enables desktop-only scanners only for a ready renderer.
     onTerminalSideEffects: (batch: TerminalSideEffectBatch) => {
+      headlessNotifications?.sideEffects(batch)
       if (state.mainWindow && !state.mainWindow.isDestroyed()) {
         state.mainWindow.webContents.send('pty:sideEffect', batch)
       }
@@ -163,6 +169,12 @@ export function initializeMainProcessRuntime(): OrcaRuntimeService {
   })
   app.once('will-quit', () => sessionSearch?.dispose())
   state.runtime = runtime
+  headlessNotifications = createHeadlessNotificationDelivery({
+    enabled: () => state.isServeMode && (!state.mainWindow || state.mainWindow.isDestroyed()),
+    settings: () => store.getSettings().notifications,
+    dispatch: (event) => runtime.dispatchMobileNotification(event)
+  })
+  agentHookServer.subscribeEnrichedStatus((event) => headlessNotifications?.status(event))
   agentHookServer.subscribeEnrichedStatus((enriched) =>
     recordObservedAgentStatusPaneIdentity(observedPaneIdentities, enriched.paneKey, runtime)
   )
@@ -180,16 +192,58 @@ export function configureRuntimeServices(runtime: OrcaRuntimeService): void {
   const claudeAccounts = state.claudeAccounts
   const codexAccounts = state.codexAccounts
   const rateLimits = state.rateLimits
+  const { claudeUsage, codexUsage, openCodeUsage, museUsage } = state
+  if (!claudeUsage || !codexUsage || !openCodeUsage || !museUsage) {
+    throw new Error('Usage analytics must be initialized before runtime wiring')
+  }
+  runtime.setUsageAnalyticsStores({
+    claude: claudeUsage,
+    codex: codexUsage,
+    opencode: openCodeUsage,
+    muse: museUsage
+  })
   if (!store || !claudeAccounts || !codexAccounts || !rateLimits) {
     throw new Error('Account services must be initialized before runtime wiring')
   }
-  runtime.setArtifactService(
-    new ArtifactCloudService(app.getPath('userData'), () =>
-      isArtifactSharingEnabled(state.store?.getSettings())
-    )
+  const sharingEnabled = () => isArtifactSharingEnabled(state.store?.getSettings())
+  const executionUsage = new ExecutionAccountUsageService(
+    () => getUsageExecutionHosts(store),
+    () => rateLimits.publishExecutionUsageChange()
   )
+  rateLimits.setExecutionUsageSource(
+    () => executionUsage.getState(),
+    () => executionUsage.refresh()
+  )
+  executionUsage.start()
+  app.once('will-quit', () => executionUsage.stop())
+  if (process.env.ORCA_ARTIFACTS_BACKEND === 'local') {
+    const port = Number(process.env.ORCA_LOCAL_ARTIFACTS_PORT ?? '6769')
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      throw new Error('Invalid local artifact port')
+    }
+    const service = new LocalArtifactService(app.getPath('userData'), sharingEnabled, {
+      bindHost: process.env.ORCA_LOCAL_ARTIFACTS_BIND_HOST ?? '127.0.0.1',
+      port,
+      publicOrigin: process.env.ORCA_LOCAL_ARTIFACTS_PUBLIC_URL
+    })
+    app.once('will-quit', () => {
+      void service.dispose()
+    })
+    runtime.setArtifactService(service)
+    // Why: published links must survive a restart without someone reopening Artifacts first.
+    void service.hostingStatus().catch(() => {
+      console.error('[local-artifacts] Viewer startup failed')
+    })
+  } else {
+    runtime.setArtifactService(new ArtifactCloudService(app.getPath('userData'), sharingEnabled))
+  }
   runtime.setSkillCloudService(new SkillCloudService(app.getPath('userData')))
-  runtime.setAccountServices({ claudeAccounts, codexAccounts, rateLimits })
+  runtime.setAccountServices({
+    claudeAccounts,
+    codexAccounts,
+    rateLimits,
+    getSettings: () => store.getSettings()
+  })
   runtime.setCommitMessageAgentEnvironmentResolvers({
     // Why: Codex hooks/auth live in Orca's managed runtime home even for the default path, so every launch must resolve CODEX_HOME via runtime-home.
     prepareForCodexLaunch: prepareCodexRuntimeHomeForLaunch,

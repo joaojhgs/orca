@@ -3,6 +3,7 @@ import type { OpenFile } from '@/store/slices/editor'
 import {
   createCurrentMarkdownArtifactRequest,
   createMarkdownArtifactRequest,
+  createPdfArtifactRequest,
   markdownArtifactSourceKey
 } from './markdown-artifact-upload'
 
@@ -37,6 +38,15 @@ function openFile(overrides: Partial<OpenFile> = {}): OpenFile {
 }
 
 describe('Markdown artifact upload', () => {
+  it('preserves binary PDF content and SSH source identity', () => {
+    const file = openFile({ filePath: '/repo/report.pdf', externalSshTargetId: 'personal' })
+    expect(createPdfArtifactRequest(file, 'JVBERi0xLjQ=')).toEqual({
+      sourceKey: JSON.stringify(['ssh', 'personal', '/repo/report.pdf']),
+      fileName: 'report.pdf',
+      contentType: 'application/pdf',
+      content: 'JVBERi0xLjQ='
+    })
+  })
   it('uses the ordinary file path for local and folder workspaces', () => {
     expect(markdownArtifactSourceKey(openFile())).toBe('/repo/notes.md')
     expect(createMarkdownArtifactRequest(openFile(), '# Draft')).toEqual({

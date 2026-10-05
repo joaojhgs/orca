@@ -6,7 +6,6 @@ import { e2eDisableRemoteTerminalStallRecovery } from '@/lib/e2e-config'
 import { recordRendererCrashBreadcrumb } from '@/lib/crash-breadcrumb-recorder'
 import { RemoteRuntimeTerminalBinaryController } from './remote-runtime-terminal-binary-controller'
 import {
-  CONTROL_STREAM_ID,
   clearResyncTimer,
   discardOutputAcknowledgements,
   rejectPendingSnapshotRequest
@@ -29,6 +28,8 @@ export class RemoteRuntimeTerminalMultiplexer extends RemoteRuntimeTerminalBinar
     const state: RemoteRuntimeMultiplexedTerminalState = {
       streamId,
       terminal: args.terminal,
+      client: args.client,
+      viewport: args.viewport,
       callbacks: args.callbacks,
       subscriptionRequested: false,
       acknowledgeOutput: true,
@@ -84,17 +85,22 @@ export class RemoteRuntimeTerminalMultiplexer extends RemoteRuntimeTerminalBinar
     const stream: RemoteRuntimeMultiplexedTerminal = {
       streamId,
       sendInput: (text) => this.isRegisteredStream(state) && this.sendInput(state, text),
-      resize: (cols, rows) =>
-        this.isRegisteredStream(state) &&
-        this.sendFrame(
-          streamId,
-          TerminalStreamOpcode.Resize,
-          encodeTerminalStreamJson({ cols, rows })
-        ),
+      resize: (cols, rows) => {
+        state.viewport = { cols, rows }
+        return (
+          this.isRegisteredStream(state) &&
+          this.sendFrame(
+            streamId,
+            TerminalStreamOpcode.Resize,
+            encodeTerminalStreamJson({ cols, rows })
+          )
+        )
+      },
       claimViewport: (cols, rows) => {
         if (!this.isRegisteredStream(state)) {
           return false
         }
+        state.viewport = { cols, rows }
         const claimed = this.sendFrame(
           streamId,
           TerminalStreamOpcode.ClaimViewport,
@@ -131,23 +137,7 @@ export class RemoteRuntimeTerminalMultiplexer extends RemoteRuntimeTerminalBinar
       if (this.streams.get(streamId) !== state) {
         return stream
       }
-      const sent = this.sendFrame(
-        CONTROL_STREAM_ID,
-        TerminalStreamOpcode.Subscribe,
-        encodeTerminalStreamJson({
-          streamId,
-          terminal: args.terminal,
-          client: args.client,
-          viewport: args.viewport,
-          capabilities: {
-            ackOutput: 1,
-            ackOutputSourceRanges: 1,
-            outputPause: 1,
-            writeUnavailable: 1,
-            ...(args.client.type === 'desktop' ? { desktopViewportClaims: 1 } : {})
-          }
-        })
-      )
+      const sent = this.sendStreamSubscription(state)
       if (!sent) {
         throw new Error('Remote terminal stream is not connected.')
       }

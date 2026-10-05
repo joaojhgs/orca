@@ -43,6 +43,7 @@ type EmulatorDeviceFrameProps = {
   visualOrientation: EmulatorDeviceVisualOrientation
   /** False when backgrounded; parks the stream with the pane's visibility. */
   isActive: boolean
+  onStreamSizeDetected?: (size: StreamSize) => void
   onTap: (x: number, y: number) => void
   onGesture: (points: EmulatorGesturePoint[]) => void
 }
@@ -70,6 +71,7 @@ export function EmulatorDeviceFrame({
   isLive,
   visualOrientation,
   isActive,
+  onStreamSizeDetected,
   onTap,
   onGesture
 }: EmulatorDeviceFrameProps) {
@@ -325,12 +327,16 @@ export function EmulatorDeviceFrame({
     [canInteract, flushWheelGesture, sendTouch, visualStreamGeometry]
   )
 
-  const handleStreamSize = useCallback((size: NonNullable<StreamSize>) => {
-    setStreamError(false)
-    setStreamSize((current) =>
-      current?.width === size.width && current.height === size.height ? current : size
-    )
-  }, [])
+  const handleStreamSize = useCallback(
+    (size: NonNullable<StreamSize>) => {
+      setStreamError(false)
+      setStreamSize((current) =>
+        current?.width === size.width && current.height === size.height ? current : size
+      )
+      onStreamSizeDetected?.(size)
+    },
+    [onStreamSizeDetected]
+  )
 
   const handleStreamError = useCallback(() => {
     setStreamError(true)

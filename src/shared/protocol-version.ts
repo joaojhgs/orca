@@ -1,5 +1,9 @@
 import { AGENT_SESSION_BACKGROUND_TASK_CHILD_VIEWS_CAPABILITY } from './agent-session-background-task-child-views-capability'
 import { REMOTE_SERVER_UPDATE_CAPABILITY } from './remote-server-update'
+import { SKILL_LIBRARY_RUNTIME_CAPABILITIES } from './skill-library-contract'
+import { PREVIEW_RUNTIME_CAPABILITIES } from './preview-runtime-capabilities'
+import { ORCHESTRATION_RUNTIME_CAPABILITIES } from './orchestration-runtime-capabilities'
+export * from './orchestration-runtime-capabilities'
 import {
   SKILL_BUNDLE_INSTALL_CAPABILITY,
   SKILL_DELETE_CAPABILITY,
@@ -11,7 +15,7 @@ import {
   SKILL_MANAGEMENT_CAPABILITY,
   SKILL_UPLOAD_CAPABILITY
 } from './skill-install-capability'
-export { SKILL_INSTALL_RESULT_V2_CAPABILITY } from './skill-install-capability'
+export { REMOTE_SERVER_UPDATE_CAPABILITY, SKILL_INSTALL_RESULT_V2_CAPABILITY }
 
 // Why: declares the Orca runtime RPC compatibility contract. Desktop,
 // headless server, CLI, and mobile builds may drift in app version, but
@@ -44,25 +48,6 @@ export const WORKTREE_LINKED_WORK_ITEM_CONTEXT_RUNTIME_CAPABILITY =
 export const WORKTREE_GITHUB_PR_SUPPRESSION_RUNTIME_CAPABILITY =
   'worktree.github-pr-suppression.v1' as const
 export const REMOTE_RUNTIME_SHARED_CONTROL_CAPABILITY = 'remote-runtime.shared-control.v1' as const
-export const ORCHESTRATION_FEDERATION_RUNTIME_CAPABILITY = 'orchestration.federation.v1' as const
-export const ORCHESTRATION_FEDERATION_CONTROL_MAIL_RUNTIME_CAPABILITY =
-  'orchestration.federation-control-mail.v1' as const
-export const ORCHESTRATION_FEDERATION_LIFECYCLE_SETTLEMENT_RUNTIME_CAPABILITY =
-  'orchestration.federation-lifecycle-settlement.v1' as const
-export const ORCHESTRATION_WORKER_STOP_VERDICT_RUNTIME_CAPABILITY =
-  'orchestration.worker-stop-verdict.v1' as const
-export const ORCHESTRATION_WORKER_LAUNCH_PREFERENCES_RUNTIME_CAPABILITY =
-  'orchestration.worker-launch-preferences.v1' as const
-export const ORCHESTRATION_FEDERATION_STRUCTURED_READ_RUNTIME_CAPABILITY =
-  'orchestration.federation-structured-read.v1' as const
-export const ORCHESTRATION_FEDERATION_FLEET_SNAPSHOT_RUNTIME_CAPABILITY =
-  'orchestration.federation-fleet-snapshot.v1' as const
-export const ORCHESTRATION_FEDERATION_RELEASE_ARCHIVE_RUNTIME_CAPABILITY =
-  'orchestration.federation-release-archive.v1' as const
-export const ORCHESTRATION_FEDERATION_CONTROL_MAIL_PROTOCOL_VERSION = 2 as const
-export const ORCHESTRATION_FEDERATION_LIFECYCLE_SETTLEMENT_PROTOCOL_VERSION = 3 as const
-export const ORCHESTRATION_CONTRACT_VERSION = 1 as const
-export const ORCHESTRATION_CONTRACT_RUNTIME_CAPABILITY = 'orchestration.contract.v1' as const
 export const FOLDER_WORKSPACE_PATH_STATUS_RUNTIME_CAPABILITY =
   'folder-workspace.path-status.v1' as const
 export const LINEAR_ISSUE_ATTRIBUTE_FILTER_RUNTIME_CAPABILITY =
@@ -75,11 +60,13 @@ export const JIRA_USER_FIELDS_UPDATE_REQUIRED_MESSAGE =
 // STATIC capability advertised by getStatus() automatically — NOT a runtime
 // conditional like browser.headless.v1.
 export const AI_VAULT_RUNTIME_CAPABILITY = 'aiVault.v1' as const
+export const AI_VAULT_EXECUTION_HOSTS_CAPABILITY = 'aiVault.execution-hosts.v1' as const
 export const AI_VAULT_SESSION_TITLES_RUNTIME_CAPABILITY = 'aiVault.session-titles.v1' as const
 // Why: signals a host owns browser pages with no renderer (headless serve via the
 // offscreen backend). Advertised only when that backend is actually available, so
 // clients never fall back to a local desktop browser tab for a remote-owned page.
 export const BROWSER_HEADLESS_RUNTIME_CAPABILITY = 'browser.headless.v1' as const
+export const BROWSER_DESIGN_MODE_RUNTIME_CAPABILITY = 'browser.design-mode.v1' as const
 export const BROWSER_IDENTITY_RUNTIME_CAPABILITY = 'browser.identity.v1' as const
 export const BROWSER_SCREENCAST_RUNTIME_CAPABILITY = 'browser.screencast.v1' as const
 export const BROWSER_CERTIFICATE_TRUST_RUNTIME_CAPABILITY = 'browser.certificate-trust.v1' as const
@@ -151,7 +138,6 @@ export const SESSION_TABS_RETIREMENT_PROOF_DELTA_RUNTIME_CAPABILITY =
   'session-tabs.retirement-proof-delta.v1' as const
 export const AGENT_SESSION_BOUNDARY_RUNTIME_CAPABILITY =
   'agent-session.session-boundary.v1' as const
-export { REMOTE_SERVER_UPDATE_CAPABILITY } from './remote-server-update'
 export const AGENT_SESSION_HOST_AUTHORITY_RUNTIME_CAPABILITY =
   'agent-session.host-authority.v1' as const
 // Older launch schemas reject unknown fields; advertise before clients send keyboard support.
@@ -344,30 +330,25 @@ export const ELECTRON_REMOTE_RUNTIME_CLIENT_CAPABILITIES = [
   WORKTREE_BACKGROUND_REMOVAL_RUNTIME_CAPABILITY
 ] as const
 
-export const ANTIGRAVITY_CONFIGURED_MODEL_RUNTIME_CAPABILITY =
-  'git.antigravity-configured-model.v1' as const
-
 // Why: `agentSession.create` is a strict object, so an older host refuses a payload carrying the
 // reserved `tabId` rather than ignoring it. A client sends the field only to a host advertising this.
 export const AGENT_SESSION_CREATE_TAB_ID_RUNTIME_CAPABILITY =
   'agentSession.create.tab-id.v1' as const
 
+export const ANTIGRAVITY_CONFIGURED_MODEL_RUNTIME_CAPABILITY =
+  'git.antigravity-configured-model.v1' as const
+
 export const RUNTIME_CAPABILITIES = [
+  ...PREVIEW_RUNTIME_CAPABILITIES,
+  'pairing.administration.v1',
+  AI_VAULT_EXECUTION_HOSTS_CAPABILITY,
   AGENT_SESSION_CREATE_TAB_ID_RUNTIME_CAPABILITY,
   ANTIGRAVITY_CONFIGURED_MODEL_RUNTIME_CAPABILITY,
   'files.pathsExist',
   'runtime.status.compat.v1',
   'runtime.environments.v1',
   REMOTE_RUNTIME_SHARED_CONTROL_CAPABILITY,
-  ORCHESTRATION_FEDERATION_RUNTIME_CAPABILITY,
-  ORCHESTRATION_FEDERATION_CONTROL_MAIL_RUNTIME_CAPABILITY,
-  ORCHESTRATION_FEDERATION_LIFECYCLE_SETTLEMENT_RUNTIME_CAPABILITY,
-  ORCHESTRATION_WORKER_STOP_VERDICT_RUNTIME_CAPABILITY,
-  ORCHESTRATION_WORKER_LAUNCH_PREFERENCES_RUNTIME_CAPABILITY,
-  ORCHESTRATION_FEDERATION_STRUCTURED_READ_RUNTIME_CAPABILITY,
-  ORCHESTRATION_FEDERATION_FLEET_SNAPSHOT_RUNTIME_CAPABILITY,
-  ORCHESTRATION_FEDERATION_RELEASE_ARCHIVE_RUNTIME_CAPABILITY,
-  ORCHESTRATION_CONTRACT_RUNTIME_CAPABILITY,
+  ...ORCHESTRATION_RUNTIME_CAPABILITIES,
   BROWSER_SCREENCAST_RUNTIME_CAPABILITY,
   BROWSER_TAB_CREATE_KNOWN_ID_RUNTIME_CAPABILITY,
   BROWSER_CLIENT_HOST_RUNTIME_CAPABILITY,
@@ -441,6 +422,7 @@ export const RUNTIME_CAPABILITIES = [
   CODEX_RESET_CREDIT_RUNTIME_CAPABILITY,
   SKILL_INSTALL_CAPABILITY,
   SKILL_BUNDLE_INSTALL_CAPABILITY,
+  ...SKILL_LIBRARY_RUNTIME_CAPABILITIES,
   SKILL_INSTALL_CANCEL_CAPABILITY,
   SKILL_INSTALL_PROGRESS_CAPABILITY,
   SKILL_INSTALL_RESULT_V2_CAPABILITY,

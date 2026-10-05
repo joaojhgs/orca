@@ -1,6 +1,8 @@
 import React from 'react'
 import { ChevronRight, RefreshCw } from 'lucide-react'
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import { DropdownMenuItem, DropdownMenuGroup } from '@/components/ui/dropdown-menu'
+import { ExecutionUsageGroup } from './ExecutionUsageGroup'
+import type { ExecutionAccountUsage } from '../../../../shared/execution-observer'
 import { SettingsSegmentedControl } from '@/components/settings/SettingsFormControls'
 import { useResetCountdownClock } from '@/hooks/useResetCountdownClock'
 import { translate } from '@/i18n/i18n'
@@ -18,6 +20,7 @@ import { getUsageRosterRowState, type UsageRosterRowState } from './usage-roster
 import type { StatusBarUsageMode } from '../../../../shared/status-bar-usage-mode'
 
 type ProviderId = ProviderRateLimits['provider']
+const NO_EXECUTION_ACCOUNTS: ExecutionAccountUsage[] = []
 export type UsageSection = { label: string; window: RateLimitWindow }
 
 // Windows/buckets that actually carry data — absent limits arrive as null, but a
@@ -119,6 +122,7 @@ export function UsageRow({
   state,
   showSignInAction,
   now,
+  label,
   mode = 'verbose'
 }: {
   p: ProviderRateLimits
@@ -126,11 +130,12 @@ export function UsageRow({
   state: UsageRosterRowState
   showSignInAction: boolean
   now: number
+  label?: string
   mode?: StatusBarUsageMode
 }): React.JSX.Element {
   const sections = usedSections(p)
   const hasUsage = sections.length > 0
-  const name = getProviderDisplayName(p.provider)
+  const name = label ?? getProviderDisplayName(p.provider)
   const plan = formatPlanLabel(p.planType)
   const reset = hasUsage ? soonestResetLabel(sections, now) : null
   const tightest = mode === 'compact' ? getTightestUsageSection(p) : null
@@ -192,6 +197,7 @@ export function UsageRow({
  */
 export function UsageRosterPanel({
   providers,
+  executionAccounts = NO_EXECUTION_ACCOUNTS,
   display,
   statusBarUsageMode,
   onStatusBarUsageModeChange,
@@ -205,6 +211,7 @@ export function UsageRosterPanel({
   renderRow
 }: {
   providers: ProviderRateLimits[]
+  executionAccounts?: ExecutionAccountUsage[]
   display: UsagePercentageDisplay
   statusBarUsageMode: StatusBarUsageMode
   onStatusBarUsageModeChange: (mode: StatusBarUsageMode) => void
@@ -222,14 +229,30 @@ export function UsageRosterPanel({
 }): React.JSX.Element {
   // Why: one boundary-scheduled clock keeps every open row current without per-provider timers.
   const now = useResetCountdownClock(
-    providers.flatMap((provider) =>
-      usedSections(provider).map((section) => section.window.resetsAt)
-    )
+    [
+      ...providers,
+      ...executionAccounts.flatMap((account) => (account.rateLimits ? [account.rateLimits] : []))
+    ].flatMap((provider) => usedSections(provider).map((section) => section.window.resetsAt))
   )
   // Worst-first so the agent nearest a limit sits on top.
   const sorted = [...providers].sort(
     (a, b) => providerMaxUsed(usedSections(b)) - providerMaxUsed(usedSections(a))
   )
+  const openCodeAccounts = executionAccounts.filter((account) => account.provider === 'opencode')
+  const renderExecutionRow = (account: ExecutionAccountUsage): React.ReactNode =>
+    account.rateLimits ? (
+      <UsageRow
+        p={account.rateLimits}
+        label={account.providerId}
+        display={display}
+        state={getUsageRosterRowState(
+          account.rateLimits,
+          usedSections(account.rateLimits).length > 0
+        )}
+        showSignInAction={false}
+        now={now}
+      />
+    ) : null
 
   return (
     <div className="w-[360px] text-xs">
@@ -289,44 +312,62 @@ export function UsageRosterPanel({
         />
       </div>
       <div className="border-t border-border/70" />
-      {sorted.map((p) => {
-        const state = getUsageRosterRowState(p, usedSections(p).length > 0)
-        const showSignInAction = state.kind === 'sign-in' && canSignIn(p.provider)
-        const rowNode = (
-          <UsageRow
-            p={p}
-            display={display}
-            state={state}
-            showSignInAction={showSignInAction}
-            now={now}
-            mode={statusBarUsageMode}
-          />
-        )
-        if (showSignInAction) {
-          return (
-            <DropdownMenuItem
-              key={p.provider}
-              onSelect={() => onSignIn(p.provider)}
-              className="w-full cursor-pointer rounded-none px-3.5 py-2.5"
-            >
-              {rowNode}
-            </DropdownMenuItem>
+      <DropdownMenuGroup>
+        {sorted.map((p) => {
+          const accounts = executionAccounts.filter((account) => account.provider === p.provider)
+          const state = getUsageRosterRowState(p, usedSections(p).length > 0)
+          const showSignInAction = state.kind === 'sign-in' && canSignIn(p.provider)
+          const rowNode = (
+            <UsageRow
+              p={p}
+              display={display}
+              state={state}
+              showSignInAction={showSignInAction}
+              now={now}
+              mode={statusBarUsageMode}
+            />
           )
-        }
-        const custom = renderRow?.(p, rowNode)
-        if (custom) {
-          return <React.Fragment key={p.provider}>{custom}</React.Fragment>
-        }
-        return (
-          <DropdownMenuItem
-            key={p.provider}
-            onSelect={() => onOpenProvider(p.provider)}
-            className="w-full cursor-pointer rounded-none px-3.5 py-2.5"
-          >
-            {rowNode}
-          </DropdownMenuItem>
-        )
-      })}
+          if (showSignInAction) {
+            return (
+              <DropdownMenuItem
+                key={p.provider}
+                onSelect={() => onSignIn(p.provider)}
+                className="w-full cursor-pointer rounded-none px-3.5 py-2.5"
+              >
+                {rowNode}
+              </DropdownMenuItem>
+            )
+          }
+          const custom = renderRow?.(p, rowNode)
+          return (
+            <React.Fragment key={p.provider}>
+              {custom || (
+                <DropdownMenuItem
+                  key={p.provider}
+                  onSelect={() => onOpenProvider(p.provider)}
+                  className="w-full cursor-pointer rounded-none px-3.5 py-2.5"
+                >
+                  {rowNode}
+                </DropdownMenuItem>
+              )}
+              {accounts.length ? (
+                <ExecutionUsageGroup
+                  accounts={accounts}
+                  label={`${getProviderDisplayName(p.provider)} · ${accounts.length} ${accounts.length === 1 ? 'account' : 'accounts'}`}
+                  renderRow={renderExecutionRow}
+                />
+              ) : null}
+            </React.Fragment>
+          )
+        })}
+        {openCodeAccounts.length ? (
+          <ExecutionUsageGroup
+            accounts={openCodeAccounts}
+            label={`OpenCode · ${new Set(openCodeAccounts.map((account) => account.providerId)).size} providers`}
+            renderRow={renderExecutionRow}
+          />
+        ) : null}
+      </DropdownMenuGroup>
       <div className="border-t border-border/70" />
       <DropdownMenuItem
         onSelect={onUsageDetails}

@@ -8,7 +8,8 @@ export type ArtifactFileReadResult =
 
 export async function readArtifactFileWithinLimit(
   path: string,
-  maxBytes: number
+  maxBytes: number,
+  encoding: 'utf8' | 'base64' = 'utf8'
 ): Promise<ArtifactFileReadResult> {
   const handle = await open(path, 'r').catch(() => null)
   if (!handle) {
@@ -37,7 +38,7 @@ export async function readArtifactFileWithinLimit(
     if (bytesRead === 0) {
       return { status: 'empty' }
     }
-    return { status: 'ok', content: buffer.subarray(0, bytesRead).toString('utf8') }
+    return { status: 'ok', content: buffer.subarray(0, bytesRead).toString(encoding) }
   } finally {
     await handle.close()
   }

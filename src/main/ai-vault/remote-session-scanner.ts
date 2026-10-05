@@ -56,6 +56,7 @@ export async function scanRemoteAiVaultSessions(args: {
   unlimited?: boolean
   scopePaths?: readonly string[]
   signal?: AbortSignal
+  onSessionParsed?: (session: AiVaultSession) => void
 }): Promise<AiVaultListResult> {
   throwIfAiVaultScanCancelled(args.signal)
   const limit = aiVaultScanLimit(args)
@@ -68,6 +69,7 @@ export async function scanRemoteAiVaultSessions(args: {
     executionHostId: args.executionHostId,
     hostPlatform: args.hostPlatform,
     signal: args.signal,
+    onSessionParsed: args.onSessionParsed,
     titleCaches: new Map(),
     antigravityWorkspaceResolver: createAntigravityWorkspaceResolver(async (historyPath) => {
       try {
@@ -254,10 +256,12 @@ async function parseRemoteSessionCandidate(
     // transcript count (row badge; recoverable signal at zero turns). The
     // walk listing supplies it — the parser can't readdir a remote disk.
     const subagentTranscriptCount = candidate.subagentTranscriptCount ?? 0
-    if (session && subagentTranscriptCount > 0) {
-      return { ...session, subagentTranscriptCount }
+    const result =
+      session && subagentTranscriptCount > 0 ? { ...session, subagentTranscriptCount } : session
+    if (result) {
+      context.onSessionParsed?.(result)
     }
-    return session
+    return result
   } catch (err) {
     throwIfAiVaultScanCancelled(context.signal)
     if (err instanceof BinarySessionTranscriptError) {

@@ -3,6 +3,7 @@ import { createServer as createHttpsServer, type Server as HttpsServer } from 'n
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http'
 import { WebSocketServer, type WebSocket } from 'ws'
 import type { RpcTransport } from './transport'
+import { DesktopVncWebSocketBridge } from './desktop-vnc-websocket-bridge'
 import { createStaticWebClientHandler } from './static-web-client-handler'
 import {
   attachNodeWebSocketLifecycle,
@@ -58,6 +59,7 @@ export class WebSocketTransport implements RpcTransport {
   private readonly strictPort: boolean
   private httpServer: HttpsServer | HttpServer | null = null
   private wss: WebSocketServer | null = null
+  private vncBridge: DesktopVncWebSocketBridge | null = null
   private messageHandler: WebSocketMessageHandler | null = null
   private connectionCloseHandler: WebSocketConnectionCloseHandler | null = null
   // Why: maps each socket to its authenticated clientId so close can report which device disconnected.
@@ -200,8 +202,16 @@ export class WebSocketTransport implements RpcTransport {
     httpServer.maxConnections = WEBSOCKET_TRANSPORT_MAX_TCP_CONNECTIONS
 
     const wss = new WebSocketServer({
-      server: httpServer,
+      noServer: true,
       maxPayload: WEBSOCKET_TRANSPORT_MAX_MESSAGE_BYTES
+    })
+    const vncBridge = new DesktopVncWebSocketBridge()
+
+    httpServer.on('upgrade', (request, socket, head) => {
+      if (vncBridge.tryUpgrade(request, socket, head)) {
+        return
+      }
+      wss.handleUpgrade(request, socket, head, (ws) => wss.emit('connection', ws, request))
     })
 
     wss.on('connection', (ws) => {
@@ -214,13 +224,17 @@ export class WebSocketTransport implements RpcTransport {
 
     this.httpServer = httpServer
     this.wss = wss
+    this.vncBridge = vncBridge
   }
 
   async stop(): Promise<void> {
     const wss = this.wss
     const httpServer = this.httpServer
+    const vncBridge = this.vncBridge
     this.wss = null
     this.httpServer = null
+    this.vncBridge = null
+    vncBridge?.stop()
     await stopNodeWebSocketTransport({
       wss,
       httpServer,

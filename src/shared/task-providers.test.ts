@@ -16,7 +16,24 @@ describe('task providers', () => {
   })
 
   it('falls back to all providers when none are visible', () => {
-    expect(normalizeVisibleTaskProviders([])).toEqual(['github', 'gitlab', 'linear', 'jira'])
+    expect(normalizeVisibleTaskProviders([])).toEqual([
+      'github',
+      'gitlab',
+      'linear',
+      'jira',
+      'multica'
+    ])
+  })
+
+  it('adds Multica to the legacy all-provider default without changing narrowed preferences', () => {
+    expect(normalizeVisibleTaskProviders(['github', 'gitlab', 'linear', 'jira'])).toEqual([
+      'github',
+      'gitlab',
+      'linear',
+      'jira',
+      'multica'
+    ])
+    expect(normalizeVisibleTaskProviders(['github', 'linear'])).toEqual(['github', 'linear'])
   })
 
   it('restores a valid saved default when provider settings drifted', () => {

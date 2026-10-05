@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
-export const RENDERER_BUILD_DIR = path.join('out', 'renderer')
+export const RENDERER_BUILD_DIR = path.join(process.env.ORCA_BUILD_OUTPUT_DIR || 'out', 'renderer')
 
 /**
  * Every chunk the main renderer window fetches and evaluates before first
@@ -105,7 +105,7 @@ export function findForbiddenBootPayloads(rendererDir, payloads) {
 }
 
 export function verifyRendererBootGraph(root = process.cwd()) {
-  const rendererDir = path.join(root, RENDERER_BUILD_DIR)
+  const rendererDir = path.resolve(root, RENDERER_BUILD_DIR)
   const { chunks, totalBytes } = readRendererBootGraph(rendererDir)
   const violations = findForbiddenBootPayloads(rendererDir, bootGraphForbiddenPayloads(root))
   console.log(

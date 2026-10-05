@@ -1,4 +1,24 @@
 import type { NativeChatMessage } from '../../../../shared/native-chat-types'
+import { parseExecutionHostId } from '../../../../shared/execution-host'
+import { resolveFilesystemRouteForHost } from '../../../providers/execution-host-provider-dispatch'
+import { getSshFilesystemProvider } from '../../../providers/ssh-filesystem-dispatch'
+import {
+  readRemoteTranscriptTail,
+  subscribeRemoteTranscript
+} from '../../../native-chat/remote-transcript-reader'
+
+function remoteTranscriptProvider(hostId: string) {
+  // Legacy clients spell the connection id without the ssh: prefix.
+  const legacy = getSshFilesystemProvider(hostId)
+  if (legacy) {
+    return legacy
+  }
+  if (!parseExecutionHostId(hostId)) {
+    return null
+  }
+  const route = resolveFilesystemRouteForHost(hostId)
+  return route.kind === 'ssh' ? route.provider : null
+}
 import {
   readNativeChatTranscriptTail,
   subscribeNativeChatTranscript,
@@ -69,16 +89,29 @@ export const NATIVE_CHAT_METHODS = [
     params: NativeChatSession,
     handler: async (params, { clientKind, signal }) => {
       const limit = params.limit ?? MOBILE_NATIVE_CHAT_DEFAULT_WINDOW
-      const result = await readNativeChatTranscriptTail(
-        {
-          agent: params.agent,
-          sessionId: params.sessionId,
-          transcriptPath: params.transcriptPath,
-          limit,
-          beforeOffset: params.beforeOffset
-        },
-        signal
-      )
+      const remoteProvider = params.executionHostId
+        ? remoteTranscriptProvider(params.executionHostId)
+        : null
+      const result = params.executionHostId
+        ? remoteProvider && params.transcriptPath
+          ? await readRemoteTranscriptTail({
+              provider: remoteProvider,
+              path: params.transcriptPath,
+              agent: params.agent,
+              limit,
+              beforeOffset: params.beforeOffset
+            })
+          : { error: 'Remote transcript unavailable' }
+        : await readNativeChatTranscriptTail(
+            {
+              agent: params.agent,
+              sessionId: params.sessionId,
+              transcriptPath: params.transcriptPath,
+              limit,
+              beforeOffset: params.beforeOffset
+            },
+            signal
+          )
       return 'messages' in result
         ? {
             messages: windowForClient(result.messages, clientKind, limit),
@@ -129,6 +162,46 @@ export const NATIVE_CHAT_METHODS = [
         return
       }
       if (closed) {
+        return
+      }
+      if (params.executionHostId) {
+        const provider = remoteTranscriptProvider(params.executionHostId)
+        if (!provider || !params.transcriptPath) {
+          emit({
+            type: 'snapshot',
+            messages: [],
+            hasMore: false,
+            error: 'Remote transcript unavailable'
+          })
+          return
+        }
+        const stopRemote = await subscribeRemoteTranscript({
+          provider,
+          path: params.transcriptPath,
+          agent: params.agent,
+          limit,
+          onResult: (result, first) => {
+            if (!closed) {
+              emit({
+                type: first ? 'snapshot' : 'replacement',
+                messages: windowForClient(result.messages, clientKind, limit),
+                hasMore: result.hasMore,
+                beforeOffset: result.beforeOffset,
+                ...(result.lifecycle ? { lifecycle: result.lifecycle } : {})
+              })
+            }
+          },
+          onInitialError: (error) => {
+            if (!closed) {
+              emit({ type: 'snapshot', messages: [], hasMore: false, error })
+            }
+          }
+        })
+        if (closed) {
+          stopRemote()
+        } else {
+          unsubscribe = stopRemote
+        }
         return
       }
       const subscribeArgs: SubscribeNativeChatTranscriptArgs = {

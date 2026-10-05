@@ -128,9 +128,30 @@ describe('resolveSkillProviderDestinations', () => {
       resolveSkillProviderDestinations({
         scope: 'global',
         homeDirectory: HOME,
-        detectedProviders: ['opencode', 'goose', 'not-an-agent']
+        detectedProviders: ['goose', 'not-an-agent']
       })
     ).toEqual([])
+  })
+
+  it('places OpenCode and Antigravity in their native roots', () => {
+    expect(
+      resolveSkillProviderDestinations({
+        scope: 'global',
+        homeDirectory: HOME,
+        detectedProviders: ['opencode', 'antigravity']
+      }).map((row) => row.rootPath)
+    ).toEqual([
+      join(HOME, '.config', 'opencode', 'skills'),
+      join(HOME, '.gemini', 'config', 'skills')
+    ])
+    expect(
+      resolveSkillProviderDestinations({
+        scope: 'workspace',
+        homeDirectory: HOME,
+        workspaceDirectory: WORKSPACE,
+        detectedProviders: ['opencode', 'antigravity']
+      }).map((row) => row.rootPath)
+    ).toEqual([join(WORKSPACE, '.opencode', 'skills'), join(WORKSPACE, '.agents', 'skills')])
   })
 
   it('requires a workspace directory for workspace scope', () => {

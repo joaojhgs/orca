@@ -415,7 +415,9 @@ export function createRemoteRuntimePtyTransport(
     onAgentBecameIdle,
     onAgentBecameWorking,
     onAgentExited,
-    onAgentStatus
+    onAgentStatus: (status) => {
+      onAgentStatus?.(status)
+    }
   })
   const shutdownDataHandler = (
     data: string,

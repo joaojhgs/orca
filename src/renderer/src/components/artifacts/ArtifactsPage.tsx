@@ -32,7 +32,7 @@ export default function ArtifactsPage(): React.JSX.Element {
   const publishingBlocked = settings ? settings.artifactSharingEnabled !== true : false
   const [deleting, setDeleting] = useState<{ identity: string; slug: string } | null>(null)
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
-  const signedIn = authStatus?.state === 'connected'
+  const signedIn = Boolean(artifactAccountIdentity(authStatus))
   const needsReconnect = authStatus?.state === 'reconnect-required'
   const openAccountSettings = (): void => {
     openSettingsTarget({ pane: 'orca-account', repoId: null })

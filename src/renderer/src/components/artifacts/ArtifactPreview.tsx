@@ -3,6 +3,7 @@ import { AlertCircle, Loader2 } from 'lucide-react'
 import { ORCA_BROWSER_GUEST_WEB_PREFERENCES_ATTRIBUTE } from '../../../../shared/browser-guest-web-preferences'
 import { moveFocusToRendererBeforeWebviewDetach } from '@/components/browser-pane/host-guest/webview-registry'
 import { translate } from '@/i18n/i18n'
+import { isWebClientLocation } from '@/lib/web-client-location'
 
 type PreviewState = 'loading' | 'ready' | 'unavailable'
 const ARTIFACT_PREVIEW_LOAD_TIMEOUT_MS = 20_000
@@ -102,6 +103,30 @@ export function ArtifactPreview({ shareUrl }: { shareUrl: string }): React.JSX.E
 
     setState('loading')
     startLoadTimeout()
+    if (isWebClientLocation() && containerRef.current) {
+      const frame = document.createElement('iframe')
+      frame.setAttribute('sandbox', 'allow-scripts')
+      frame.setAttribute('referrerpolicy', 'no-referrer')
+      frame.title = translate('auto.components.artifacts.preview', 'Artifact preview')
+      frame.style.width = '100%'
+      frame.style.height = '100%'
+      frame.style.border = 'none'
+      frame.addEventListener('load', onLoadStopped)
+      const onFrameError = (): void => {
+        clearLoadTimeout()
+        setState('unavailable')
+      }
+      frame.addEventListener('error', onFrameError)
+      frame.src = artifactPreviewUrl(shareUrl)
+      containerRef.current.appendChild(frame)
+      return () => {
+        disposed = true
+        clearLoadTimeout()
+        frame.removeEventListener('load', onLoadStopped)
+        frame.removeEventListener('error', onFrameError)
+        frame.remove()
+      }
+    }
     void window.api.browser
       .sessionResolvePartition({ profileId: null })
       .then((partition) => {

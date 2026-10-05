@@ -1,4 +1,9 @@
 import { join } from 'node:path'
+import {
+  disposeRuntimeSkillLibrary,
+  getRuntimeSkillLibrary,
+  skillLibraryWorkspaces
+} from './runtime-skill-library'
 import { detectInstalledAgentsWithShellPathHydration } from '../preflight/agent-detection'
 import { executeSkillInstallRequest } from '../skills/skill-install-request-service'
 import { executeSkillBundleInstallRequest } from '../skills/skill-bundle-install-request-service'
@@ -28,7 +33,22 @@ export class RuntimeSkillInstallCommands {
   protected readonly operations = new Map<string, AbortController>()
   protected readonly progress = new Map<string, SkillBundleInstallProgress>()
 
-  constructor(protected readonly host: RuntimeSkillCommandHost) {}
+  constructor(protected readonly host: RuntimeSkillCommandHost) {
+    void Promise.resolve()
+      .then(() => {
+        if (!this.skillUploadSessionsDisposed) {
+          getRuntimeSkillLibrary(this.host)
+        }
+      })
+      .catch(() => console.warn('[skills] Local skill library startup failed'))
+  }
+
+  getLocalSkillLibrary() {
+    return getRuntimeSkillLibrary(this.host)
+  }
+  listSkillLibraryWorkspaces() {
+    return skillLibraryWorkspaces(this.host)
+  }
 
   protected userDataPath(): string {
     return this.host.getUserDataPath()
@@ -43,6 +63,7 @@ export class RuntimeSkillInstallCommands {
     return this.skillUploadSessions
   }
   async disposeSkillUploadSessions(): Promise<void> {
+    disposeRuntimeSkillLibrary(this.host)
     this.skillUploadSessionsDisposed = true
     const sessions = this.skillUploadSessions
     this.skillUploadSessions = null

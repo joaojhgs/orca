@@ -59,6 +59,7 @@ export type LocalSkillInstallInput = {
   wslDistro?: string
   signal?: AbortSignal
   lockTimeoutMs?: number
+  requirePackageOwnership?: boolean
 }
 
 export type LocalSkillInstallPreview = {
@@ -176,7 +177,8 @@ export async function installLocalExtractedSkillPackage(
       canonicalPath,
       manifest: extracted.manifest,
       receipt: previous,
-      filesystem
+      filesystem,
+      requirePackageOwnership: input.requirePackageOwnership
     })
     let receipt = createSkillInstallReceipt({
       request: input,

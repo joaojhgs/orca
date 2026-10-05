@@ -115,6 +115,19 @@ describe('ArtifactPublishButton', () => {
 
   afterEach(cleanup)
 
+  it('allows approved local hosting without Cloud sign-in', async () => {
+    mocks.state.orcaProfileAuthStatus = {
+      state: 'local',
+      artifactHosting: { backend: 'local', identity: 'local-default', sharingEnabled: true }
+    }
+    const createRequest = vi.fn()
+    render(<ArtifactPublishButton sourceKey="/repo/report.md" createRequest={createRequest} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Share as artifact' }))
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Generate link' }))
+    expect(mocks.publish).toHaveBeenCalledWith(createRequest)
+    expect(mocks.connect).not.toHaveBeenCalled()
+  })
+
   it('requires explicit confirmation before publishing', async () => {
     const user = userEvent.setup()
     const createRequest = vi.fn()

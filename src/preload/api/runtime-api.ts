@@ -27,7 +27,11 @@ export type RuntimeApi = {
       graph: RuntimeRendererSyncWindowGraph
     ) => Promise<RuntimeSyncWindowGraphResult>
     getStatus: () => Promise<RuntimeStatus>
-    call: (args: { method: string; params?: unknown }) => Promise<RuntimeRpcResponse<unknown>>
+    call: (args: {
+      method: string
+      params?: unknown
+      timeoutMs?: number
+    }) => Promise<RuntimeRpcResponse<unknown>>
     subscribe: (
       args: { method: string; params?: unknown },
       callback: (response: RuntimeRpcResponse<unknown>) => void
@@ -139,6 +143,8 @@ export type RuntimeApi = {
         onBinary?: (bytes: Uint8Array<ArrayBufferLike>) => void
         onError?: (error: { code: string; message: string }) => void
         onClose?: () => void
+        onTransportInterrupted?: () => void
+        onTransportReplayed?: () => void
       }
     ) => Promise<RuntimeEnvironmentSubscriptionHandle>
   }

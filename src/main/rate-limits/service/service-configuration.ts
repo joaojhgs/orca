@@ -2,6 +2,8 @@ import type { BrowserWindow } from 'electron'
 import { hasMiniMaxSessionCookie } from '../../minimax/minimax-cookie-store'
 import { hasMiniMaxApiKey } from '../../minimax/minimax-api-key-store'
 import { RateLimitServiceAccountRefresh } from './service-account-refresh'
+import { withExecutionAccountUsage } from '../execution-usage-snapshot'
+import type { ExecutionAccountUsage } from '../../../shared/execution-observer'
 import {
   type CodexAccountSelectionTarget,
   type CodexHomePathResolver,
@@ -20,6 +22,16 @@ import {
 } from './service-types'
 
 export abstract class RateLimitServiceConfiguration extends RateLimitServiceAccountRefresh {
+  setExecutionUsageSource(
+    resolver: () => ExecutionAccountUsage[],
+    refresh: () => Promise<void>
+  ): void {
+    this.executionUsageResolver = resolver
+    this.executionUsageRefresh = refresh
+  }
+  publishExecutionUsageChange(): void {
+    this.pushToRenderer()
+  }
   setCodexHomePathResolver(resolver: CodexHomePathResolver): void {
     this.codexHomePathResolver = resolver
   }
@@ -120,7 +132,7 @@ export abstract class RateLimitServiceConfiguration extends RateLimitServiceAcco
   getState(): RateLimitState {
     this.pruneInactiveClaudeState()
     this.pruneInactiveCodexState()
-    return {
+    const result: RateLimitState = {
       ...this.state,
       // Why: the cookie lives on the filesystem, not GlobalSettings; surface its presence so the renderer keeps the MiniMax bar across reloads.
       minimaxCookieConfigured: hasMiniMaxSessionCookie(),
@@ -139,5 +151,8 @@ export abstract class RateLimitServiceConfiguration extends RateLimitServiceAcco
         this.inactiveCodexFetching
       )
     }
+    return this.executionUsageResolver
+      ? withExecutionAccountUsage(result, this.executionUsageResolver())
+      : result
   }
 }

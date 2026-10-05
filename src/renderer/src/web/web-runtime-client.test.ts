@@ -787,4 +787,47 @@ describe('WebRuntimeClient', () => {
     expect(unsubscribeFrame?.params.subscriptionId).toBe('claude:sess-1')
     client.close()
   })
+
+  it('replays terminal multiplex subscriptions instead of reporting them closed', () => {
+    const client = new WebRuntimeClient({
+      v: 2,
+      endpoint: 'ws://127.0.0.1:6768',
+      deviceToken: 'token',
+      publicKeyB64: Buffer.alloc(32).toString('base64')
+    })
+    const onClose = vi.fn()
+    const onTransportInterrupted = vi.fn()
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: This fixture accesses the client's real subscription map and transport registry to simulate interruption without a socket.
+    const internals = client as unknown as {
+      subscriptions: Map<
+        string,
+        {
+          id: string
+          method: string
+          params: unknown
+          needsReplay: boolean
+          callbacks: {
+            onResponse: (response: RuntimeRpcResponse<unknown>) => void
+            onClose?: () => void
+            onTransportInterrupted?: () => void
+          }
+        }
+      >
+      transport: { subscriptionRegistry: { handleInterrupted: () => void } }
+    }
+    internals.subscriptions.set('terminal-multiplex', {
+      id: 'terminal-multiplex',
+      method: 'terminal.multiplex',
+      params: {},
+      needsReplay: false,
+      callbacks: { onResponse: vi.fn(), onClose, onTransportInterrupted }
+    })
+
+    internals.transport.subscriptionRegistry.handleInterrupted()
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(onTransportInterrupted).toHaveBeenCalledOnce()
+    expect(internals.subscriptions.get('terminal-multiplex')?.needsReplay).toBe(true)
+    client.close()
+  })
 })

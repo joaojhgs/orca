@@ -1,21 +1,21 @@
 /* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: PDF loading drives pdf.js document/viewer instances and decode errors through an external worker lifecycle. */
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Image as ImageIcon, RotateCcw, Search, ZoomIn, ZoomOut } from 'lucide-react'
-import * as pdfjsLib from 'pdfjs-dist'
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import {
   EventBus,
   PDFFindController,
   PDFLinkService,
   PDFViewer as PdfJsViewer
-} from 'pdfjs-dist/web/pdf_viewer.mjs'
-import 'pdfjs-dist/web/pdf_viewer.css'
+} from 'pdfjs-dist/legacy/web/pdf_viewer.mjs'
+import 'pdfjs-dist/legacy/web/pdf_viewer.css'
 import PdfFind from './PdfFind'
 import { getShortcutPlatform } from '@/lib/shortcut-platform'
 import { useShortcutLabel } from '@/hooks/useShortcutLabel'
 import { useAppStore } from '@/store'
 import { keybindingMatchesAction } from '../../../../shared/keybindings'
 
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 import { translate } from '@/i18n/i18n'
 import { buildPdfJsDocumentOptions } from './pdf-js-document-options'
 import {
@@ -31,7 +31,14 @@ import {
   createPdfViewPositionRecorder
 } from './pdf-view-position'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
+// Why: the web server used to serve .mjs assets as application/octet-stream and
+// marked that response immutable for a year. Keep a revision in the request URL
+// so browsers that cached the bad MIME metadata cannot poison PDF loading after
+// the server-side content-type fix ships.
+const PDF_WORKER_CACHE_REVISION = 'module-mime-v1'
+const versionedWorkerUrl = new URL(workerUrl, window.location.href)
+versionedWorkerUrl.searchParams.set('orca-worker-revision', PDF_WORKER_CACHE_REVISION)
+pdfjsLib.GlobalWorkerOptions.workerSrc = versionedWorkerUrl.href
 
 const MIN_SCALE = 0.25
 const MAX_SCALE = 5
@@ -267,7 +274,11 @@ export default function PdfViewer({
         if (err?.name === 'PasswordException') {
           setPdfError('This PDF is password-protected')
         } else {
-          setPdfError('Failed to load PDF preview')
+          console.error('[pdf-viewer] Failed to load PDF preview', err)
+          const detail = err instanceof Error ? err.message.trim() : ''
+          setPdfError(
+            detail ? `Failed to load PDF preview: ${detail}` : 'Failed to load PDF preview'
+          )
         }
       })
 

@@ -23,6 +23,15 @@ export function electronSidecarRuntimeMethodName(browserMethod: string): string 
   if (suffix === 'SetGeolocation') {
     return 'browser.geolocation'
   }
+  const grabMethods: Record<string, string> = {
+    SetGrabMode: 'browser.grab.setMode',
+    AwaitGrabSelection: 'browser.grab.awaitSelection',
+    CancelGrab: 'browser.grab.cancel',
+    CaptureSelectionScreenshot: 'browser.grab.captureScreenshot'
+  }
+  if (grabMethods[suffix]) {
+    return grabMethods[suffix]
+  }
   for (const group of ['Cookie', 'Intercept', 'Capture'] as const) {
     if (suffix.startsWith(group)) {
       const action = suffix.slice(group.length)

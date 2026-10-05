@@ -1,5 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { eraseRpcMethods } from '../core'
+import { installFakeAppEnvironment } from '../../../../../config/scripts/vitest-host-ports-setup'
+const desktopState = vi.hoisted(() => ({ userDataPath: '' }))
 
 const computerMocks = vi.hoisted(() => ({
   callComputerSidecarAction: vi.fn(),
@@ -30,6 +35,8 @@ import { COMPUTER_METHODS, resetComputerSessionsForTest } from './computer'
 
 describe('computer RPC methods', () => {
   beforeEach(() => {
+    desktopState.userDataPath = mkdtempSync(join(tmpdir(), 'orca-computer-rpc-'))
+    installFakeAppEnvironment({ getPath: () => desktopState.userDataPath })
     computerMocks.callComputerSidecarAction.mockReset()
     computerMocks.callComputerSidecarCapabilities.mockReset()
     computerMocks.callComputerSidecarListApps.mockReset()
@@ -40,6 +47,45 @@ describe('computer RPC methods', () => {
     computerMocks.getComputerUsePermissionStatus.mockReset()
     resetComputerSessionsForTest()
     computerMocks.resetComputerSidecarForTest.mockClear()
+  })
+
+  afterEach(() => {
+    rmSync(desktopState.userDataPath, { recursive: true, force: true })
+    desktopState.userDataPath = ''
+  })
+
+  it('returns a legacy-compatible main desktop stream ticket', async () => {
+    await expect(call('computer.desktopStreamTicket', {})).resolves.toMatchObject({
+      desktopId: 'main',
+      viewOnly: false
+    })
+  })
+
+  it('lists desktop targets without leaking credential paths', async () => {
+    const passwordFile = join(desktopState.userDataPath, 'vnc-password')
+    writeFileSync(passwordFile, 'secret\n')
+    writeDesktopTargetConfig({
+      targets: [{ id: 'game', label: 'Game desktop', port: 5901, viewOnly: true, passwordFile }]
+    })
+    await expect(call('computer.desktopTargets', {})).resolves.toEqual({
+      targets: [
+        { id: 'main', label: 'Main desktop', viewOnly: false },
+        { id: 'game', label: 'Game desktop', viewOnly: true }
+      ]
+    })
+    await expect(
+      call('computer.desktopStreamTicket', { desktopId: 'game' })
+    ).resolves.toMatchObject({
+      desktopId: 'game',
+      viewOnly: true,
+      credentials: { password: 'secret' }
+    })
+  })
+
+  it('rejects unknown desktop target ids', async () => {
+    await expect(call('computer.desktopStreamTicket', { desktopId: 'missing' })).rejects.toThrow(
+      /Unknown desktop VNC target/
+    )
   })
 
   it('lists running apps through the sidecar', async () => {
@@ -225,4 +271,9 @@ async function call(name: string, params: Record<string, unknown>) {
   return await method.handler(parsed, {
     runtime: { getRuntimeId: () => 'runtime-1' } as never
   })
+}
+
+function writeDesktopTargetConfig(value: unknown): void {
+  mkdirSync(desktopState.userDataPath, { recursive: true })
+  writeFileSync(join(desktopState.userDataPath, 'desktop-vnc-targets.json'), JSON.stringify(value))
 }

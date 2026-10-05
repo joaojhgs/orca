@@ -7,6 +7,11 @@ import {
   resetComputerSidecarForTest
 } from '../../../computer/sidecar-client'
 import { defineMethod } from '../core'
+import { listDesktopVncTargets } from '../../../computer/desktop-vnc-targets'
+import {
+  createDesktopVncStreamTicket,
+  listExecutionDesktopVncTargets
+} from '../../../computer/desktop-vnc-inventory'
 import {
   Click,
   ComputerObserveTarget,
@@ -24,6 +29,8 @@ import {
 } from './computer-schemas'
 import {
   ComputerCapabilitiesParams,
+  ComputerDesktopStreamTicketParams,
+  ComputerDesktopTargetsParams,
   ComputerPermissionsStatusParams
 } from '../../../../shared/rpc-contract/computer-params'
 
@@ -32,6 +39,19 @@ export function resetComputerSessionsForTest(): void {
 }
 
 export const COMPUTER_METHODS = [
+  defineMethod({
+    name: 'computer.desktopStreamTicket',
+    params: ComputerDesktopStreamTicketParams,
+    handler: async (params) => createDesktopVncStreamTicket(params.desktopId)
+  }),
+  defineMethod({
+    name: 'computer.desktopTargets',
+    params: ComputerDesktopTargetsParams,
+    handler: async (params) =>
+      params.executionHosts
+        ? listExecutionDesktopVncTargets()
+        : { targets: listDesktopVncTargets() }
+  }),
   defineMethod({
     name: 'computer.capabilities',
     params: ComputerCapabilitiesParams,

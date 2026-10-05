@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { maybeRedirectCliLaunch } from './cli-launch-redirect'
 import { runProfileStateRecoveryPreflight } from './profile-state-recovery-preflight'
 import { argvRequestsServeMode, normalizeServeModeArgv } from './serve-mode-argv'
+import { ensureLinuxHeadlessAccessibility } from './linux-headless-accessibility'
 import {
   configureDevUserDataPath,
   configureElectronNetworkCompatibility,
@@ -372,6 +373,7 @@ function initializeMainProcessPreflight(options: MainProcessPreflightOptions): b
   state.headlessBrowserDisplayAvailable = ensureVirtualDisplayForHeadlessServe({
     isServeMode: state.isServeMode
   })
+  ensureLinuxHeadlessAccessibility({ isServeMode: state.isServeMode })
   // Why: continuing without Xvfb lets Ozone initialize without a display and SIGSEGV (#17615).
   if (state.isServeMode && !state.headlessBrowserDisplayAvailable) {
     process.stderr.write(`${MISSING_LINUX_DISPLAY_MESSAGE}\n`)

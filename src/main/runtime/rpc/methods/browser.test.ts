@@ -10,6 +10,7 @@ import {
 } from '../../../../shared/clipboard-text'
 import { BROWSER_CORE_METHODS } from './browser-core'
 import { BROWSER_EXTRA_METHODS } from './browser-extras'
+import { BROWSER_GRAB_METHODS } from './browser-grab'
 import { BROWSER_SCREENCAST_METHODS } from './browser-screencast'
 import { ClipboardWrite, Fill, KeyboardInsert, ProfileCreate, Type } from './browser-schemas'
 
@@ -18,6 +19,36 @@ function makeRequest(method: string, params?: unknown): RpcRequest {
 }
 
 describe('browser RPC methods', () => {
+  it('routes remote Design Mode operations to the browser host', async () => {
+    const runtime = {
+      getRuntimeId: () => 'test-runtime',
+      browserSetGrabMode: vi.fn().mockResolvedValue({ ok: true }),
+      browserAwaitGrabSelection: vi
+        .fn()
+        .mockResolvedValue({ opId: 'grab-1', kind: 'cancelled', reason: 'user' }),
+      browserCancelGrab: vi.fn().mockResolvedValue({ ok: true }),
+      browserCaptureSelectionScreenshot: vi
+        .fn()
+        .mockResolvedValue({ ok: false, reason: 'capture-failed' })
+    }
+    const dispatcher = new RpcDispatcher({
+      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: This dispatcher fixture supplies every runtime method exercised here.
+      runtime: runtime as unknown as OrcaRuntimeService,
+      methods: BROWSER_GRAB_METHODS
+    })
+    const target = { worktree: 'id:wt-1', page: 'page-1' }
+    await dispatcher.dispatch(makeRequest('browser.grab.setMode', { ...target, enabled: true }))
+    await dispatcher.dispatch(
+      makeRequest('browser.grab.awaitSelection', { ...target, opId: 'grab-1' })
+    )
+    await dispatcher.dispatch(makeRequest('browser.grab.cancel', target))
+    const rect = { x: 1, y: 2, width: 30, height: 40 }
+    await dispatcher.dispatch(makeRequest('browser.grab.captureScreenshot', { ...target, rect }))
+    expect(runtime.browserSetGrabMode).toHaveBeenCalledWith({ ...target, enabled: true })
+    expect(runtime.browserAwaitGrabSelection).toHaveBeenCalledWith({ ...target, opId: 'grab-1' })
+    expect(runtime.browserCancelGrab).toHaveBeenCalledWith(target)
+    expect(runtime.browserCaptureSelectionScreenshot).toHaveBeenCalledWith({ ...target, rect })
+  })
   it('passes authenticated caller identity to client page creation outside the payload', async () => {
     const runtime = {
       getRuntimeId: () => 'test-runtime',

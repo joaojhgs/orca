@@ -35,7 +35,9 @@ export async function restoreSshConnectionsForStartup(args: {
   const targetMap = new Map(allTargets.map((t) => [t.id, t]))
   const targets = connectionIds.map((targetId) => ({
     targetId,
-    needsPassphrase: targetMap.get(targetId)?.lastRequiredPassphrase ?? false
+    needsPassphrase:
+      targetMap.get(targetId)?.connectOnStartup === false ||
+      (targetMap.get(targetId)?.lastRequiredPassphrase ?? false)
   }))
 
   const passphraseTargetIds = targets.filter((t) => t.needsPassphrase).map((t) => t.targetId)
