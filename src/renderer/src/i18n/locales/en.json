@@ -18687,6 +18687,18 @@
   },
   "skills": {
     "library": {
+      "selectAssign": "Select imported skills to assign",
+      "reviewAssignment": "Review assignment",
+      "assignSkills": "Assign skills",
+      "assignBatchTitle": "Assign {{total}} imported skills",
+      "assignmentReview": "Pinned skills to assign",
+      "assignmentApproval": "Assign these pinned skills to the selected destination and runtimes. Existing runtime assignments are retained.",
+      "assignmentProgress": "Assigning {{index}}/{{total}}: {{name}}",
+      "assignmentResults": "Assignment results",
+      "closeResults": "Close results",
+      "assignBatchSubmit": "Assign {{total}} skills",
+      "selectionLimit": "Select up to 50 skills per operation.",
+      "oneVersionPerOperation": "Select one version of each skill for this operation.",
       "assignTitle": "Assign {{name}}",
       "assignHelp": "Pin this version to a host and its native coding runtimes. Existing sessions stay running and may load skills only on their next normal start.",
       "destination": "Installation destination",

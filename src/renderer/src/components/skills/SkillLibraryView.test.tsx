@@ -95,6 +95,23 @@ async function fixture(remote = false) {
     if (method === 'skills.library.list') {
       return structuredClone(snapshot)
     }
+    if (method === 'skills.library.assign') {
+      const selected = snapshot.versions.find((row) => row.versionId === params.versionId)!
+      const assignment: SkillLibrarySnapshot['assignments'][number] = {
+        id: selected.versionId,
+        packageId: selected.packageId,
+        versionId: selected.versionId,
+        destination: params.destination,
+        executionHostId: 'local',
+        providers: params.providers,
+        desiredState: 'installed',
+        status: 'installed',
+        checkedAt: null,
+        message: null
+      }
+      snapshot.assignments.push(assignment)
+      return assignment
+    }
     if (method === 'skills.library.discover') {
       return { candidates: [candidate] }
     }
@@ -164,6 +181,58 @@ async function fixture(remote = false) {
 }
 
 describe('browser local skill library', () => {
+  it('bulk assigns imported versions only after one review and preserves the separate sharing flow', async () => {
+    const f = await fixture()
+    f.snapshot.versions = [
+      f.version,
+      {
+        ...f.version,
+        packageId: '00000000-0000-4000-8000-000000000003',
+        versionId: '00000000-0000-4000-8000-000000000004',
+        name: 'second'
+      }
+    ]
+    await act(async () => fireEvent.click(document.querySelector('button[aria-label="Refresh"]')!))
+    await f.click('Assign skills')
+    await f.click('Select all 2 eligible')
+    await f.click('Review assignment')
+    expect(f.button('Assign 2 skills').disabled).toBe(true)
+    expect(rpc.mock.calls.some(([, method]) => method === 'skills.library.assign')).toBe(false)
+    await act(async () =>
+      fireEvent.click(document.querySelector('[role="dialog"] button[role="checkbox"]')!)
+    )
+    await f.click('Assign 2 skills')
+    expect(
+      rpc.mock.calls
+        .filter(([, method]) => method === 'skills.library.assign')
+        .map((call) => call[2])
+    ).toEqual(
+      f.snapshot.versions.map((version) => ({
+        versionId: version.versionId,
+        destination: { scope: 'global', executionTarget: { kind: 'host' } },
+        providers: ['codex']
+      }))
+    )
+    expect(document.querySelector('[aria-label="Assignment results"]')?.textContent).toContain(
+      'second: installed'
+    )
+    expect(f.button('Assign 2 skills').disabled).toBe(true)
+    await f.click('Close results')
+    await f.click('Share skills')
+    await f.click('Select all 2 eligible')
+    await f.click('Review share')
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+      'Create local share link'
+    )
+    expect(
+      rpc.mock.calls.some(
+        ([, method]) =>
+          method === 'skills.library.discover' ||
+          method === 'skills.library.import' ||
+          method === 'skills.library.share'
+      )
+    ).toBe(false)
+  })
   it('shows only imported snapshots on normal navigation and Back returns there without rescanning', async () => {
     const f = await fixture()
     expect(document.body.textContent).toContain('No imported skills yet')

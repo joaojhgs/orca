@@ -71,7 +71,8 @@ export function SkillLibraryImportedList(props: {
             selected={props.selected.has(version.versionId)}
             selectable={
               !props.busy &&
-              (props.selected.has(version.versionId) || !selectedNames.has(version.name))
+              (props.selected.has(version.versionId) ||
+                (props.selected.size < 50 && !selectedNames.has(version.name)))
             }
             shareable={!props.busy}
             deletable={!props.busy && !assigned}
@@ -87,10 +88,17 @@ export function SkillLibraryImportedList(props: {
               'skills.library.duplicateSelection',
               'Another version selected'
             )}
-            disabledReason={translate(
-              'skills.library.oneVersionPerBundle',
-              'Select one version of each skill per bundle.'
-            )}
+            disabledReason={
+              props.selected.size >= 50
+                ? translate(
+                    'skills.library.selectionLimit',
+                    'Select up to 50 skills per operation.'
+                  )
+                : translate(
+                    'skills.library.oneVersionPerOperation',
+                    'Select one version of each skill for this operation.'
+                  )
+            }
             focusable={
               focused === version.versionId ||
               (!rows.some((row) => row.versionId === focused) && index === 0)

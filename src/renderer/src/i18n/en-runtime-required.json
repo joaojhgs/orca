@@ -2185,6 +2185,10 @@
           "e46e162e2e": "from",
           "fb6bf60b52": "Claude"
         },
+        "SkillsSelectionHeader": {
+          "deleteTitle": "Select skills to delete",
+          "title": "Select skills to share"
+        },
         "SkillsSharedLinksHeader": {
           "back": "Back to skills",
           "backTooltip": "Back to skills · Esc",
@@ -2978,6 +2982,15 @@
         "probeSkippedHosts": "Hosts routed without the connection check (Try anyway):",
         "title": "Browse through SSH workspace hosts"
       }
+    }
+  },
+  "skills": {
+    "library": {
+      "back": "Skills",
+      "reviewHelp": "All listed files enter the local library, including scripts and assets. Nothing is executed during import. Check for secrets and unwanted instructions.",
+      "scanHelp": "Scan only the selected host. Nothing is imported automatically.",
+      "storageHelp": "Stored on this Orca server, without Cloud. Importing preserves the original; assignments pin copies to native runtime skill directories.",
+      "title": "Local skill library"
     }
   },
   "sparsePreset": {

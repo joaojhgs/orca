@@ -74,6 +74,7 @@ try {
   await page.getByRole('checkbox').first().check()
   await page.screenshot({ path: join(output, 'desktop-review.png') })
   await page.getByRole('button', { name: 'Import into local library', exact: true }).click()
+  console.log('Probe: imported fixture')
   await expect(page.getByRole('tab', { name: 'Imported skills (1)', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Review import', exact: true })).toHaveCount(0)
   await page.getByRole('option').filter({ hasText: 'probe-skill' }).dblclick()
@@ -81,6 +82,7 @@ try {
   await page.getByRole('dialog').getByRole('combobox').first().click()
   await page.getByRole('option', { name: 'Fixture distrobox', exact: true }).click()
   await page.getByRole('button', { name: 'Assign pinned version', exact: true }).click()
+  console.log('Probe: single assignment submitted')
   await page.getByRole('tab', { name: 'Assignments', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Assignments (1)', exact: true })).toBeVisible()
   await page.getByRole('tab', { name: 'Imported skills (1)', exact: true }).click()
@@ -94,9 +96,39 @@ try {
   await page.getByRole('button', { name: 'Create local share link', exact: true }).click()
   await expect(page.getByRole('dialog')).toContainText('http://fixture.local/skills/share/fixture')
   await page.getByRole('button', { name: 'Done', exact: true }).click()
+  console.log('Probe: local sharing complete')
+  await page.getByRole('button', { name: 'Assign skills', exact: true }).click()
+  await page.getByRole('checkbox', { name: 'Select probe-skill', exact: true }).check()
+  await page.getByRole('button', { name: 'Review assignment', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Assign 1 skills', exact: true })).toBeDisabled()
+  await page.getByRole('dialog').getByRole('combobox').nth(0).click()
+  await page.getByRole('option', { name: 'Fixture distrobox', exact: true }).click()
+  await page.getByRole('dialog').getByRole('combobox').nth(1).click()
+  await page.getByRole('option', { name: 'Registered workspace', exact: true }).click()
+  await page.getByRole('dialog').getByRole('combobox').nth(2).click()
+  await page.getByRole('option').filter({ hasText: '/disposable/folder' }).click()
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: /^Installing for:/ })
+    .click()
+  await page.getByRole('checkbox', { name: 'Claude Code', exact: true }).check()
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: /^Installing for:/ })
+    .click()
+  await page.getByRole('checkbox', { name: /^Assign these pinned skills/ }).check()
+  await page.screenshot({ path: join(output, 'desktop-bulk-assignment.png') })
+  await page.getByRole('button', { name: 'Assign 1 skills', exact: true }).click()
+  await expect(page.getByLabel('Assignment results')).toContainText('probe-skill: installed')
+  await page.getByRole('button', { name: 'Close results', exact: true }).click()
+  console.log('Probe: bulk SSH folder assignment complete')
+  await page.getByRole('button', { name: 'Assign skills', exact: true }).click()
+  await page.getByRole('checkbox', { name: 'Select probe-skill', exact: true }).check()
+  await page.getByRole('button', { name: 'Review assignment', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
   await page.evaluate(() => document.documentElement.classList.add('dark'))
   await page.screenshot({ path: join(output, 'mobile-library.png') })
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true
   )
@@ -107,6 +139,13 @@ try {
     )
   ).toBe(true)
   console.log(`Hidden desktop/mobile renderer probe passed. Screenshots: ${output}`)
+} catch (error) {
+  console.error(error)
+  process.exitCode = 1
 } finally {
-  await app?.close()
+  if (app) {
+    const timer = setTimeout(() => app.process().kill('SIGKILL'), 10000)
+    await app.close().catch(() => {})
+    clearTimeout(timer)
+  }
 }

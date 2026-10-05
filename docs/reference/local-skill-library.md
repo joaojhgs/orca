@@ -364,6 +364,12 @@ Skills navigation opens **Imported skills**, the reviewed snapshots stored in th
 
 Imported skills can be reviewed from their immutable archive, assigned, shared or deleted. Import does not install the skill into an agent. Assignment installs a pinned version on the selected execution host, globally or in an exact worktree/folder workspace. It preserves locally modified or unowned files rather than overwriting them. Unassign removes only Orca-owned, unchanged placements.
 
+## Bulk assignment
+
+From **Imported skills**, choose **Assign skills**, select up to 50 pinned versions (one per name), then **Review assignment**. Choose one execution host, global or registered worktree/folder scope, and the agent runtimes once. Explicit approval submits the selected versions sequentially through the existing assignment RPC; no relay or host CLI upgrade is needed.
+
+Existing providers at the same destination are retained. The results distinguish installed, pending/offline, conflicts and errors; queued is not installed. Local edits and unowned files remain protected. A transport timeout or unexpected response stops further submissions and is shown as unconfirmed: refresh Assignments before retrying because the server may still be working. Changing runtime or leaving the dialog stops unsent work, not an operation already executing. Conflicted, failed and unsent versions remain selected after closing results. This is not an atomic transaction or live prompt injection, and does not restart agents.
+
 ## Local sharing
 
 Share selects imported version IDs, never arbitrary paths or unimported scan results. One version per skill name can be included in a bundle. Publishing requires explicit file review and the existing human artifact-publishing approval. Agent/CLI publishing additionally requires the separate agent skill-sharing permission; agents must not enable either permission themselves.

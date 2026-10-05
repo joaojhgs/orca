@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { skillLibraryDestinationKey } from '../../shared/skill-library-destination-key'
 import {
   SkillLibraryAssignParams,
   type SkillLibraryAssignment,
@@ -34,23 +35,6 @@ export type SkillLibraryPlacementResolver = {
 
 export class SkillLibraryUnavailableError extends Error {}
 
-function destinationKey(destination: SkillInstallDestination): string {
-  if (destination.scope === 'workspace') {
-    return JSON.stringify([
-      'workspace',
-      destination.worktreeId ?? null,
-      destination.folderWorkspaceId ?? null
-    ])
-  }
-  const target = destination.executionTarget
-  return JSON.stringify([
-    'global',
-    destination.environmentId ?? null,
-    target?.kind ?? 'host',
-    target?.kind === 'ssh' ? target.connectionId : target?.kind === 'wsl' ? target.distro : null
-  ])
-}
-
 export class SkillLibraryAssignments {
   private readonly queue: { current: Promise<unknown> } = { current: Promise.resolve() }
   constructor(
@@ -74,7 +58,7 @@ export class SkillLibraryAssignments {
         const existing = catalog.assignments.find(
           (row) =>
             row.packageId === version.packageId &&
-            destinationKey(row.destination) === destinationKey(destination)
+            skillLibraryDestinationKey(row.destination) === skillLibraryDestinationKey(destination)
         )
         const providers = [...new Set(request.providers)]
         if (existing) {

@@ -41,6 +41,8 @@ export function useSkillLibraryPage(props: SkillLibraryPageProps) {
   )
   const [savedReview, setSavedReview] = useState<SkillLibraryVersion | null>(null)
   const [assignVersion, setAssignVersion] = useState<SkillLibraryVersion | null>(null)
+  const [bulkAssignVersions, setBulkAssignVersions] = useState<SkillLibraryVersion[]>([])
+  const [selectionAction, setSelectionAction] = useState<'share' | 'assign'>('share')
   const [selecting, setSelecting] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [shareVersions, setShareVersions] = useState<SkillLibraryVersion[]>([])
@@ -57,6 +59,8 @@ export function useSkillLibraryPage(props: SkillLibraryPageProps) {
     setReviewSource(null)
     setSavedReview(null)
     setAssignVersion(null)
+    setBulkAssignVersions([])
+    setSelectionAction('share')
     setShareVersions([])
     setSelected(new Set())
     setSelecting(false)
@@ -252,6 +256,10 @@ export function useSkillLibraryPage(props: SkillLibraryPageProps) {
     setSavedReview,
     assignVersion,
     setAssignVersion,
+    bulkAssignVersions,
+    setBulkAssignVersions,
+    selectionAction,
+    setSelectionAction,
     selecting,
     setSelecting,
     selected,

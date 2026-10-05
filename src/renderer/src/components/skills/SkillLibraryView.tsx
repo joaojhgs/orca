@@ -1,7 +1,3 @@
-import { ArrowLeft, Download, RefreshCw, Share2, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
 import { SKILLS_PAGE_COLUMN } from './skills-page-column'
@@ -11,7 +7,8 @@ import { SkillLibraryCatalog } from './SkillLibraryCatalog'
 import { SkillLibraryDiscovery } from './SkillLibraryDiscovery'
 import { SkillLibraryImportedList } from './SkillLibraryImportedList'
 import { SkillLibraryShareDialog } from './SkillLibraryShareDialog'
-import { SkillsSelectionHeader } from './SkillsSelectionHeader'
+import { SkillLibraryPageHeader } from './SkillLibraryPageHeader'
+import { SkillLibraryBulkAssign } from './SkillLibraryBulkAssign'
 import { SkillSharedLinksView } from './SkillSharedLinksView'
 import { useSkillLibraryPage, type SkillLibraryPageProps } from './use-skill-library-page'
 
@@ -23,12 +20,13 @@ export function SkillLibraryView(props: SkillLibraryPageProps) {
     view,
     setView,
     query,
-    setQuery,
     review,
     reviewSource,
     savedReview,
     assignVersion,
     setAssignVersion,
+    bulkAssignVersions,
+    setBulkAssignVersions,
     selecting,
     setSelecting,
     selected,
@@ -41,151 +39,7 @@ export function SkillLibraryView(props: SkillLibraryPageProps) {
   const snapshot = library.snapshot
   return (
     <main className="flex min-h-0 flex-1 flex-col bg-background">
-      {selecting ? (
-        <SkillsSelectionHeader
-          title={translate('skills.library.selectImported', 'Select imported skills to share')}
-          icon={<Share2 />}
-          actionIcon={<Share2 />}
-          actionLabel={translate('skills.library.reviewShare', 'Review share')}
-          selectedCount={selected.size}
-          eligibleCount={snapshot?.versions.length ?? 0}
-          busy={library.busy}
-          onCancel={() => {
-            setSelecting(false)
-            setSelected(new Set())
-          }}
-          onClear={() => setSelected(new Set())}
-          onSelectAll={() => {
-            const names = new Set<string>()
-            setSelected(
-              new Set(
-                (snapshot?.versions ?? [])
-                  .filter((version) => {
-                    if (names.has(version.name)) {
-                      return false
-                    }
-                    names.add(version.name)
-                    return true
-                  })
-                  .slice(0, 50)
-                  .map((version) => version.versionId)
-              )
-            )
-          }}
-          onSubmit={() =>
-            setShareVersions(
-              snapshot?.versions.filter((version) => selected.has(version.versionId)) ?? []
-            )
-          }
-        />
-      ) : (
-        <header className="shrink-0 border-b border-border">
-          <div className={cn(SKILLS_PAGE_COLUMN, 'flex flex-wrap items-center gap-2 py-3')}>
-            {view === 'import' ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={library.busy}
-                onClick={() => {
-                  setView('catalog')
-                  setNotice(null)
-                }}
-              >
-                <ArrowLeft data-icon="inline-start" />
-                {translate('skills.library.backImported', 'Back to imported skills')}
-              </Button>
-            ) : null}
-            <h1 className="min-w-0 flex-1 text-sm font-semibold">
-              {translate('skills.library.skillsTitle', 'Skills')}
-            </h1>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={library.busy}
-              onClick={() => {
-                setView('import')
-                setNotice(null)
-              }}
-            >
-              <Download data-icon="inline-start" />
-              {translate('skills.library.importSkills', 'Import skills')}
-            </Button>
-            <Button
-              size="sm"
-              disabled={library.busy || !snapshot?.versions.length}
-              onClick={() => {
-                setView('catalog')
-                setSelecting(true)
-                setSelected(new Set())
-              }}
-            >
-              <Share2 data-icon="inline-start" />
-              {translate('skills.library.shareSkills', 'Share skills')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              disabled={library.busy}
-              onClick={() => {
-                void library.refresh()
-                shares.refresh()
-              }}
-              aria-label={translate('skills.library.refresh', 'Refresh')}
-            >
-              <RefreshCw />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={props.onClose}
-              aria-label={translate('skills.library.close', 'Close skills')}
-            >
-              <X />
-            </Button>
-          </div>
-        </header>
-      )}
-      {view !== 'import' ? (
-        <div className={cn(SKILLS_PAGE_COLUMN, 'flex w-full flex-wrap items-center gap-3 py-3')}>
-          <Tabs
-            value={view}
-            onValueChange={(next) => {
-              if (next === 'catalog' || next === 'assignments' || next === 'shared') {
-                setView(next)
-                setNotice(null)
-                setSelecting(false)
-                setSelected(new Set())
-              }
-            }}
-          >
-            <TabsList>
-              <TabsTrigger value="catalog">
-                {translate('skills.library.importedTab', 'Imported skills')} (
-                {snapshot?.versions.length ?? 0})
-              </TabsTrigger>
-              <TabsTrigger value="assignments">
-                {translate('skills.library.assignmentsTab', 'Assignments')}
-              </TabsTrigger>
-              <TabsTrigger value="shared">
-                {translate('skills.library.sharedTab', 'Shared links')}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            aria-label={translate(
-              'skills.library.searchImported',
-              'Search imported skills or links'
-            )}
-            placeholder={translate(
-              'skills.library.searchImported',
-              'Search imported skills or links'
-            )}
-            className="min-w-0 flex-1"
-          />
-        </div>
-      ) : null}
+      <SkillLibraryPageHeader page={page} onClose={props.onClose} />
       <section className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto">
         <div className={cn(SKILLS_PAGE_COLUMN, 'flex flex-col gap-4 py-3')}>
           {library.error ? (
@@ -294,6 +148,32 @@ export function SkillLibraryView(props: SkillLibraryPageProps) {
                   }
                 }}
               />
+              {bulkAssignVersions.length ? (
+                <SkillLibraryBulkAssign
+                  key={bulkAssignVersions.map((version) => version.versionId).join(',')}
+                  versions={bulkAssignVersions}
+                  snapshot={snapshot}
+                  library={library}
+                  onClose={() => setBulkAssignVersions([])}
+                  onCompleted={(results) => {
+                    const unresolved = results.filter(
+                      (row) => !['installed', 'pending', 'unavailable'].includes(row.status)
+                    )
+                    setSelected(new Set(unresolved.map((row) => row.versionId)))
+                    if (!unresolved.length) {
+                      setSelecting(false)
+                    }
+                    setNotice(
+                      results
+                        .map(
+                          (row) =>
+                            `${row.name}: ${row.status}${row.message ? ` — ${row.message}` : ''}`
+                        )
+                        .join(' · ')
+                    )
+                  }}
+                />
+              ) : null}
             </>
           )}
         </div>
@@ -336,7 +216,7 @@ export function SkillLibraryView(props: SkillLibraryPageProps) {
           setShareVersions([])
           setSelecting(false)
           setView('shared')
-          shares.refresh()
+          page.shares.refresh()
         }}
         onPublish={page.publish}
       />
