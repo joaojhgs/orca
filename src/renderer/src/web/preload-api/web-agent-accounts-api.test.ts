@@ -3,8 +3,11 @@ import {
   createClaudeAccountsApi,
   createCodexAccountsApi,
   createCursorAccountsApi,
-  createMiniMaxCredentialsApi
+  createMiniMaxCredentialsApi,
+  createOpenCodeGoCredentialsApi,
+  createZcodePlanCredentialsApi
 } from './web-agent-accounts-api'
+import { AccountControlParams } from '../../../../shared/rpc-contract/accounts-params'
 const mocks = vi.hoisted(() => ({ call: vi.fn(), owner: 'server-one' }))
 vi.mock('./web-runtime-calls', () => ({ callRuntimeResult: mocks.call }))
 vi.mock('./web-runtime-session', () => ({
@@ -12,6 +15,41 @@ vi.mock('./web-runtime-session', () => ({
 }))
 
 describe('browser account APIs', () => {
+  it.each([
+    ['opencodeGo', createOpenCodeGoCredentialsApi],
+    ['zcodePlan', createZcodePlanCredentialsApi]
+  ] as const)(
+    'routes %s credentials through paired account controls',
+    async (provider, createApi) => {
+      const api = createApi()
+      mocks.call.mockResolvedValue({ apiKeyConfigured: true })
+      await api.getStatus()
+      expect(mocks.call).toHaveBeenLastCalledWith(
+        'accounts.control',
+        { operation: `${provider}.status` },
+        60000
+      )
+      await api.saveApiKey('placeholder-key')
+      const operation = `${provider}.saveApiKey`
+      expect(mocks.call).toHaveBeenLastCalledWith(
+        'accounts.control',
+        { operation, secret: 'placeholder-key' },
+        60000
+      )
+      expect(AccountControlParams.safeParse({ operation, secret: 'placeholder-key' }).success).toBe(
+        true
+      )
+      expect(AccountControlParams.safeParse({ operation, secret: 'x'.repeat(16385) }).success).toBe(
+        false
+      )
+      await api.clearApiKey()
+      expect(mocks.call).toHaveBeenLastCalledWith(
+        'accounts.control',
+        { operation: `${provider}.clearApiKey` },
+        60000
+      )
+    }
+  )
   beforeEach(() => {
     vi.resetAllMocks()
     mocks.owner = 'server-one'

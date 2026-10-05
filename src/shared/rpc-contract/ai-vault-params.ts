@@ -4,6 +4,14 @@ import { AI_VAULT_AGENTS, AI_VAULT_SCOPE_PATHS_MAX_COUNT } from '../ai-vault-typ
 import { OptionalBoolean } from './rpc-param-primitives'
 import { AI_VAULT_SESSION_TITLE_REQUEST_MAX_COUNT } from '../ai-vault-session-title'
 import { ExecutionHostScanScopeSchema } from './execution-host-scan-scope'
+import {
+  AiVaultSearchRequestSchema,
+  AiVaultSearchStatusRequestSchema
+} from '../ai-vault-search-contract'
+
+const HostSearchScope = z.object({ executionHostScope: ExecutionHostScanScopeSchema.optional() })
+export const AiVaultSearchSessionsParams = AiVaultSearchRequestSchema.and(HostSearchScope)
+export const AiVaultSearchStatusParams = AiVaultSearchStatusRequestSchema.and(HostSearchScope)
 
 // Why: bound limit + scopePaths so a client cannot force an unbounded scan.
 // Each scopePath is a host-local match prefix (validated/capped, never used for
@@ -33,6 +41,7 @@ export const AiVaultListSessionsParams = z
       )
       .pipe(z.union([z.number().int(), z.undefined()]))
       .optional(),
+    includeAntigravityIdeSessions: OptionalBoolean,
     unlimited: OptionalBoolean,
     force: OptionalBoolean,
     scopePaths: z

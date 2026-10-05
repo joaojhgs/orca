@@ -46,13 +46,7 @@ export function withExecutionAccountUsage(
   result.claude = take('claude', state.claude)
   result.codex = take('codex', state.codex)
   result.cursor = take('cursor', state.cursor)
-  result.antigravity =
-    accounts.find(
-      (account) =>
-        account.provider === 'antigravity' &&
-        !account.error &&
-        account.sources.some((source) => source.reachable)
-    )?.rateLimits ?? null
+  result.antigravity = take('antigravity', state.antigravity)
   result.opencodeGo = take('opencode-go', state.opencodeGo)
   result.zcode = take('zcode', state.zcode)
   result.cursorAuthConfigured ||= accounts.some((account) => account.provider === 'cursor')

@@ -2,6 +2,8 @@ import type { SettingsSearchEntry } from './settings-search'
 import { translate } from '@/i18n/i18n'
 import { translateSearchKeyword } from './settings-search-keywords'
 import { createLocalizedCatalog } from '@/i18n/localized-catalog'
+import { getAccountsZcodePlanSearchEntries } from './accounts-zcode-plan-search'
+export { getAccountsZcodePlanSearchEntries } from './accounts-zcode-plan-search'
 
 export const getAccountsLocationSearchEntries = createLocalizedCatalog(() => [
   {
@@ -97,14 +99,6 @@ export const getAccountsCodexSearchEntries = createLocalizedCatalog(() => [
 ])
 
 export const getAccountsGeminiSearchEntries = createLocalizedCatalog(() => [
-  {
-    title: translate('settings.executionUsage.antigravity', 'Antigravity usage'),
-    description: translate(
-      'settings.executionUsage.description',
-      'Matching accounts share one quota reading. Credentials stay on their execution host.'
-    ),
-    keywords: ['antigravity', 'usage', 'quota', 'ssh', 'distrobox']
-  },
   {
     title: translate(
       'auto.components.settings.accounts.search.d819755b02',
@@ -225,6 +219,27 @@ export const getAccountsGrokSearchEntries = createLocalizedCatalog(() => [
   }
 ])
 
+export const getAccountsAntigravitySearchEntries = createLocalizedCatalog(() => [
+  {
+    title: translate('accounts.antigravity.searchTitle', 'Antigravity Accounts'),
+    description: translate(
+      'accounts.antigravity.searchDescription',
+      'Save and select native agy Google accounts on the execution host.'
+    ),
+    keywords: [
+      ...translateSearchKeyword('accounts.antigravity.keyword.antigravity', 'antigravity'),
+      ...translateSearchKeyword('accounts.antigravity.keyword.agy', 'agy'),
+      ...translateSearchKeyword('accounts.antigravity.keyword.google', 'google'),
+      ...translateSearchKeyword('accounts.antigravity.keyword.accounts', 'accounts'),
+      'ssh',
+      'distrobox',
+      'quota',
+      ...translateSearchKeyword('auto.components.settings.accounts.search.a9f3d7b5c8', 'login'),
+      ...translateSearchKeyword('auto.components.settings.accounts.search.cursor.kw.usage', 'usage')
+    ]
+  }
+])
+
 export const getAccountsCursorSearchEntries = createLocalizedCatalog(() => [
   {
     title: translate('auto.components.settings.accounts.search.cursor.title', 'Cursor Usage'),
@@ -265,5 +280,7 @@ export const getAccountsPaneSearchEntries = createLocalizedCatalog((): SettingsS
   ...getAccountsOpencodeSearchEntries(),
   ...getAccountsMiniMaxSearchEntries(),
   ...getAccountsGrokSearchEntries(),
-  ...getAccountsCursorSearchEntries()
+  ...getAccountsAntigravitySearchEntries(),
+  ...getAccountsCursorSearchEntries(),
+  ...getAccountsZcodePlanSearchEntries()
 ])

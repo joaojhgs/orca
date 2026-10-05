@@ -1,4 +1,5 @@
-import type { IncomingMessage } from 'node:http'
+import type { IncomingMessage, Server as HttpServer } from 'node:http'
+import type { Server as HttpsServer } from 'node:https'
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type WebSocket } from 'ws'
 import {
@@ -13,6 +14,21 @@ import { VncViewOnlyInput } from '../../computer/vnc-view-only-input'
 
 const DESKTOP_VNC_PATH = '/desktop-vnc'
 const MAX_VNC_MESSAGE_BYTES = 16 * 1024 * 1024
+
+export function attachDesktopVncWebSocketBridge(
+  server: HttpServer | HttpsServer,
+  runtimeSockets: WebSocketServer
+): DesktopVncWebSocketBridge {
+  const bridge = new DesktopVncWebSocketBridge()
+  server.on('upgrade', (request, socket, head) => {
+    if (!bridge.tryUpgrade(request, socket, head)) {
+      runtimeSockets.handleUpgrade(request, socket, head, (ws) =>
+        runtimeSockets.emit('connection', ws, request)
+      )
+    }
+  })
+  return bridge
+}
 
 export class DesktopVncWebSocketBridge {
   private readonly wss = new WebSocketServer({ noServer: true, maxPayload: MAX_VNC_MESSAGE_BYTES })

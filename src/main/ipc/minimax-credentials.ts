@@ -5,20 +5,20 @@ import {
 } from '../minimax/minimax-cookie-store'
 import { clearMiniMaxApiKey, saveMiniMaxApiKey } from '../minimax/minimax-api-key-store'
 import { clearMiniMaxSessionCookieJar } from '../rate-limits/minimax/minimax-request-context'
+import { refreshAfterCredentialChange } from './credential-change-rate-limit-refresh'
 import type { RateLimitService } from '../rate-limits/service'
 import { getMiniMaxCredentialsStatus } from '../minimax/minimax-credentials-status'
 export type { MiniMaxCredentialsStatus } from '../minimax/minimax-credentials-status'
 
-// Why: fire-and-forget — callers get the persisted credential status immediately;
-// the rate-limit refresh runs in the background and only logs on failure.
 function refreshAfterMiniMaxCredentialChange(
   rateLimits: RateLimitService | null,
   action: 'save' | 'clear'
 ): void {
-  rateLimits?.invalidateMiniMaxCredentialState()
-  void rateLimits?.refresh().catch((error: unknown) => {
-    console.error(`[minimax] failed to trigger rate-limit refresh after ${action}:`, error)
-  })
+  refreshAfterCredentialChange(
+    rateLimits,
+    (service) => service.invalidateMiniMaxCredentialState(),
+    `[minimax] failed to trigger rate-limit refresh after ${action}:`
+  )
 }
 
 export function registerMiniMaxCredentialsHandlers(rateLimits: RateLimitService | null): void {

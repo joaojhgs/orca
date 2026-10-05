@@ -1,8 +1,4 @@
-import {
-  AiVaultSearchRequestSchema,
-  AiVaultSearchStatusRequestSchema,
-  AiVaultSetSearchEnabledParamsSchema
-} from '../../../../shared/ai-vault-search-contract'
+import { AiVaultSetSearchEnabledParamsSchema } from '../../../../shared/ai-vault-search-contract'
 import {
   searchSessionService,
   sessionSearchServiceStatus
@@ -13,8 +9,6 @@ import type { AiVaultPrepareSessionResumeArgs } from '../../../../shared/ai-vaul
 import { LOCAL_EXECUTION_HOST_ID, parseExecutionHostId } from '../../../../shared/execution-host'
 import type { AiVaultListResult } from '../../../../shared/ai-vault-types'
 import { resolveAiVaultSessionTitlesByHost } from '../../../ipc/ai-vault-session-title-routing'
-import { z } from 'zod'
-import { ExecutionHostScanScopeSchema } from '../../../../shared/rpc-contract/execution-host-scan-scope'
 import {
   searchAiVaultSessionsByHost,
   aiVaultSearchStatusByHost
@@ -31,16 +25,16 @@ import { ensureStructuredAgentSessionHostUnlessRefused } from '../../structured-
 import {
   AiVaultListSessionsParams,
   AiVaultPrepareSessionResumeParams,
-  AiVaultSessionTitlesParams
+  AiVaultSessionTitlesParams,
+  AiVaultSearchSessionsParams,
+  AiVaultSearchStatusParams
 } from '../../../../shared/rpc-contract/ai-vault-params'
 export { AiVaultListSessionsParams, AiVaultPrepareSessionResumeParams, AiVaultSessionTitlesParams }
-
-const HostSearchScope = z.object({ executionHostScope: ExecutionHostScanScopeSchema.optional() })
 
 export const AI_VAULT_METHODS = [
   defineMethod({
     name: 'aiVault.searchSessions',
-    params: AiVaultSearchRequestSchema.and(HostSearchScope),
+    params: AiVaultSearchSessionsParams,
     handler: async (params, { clientKind }) => {
       if (!params.executionHostScope || params.executionHostScope === 'local') {
         return searchSessionService(params, clientKind ? 'relay' : 'runtime')
@@ -53,7 +47,7 @@ export const AI_VAULT_METHODS = [
   }),
   defineMethod({
     name: 'aiVault.searchStatus',
-    params: AiVaultSearchStatusRequestSchema.and(HostSearchScope),
+    params: AiVaultSearchStatusParams,
     handler: (params, { clientKind }) =>
       params.executionHostScope?.startsWith('ssh:')
         ? aiVaultSearchStatusByHost(params.executionHostScope)
@@ -103,7 +97,8 @@ export const AI_VAULT_METHODS = [
           unlimited: params.unlimited,
           force: params.force,
           scopePaths: params.scopePaths,
-          ...(params.executionHostScope ? { executionHostScope: params.executionHostScope } : {})
+          ...(params.executionHostScope ? { executionHostScope: params.executionHostScope } : {}),
+          includeAntigravityIdeSessions: params.includeAntigravityIdeSessions
         })
       } catch (error) {
         if (error instanceof Error) {

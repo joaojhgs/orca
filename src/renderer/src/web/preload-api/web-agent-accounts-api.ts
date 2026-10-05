@@ -28,6 +28,22 @@ export function createGrokAccountsApi(): PreloadApi['grokAccounts'] {
   return { getStatus: () => control({ operation: 'grok.status' }) }
 }
 
+export function createOpenCodeGoCredentialsApi(): PreloadApi['opencodeGoCredentials'] {
+  return {
+    getStatus: () => control({ operation: 'opencodeGo.status' }),
+    saveApiKey: (secret) => control({ operation: 'opencodeGo.saveApiKey', secret }),
+    clearApiKey: () => control({ operation: 'opencodeGo.clearApiKey' })
+  }
+}
+
+export function createZcodePlanCredentialsApi(): PreloadApi['zcodePlanCredentials'] {
+  return {
+    getStatus: () => control({ operation: 'zcodePlan.status' }),
+    saveApiKey: (secret) => control({ operation: 'zcodePlan.saveApiKey', secret }),
+    clearApiKey: () => control({ operation: 'zcodePlan.clearApiKey' })
+  }
+}
+
 export function createClaudeAccountsApi(): PreloadApi['claudeAccounts'] {
   return {
     list: async () =>

@@ -1,5 +1,19 @@
 import { z } from 'zod'
 
+export const ManagedDataAccountProviderParams = z.object({
+  provider: z.enum(['opencode', 'devin'])
+})
+export const AddDataAccountParams = ManagedDataAccountProviderParams.extend({
+  sourceDataHome: z.string().min(1),
+  label: z.string().trim().min(1).max(120)
+})
+export const SelectDataAccountParams = ManagedDataAccountProviderParams.extend({
+  accountId: z.uuid().nullable()
+})
+export const RemoveDataAccountParams = ManagedDataAccountProviderParams.extend({
+  accountId: z.uuid()
+})
+
 export const CodexResetTarget = z.discriminatedUnion('runtime', [
   z.object({ runtime: z.literal('host'), wslDistro: z.null() }).strict(),
   // Why: reset scope must identify one exact WSL distro; null means all slots only for selection.
@@ -89,7 +103,11 @@ export const AccountControlParams = z.discriminatedUnion('operation', [
       'grok.status',
       'minimax.status',
       'minimax.clearCookie',
-      'minimax.clearApiKey'
+      'minimax.clearApiKey',
+      'opencodeGo.status',
+      'opencodeGo.clearApiKey',
+      'zcodePlan.status',
+      'zcodePlan.clearApiKey'
     ])
   }),
   z.object({
@@ -106,7 +124,12 @@ export const AccountControlParams = z.discriminatedUnion('operation', [
     ptyIds: z.array(z.string().min(1).max(512)).max(1000)
   }),
   z.object({
-    operation: z.enum(['minimax.saveCookie', 'minimax.saveApiKey']),
+    operation: z.enum([
+      'minimax.saveCookie',
+      'minimax.saveApiKey',
+      'opencodeGo.saveApiKey',
+      'zcodePlan.saveApiKey'
+    ]),
     secret: z.string().trim().min(1).max(16384)
   })
 ])

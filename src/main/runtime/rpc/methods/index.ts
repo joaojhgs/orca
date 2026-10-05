@@ -21,6 +21,7 @@ import { STATS_METHODS } from './stats'
 import { USAGE_ANALYTICS_METHODS } from './usage-analytics'
 import { DIAGNOSTICS_METHODS } from './diagnostics'
 import { ACCOUNT_METHODS } from './accounts'
+import { ANTIGRAVITY_ACCOUNT_METHODS } from './antigravity-accounts'
 import { PREFLIGHT_METHODS } from './preflight'
 import { COMPUTER_METHODS } from './computer'
 import { SESSION_TAB_METHODS } from './session-tabs'
@@ -86,6 +87,7 @@ export const ALL_RPC_METHODS = [
   ...DIAGNOSTICS_METHODS,
   ...WORKSPACE_SPACE_METHODS,
   ...ACCOUNT_METHODS,
+  ...ANTIGRAVITY_ACCOUNT_METHODS,
   ...PREFLIGHT_METHODS,
   ...COMPUTER_METHODS,
   ...SESSION_TAB_METHODS,

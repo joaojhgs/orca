@@ -11,6 +11,27 @@ import { clearMiniMaxApiKey, saveMiniMaxApiKey } from '../minimax/minimax-api-ke
 import { clearMiniMaxSessionCookieJar } from '../rate-limits/minimax/minimax-request-context'
 import { listRecordedCodexPaneLanes } from '../codex/codex-pane-account-registry'
 import { forgetStaleCodexPanes, listStaleCodexPanes } from '../codex/codex-stale-pane-accounts'
+import {
+  clearOpenCodeGoApiKey,
+  hasOpenCodeGoApiKey,
+  saveOpenCodeGoApiKey
+} from '../opencode/opencode-go-api-key-store'
+import {
+  clearZcodePlanApiKey,
+  getZcodePlanApiKeyProtection,
+  hasZcodePlanApiKey,
+  saveZcodePlanApiKey
+} from '../zcode/zcode-plan-api-key-store'
+import { hasZcodeCliPlanCredentials } from '../rate-limits/zcode-usage-fetcher'
+import { refreshAfterCredentialChange } from '../ipc/credential-change-rate-limit-refresh'
+
+function zcodePlanStatus() {
+  return {
+    apiKeyConfigured: hasZcodePlanApiKey(),
+    zcodeCliConfigured: hasZcodeCliPlanCredentials(),
+    apiKeyProtection: getZcodePlanApiKeyProtection()
+  }
+}
 
 export async function controlRuntimeAccount(
   services: RuntimeAccountServices,
@@ -42,6 +63,39 @@ export async function controlRuntimeAccount(
       return getCursorAccountStatus()
     case 'grok.status':
       return getGrokAccountStatus()
+    case 'opencodeGo.status':
+      return { apiKeyConfigured: hasOpenCodeGoApiKey() }
+    case 'opencodeGo.saveApiKey':
+    case 'opencodeGo.clearApiKey':
+      if (request.operation === 'opencodeGo.saveApiKey') {
+        saveOpenCodeGoApiKey(request.secret)
+      } else {
+        clearOpenCodeGoApiKey()
+      }
+      refreshAfterCredentialChange(
+        rateLimits,
+        (service) =>
+          service.invalidateOpenCodeGoCredentialState({
+            apiKeyCleared: request.operation === 'opencodeGo.clearApiKey'
+          }),
+        '[accounts] OpenCode Go usage refresh failed'
+      )
+      return { apiKeyConfigured: hasOpenCodeGoApiKey() }
+    case 'zcodePlan.status':
+      return zcodePlanStatus()
+    case 'zcodePlan.saveApiKey':
+    case 'zcodePlan.clearApiKey':
+      if (request.operation === 'zcodePlan.saveApiKey') {
+        saveZcodePlanApiKey(request.secret)
+      } else {
+        clearZcodePlanApiKey()
+      }
+      refreshAfterCredentialChange(
+        rateLimits,
+        (service) => service.invalidateZcodeCredentialState(),
+        '[accounts] GLM Coding Plan usage refresh failed'
+      )
+      return zcodePlanStatus()
     case 'minimax.status':
       return getMiniMaxCredentialsStatus()
     case 'codex.stalePanes': {
@@ -51,8 +105,7 @@ export async function controlRuntimeAccount(
       }
       return listStaleCodexPanes({
         ptyIds: request.ptyIds,
-        settings,
-        activeHostHomeRoute: codexAccounts.runtimeHomeService.getSelectedHostCodexHomeRoute()
+        settings
       })
     }
     case 'codex.recordedPaneLanes':

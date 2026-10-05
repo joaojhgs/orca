@@ -70,6 +70,19 @@ function account(): ExecutionAccountUsage {
 }
 
 describe('execution usage footer projection', () => {
+  it('preserves upstream native Antigravity quota when no remote account is available', () => {
+    const selected = state()
+    selected.antigravity = { ...quota, provider: 'antigravity' }
+    expect(withExecutionAccountUsage(selected, []).antigravity).toBe(selected.antigravity)
+  })
+
+  it('uses remote Antigravity quota when the controller has no selected account', () => {
+    const remote = account()
+    remote.provider = 'antigravity'
+    remote.rateLimits = { ...quota, provider: 'antigravity' }
+    expect(withExecutionAccountUsage(state(), [remote]).antigravity).toBe(remote.rateLimits)
+  })
+
   it('uses a fresh same-account reading when the selected host token failed', () => {
     expect(withExecutionAccountUsage(state(), [account()]).claude).toEqual(quota)
   })

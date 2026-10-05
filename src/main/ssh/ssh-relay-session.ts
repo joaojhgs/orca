@@ -100,7 +100,7 @@ import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import {
   findTerminalTabIdForLeaf,
   hasHostAuthoritativeTerminalMembership
-} from '../runtime/workspace-session-terminal-membership-authority'
+} from '../persistence/terminal-topology/terminal-topology-membership'
 import { DEFAULT_PTY_SOURCE_WINDOW_SU } from '../../shared/pty-source-credit-contract'
 import { PTY_CONSUMER_STALE_OWNER_RECOVERY_ERROR } from '../../shared/pty-consumer-session'
 import {
@@ -168,6 +168,8 @@ const SSH_REJECTED_PTY_RECOVERY_MAX_ATTEMPTS = 2
 // store read, an attach round trip and a store write.
 const SSH_REJECTED_PTY_RECOVERY_MAX_GENERATION_ATTEMPTS = 12
 const SSH_REJECTED_PTY_RECOVERY_RETRY_DELAY_MS = 150
+const SSH_PLUGIN_INSTALL_RETRY_DELAY_MS = 5_000
+const SSH_PLUGIN_INSTALL_MAX_RETRIES = 3
 const SSH_SOURCE_RECOVERY_CANCELLATION_FAILED = 'ssh_source_recovery_cancellation_failed'
 
 // Why: superseded attempts stop quietly; a dead mux still owned by this attempt must enter recovery.
@@ -329,6 +331,8 @@ export class SshRelaySession {
   // Why: hold the notification-handler disposer so teardownProviders can release it on reconnect/shutdown (symmetric with muxDisposeCleanup).
   private muxNotificationCleanup: (() => void) | null = null
   private pluginSettingsCleanup: (() => void) | null = null
+  private pluginInstallRetryTimer: ReturnType<typeof setTimeout> | null = null
+  private pluginInstallGeneration = 0
   // Why: onStateChange never fires when the relay channel closes but SSH stays up; this callback lets ssh.ts drive relay-level reconnect.
   private _onRelayLost: ((targetId: string) => void) | null = null
   // Why: a version mismatch or a blocked owner admission is terminal, so it needs a separate callback
@@ -1656,11 +1660,16 @@ export class SshRelaySession {
   }
 
   // Why: ship plugin/extension source from Orca so agent-event changes don't force a relay redeploy — the relay is versioned independently. Best-effort: failure only costs agent status on this host.
-  private async installPluginsOnRelay(mux: SshChannelMultiplexer): Promise<void> {
+  private async installPluginsOnRelay(
+    mux: SshChannelMultiplexer,
+    attempt = 0,
+    generation = ++this.pluginInstallGeneration
+  ): Promise<void> {
     if (!isRemoteAgentHooksEnabled()) {
       return
     }
     try {
+      this.clearPluginInstallRetry()
       const hooksEnabled = this.areAgentStatusHooksEnabled()
       await mux.request(
         AGENT_HOOK_INSTALL_PLUGINS_METHOD,
@@ -1681,7 +1690,7 @@ export class SshRelaySession {
       )
     } catch (err) {
       // Why: -32601 = older relay without the handler; CONNECTION_LOST/DISPOSED = routine mid-flight teardown — swallow both.
-      const code = (err as { code?: unknown })?.code
+      const code = err instanceof Error && 'code' in err ? err.code : undefined
       if (code === -32601 || code === 'CONNECTION_LOST' || code === 'DISPOSED') {
         return
       }
@@ -1693,6 +1702,37 @@ export class SshRelaySession {
           err instanceof Error ? err.message : String(err)
         }`
       )
+      if (code === 'SSH_MUX_REQUEST_TIMEOUT') {
+        this.schedulePluginInstallRetry(mux, attempt, generation)
+      }
+    }
+  }
+
+  private schedulePluginInstallRetry(
+    mux: SshChannelMultiplexer,
+    attempt: number,
+    generation: number
+  ): void {
+    if (
+      attempt >= SSH_PLUGIN_INSTALL_MAX_RETRIES ||
+      this.mux !== mux ||
+      generation !== this.pluginInstallGeneration
+    ) {
+      return
+    }
+    this.pluginInstallRetryTimer = setTimeout(() => {
+      this.pluginInstallRetryTimer = null
+      if (this.mux === mux && !mux.isDisposed()) {
+        void this.installPluginsOnRelay(mux, attempt + 1, generation)
+      }
+    }, SSH_PLUGIN_INSTALL_RETRY_DELAY_MS)
+    this.pluginInstallRetryTimer.unref?.()
+  }
+
+  private clearPluginInstallRetry(): void {
+    if (this.pluginInstallRetryTimer !== null) {
+      clearTimeout(this.pluginInstallRetryTimer)
+      this.pluginInstallRetryTimer = null
     }
   }
 
@@ -1763,6 +1803,8 @@ export class SshRelaySession {
               : undefined,
           // Why: the SSH relay protocol advertises no run-serving capability.
           advertisedAgentStatusCapabilities: AGENT_STATUS_LEGACY_UNADVERTISED_PEER_CAPABILITIES,
+          evidenceAgeMs: envelope.evidenceAgeMs,
+          statusUnavailable: envelope.statusUnavailable,
           payload: envelope.payload
         },
         this.targetId
@@ -1806,6 +1848,8 @@ export class SshRelaySession {
     this.releaseRelayLossWatcher()
     this.pluginSettingsCleanup?.()
     this.pluginSettingsCleanup = null
+    this.pluginInstallGeneration += 1
+    this.clearPluginInstallRetry()
     this.leavePlainSshMode()
     this.muxNotificationCleanup?.()
     this.muxNotificationCleanup = null

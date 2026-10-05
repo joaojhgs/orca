@@ -119,7 +119,6 @@ export function getProviderUsageStatusLabel(p: ProviderRateLimits): string {
       case 'keychain-unavailable':
         return translate('auto.components.status.bar.tooltip.bf2e739f18', 'Sign-in unavailable')
       case 'cli-unavailable':
-      case 'usage-unavailable':
         return translate('auto.components.status.bar.tooltip.f8b8dbed85', 'Usage unavailable')
       case 'missing-credentials':
       case 'missing-scope':

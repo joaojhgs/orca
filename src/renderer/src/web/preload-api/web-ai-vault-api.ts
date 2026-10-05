@@ -49,10 +49,6 @@ export function createWebAiVaultApi(): NonNullable<Partial<PreloadApi>['aiVault'
       }
     },
     searchStatus: async (executionHostScope) => {
-      // An aggregate has no single index/consent status.
-      if (executionHostScope === 'all') {
-        return unavailableSessionSearchStatus()
-      }
       const hostParams = await webAiVaultHostParams(executionHostScope)
       return hostParams ? search(hostParams).searchStatus() : unavailableSessionSearchStatus()
     },
@@ -69,9 +65,12 @@ export function createWebAiVaultApi(): NonNullable<Partial<PreloadApi>['aiVault'
       )
       const hostParams = await webAiVaultHostParams(args?.executionHostScope)
       if (!hostParams) {
-        return webAiVaultUnavailableResult(requestedScope)
+        return webAiVaultUnavailableResult(
+          requestedScope === 'all' ? executionHostId : requestedScope
+        )
       }
       return callRuntimeResult<AiVaultListResult>('aiVault.listSessions', {
+        includeAntigravityIdeSessions: args?.includeAntigravityIdeSessions,
         limit: args?.limit,
         ...(args?.unlimited !== undefined ? { unlimited: args.unlimited } : {}),
         force: args?.force,
