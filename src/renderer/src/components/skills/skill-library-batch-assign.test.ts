@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { assignSkillBatch } from './skill-library-batch-assign'
+import type { SkillInstallDestination } from '../../../../shared/skill-install-contract'
+import { toSshExecutionHostId } from '../../../../shared/execution-host'
 import type {
   SkillLibraryAssignment,
   SkillLibrarySnapshot,
@@ -66,6 +68,102 @@ function fixture() {
 
 beforeEach(() => vi.resetAllMocks())
 describe('bulk imported skill assignment', () => {
+  it.each(['personal', 'personal|test'])(
+    'accepts profile-scoped global SSH replies for %s',
+    async (connectionId) => {
+      const { input, response } = fixture()
+      const hostId = toSshExecutionHostId(connectionId)
+      input.snapshot.hosts.push({ id: hostId, label: 'Target', reachable: true })
+      const destination: SkillInstallDestination = {
+        scope: 'global',
+        executionTarget: { kind: 'ssh', connectionId }
+      }
+      input.snapshot.assignments = [
+        {
+          ...response(),
+          destination: { ...destination, environmentId: 'skill-library:local-default' },
+          executionHostId: hostId,
+          providers: ['claude']
+        }
+      ]
+      rpc.mockImplementation(async (_target, _method, request) => ({
+        ...response(input.versions.findIndex((row) => row.versionId === request.versionId)),
+        destination: { ...request.destination, environmentId: 'skill-library:local-default' },
+        executionHostId: hostId,
+        providers: request.providers
+      }))
+      expect((await assignSkillBatch({ ...input, destination })).map((row) => row.status)).toEqual([
+        'installed',
+        'installed'
+      ])
+      expect(rpc.mock.calls[0][2].providers).toEqual(['codex', 'claude'])
+      expect(rpc.mock.calls[1][2].providers).toEqual(['codex'])
+    }
+  )
+  it('accepts the implicit native target normalized by the runtime', async () => {
+    const { input, response } = fixture()
+    rpc.mockImplementation(async (_target, _method, request) => ({
+      ...response(input.versions.findIndex((row) => row.versionId === request.versionId)),
+      destination: {
+        scope: 'global',
+        executionTarget: { kind: 'host' },
+        environmentId: 'skill-library:local-default'
+      },
+      executionHostId: 'local'
+    }))
+    expect(
+      (await assignSkillBatch({ ...input, destination: { scope: 'global' } })).map(
+        (row) => row.status
+      )
+    ).toEqual(['installed', 'installed'])
+  })
+  it.each(['unrelated-environment', 'explicit-profile-mismatch', 'different-ssh-target'])(
+    'rejects a genuinely different global destination: %s',
+    async (kind) => {
+      const { input, response } = fixture()
+      const destination: SkillInstallDestination = {
+        scope: 'global',
+        executionTarget: { kind: 'ssh', connectionId: 'personal' },
+        ...(kind === 'explicit-profile-mismatch' ? { environmentId: 'skill-library:expected' } : {})
+      }
+      rpc.mockResolvedValueOnce({
+        ...response(),
+        destination: {
+          ...destination,
+          environmentId: kind === 'unrelated-environment' ? 'unrelated' : 'skill-library:other',
+          executionTarget: {
+            kind: 'ssh',
+            connectionId: kind === 'different-ssh-target' ? 'other' : 'personal'
+          }
+        }
+      })
+      expect((await assignSkillBatch({ ...input, destination })).map((row) => row.status)).toEqual([
+        'unconfirmed',
+        'not-started'
+      ])
+      expect(rpc).toHaveBeenCalledTimes(1)
+    }
+  )
+  it('pins the normalized profile for the remainder of the batch', async () => {
+    const { input, response } = fixture()
+    const destination: SkillInstallDestination = {
+      scope: 'global',
+      executionTarget: { kind: 'ssh', connectionId: 'personal' }
+    }
+    rpc
+      .mockResolvedValueOnce({
+        ...response(),
+        destination: { ...destination, environmentId: 'skill-library:one' }
+      })
+      .mockResolvedValueOnce({
+        ...response(1),
+        destination: { ...destination, environmentId: 'skill-library:two' }
+      })
+    expect((await assignSkillBatch({ ...input, destination })).map((row) => row.status)).toEqual([
+      'installed',
+      'unconfirmed'
+    ])
+  })
   it('assigns sequentially to a registered SSH folder, preserving providers at that destination', async () => {
     const { input, response } = fixture()
     input.snapshot.assignments = [{ ...response(), providers: ['claude'] }]

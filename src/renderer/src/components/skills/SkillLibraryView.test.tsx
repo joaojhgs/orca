@@ -101,7 +101,10 @@ async function fixture(remote = false) {
         id: selected.versionId,
         packageId: selected.packageId,
         versionId: selected.versionId,
-        destination: params.destination,
+        destination:
+          params.destination.scope === 'global'
+            ? { ...params.destination, environmentId: 'skill-library:local-default' }
+            : params.destination,
         executionHostId: 'local',
         providers: params.providers,
         desiredState: 'installed',

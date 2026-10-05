@@ -6,7 +6,8 @@ import {
   type SkillLibraryVersion
 } from '../../../../shared/skill-library-contract'
 import type { SkillInstallDestination } from '../../../../shared/skill-install-contract'
-import { skillLibraryDestinationKey } from '../../../../shared/skill-library-destination-key'
+import { toSshExecutionHostId } from '../../../../shared/execution-host'
+import { matchesSkillAssignmentDestination } from './skill-library-assignment-destination'
 
 export type SkillAssignmentBatchResult = {
   versionId: string
@@ -50,14 +51,13 @@ export async function assignSkillBatch(input: {
             : workspace.kind === 'folder' && workspace.id === destination.folderWorkspaceId
         )?.hostId
       : destination.executionTarget?.kind === 'ssh'
-        ? `ssh:${destination.executionTarget.connectionId}`
+        ? toSshExecutionHostId(destination.executionTarget.connectionId)
         : destination.executionTarget?.kind === 'wsl'
           ? `wsl:${destination.executionTarget.distro}`
           : 'local'
   if (!hostId || !input.snapshot.hosts.some((host) => host.id === hostId)) {
     throw new Error('Refresh the library before assigning to an unknown destination.')
   }
-  const destinationKey = skillLibraryDestinationKey(input.destination)
   const requests = input.versions.map((version) => {
     if (!input.snapshot.versions.some((row) => row.versionId === version.versionId)) {
       throw new Error('Refresh the imported library before assigning missing versions.')
@@ -65,7 +65,7 @@ export async function assignSkillBatch(input: {
     const existing = input.snapshot.assignments.find(
       (row) =>
         row.packageId === version.packageId &&
-        skillLibraryDestinationKey(row.destination) === destinationKey &&
+        matchesSkillAssignmentDestination(input.destination, row.destination) &&
         row.status !== 'removed'
     )
     return SkillLibraryAssignParams.parse({
@@ -75,6 +75,7 @@ export async function assignSkillBatch(input: {
     })
   })
   const results: SkillAssignmentBatchResult[] = []
+  let confirmedDestination: SkillInstallDestination | null = null
   let stop = false
   for (const [index, version] of input.versions.entries()) {
     if (stop || !input.isCurrent()) {
@@ -99,7 +100,9 @@ export async function assignSkillBatch(input: {
         parsed.data.packageId !== version.packageId ||
         parsed.data.executionHostId !== hostId ||
         requests[index].providers.some((provider) => !parsed.data.providers.includes(provider)) ||
-        skillLibraryDestinationKey(parsed.data.destination) !== destinationKey ||
+        !matchesSkillAssignmentDestination(input.destination, parsed.data.destination) ||
+        (confirmedDestination !== null &&
+          !matchesSkillAssignmentDestination(confirmedDestination, parsed.data.destination)) ||
         parsed.data.desiredState !== 'installed' ||
         parsed.data.status === 'removed'
       ) {
@@ -112,6 +115,7 @@ export async function assignSkillBatch(input: {
         })
         continue
       }
+      confirmedDestination = parsed.data.destination
       results.push({
         versionId: version.versionId,
         name: version.name,

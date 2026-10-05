@@ -112,7 +112,10 @@ export async function callRuntimeRpc(
       id: '00000000-0000-4000-8000-000000000003',
       packageId: version.packageId,
       versionId: version.versionId,
-      destination: params.destination,
+      destination:
+        params.destination.scope === 'global'
+          ? { ...params.destination, environmentId: 'skill-library:local-default' }
+          : params.destination,
       providers: params.providers,
       executionHostId: 'ssh:fixture',
       desiredState: 'installed',
