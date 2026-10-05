@@ -7,12 +7,11 @@ import {
   resetComputerSidecarForTest
 } from '../../../computer/sidecar-client'
 import { defineMethod } from '../core'
-import { mintDesktopVncTicket } from '../../../computer/desktop-vnc-tickets'
+import { listDesktopVncTargets } from '../../../computer/desktop-vnc-targets'
 import {
-  listDesktopVncTargets,
-  readDesktopVncTargetPassword,
-  resolveDesktopVncTarget
-} from '../../../computer/desktop-vnc-targets'
+  createDesktopVncStreamTicket,
+  listExecutionDesktopVncTargets
+} from '../../../computer/desktop-vnc-inventory'
 import {
   Click,
   ComputerObserveTarget,
@@ -43,25 +42,15 @@ export const COMPUTER_METHODS = [
   defineMethod({
     name: 'computer.desktopStreamTicket',
     params: ComputerDesktopStreamTicketParams,
-    handler: async (params) => {
-      const target = resolveDesktopVncTarget(params.desktopId)
-      const password = readDesktopVncTargetPassword(target)
-      const ticket = mintDesktopVncTicket(
-        { id: target.id, port: target.port, viewOnly: target.viewOnly },
-        Date.now()
-      )
-      return {
-        path: `/desktop-vnc?ticket=${encodeURIComponent(ticket)}`,
-        desktopId: target.id,
-        viewOnly: target.viewOnly,
-        ...(password ? { credentials: { password } } : {})
-      }
-    }
+    handler: async (params) => createDesktopVncStreamTicket(params.desktopId)
   }),
   defineMethod({
     name: 'computer.desktopTargets',
     params: ComputerDesktopTargetsParams,
-    handler: async () => ({ targets: listDesktopVncTargets() })
+    handler: async (params) =>
+      params.executionHosts
+        ? listExecutionDesktopVncTargets()
+        : { targets: listDesktopVncTargets() }
   }),
   defineMethod({
     name: 'computer.capabilities',

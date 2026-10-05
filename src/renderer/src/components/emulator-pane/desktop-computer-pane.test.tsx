@@ -61,9 +61,11 @@ beforeEach(() => {
   clients.length = 0
   callRuntimeRpc.mockReset()
   callRuntimeRpc.mockImplementation(async (_target, method, params) =>
-    method === 'computer.desktopTargets'
-      ? { targets: [MAIN_DESKTOP, GAME, ART] }
-      : ticket(params.desktopId)
+    method === 'status.get'
+      ? { capabilities: ['computer.execution-hosts.v1'] }
+      : method === 'computer.desktopTargets'
+        ? { targets: [MAIN_DESKTOP, GAME, ART] }
+        : ticket(params.desktopId)
   )
 })
 afterEach(() => {
@@ -81,6 +83,18 @@ function renderStream(desktop: DesktopTarget = MAIN_DESKTOP) {
 }
 
 describe('desktop stream lifecycle', () => {
+  it('accepts an explicitly matched interactive SSH desktop', async () => {
+    const remote = { id: 'ssh-vnc:approved', label: 'Personal · Main', viewOnly: false }
+    callRuntimeRpc.mockResolvedValue({
+      path: '/desktop-vnc?ticket=opaque',
+      desktopId: remote.id,
+      viewOnly: false
+    })
+    renderStream(remote)
+    await waitFor(() => expect(clients).toHaveLength(1))
+    expect(clients[0].viewOnly).toBe(false)
+    expect(clients[0].focusOnClick).toBe(true)
+  })
   it('preserves interactive main and shares without resizing the desktop', async () => {
     renderStream()
     await waitFor(() => expect(clients).toHaveLength(1))
@@ -221,5 +235,21 @@ describe('desktop selector', () => {
     renderPane()
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load desktops')
     expect(clients).toHaveLength(0)
+  })
+  it('selects the first reachable approved remote desktop when controller has none', async () => {
+    const remote = { id: 'ssh-vnc:approved', label: 'Personal · Main', viewOnly: false }
+    callRuntimeRpc.mockImplementation(async (_target, method) =>
+      method === 'status.get'
+        ? { capabilities: ['computer.execution-hosts.v1'] }
+        : method === 'computer.desktopTargets'
+          ? { targets: [remote] }
+          : { path: '/desktop-vnc?ticket=opaque', desktopId: remote.id, viewOnly: false }
+    )
+    renderPane()
+    await waitFor(() => expect(clients).toHaveLength(1))
+    expect(screen.getByRole('combobox')).toHaveTextContent(remote.label)
+    expect(callRuntimeRpc).toHaveBeenCalledWith({ kind: 'local' }, 'computer.desktopTargets', {
+      executionHosts: true
+    })
   })
 })

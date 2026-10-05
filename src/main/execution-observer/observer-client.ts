@@ -30,6 +30,7 @@ export class ExecutionObserverClient {
     const encoded = Buffer.from(JSON.stringify(request)).toString('base64')
     const input = `process.env.ORCA_OBSERVER_REQUEST = ${JSON.stringify(encoded)};\n${await this.bundle}`
     let output: string
+    const maxOutputBytes = request.operation === 'android-preview' ? 9 * 1024 * 1024 : 1024 * 1024
     if (connection) {
       const generation = connection.getState().connectionGeneration
       const assertOwner = () => {
@@ -55,6 +56,7 @@ export class ExecutionObserverClient {
       output = await execCommand(connection, command, {
         input,
         timeoutMs: 70000,
+        maxOutputChars: maxOutputBytes,
         ...(windows ? { wrapCommand: false } : {})
       })
       if (activeSessions.get(connection.getTarget().id) !== session) {
@@ -66,7 +68,7 @@ export class ExecutionObserverClient {
         program: process.execPath,
         args: ['-'],
         input,
-        maxOutputBytes: 1024 * 1024,
+        maxOutputBytes,
         timeoutMs: 70000,
         env: {
           ...process.env,
@@ -81,7 +83,7 @@ export class ExecutionObserverClient {
       output = result.stdout
     }
     const line = output.split('\n').findLast((line) => line.startsWith('ORCA_OBSERVER_RESULT:'))
-    if (!line || line.length > 1024 * 1024) {
+    if (!line || line.length > maxOutputBytes) {
       throw new Error('Invalid execution-host observation')
     }
     return JSON.parse(line.slice('ORCA_OBSERVER_RESULT:'.length))

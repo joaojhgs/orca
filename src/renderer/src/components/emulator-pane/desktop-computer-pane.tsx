@@ -19,6 +19,7 @@ export function DesktopComputerPane({ active }: { active: boolean }) {
   const [targets, setTargets] = useState<DesktopTarget[]>([])
   const [targetsError, setTargetsError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const initialized = useRef(false)
   const desktop = targets.find((target) => target.id === desktopId) ?? null
   const { state, error } = useDesktopStream(targetRef, desktop, active, attempt)
 
@@ -28,14 +29,25 @@ export function DesktopComputerPane({ active }: { active: boolean }) {
     }
     let cancelled = false
     setTargetsError(null)
-    void callRuntimeRpc<{ targets: DesktopTarget[] }>(
-      { kind: 'local' },
-      'computer.desktopTargets',
-      {}
-    )
+    void callRuntimeRpc<{ capabilities?: string[] }>({ kind: 'local' }, 'status.get', {})
+      .then((status) =>
+        callRuntimeRpc<{ targets: DesktopTarget[] }>(
+          { kind: 'local' },
+          'computer.desktopTargets',
+          status.capabilities?.includes('computer.execution-hosts.v1')
+            ? { executionHosts: true }
+            : {}
+        )
+      )
       .then(({ targets: nextTargets }) => {
         if (!cancelled) {
           setTargets(nextTargets)
+          if (!initialized.current && nextTargets.length > 0) {
+            initialized.current = true
+            setDesktopId(
+              nextTargets.find((target) => target.id === 'main')?.id ?? nextTargets[0].id
+            )
+          }
         }
       })
       .catch((cause) => {
@@ -57,9 +69,11 @@ export function DesktopComputerPane({ active }: { active: boolean }) {
   const displayedError =
     targetsError ??
     error ??
-    (targets.length > 0 && !desktop
-      ? 'The selected desktop is no longer configured. Choose another desktop.'
-      : null)
+    (targets.length === 0 && !targetsError
+      ? 'No approved desktops are reachable. Connect their SSH host, then reconnect.'
+      : targets.length > 0 && !desktop
+        ? 'The selected desktop is no longer configured. Choose another desktop.'
+        : null)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

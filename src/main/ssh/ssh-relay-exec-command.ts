@@ -15,6 +15,7 @@ type ExecCommandOptions = SshExecOptions & {
   timeoutMs?: number
   /** Script/input delivered over the channel, never interpolated into the shell command. */
   input?: string | Buffer
+  maxOutputChars?: number
   // Why: a zero-exit command resolves with stdout alone, so the reason a wrapped-in-`|| echo`
   // probe failed is discarded. Callers that need that diagnostic opt in here rather than
   // folding stderr into stdout, where it would match the probe's own token strings.
@@ -50,7 +51,20 @@ export async function execCommand(
   command: string,
   options?: ExecCommandOptions
 ): Promise<string> {
-  const { timeoutMs = EXEC_TIMEOUT_MS, onStderr, input, ...execOptions } = options ?? {}
+  const {
+    timeoutMs = EXEC_TIMEOUT_MS,
+    maxOutputChars = MAX_EXEC_OUTPUT_CHARS,
+    onStderr,
+    input,
+    ...execOptions
+  } = options ?? {}
+  if (
+    !Number.isSafeInteger(maxOutputChars) ||
+    maxOutputChars < 1 ||
+    maxOutputChars > 16 * 1024 * 1024
+  ) {
+    throw new Error('Invalid SSH command output limit')
+  }
   const signal = options?.signal
   if (signal?.aborted) {
     throw createSshOperationAbortError()
@@ -135,7 +149,7 @@ export async function execCommand(
     const onAbort = (): void => requestTermination(createSshOperationAbortError())
     const onInputError = (): void => fail(new Error('SSH command input could not be delivered'))
     const onStdoutData = (data: Buffer): void => {
-      stdout = appendExecOutputTail(stdout, data.toString('utf-8'))
+      stdout = appendExecOutputTail(stdout, data.toString('utf-8'), maxOutputChars)
     }
     const onStderrData = (data: Buffer): void => {
       stderr = appendExecOutputTail(stderr, data.toString('utf-8'))
@@ -206,7 +220,11 @@ export async function execCommand(
   })
 }
 
-function appendExecOutputTail(existing: string, chunk: string): string {
+function appendExecOutputTail(
+  existing: string,
+  chunk: string,
+  limit = MAX_EXEC_OUTPUT_CHARS
+): string {
   const combined = existing + chunk
-  return combined.length > MAX_EXEC_OUTPUT_CHARS ? combined.slice(-MAX_EXEC_OUTPUT_CHARS) : combined
+  return combined.length > limit ? combined.slice(-limit) : combined
 }

@@ -73,7 +73,7 @@ export function useDesktopStream(
         // Older hosts ignore unknown parameters; never display the wrong desktop.
         if (
           (ticket.desktopId !== undefined && ticket.desktopId !== desktopId) ||
-          (desktopId !== 'main' && (ticket.desktopId !== desktopId || ticket.viewOnly !== true))
+          (desktopId !== 'main' && (ticket.desktopId !== desktopId || ticket.viewOnly !== viewOnly))
         ) {
           throw new Error(
             'This server cannot select the requested desktop. Update Orca on the server.'

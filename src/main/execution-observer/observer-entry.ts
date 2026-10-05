@@ -3,6 +3,7 @@ import { discoverExecutionCredentials } from './credential-discovery'
 import { collectExecutionUsage } from './usage-collector'
 import { scanWorkspacePorts } from '../ports/local-workspace-port-scanner'
 import { observeSkillLibrary } from './skill-library-worker'
+import { observeAndroidPreview } from './android-preview-worker'
 
 async function main() {
   const encoded = process.env.ORCA_OBSERVER_REQUEST
@@ -17,6 +18,9 @@ async function main() {
   }
   if (request.operation === 'usage') {
     return collectExecutionUsage(request.credential)
+  }
+  if (request.operation === 'android-preview') {
+    return observeAndroidPreview(request)
   }
   if (
     request.operation === 'library-discover' ||

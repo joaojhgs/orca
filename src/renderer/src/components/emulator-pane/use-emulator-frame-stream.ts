@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { translate } from '@/i18n/i18n'
+import { createRemoteAndroidFrameApi } from './remote-android-frame-api'
 
 const FIRST_FRAME_TIMEOUT_MS = 6_000
 
@@ -35,7 +36,8 @@ export function useEmulatorFrameStream(
   const currentFrameUrlRef = useRef<string | null>(null)
 
   useEffect(() => {
-    const emulatorApi = window.api?.emulator
+    const remoteAndroid = streamUrl?.startsWith('remote-adb://') === true
+    const emulatorApi = remoteAndroid ? createRemoteAndroidFrameApi() : window.api?.emulator
     if (!enabled || !streamUrl || !emulatorApi?.startFrameStream) {
       setState({ error: null, frameUrl: null, streamIdentity: null })
       return
@@ -43,19 +45,22 @@ export function useEmulatorFrameStream(
 
     let disposed = false
     let activeStreamId: string | null = null
-    let firstFrameTimer: number | null = window.setTimeout(() => {
-      setState((current) =>
-        current.streamIdentity !== streamIdentity || current.frameUrl
-          ? current
-          : {
-              ...current,
-              error: translate(
-                'auto.components.emulator.pane.use.emulator.frame.stream.f1c0179002',
-                'Stream is not producing frames.'
-              )
-            }
-      )
-    }, FIRST_FRAME_TIMEOUT_MS)
+    let firstFrameTimer: number | null = window.setTimeout(
+      () => {
+        setState((current) =>
+          current.streamIdentity !== streamIdentity || current.frameUrl
+            ? current
+            : {
+                ...current,
+                error: translate(
+                  'auto.components.emulator.pane.use.emulator.frame.stream.f1c0179002',
+                  'Stream is not producing frames.'
+                )
+              }
+        )
+      },
+      remoteAndroid ? 20000 : FIRST_FRAME_TIMEOUT_MS
+    )
 
     const clearFirstFrameTimer = (): void => {
       if (firstFrameTimer !== null) {
