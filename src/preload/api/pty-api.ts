@@ -86,7 +86,10 @@ export type PtyApi = {
   signal: (id: string, signal: string) => void
   clearBuffer: (id: string) => void
   resetInputModes: (id: string) => void
-  kill: (id: string, opts?: { keepHistory?: boolean }) => Promise<void>
+  kill: (
+    id: string,
+    opts?: { keepHistory?: boolean; runtimeOwnerEnvironmentId?: string }
+  ) => Promise<void>
   ackColdRestore: (id: string) => void
   ackData: (id: string, charCount: number, processedChars?: number) => void
   onDeliveryResyncRequest: (callback: (payload: { requestId: number }) => void) => () => void

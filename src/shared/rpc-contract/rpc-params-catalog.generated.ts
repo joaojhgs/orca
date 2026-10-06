@@ -159,6 +159,7 @@ import {
   SetValue,
   TypeText
 } from './computer-schemas-params'
+import { DiagnosticsSessionsParams } from './diagnostics-params'
 import {
   AttachParams as AttachParamsOfEmulatorParams,
   AxParams,
@@ -551,6 +552,7 @@ import {
 } from './terminal-viewport-schemas-params'
 import { UpdaterCheckParams } from './updater-params'
 import { UsageAnalyticsParams } from './usage-analytics-params'
+import { WorkspaceCleanupControlParams } from './workspace-cleanup-params'
 import { WorkspacePortKillParams, WorkspacePortScanParams } from './workspace-ports-params'
 import { WorktreeCreate, WorktreePrefetchCreateBase } from './worktree-create-params'
 import {
@@ -794,6 +796,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'computer.setValue': SetValue,
   'computer.typeText': TypeText,
   'diagnostics.memory': null,
+  'diagnostics.sessions': DiagnosticsSessionsParams,
   'emulator.attach': AttachParamsOfEmulatorParams,
   'emulator.availability': EmulatorAvailabilityParams,
   'emulator.ax': AxParams,
@@ -1258,6 +1261,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'updater.getStatus': null,
   'updater.install': null,
   'usage.analytics': UsageAnalyticsParams,
+  'workspaceCleanup.control': WorkspaceCleanupControlParams,
   'workspacePorts.kill': WorkspacePortKillParams,
   'workspacePorts.scan': WorkspacePortScanParams,
   'workspaceSpace.analyze': null,

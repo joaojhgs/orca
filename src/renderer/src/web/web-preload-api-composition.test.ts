@@ -54,6 +54,7 @@ describe('web preload API composition', () => {
       'hooks',
       'stats',
       'memory',
+      'workspaceCleanup',
       'workspaceSpace',
       'aiVault',
       'preflight',

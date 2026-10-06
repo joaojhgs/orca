@@ -1,5 +1,5 @@
 import type { PreloadApi } from '../../../preload/api-types'
-import type { MemorySnapshot, StatsSummary } from '../../../shared/process-stats-types'
+import type { StatsSummary } from '../../../shared/process-stats-types'
 import { createWebE2EApi } from './preload-api/web-e2e-api'
 import {
   createClaudeAccountsApi,
@@ -30,7 +30,7 @@ import {
 } from './preload-api/web-host-capability-api'
 import { createWebKeybindingsApi } from './preload-api/web-keybindings-api'
 import { createMacosTccPromptsApi } from './preload-api/web-macos-tcc-api'
-import { createEmptyMemorySnapshot } from './preload-api/web-memory-api'
+import { createWebMemoryApi } from './preload-api/web-memory-api'
 import { createWebMobileApi } from './preload-api/web-mobile-api'
 import { createWebNativeChatApi } from './preload-api/web-native-chat-api'
 import { createNotificationsApi } from './preload-api/web-notifications-api'
@@ -56,6 +56,7 @@ import { createWebWorkspacePortsApi } from './preload-api/web-workspace-ports-ap
 import { createWebUsageAnalyticsApi } from './preload-api/web-usage-analytics-api'
 import { createWebWorkspaceSessionApi } from './preload-api/web-workspace-session-api'
 import { createWorktreesApi } from './preload-api/web-worktrees-api'
+import { createWebWorkspaceCleanupApi } from './preload-api/web-workspace-cleanup-api'
 import { readStoredWebRuntimeEnvironment } from './web-runtime-environment'
 
 export function installWebPreloadApi(): void {
@@ -105,12 +106,8 @@ function createWebPreloadApi(): Partial<PreloadApi> {
           firstEventAt: null
         }))
     },
-    memory: {
-      getSnapshot: () =>
-        callRuntimeResult<MemorySnapshot>('diagnostics.memory').catch(() =>
-          createEmptyMemorySnapshot()
-        )
-    },
+    memory: createWebMemoryApi(),
+    workspaceCleanup: createWebWorkspaceCleanupApi(),
     workspaceSpace: {
       analyze: () => callRuntimeResult('workspaceSpace.analyze', undefined, 10 * 60_000),
       cancel: () => callRuntimeResult<boolean>('workspaceSpace.cancel'),

@@ -13,6 +13,7 @@ export type Metric = number | null
 export type DaemonSession = PtyListedSession
 
 export type UnifiedSessionRow = {
+  runtimeOwnerEnvironmentId?: string
   sessionId: string
   paneKey: string | null
   pid: number
@@ -27,6 +28,8 @@ export type UnifiedSessionRow = {
 }
 
 export type UnifiedWorktreeRow = {
+  executionHostId?: string
+  executionHostName?: string
   worktreeId: string
   worktreeName: string
   repoId: string
@@ -70,6 +73,7 @@ export type MergeContext = {
   repoConnectionIdById: Map<string, string | null>
   /** Repo runtime-host scope by repo id (missing == keep row). */
   repoRuntimeScopedById: Map<string, boolean>
+  repoRuntimeEnvironmentIdById?: ReadonlyMap<string, string>
   /** Browser inventory is open-only; the Resource Manager never scans it in the background. */
   browserTabsByWorktree?: Record<string, BrowserWorkspace[]>
   /** Canonical workspace names and grouping for every resource source. */

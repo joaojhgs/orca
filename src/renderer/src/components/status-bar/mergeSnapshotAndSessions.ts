@@ -17,13 +17,8 @@
  * See docs/resource-usage-merge-spec.md for the full design.
  */
 
-import type {
-  MemorySnapshot,
-  SessionMemory,
-  WorktreeMemory
-} from '../../../../shared/process-stats-types'
+import type { MemorySnapshot, WorktreeMemory } from '../../../../shared/process-stats-types'
 import { parsePtySessionId } from '../../../../shared/pty-session-id-format'
-import { parsePaneKey as parseStablePaneKey } from '../../../../shared/stable-pane-id'
 import {
   getRepoIdFromWorktreeId,
   getWorktreePathBasenameFromId
@@ -35,100 +30,19 @@ import type {
   UnifiedSessionRow,
   UnifiedWorktreeRow
 } from './resource-usage-merge-types'
-import {
-  buildResourceSessionBindingIndex,
-  type ResourceSessionBindingIndex
-} from './resource-session-bindings'
+import { buildResourceSessionBindingIndex } from './resource-session-bindings'
+import { resolveSnapshotSessionLabel, resolveDaemonSessionLabel } from './resource-session-labels'
 import {
   resolveResourceFolderWorkspace,
-  resolveResourceWorkspaceHost
+  resolveResourceWorkspaceHost,
+  ownsRuntimeResourceSample,
+  resourceWorktreeKey
 } from './resource-workspace-host'
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
 function deriveWorktreeNameFromWorktreeId(worktreeId: string): string {
   return getWorktreePathBasenameFromId(worktreeId) ?? worktreeId
-}
-
-function shortCwd(cwd: string): string {
-  if (!cwd) {
-    return ''
-  }
-  const sep = cwd.includes('\\') ? '\\' : '/'
-  const parts = cwd.split(/[\\/]+/).filter(Boolean)
-  return parts.length > 2 ? parts.slice(-2).join(sep) : cwd
-}
-
-function parsePaneKey(paneKey: string | null): { tabId: string; leafId: string } | null {
-  if (!paneKey) {
-    return null
-  }
-  const parsed = parseStablePaneKey(paneKey)
-  return parsed ? { tabId: parsed.tabId, leafId: parsed.leafId } : null
-}
-
-function resolveSnapshotSessionLabel(
-  session: SessionMemory,
-  worktreeId: string,
-  index: ResourceSessionBindingIndex
-): string {
-  const parsed = parsePaneKey(session.paneKey)
-  if (parsed) {
-    const match = index.tabsByIdByWorktree.get(worktreeId)?.get(parsed.tabId)
-    const tab = match?.tab
-    const tabIndex = match?.index ?? -1
-    if (tab) {
-      const custom = tab.customTitle?.trim()
-      if (custom) {
-        return custom
-      }
-      return tab.defaultTitle?.trim() || tab.title?.trim() || `Terminal ${tabIndex + 1}`
-    }
-  }
-  if (session.pid > 0) {
-    return `pid ${session.pid}`
-  }
-  const fallback = session.sessionId?.slice(0, 8)
-  return fallback ? `session ${fallback}` : '(unknown session)'
-}
-
-function resolveDaemonSessionLabel(
-  session: DaemonSession,
-  resolvedWorktreeId: string | null,
-  tabId: string | null,
-  ctx: MergeContext,
-  index: ResourceSessionBindingIndex
-): string {
-  if (tabId && resolvedWorktreeId) {
-    const tab = index.tabsByIdByWorktree.get(resolvedWorktreeId)?.get(tabId)?.tab
-    if (tab) {
-      const custom = tab.customTitle?.trim()
-      if (custom) {
-        return custom
-      }
-      const runtimeMap = ctx.runtimePaneTitlesByTabId[tabId]
-      if (runtimeMap) {
-        const live = Object.values(runtimeMap).find((t) => t?.trim())
-        if (live) {
-          return live
-        }
-      }
-      const fallback = tab.defaultTitle?.trim() || tab.title?.trim()
-      if (fallback) {
-        return fallback
-      }
-    }
-  }
-  if (session.cwd) {
-    return shortCwd(session.cwd)
-  }
-  if (resolvedWorktreeId) {
-    return shortCwd(resolvedWorktreeId)
-  }
-  if (session.title) {
-    return session.title
-  }
-  return 'unknown'
 }
 
 // ─── Public merge function ─────────────────────────────────────────
@@ -155,6 +69,9 @@ export function mergeSnapshotAndSessions(
   const ownershipBySessionId = new Map(
     daemonSessions.map((session) => [session.id, session.agentOwnership])
   )
+  const titleBySessionId = new Map(
+    daemonSessions.map((session) => [session.id, session.title?.trim()])
+  )
 
   function ensureRepo(repoId: string, repoName: string): UnifiedProjectGroup {
     const existing = repos.get(repoId)
@@ -176,17 +93,21 @@ export function mergeSnapshotAndSessions(
 
   function findWorktreeRow(
     repo: UnifiedProjectGroup,
-    worktreeId: string
+    worktreeId: string,
+    executionHostId?: string
   ): UnifiedWorktreeRow | undefined {
-    return worktreeRowsByRepo.get(repo.repoId)?.get(worktreeId)
+    return worktreeRowsByRepo
+      .get(repo.repoId)
+      ?.get(resourceWorktreeKey(worktreeId, executionHostId))
   }
 
   function appendWorktreeRow(repo: UnifiedProjectGroup, row: UnifiedWorktreeRow): void {
     repo.worktrees.push(row)
     repo.hasRemoteChildren ||= row.isRemote
     const rows = worktreeRowsByRepo.get(repo.repoId)!
-    if (!rows.has(row.worktreeId)) {
-      rows.set(row.worktreeId, row)
+    const key = resourceWorktreeKey(row.worktreeId, row.executionHostId)
+    if (!rows.has(key)) {
+      rows.set(key, row)
     }
   }
 
@@ -199,7 +120,10 @@ export function mergeSnapshotAndSessions(
       const { isRemote, isRuntimeScoped } = resolveResourceWorkspaceHost(ctx, wt.worktreeId, repoId)
       // Why: local snapshot data must never render under a runtime-hosted repo
       // row; belt-and-braces with the matching session-ingest guard below.
-      if (isRuntimeScoped) {
+      if (
+        isRuntimeScoped &&
+        !ownsRuntimeResourceSample(ctx, wt.worktreeId, repoId, snapshot.runtimeOwnerEnvironmentId)
+      ) {
         continue
       }
       const repo = ensureRepo(repoId, repoName)
@@ -208,9 +132,12 @@ export function mergeSnapshotAndSessions(
         const tabId = index.ptyIdToTabId.get(s.sessionId) ?? null
         return {
           sessionId: s.sessionId,
+          runtimeOwnerEnvironmentId: snapshot.runtimeOwnerEnvironmentId,
           paneKey: s.paneKey,
           pid: s.pid,
-          label: resolveSnapshotSessionLabel(s, wt.worktreeId, index),
+          label:
+            titleBySessionId.get(s.sessionId) ||
+            resolveSnapshotSessionLabel(s, wt.worktreeId, index),
           bound: ctx.workspaceSessionReady && boundPtyIds.has(s.sessionId),
           agentOwnership: ownershipBySessionId.get(s.sessionId) ?? 'unknown',
           tabId,
@@ -221,6 +148,8 @@ export function mergeSnapshotAndSessions(
       })
       appendWorktreeRow(repo, {
         worktreeId: wt.worktreeId,
+        executionHostId: wt.executionHostId,
+        executionHostName: wt.executionHostName,
         worktreeName: worktree?.displayName?.trim() || wt.worktreeName,
         repoId,
         repoName,
@@ -228,7 +157,7 @@ export function mergeSnapshotAndSessions(
         memory: wt.memory,
         history: wt.history,
         hasLocalSamples: true,
-        isRemote,
+        isRemote: wt.executionHostId?.startsWith('ssh:') ?? isRemote,
         sessions,
         browsers: []
       })
@@ -272,16 +201,25 @@ export function mergeSnapshotAndSessions(
       finalWorktreeId,
       finalRepoId
     )
-    if (isRuntimeScoped) {
+    if (
+      isRuntimeScoped &&
+      !ownsRuntimeResourceSample(
+        ctx,
+        finalWorktreeId,
+        finalRepoId,
+        session.runtimeOwnerEnvironmentId
+      )
+    ) {
       continue
     }
 
     const repo = ensureRepo(finalRepoId, finalRepoName)
 
-    let row = findWorktreeRow(repo, finalWorktreeId)
+    let row = findWorktreeRow(repo, finalWorktreeId, session.executionHostId)
     if (!row) {
       row = {
         worktreeId: finalWorktreeId,
+        executionHostId: session.executionHostId,
         worktreeName: finalWorktreeName,
         repoId: finalRepoId,
         repoName: finalRepoName,
@@ -289,7 +227,7 @@ export function mergeSnapshotAndSessions(
         memory: null,
         history: [],
         hasLocalSamples: false,
-        isRemote,
+        isRemote: session.executionHostId?.startsWith('ssh:') ?? isRemote,
         sessions: [],
         browsers: []
       }
@@ -298,6 +236,7 @@ export function mergeSnapshotAndSessions(
 
     row.sessions.push({
       sessionId: session.id,
+      runtimeOwnerEnvironmentId: session.runtimeOwnerEnvironmentId,
       paneKey: null,
       pid: 0,
       label: resolveDaemonSessionLabel(session, worktreeId, tabId, ctx, index),

@@ -15,6 +15,12 @@ import { navigateResourceSessionToTab } from './resource-session-navigation'
 import { requiresKillConfirmation } from './resource-session-kill-confirmation'
 import { resolveResourceManagerWorktreeTarget } from './resource-manager-worktree-target'
 
+function killResourceSession(id: string, runtimeOwnerEnvironmentId?: string): Promise<void> {
+  return runtimeOwnerEnvironmentId
+    ? window.api.pty.kill(id, { runtimeOwnerEnvironmentId })
+    : window.api.pty.kill(id)
+}
+
 export function useResourceUsageActions({
   setCollapsedRepos,
   setCollapsedWorktrees,
@@ -148,7 +154,7 @@ export function useResourceUsageActions({
         // Why: await the kill before refreshing, else the refresh re-reads the daemon list before the kill lands and re-adds the row.
         void (async () => {
           try {
-            await window.api.pty.kill(session.sessionId)
+            await killResourceSession(session.sessionId, session.runtimeOwnerEnvironmentId)
           } catch {
             /* already dead */
           }
@@ -174,7 +180,9 @@ export function useResourceUsageActions({
     // Why: optimistic removal so rows disappear immediately instead of waiting for the next daemon-side list refresh.
     const orphanIds = new Set(orphans.map((s) => s.id))
     removeSessions(orphanIds)
-    await Promise.allSettled(orphans.map((s) => window.api.pty.kill(s.id)))
+    await Promise.allSettled(
+      orphans.map((s) => killResourceSession(s.id, s.runtimeOwnerEnvironmentId))
+    )
     void refreshSessions()
   }, [sessions, resourceSessionBindings, workspaceSessionReady, refreshSessions, removeSessions])
 
@@ -187,7 +195,7 @@ export function useResourceUsageActions({
     // Why: optimistic removal avoids a flash where the dialog closes but the killed row lingers until the next list refresh.
     removeSession(target.sessionId)
     try {
-      await window.api.pty.kill(target.sessionId)
+      await killResourceSession(target.sessionId, target.runtimeOwnerEnvironmentId)
     } catch {
       /* already dead — fall through */
     } finally {

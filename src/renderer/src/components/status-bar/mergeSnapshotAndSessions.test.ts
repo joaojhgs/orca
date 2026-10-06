@@ -5,6 +5,7 @@ import type { TerminalTab } from '../../../../shared/terminal-tab-types'
 import type { Worktree } from '../../../../shared/worktree/types'
 import { mergeSnapshotAndSessions, UNATTRIBUTED_REPO_ID } from './mergeSnapshotAndSessions'
 import { requiresKillConfirmation } from './resource-session-kill-confirmation'
+import { withRemoteResourceSamples } from './remote-resource-samples'
 import type { DaemonSession, MergeContext } from './resource-usage-merge-types'
 
 function emptyAppMemory() {
@@ -59,6 +60,85 @@ const baseCtx = (overrides: Partial<MergeContext> = {}): MergeContext => ({
   repoConnectionIdById: new Map(),
   repoRuntimeScopedById: new Map(),
   ...overrides
+})
+
+describe('paired runtime resource attribution', () => {
+  const worktree: WorktreeMemory = {
+    worktreeId: 'repo::/same',
+    worktreeName: 'Same',
+    repoId: 'repo',
+    repoName: 'Repo',
+    cpu: 2,
+    memory: 300,
+    history: [],
+    sessions: [{ sessionId: 'ssh:a@@pty', paneKey: null, pid: 123, cpu: 2, memory: 300 }]
+  }
+  const context = () =>
+    baseCtx({
+      repoRuntimeScopedById: new Map([['repo', true]]),
+      repoRuntimeEnvironmentIdById: new Map([['repo', 'control']])
+    })
+  it('shows the paired server samples while preserving the desktop exclusion guard', () => {
+    const snapshot = makeSnapshot([worktree])
+    expect(mergeSnapshotAndSessions(snapshot, [], context())).toEqual([])
+    snapshot.runtimeOwnerEnvironmentId = 'different-server'
+    expect(mergeSnapshotAndSessions(snapshot, [], context())).toEqual([])
+    snapshot.runtimeOwnerEnvironmentId = 'control'
+    expect(
+      mergeSnapshotAndSessions(snapshot, [], context())[0]?.worktrees[0]?.sessions[0]
+    ).toMatchObject({ pid: 123, memory: 300, agentOwnership: 'unknown' })
+  })
+  it('shows paired daemon-only sessions with live ownership, not fabricated local samples', () => {
+    const rows = mergeSnapshotAndSessions(
+      null,
+      [
+        {
+          id: 'ssh:a@@pty',
+          title: 'Codex',
+          cwd: '/same',
+          worktreeId: worktree.worktreeId,
+          agentOwnership: 'present',
+          executionHostId: 'ssh:a',
+          runtimeOwnerEnvironmentId: 'control'
+        }
+      ],
+      context()
+    )
+    expect(rows[0]?.worktrees[0]?.sessions[0]).toMatchObject({
+      agentOwnership: 'present',
+      cpu: null,
+      memory: null
+    })
+    expect(requiresKillConfirmation(rows[0].worktrees[0].sessions[0])).toBe(true)
+  })
+  it('keeps same-path samples on different hosts distinct and retains host labels', () => {
+    const snapshot = makeSnapshot([])
+    snapshot.runtimeOwnerEnvironmentId = 'control'
+    snapshot.hosts = ['a', 'b'].map((id, index) => ({
+      id: `ssh:${id}`,
+      name: `Host ${id}`,
+      kind: 'ssh',
+      connectionId: id,
+      host: snapshot.host,
+      worktrees: [
+        {
+          ...worktree,
+          memory: 300 + index,
+          sessions: [{ ...worktree.sessions[0], sessionId: `ssh:${id}@@pty`, memory: 300 + index }]
+        }
+      ],
+      managedCpu: 2,
+      managedMemory: 300 + index
+    }))
+    const rows = mergeSnapshotAndSessions(withRemoteResourceSamples(snapshot), [], context())
+    expect(
+      rows[0].worktrees.map((row) => [row.executionHostId, row.executionHostName, row.memory])
+    ).toEqual([
+      ['ssh:a', 'Host a', 300],
+      ['ssh:b', 'Host b', 301]
+    ])
+    expect(rows[0].memory).toBe(601)
+  })
 })
 
 describe('mergeSnapshotAndSessions', () => {

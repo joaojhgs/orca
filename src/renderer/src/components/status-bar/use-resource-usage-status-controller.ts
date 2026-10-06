@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMountedRef } from '@/hooks/useMountedRef'
+import { isWebClientLocation } from '@/lib/web-client-location'
 import { useAppStore } from '../../store'
 import { useDaemonActions } from '../shared/useDaemonActions'
 import type { UnifiedSessionRow } from './resource-usage-merge-types'
@@ -177,8 +178,23 @@ export function useResourceUsageStatusController() {
     const memTimer = window.setInterval(() => {
       void fetchSnapshot()
     }, POLL_MS)
+    // Paired browsers have no local spawn/exit IPC events. Refresh only while expanded,
+    // with one request in flight; closed badges never start a fleet polling loop.
+    let inventoryRefreshing = false
+    const inventoryTimer = isWebClientLocation()
+      ? window.setInterval(() => {
+          if (inventoryRefreshing) {
+            return
+          }
+          inventoryRefreshing = true
+          void refreshSessions().finally(() => {
+            inventoryRefreshing = false
+          })
+        }, 10_000)
+      : undefined
     return () => {
       window.clearInterval(memTimer)
+      window.clearInterval(inventoryTimer)
     }
   }, [open, fetchSnapshot, refreshSessions])
 

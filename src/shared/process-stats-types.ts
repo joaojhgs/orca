@@ -56,6 +56,8 @@ export type SessionMemory = UsageValues & {
 
 /** The top-level cpu/memory are the sum of sessions. */
 export type WorktreeMemory = UsageValues & {
+  executionHostId?: string
+  executionHostName?: string
   worktreeId: string
   worktreeName: string
   repoId: string
@@ -97,6 +99,8 @@ export type ResourceHostSnapshot = {
 }
 
 export type MemorySnapshot = {
+  /** Browser projection: identifies the paired runtime that actually produced these samples. */
+  runtimeOwnerEnvironmentId?: string
   app: AppMemory
   worktrees: WorktreeMemory[]
   host: HostMemory

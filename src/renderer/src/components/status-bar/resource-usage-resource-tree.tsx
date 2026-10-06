@@ -10,6 +10,7 @@ import type {
 } from './resource-usage-merge-types'
 import { MetricPair, ROW_TRAILING_GUTTER_CLS } from './resource-usage-metrics'
 import { WorktreeRow } from './resource-usage-session-rows'
+import { resourceWorktreeKey } from './resource-workspace-host'
 
 export type SortOption = 'memory' | 'cpu' | 'name'
 
@@ -91,15 +92,21 @@ export function ResourceTree({
   }, [repos, sortOption])
 
   const renderWorktree = (wt: UnifiedWorktreeRow): React.JSX.Element => {
-    const storeRecord = worktreeById.get(wt.worktreeId) ?? null
+    const record = worktreeById.get(wt.worktreeId) ?? null
+    // Never offer deletion on another host's same-id catalog row.
+    const storeRecord =
+      record && (!wt.executionHostId || (record.hostId ?? 'local') === wt.executionHostId)
+        ? record
+        : null
+    const key = resourceWorktreeKey(wt.worktreeId, wt.executionHostId)
     return (
       <WorktreeRow
-        key={wt.worktreeId}
+        key={key}
         worktree={wt}
         storeRecord={storeRecord}
         activeWorktreeId={activeWorktreeId}
-        isCollapsed={collapsedWorktrees.has(wt.worktreeId)}
-        onToggle={() => toggleWorktree(wt.worktreeId)}
+        isCollapsed={collapsedWorktrees.has(key)}
+        onToggle={() => toggleWorktree(key)}
         onNavigate={() => navigateToWorktree(wt.worktreeId)}
         onDelete={() => onDelete(wt.worktreeId)}
         onKillSession={onKillSession}

@@ -11,8 +11,18 @@ import type { WorkspaceSpaceAnalyzeResult } from '../../shared/workspace-space-t
 import type { Store } from '../persistence'
 import type { UsageAnalyticsRequest } from '../../shared/rpc-contract/usage-analytics-params'
 import { controlUsageAnalytics, type UsageAnalyticsStores } from './runtime-usage-analytics'
+import { RuntimeWorkspaceCleanup } from './runtime-workspace-cleanup'
 
 class OrcaRuntimeService extends OrcaRuntimeWithResolveWaiter {
+  private workspaceCleanupService: RuntimeWorkspaceCleanup | null = null
+
+  getWorkspaceCleanupService(): RuntimeWorkspaceCleanup {
+    if (!this.store) {
+      throw new Error('runtime_unavailable')
+    }
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: Production runtime hosts supply the profile Store, narrowed by RuntimeStore.
+    return (this.workspaceCleanupService ??= new RuntimeWorkspaceCleanup(this.store as Store))
+  }
   private usageAnalyticsStores: UsageAnalyticsStores | null = null
 
   setUsageAnalyticsStores(stores: UsageAnalyticsStores): void {

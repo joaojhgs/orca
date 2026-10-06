@@ -1,6 +1,7 @@
 import React from 'react'
 import { ChevronDown, ChevronRight, Globe, Trash2, X } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
 import type { BrowserWorkspace } from '../../../../shared/browser-workspace-types'
@@ -62,6 +63,11 @@ export function SessionRow({
       <span className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">
         {session.label}
       </span>
+      {session.pid > 0 && (
+        <span className="shrink-0 text-[10px] text-muted-foreground" title={session.sessionId}>
+          PID {session.pid}
+        </span>
+      )}
       <MetricPair cpu={session.cpu} memory={session.memory} size="small" />
       {/* Why: kill X sits in the shared gutter for column alignment; bound rows reveal it on hover/focus, orphan rows always show it as reclaimable. */}
       <span className={ROW_TRAILING_GUTTER_CLS}>
@@ -179,6 +185,11 @@ export function WorktreeRow({
           disabled={!isNavigable}
         >
           <span className="text-xs font-medium truncate">{rowLabel}</span>
+          {worktree.executionHostName && (
+            <Badge variant="hostContext" className="max-w-32" title={worktree.executionHostId}>
+              <span className="truncate">{worktree.executionHostName}</span>
+            </Badge>
+          )}
           {/* Why: gate the chip on SSH connectionId, not missing data — warm-reattached local PTYs land here with hasLocalSamples=false. */}
           {worktree.isRemote && (
             <span className="shrink-0 text-[9px] uppercase tracking-wide text-muted-foreground/70">

@@ -16,6 +16,8 @@ export type PtySessionListScope = { connectionId: string | null }
  * renderer cannot drift on which evidence the UI is allowed to see.
  */
 export type PtyListedSession = {
+  executionHostId?: string
+  runtimeOwnerEnvironmentId?: string
   id: string
   cwd: string
   title: string

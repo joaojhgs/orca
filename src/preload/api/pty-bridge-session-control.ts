@@ -146,7 +146,10 @@ export const ptySessionControlApi = {
   publishTerminalViewAttributes: (attributes: TerminalViewAttributes): void => {
     ipcRenderer.send('pty:terminalViewAttributes', attributes)
   },
-  kill: (id: string, opts?: { keepHistory?: boolean }): Promise<void> =>
+  kill: (
+    id: string,
+    opts?: { keepHistory?: boolean; runtimeOwnerEnvironmentId?: string }
+  ): Promise<void> =>
     ipcRenderer.invoke('pty:kill', { id, keepHistory: opts?.keepHistory ?? false }),
   listSessions: (scope?: PtySessionListScope): Promise<PtyListedSession[]> =>
     ipcRenderer.invoke('pty:listSessions', scope),

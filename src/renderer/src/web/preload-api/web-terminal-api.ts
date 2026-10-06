@@ -2,9 +2,11 @@ import type { PreloadApi } from '../../../../preload/api-types'
 import { EMPTY_PTY_MAIN_DELIVERY_DIAGNOSTICS } from '../../../../shared/pty-delivery-diagnostics'
 import type { SshConnectionState, SshTarget } from '../../../../shared/ssh-types'
 import { translate } from '@/i18n/i18n'
-import { callRuntimeResult } from './web-runtime-calls'
+import { callRuntimeResult, callRuntimeResultWithOwner } from './web-runtime-calls'
 import { requireActiveEnvironmentOrNull } from './web-runtime-session'
 import { noopUnsubscribe } from './web-storage'
+import type { PtyListedSession } from '../../../../shared/pty-listed-session'
+import { inspectWebPty, killWebPty } from './web-pty-process-api'
 
 export function createPtyApi(): NonNullable<Partial<PreloadApi>['pty']> {
   return {
@@ -19,7 +21,14 @@ export function createPtyApi(): NonNullable<Partial<PreloadApi>['pty']> {
     clearBuffer: () => {},
     // Likewise terminal.resetInputModes.
     resetInputModes: () => {},
-    kill: () => Promise.resolve(),
+    kill: (id, options) => {
+      if (options?.keepHistory) {
+        return Promise.reject(
+          new Error('Reversible PTY shutdown requires the runtime terminal surface')
+        )
+      }
+      return killWebPty(id, options?.runtimeOwnerEnvironmentId)
+    },
     ackColdRestore: () => {},
     ackData: () => {},
     onDeliveryResyncRequest: () => noopUnsubscribe,
@@ -35,9 +44,9 @@ export function createPtyApi(): NonNullable<Partial<PreloadApi>['pty']> {
     setPtyDeliveryInterest: () => {},
     // Why: remote-runtime PTYs are never hidden-gate markable, so there's no main-side responder to feed.
     publishTerminalViewAttributes: () => {},
-    hasChildProcesses: () => Promise.resolve(false),
-    getForegroundProcess: () => Promise.resolve(null),
-    inspectProcess: () => Promise.reject(new Error('terminal_liveness_unavailable')),
+    hasChildProcesses: async (id) => (await inspectWebPty(id)).hasChildProcesses,
+    getForegroundProcess: async (id) => (await inspectWebPty(id)).foregroundProcess,
+    inspectProcess: (id) => inspectWebPty(id),
     // Why: paired web panes cannot provide a local post-boundary process scan.
     confirmForegroundProcess: () => Promise.resolve(null),
     // Why: a paired client's terminals belong to the host, whose Codex settings this client does not own.
@@ -46,7 +55,18 @@ export function createPtyApi(): NonNullable<Partial<PreloadApi>['pty']> {
     stopCodexSharedServer: () => Promise.resolve(false),
     getCwd: () => Promise.resolve('~'),
     getSize: () => Promise.resolve(null),
-    listSessions: () => Promise.resolve([]),
+    listSessions: async (scope) => {
+      const { result, environmentId } = await callRuntimeResultWithOwner<{
+        sessions: PtyListedSession[]
+      }>('diagnostics.sessions', scope ? { scope } : {})
+      if (!Array.isArray(result?.sessions)) {
+        throw new Error('Invalid server terminal inventory')
+      }
+      return result.sessions.map((session) => ({
+        ...session,
+        runtimeOwnerEnvironmentId: environmentId
+      }))
+    },
     getAuthoritativeBufferSnapshotCapabilities: (ids) =>
       Promise.resolve(ids.map((id) => ({ id, authoritative: false }))),
     hasPty: () => Promise.resolve(null),

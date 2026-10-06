@@ -16,7 +16,16 @@ export function withRemoteResourceSamples(snapshot: MemorySnapshot | null): Memo
   } = snapshot
   return {
     ...local,
-    worktrees: [...snapshot.worktrees, ...remote.flatMap((host) => host.worktrees)],
+    worktrees: [
+      ...snapshot.worktrees,
+      ...remote.flatMap((host) =>
+        host.worktrees.map((worktree) => ({
+          ...worktree,
+          executionHostId: host.id,
+          executionHostName: host.name
+        }))
+      )
+    ],
     totalCpu: snapshot.totalCpu + remote.reduce((sum, host) => sum + host.managedCpu, 0),
     totalMemory: snapshot.totalMemory + remote.reduce((sum, host) => sum + host.managedMemory, 0)
   }

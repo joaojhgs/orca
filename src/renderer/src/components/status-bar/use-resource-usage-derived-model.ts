@@ -88,6 +88,17 @@ export function useResourceUsageDerivedModel({
     return map
   }, [repos])
 
+  const repoRuntimeEnvironmentIdById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const repo of repos) {
+      const host = parseExecutionHostId(getRepoExecutionHostId(repo))
+      if (host?.kind === 'runtime') {
+        map.set(repo.id, host.environmentId)
+      }
+    }
+    return map
+  }, [repos])
+
   const worktreeById = useMemo(
     () => new Map(allWorktrees.map((worktree) => [worktree.id, worktree])),
     [allWorktrees]
@@ -109,6 +120,7 @@ export function useResourceUsageDerivedModel({
             repoDisplayNameById,
             repoConnectionIdById,
             repoRuntimeScopedById,
+            repoRuntimeEnvironmentIdById,
             browserTabsByWorktree,
             worktreeById,
             ambiguousWorktreeIds
@@ -123,6 +135,7 @@ export function useResourceUsageDerivedModel({
       repoDisplayNameById,
       repoConnectionIdById,
       repoRuntimeScopedById,
+      repoRuntimeEnvironmentIdById,
       browserTabsByWorktree,
       worktreeById,
       ambiguousWorktreeIds

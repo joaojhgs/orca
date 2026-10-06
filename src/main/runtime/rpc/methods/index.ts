@@ -9,6 +9,7 @@ import { BROWSER_CORE_METHODS } from './browser-core'
 import { BROWSER_GRAB_METHODS } from './browser-grab'
 import { MULTICA_METHODS } from './multica'
 import { WORKSPACE_SPACE_METHODS } from './workspace-space'
+import { WORKSPACE_CLEANUP_METHODS } from './workspace-cleanup'
 import { BROWSER_IDENTITY_METHODS } from './browser-identity-rpc'
 import { BROWSER_EXTRA_METHODS } from './browser-extras'
 import { BROWSER_SCREENCAST_METHODS } from './browser-screencast'
@@ -86,6 +87,7 @@ export const ALL_RPC_METHODS = [
   ...USAGE_ANALYTICS_METHODS,
   ...DIAGNOSTICS_METHODS,
   ...WORKSPACE_SPACE_METHODS,
+  ...WORKSPACE_CLEANUP_METHODS,
   ...ACCOUNT_METHODS,
   ...ANTIGRAVITY_ACCOUNT_METHODS,
   ...PREFLIGHT_METHODS,
