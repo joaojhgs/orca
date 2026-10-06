@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { SkillInstallDestinationSchema, SkillPackageIdentitySchema } from './skill-install-contract'
-import { SkillPackageFileSchema } from './skill-package-manifest'
+import { SkillPackageFileSchema } from './skill-package-schema'
 import { LocalSkillShareSchema, LOCAL_SKILL_SHARING_CAPABILITY } from './local-skill-sharing'
 import { SKILL_LIBRARY_LINK_CAPABILITY } from './skill-library-link-capability'
 

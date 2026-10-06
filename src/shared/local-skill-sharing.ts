@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { SkillBundleManifestV1Schema } from './skill-bundle-manifest'
+import { SkillBundleManifestV1Schema } from './skill-bundle-schema'
 import { SkillPackageIdentitySchema } from './skill-install-contract'
 
 export const LOCAL_SKILL_SHARING_CAPABILITY = 'skills.local-sharing.v1' as const
