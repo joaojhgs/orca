@@ -25,7 +25,8 @@ export function classifyRuntimeLongPoll(request: RpcRequest): RuntimeLongPollCla
   // keep the response channel alive and cancel the operation on disconnect.
   if (
     request.method === 'computer.desktopAction' ||
-    request.method === 'emulator.agentScreenshot'
+    request.method === 'emulator.agentScreenshot' ||
+    request.method === 'emulator.attach'
   ) {
     return 'wait'
   }

@@ -143,6 +143,7 @@ type AndroidCommandParams = {
   activity?: string
   op?: string
   permission?: string
+  previewStream?: string
 }
 
 export async function dispatchSshAndroidPreview(method: string, params: AndroidCommandParams) {
@@ -183,22 +184,30 @@ export async function dispatchSshAndroidPreview(method: string, params: AndroidC
     ) {
       throw new Error('Approved Android device is not connected or authorized')
     }
-    if (params.worktree) {
-      if (!activeByWorkspace.has(params.worktree) && activeByWorkspace.size >= 128) {
-        throw new Error('Too many Android previews')
-      }
-      activeByWorkspace.set(params.worktree, { deviceId, authority, fingerprint })
+    if (
+      params.worktree &&
+      !activeByWorkspace.has(params.worktree) &&
+      activeByWorkspace.size >= 128
+    ) {
+      throw new Error('Too many Android previews')
     }
     for (const [id, stream] of streams) {
       if (Date.now() - stream.checkedAt > 60000) {
         streams.delete(id)
       }
     }
+    // Replace only the caller's ticket for this device, never another viewer's preview.
+    if (params.previewStream && streams.get(params.previewStream)?.deviceId === deviceId) {
+      streams.delete(params.previewStream)
+    }
     if (streams.size >= 32) {
       throw new Error('Too many Android preview streams')
     }
     const streamId = `ssh-adb-stream:${randomBytes(24).toString('base64url')}`
     streams.set(streamId, { deviceId, authority, fingerprint, checkedAt: Date.now() })
+    if (params.worktree) {
+      activeByWorkspace.set(params.worktree, { deviceId, authority, fingerprint })
+    }
     return {
       handled: true as const,
       result: {
@@ -207,8 +216,8 @@ export async function dispatchSshAndroidPreview(method: string, params: AndroidC
           deviceUdid: deviceId,
           streamUrl: `remote-adb://${streamId}`,
           wsUrl: '',
-          streamCodec: 'mjpeg',
-          backend: 'android'
+          streamCodec: 'mjpeg' as const,
+          backend: 'android' as const
         }
       }
     }

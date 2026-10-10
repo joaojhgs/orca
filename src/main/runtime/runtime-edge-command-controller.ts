@@ -1,6 +1,7 @@
 import type { BrowserScreencastResult } from '../../shared/runtime-types'
 import type { RuntimeBrowserCommands, RuntimeBrowserCommandHost } from './orca-runtime-browser'
 import { RuntimeEmulatorCommands } from './orca-runtime-emulator'
+import { RuntimeSshEmulatorCommands } from './runtime-ssh-emulator-commands'
 import { RuntimeBrowserScreencastController } from './runtime-browser-screencast-controller'
 import { createRuntimeBrowserCommands } from './runtime-browser-commands-factory'
 import { RuntimeJiraCommands } from './runtime-jira-commands'
@@ -22,7 +23,8 @@ type BrowserSurface = Omit<PublicMethods<RuntimeBrowserCommands>, 'browserScreen
 
 export type RuntimeEdgeCommandSurface = BrowserSurface &
   PublicMethods<RuntimeJiraCommands> &
-  PublicMethods<RuntimeEmulatorCommands>
+  PublicMethods<RuntimeEmulatorCommands> &
+  PublicMethods<RuntimeSshEmulatorCommands>
 
 type ScreencastDependencies = ConstructorParameters<typeof RuntimeBrowserScreencastController>[0]
 type EmulatorHost = ConstructorParameters<typeof RuntimeEmulatorCommands>[0]
@@ -157,10 +159,12 @@ export class RuntimeEdgeCommandController {
       getCommands: () => args.getBrowserCommands?.() ?? this.browser
     })
     this.emulator = new RuntimeEmulatorCommands(args.emulatorHost)
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: typed controller bindings cover the public surface; screencast overrides only its own method.
     this.surface = {
       ...bindPrefixedMethods(this.jira, 'jira'),
       ...bindNamedMethods(this.browser, BROWSER_COMMAND_NAMES),
       ...bindPrefixedMethods(this.emulator, 'emulator'),
+      ...bindPrefixedMethods(new RuntimeSshEmulatorCommands(args.emulatorHost), 'emulator'),
       browserScreencast: (params, options) => this.screencasts.start(params, options)
     } as RuntimeEdgeCommandSurface
   }

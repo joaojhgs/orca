@@ -128,7 +128,8 @@ export const LogcatParams = z.object({
 export const AttachParams = z.object({
   device: z.string().optional(),
   worktree: z.string().optional(),
-  focus: z.boolean().optional()
+  focus: z.boolean().optional(),
+  previewStream: z.string().max(256).optional()
 })
 
 export const KillParams = z.object({

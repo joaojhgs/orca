@@ -25,7 +25,9 @@ function getFrameStreamIdentity(
 export function useEmulatorFrameStream(
   streamUrl: string | undefined,
   streamKey: string | undefined,
-  enabled: boolean
+  enabled: boolean,
+  deviceId?: string,
+  worktreeId?: string
 ): Omit<EmulatorFrameStreamState, 'streamIdentity'> {
   const streamIdentity = getFrameStreamIdentity(streamUrl, streamKey, enabled)
   const [state, setState] = useState<EmulatorFrameStreamState>({
@@ -37,7 +39,9 @@ export function useEmulatorFrameStream(
 
   useEffect(() => {
     const remoteAndroid = streamUrl?.startsWith('remote-adb://') === true
-    const emulatorApi = remoteAndroid ? createRemoteAndroidFrameApi() : window.api?.emulator
+    const emulatorApi = remoteAndroid
+      ? createRemoteAndroidFrameApi(deviceId, worktreeId)
+      : window.api?.emulator
     if (!enabled || !streamUrl || !emulatorApi?.startFrameStream) {
       setState({ error: null, frameUrl: null, streamIdentity: null })
       return
@@ -134,7 +138,7 @@ export function useEmulatorFrameStream(
       }
       revokeCurrentFrameUrl()
     }
-  }, [enabled, streamIdentity, streamKey, streamUrl])
+  }, [deviceId, enabled, streamIdentity, streamKey, streamUrl, worktreeId])
 
   if (state.streamIdentity !== streamIdentity) {
     return { error: null, frameUrl: null }

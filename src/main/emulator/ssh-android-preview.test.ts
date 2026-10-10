@@ -50,6 +50,22 @@ async function attach(worktree: string) {
   return reply.result.info.streamUrl.slice('remote-adb://'.length)
 }
 describe('controller Android SSH routing', () => {
+  it('replaces only the supplied preview ticket and leaves sibling viewers attached', async () => {
+    const replaced = await attach('android-replacement')
+    const sibling = await attach('android-sibling')
+    const renewed = await dispatchSshAndroidPreview('emulator.attach', {
+      device: deviceId,
+      previewStream: replaced
+    })
+    expect(renewed).toMatchObject({ handled: true, result: { attached: true } })
+    mocks.observe.mockResolvedValue({ pngBase64: 'iVBORw0KGgo=', width: 10, height: 10 })
+    await expect(
+      dispatchSshAndroidPreview('emulator.screenshot', { device: replaced })
+    ).rejects.toThrow(/expired/)
+    await expect(
+      dispatchSshAndroidPreview('emulator.screenshot', { device: sibling })
+    ).resolves.toMatchObject({ handled: true })
+  })
   it('labels the owning host and excludes disconnected/unapproved hosts', async () => {
     await expect(listSshAndroidDevices()).resolves.toEqual([
       expect.objectContaining({

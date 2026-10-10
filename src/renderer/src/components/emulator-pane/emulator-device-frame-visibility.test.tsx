@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EmulatorDeviceFrame } from './emulator-device-frame'
 import { resetStaleDocumentVisibilityForTesting } from '../terminal-pane/stale-document-visibility'
 import { EMULATOR_STREAM_PARK_DELAY_MS } from './use-emulator-stream-window-visibility'
+import type * as RuntimeRpcClient from '@/runtime/runtime-rpc-client'
 
 // Why: a backgrounded but still-attached emulator must stop streaming frames.
 // The perf contract is that no frame stream is started (no per-frame IPC / MJPEG
@@ -21,12 +22,18 @@ let root: Root
 let startFrameStream: ReturnType<typeof vi.fn>
 let stopFrameStream: ReturnType<typeof vi.fn>
 let streamCounter: number
+const remote = vi.hoisted(() => ({ rpc: vi.fn() }))
+vi.mock('@/runtime/runtime-rpc-client', async (importOriginal) => ({
+  ...(await importOriginal<typeof RuntimeRpcClient>()),
+  callRuntimeRpc: remote.rpc
+}))
 
 beforeEach(() => {
   ;(
     globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true
   streamCounter = 0
+  remote.rpc.mockReset()
   startFrameStream = vi.fn(async () => ({ streamId: `stream-${++streamCounter}` }))
   stopFrameStream = vi.fn(async () => {})
   Object.defineProperty(URL, 'createObjectURL', {
@@ -72,11 +79,14 @@ function setDocumentVisibility(state: 'visible' | 'hidden'): void {
   document.dispatchEvent(new Event('visibilitychange'))
 }
 
-async function renderFrame(isActive: boolean): Promise<void> {
+async function renderFrame(isActive: boolean, ssh = false): Promise<void> {
   await act(async () => {
     root.render(
       <EmulatorDeviceFrame
-        previewUrl="http://127.0.0.1:3100/stream.mjpeg"
+        deviceId={ssh ? 'ssh-adb:approved' : undefined}
+        previewUrl={
+          ssh ? 'remote-adb://ssh-adb-stream:original' : 'http://127.0.0.1:3100/stream.mjpeg'
+        }
         wsUrl="ws://127.0.0.1:3100/ws"
         loading={false}
         isLive={true}
@@ -90,6 +100,40 @@ async function renderFrame(isActive: boolean): Promise<void> {
 }
 
 describe('EmulatorDeviceFrame visibility gating', () => {
+  it('reacquires a remote preview after being parked longer than the ticket lifetime', async () => {
+    vi.useFakeTimers()
+    remote.rpc.mockImplementation(async (_target, method) => {
+      if (method === 'emulator.attach') {
+        return {
+          attached: true,
+          info: { deviceUdid: 'ssh-adb:approved', streamUrl: 'remote-adb://ssh-adb-stream:fresh' }
+        }
+      }
+      return { pngBase64: 'iVBORw0KGgo=' }
+    })
+    await renderFrame(true, true)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(container.querySelector('img')).not.toBeNull()
+    await renderFrame(false, true)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(61000)
+    })
+    expect(remote.rpc).toHaveBeenCalledTimes(2)
+    await renderFrame(true, true)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(remote.rpc.mock.calls.map((call) => call[1])).toEqual([
+      'emulator.attach',
+      'emulator.screenshot',
+      'emulator.attach',
+      'emulator.screenshot'
+    ])
+    expect(container.querySelector('img')).not.toBeNull()
+    expect(container.textContent).not.toContain('Stream disconnected')
+  })
   it('streams frames while the pane is active', async () => {
     await renderFrame(true)
     expect(startFrameStream).toHaveBeenCalledWith(

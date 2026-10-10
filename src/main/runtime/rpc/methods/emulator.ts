@@ -2,10 +2,8 @@ import { defineMethod } from '../core'
 import path from 'node:path'
 import { z } from 'zod'
 import { compactAgentDeviceScreenshot } from '../../../computer/agent-device-screenshot'
-import {
-  dispatchSshAndroidPreview,
-  listSshAndroidDevices
-} from '../../../emulator/ssh-android-preview'
+import { listSshAndroidDevices } from '../../../emulator/ssh-android-preview'
+import type { OrcaRuntimeService } from '../../orca-runtime'
 import {
   AttachParams,
   AxParams,
@@ -38,11 +36,12 @@ const InstallParams = z.object({
 })
 
 async function androidOr<T>(
+  runtime: OrcaRuntimeService,
   method: string,
-  params: Parameters<typeof dispatchSshAndroidPreview>[1],
+  params: Parameters<OrcaRuntimeService['emulatorSshPreview']>[1],
   fallback: () => Promise<T>
 ) {
-  const remote = await dispatchSshAndroidPreview(method, params)
+  const remote = await runtime.emulatorSshPreview(method, params)
   return remote.handled ? remote.result : fallback()
 }
 
@@ -51,7 +50,7 @@ export const EMULATOR_METHODS = [
     name: 'emulator.agentScreenshot',
     params: AxParams,
     handler: async (params, { runtime }) => {
-      const captured = await androidOr('emulator.screenshot', params, () =>
+      const captured = await androidOr(runtime, 'emulator.screenshot', params, () =>
         runtime.emulatorScreenshot(params)
       )
       if (
@@ -74,61 +73,61 @@ export const EMULATOR_METHODS = [
     name: 'emulator.attach',
     params: AttachParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.attach', params, () => runtime.emulatorAttach(params))
+      androidOr(runtime, 'emulator.attach', params, () => runtime.emulatorAttach(params))
   }),
   defineMethod({
     name: 'emulator.tap',
     params: TapParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.tap', params, () => runtime.emulatorTap(params))
+      androidOr(runtime, 'emulator.tap', params, () => runtime.emulatorTap(params))
   }),
   defineMethod({
     name: 'emulator.gesture',
     params: GestureParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.gesture', params, () => runtime.emulatorGesture(params))
+      androidOr(runtime, 'emulator.gesture', params, () => runtime.emulatorGesture(params))
   }),
   defineMethod({
     name: 'emulator.type',
     params: TypeParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.type', params, () => runtime.emulatorType(params))
+      androidOr(runtime, 'emulator.type', params, () => runtime.emulatorType(params))
   }),
   defineMethod({
     name: 'emulator.button',
     params: ButtonParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.button', params, () => runtime.emulatorButton(params))
+      androidOr(runtime, 'emulator.button', params, () => runtime.emulatorButton(params))
   }),
   defineMethod({
     name: 'emulator.rotate',
     params: RotateParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.rotate', params, () => runtime.emulatorRotate(params))
+      androidOr(runtime, 'emulator.rotate', params, () => runtime.emulatorRotate(params))
   }),
   defineMethod({
     name: 'emulator.exec',
     params: ExecParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.exec', params, () => runtime.emulatorExec(params))
+      androidOr(runtime, 'emulator.exec', params, () => runtime.emulatorExec(params))
   }),
   defineMethod({
     name: 'emulator.screenshot',
     params: AxParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.screenshot', params, () => runtime.emulatorScreenshot(params))
+      androidOr(runtime, 'emulator.screenshot', params, () => runtime.emulatorScreenshot(params))
   }),
   defineMethod({
     name: 'emulator.kill',
     params: KillParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.kill', params, () => runtime.emulatorKill(params))
+      androidOr(runtime, 'emulator.kill', params, () => runtime.emulatorKill(params))
   }),
   defineMethod({
     name: 'emulator.shutdown',
     params: ShutdownParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.shutdown', params, () => runtime.emulatorShutdown(params))
+      androidOr(runtime, 'emulator.shutdown', params, () => runtime.emulatorShutdown(params))
   }),
   defineMethod({
     name: 'emulator.listSimulators',
@@ -161,36 +160,38 @@ export const EMULATOR_METHODS = [
     name: 'emulator.install',
     params: InstallParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.install', params, () => runtime.emulatorInstall(params))
+      androidOr(runtime, 'emulator.install', params, () => runtime.emulatorInstall(params))
   }),
   defineMethod({
     name: 'emulator.launch',
     params: LaunchParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.launch', params, () => runtime.emulatorLaunch(params))
+      androidOr(runtime, 'emulator.launch', params, () => runtime.emulatorLaunch(params))
   }),
   defineMethod({
     name: 'emulator.permissions',
     params: PermissionsParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.permissions', params, () => runtime.emulatorPermissions(params))
+      androidOr(runtime, 'emulator.permissions', params, () => runtime.emulatorPermissions(params))
   }),
   defineMethod({
     name: 'emulator.ax',
     params: AxParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.ax', params, () => runtime.emulatorAx(params))
+      androidOr(runtime, 'emulator.ax', params, () => runtime.emulatorAx(params))
   }),
   defineMethod({
     name: 'emulator.logcat',
     params: LogcatParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.logcat', params, () => runtime.emulatorLogcat(params))
+      androidOr(runtime, 'emulator.logcat', params, () => runtime.emulatorLogcat(params))
   }),
   defineMethod({
     name: 'emulator.unregisterActive',
     params: EmulatorUnregisterActiveParams,
     handler: async (params, { runtime }) =>
-      androidOr('emulator.unregisterActive', params, () => runtime.emulatorUnregisterActive(params))
+      androidOr(runtime, 'emulator.unregisterActive', params, () =>
+        runtime.emulatorUnregisterActive(params)
+      )
   })
 ]

@@ -12,6 +12,8 @@ type StreamSize = {
 }
 
 type EmulatorScreenStreamContentProps = {
+  worktreeId?: string
+  deviceId?: string
   loading: boolean
   onStreamError: () => void
   onStreamSize: (size: StreamSize) => void
@@ -27,6 +29,8 @@ type EmulatorScreenStreamContentProps = {
 const SCRCPY_PREFIX = 'scrcpy://'
 
 export function EmulatorScreenStreamContent({
+  worktreeId,
+  deviceId,
   loading,
   onStreamError,
   onStreamSize,
@@ -56,7 +60,9 @@ export function EmulatorScreenStreamContent({
   const frameStream = useEmulatorFrameStream(
     androidDeviceId ? undefined : previewUrl,
     streamKey,
-    showStream && Boolean(previewUrl) && !androidDeviceId
+    showStream && Boolean(previewUrl) && !androidDeviceId,
+    deviceId,
+    worktreeId
   )
 
   useEffect(() => {

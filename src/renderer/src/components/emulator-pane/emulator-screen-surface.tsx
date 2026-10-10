@@ -15,6 +15,8 @@ import type {
 } from './emulator-device-frame-layout'
 
 type EmulatorScreenSurfaceProps = {
+  worktreeId?: string
+  deviceId?: string
   frameLayout: DeviceFrameLayout | null
   isLive: boolean
   keyboardCaptureActive: boolean
@@ -38,6 +40,8 @@ type EmulatorScreenSurfaceProps = {
 }
 
 export function EmulatorScreenSurface({
+  worktreeId,
+  deviceId,
   frameLayout,
   isLive,
   keyboardCaptureActive,
@@ -88,6 +92,8 @@ export function EmulatorScreenSurface({
       {/* Why: the stream is the actual emulator screen; fake in-screen chrome
           doubles up with iOS's real status bar and makes bezels lie. */}
       <EmulatorScreenStreamContent
+        worktreeId={worktreeId}
+        deviceId={deviceId}
         loading={loading}
         onStreamError={onStreamError}
         onStreamSize={onStreamSize}
