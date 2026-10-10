@@ -9,7 +9,8 @@ import fcntl
 from .decision_runner import run_native_decision
 from .manager_state import open_manager_state
 from .manager_tools import client_from_context
-from .orca_client import CONTROL_OPERATIONS
+from .orca_client import CONTROL_OPERATIONS, renew_manager_lease
+from .objective_decisions import build_run_decisions, publish_decision_report
 
 
 def decision_identifier(payload):
@@ -26,10 +27,15 @@ def snapshot_pages(client):
     offset = 0
     for _ in range(20):
         page = client.call("snapshot", {"offset": offset, "limit": 100}, CONTROL_OPERATIONS)
+        if not isinstance(page, dict) or not isinstance(page.get("sessions"), list):
+            raise RuntimeError("Snapshot inventory was not confirmed")
         items.append(page)
         if page.get("nextOffset") is None:
             return items
-        offset = page["nextOffset"]
+        following = page["nextOffset"]
+        if isinstance(following, bool) or not isinstance(following, int) or following <= offset:
+            raise RuntimeError("Snapshot pagination did not advance")
+        offset = following
     raise RuntimeError("Snapshot exceeds reconciliation budget; operator review required")
 
 
@@ -46,18 +52,23 @@ def forward_objectives(client, lease, objectives):
 
 def process_page(ctx, client, state, lease, page, *, native_decision=run_native_decision):
     cursor = page["cursor"]
-    pending = state.get("pending_decision")
-    if pending:
+    if state.get("pending_decision"):
+        raise RuntimeError("Legacy shared decision needs operator reconciliation before per-Run replay")
+    batch = state.get("pending_batch")
+    if batch:
         # Replay the persisted input, not newly arrived events or a regenerated timestamp.
-        decision_id, payload = pending["id"], pending["payload"]
+        cursor = batch["cursor"]
     else:
         payload = {"cursor": cursor, "events": page.get("events", []),
                    "gap": page.get("gap"), "objectives": forward_objectives(client, lease, state.pending_objectives()),
                    "snapshot": snapshot_pages(client) if page.get("gap") else []}
-        decision_id = decision_identifier(payload)
         if requires_model(payload):
-            state.set("pending_decision", {"id": decision_id, "payload": payload})
-    if requires_model(payload):
+            decisions = build_run_decisions(client, payload)
+            batch = {"cursor": cursor, "decisions": [{"id": decision_identifier(item), "payload": item} for item in decisions]}
+            state.set("pending_batch", batch)
+    for item in batch["decisions"] if batch else []:
+        decision_id, payload = item["id"], item["payload"]
+        renew_manager_lease(client, lease)
         receipt = state.begin_decision(decision_id, payload)
         if not receipt["completed"]:
             attempts = state.get("attempt:" + decision_id, 0)
@@ -65,18 +76,18 @@ def process_page(ctx, client, state, lease, page, *, native_decision=run_native_
                 raise RuntimeError("Decision retry budget exhausted; operator review is required")
             state.set("attempt:" + decision_id, attempts + 1)
             result, session_id = native_decision(ctx, client, state, lease, decision_id, payload)
-            state.complete_decision(decision_id, result, session_id)
-            state.set("manager_session", session_id)
-            print(result.get("text", "Decision completed"), flush=True)
+            state.complete_decision(decision_id, result, session_id, payload["runId"])
+            receipt = state.begin_decision(decision_id, payload)
+        renew_manager_lease(client, lease)
+        publish_decision_report(client, lease, decision_id, payload, receipt["result"])
         state.mark_objectives_delivered([objective["id"] for objective in payload["objectives"]], decision_id)
-        # Commit local receipt before acknowledging server events; crashes replay without a model call.
-        client.call("checkpoint", {"lease": lease, "cursor": payload["cursor"]}, CONTROL_OPERATIONS)
-        state.set("cursor", payload["cursor"])
-        state.set("pending_decision", None)
-        return
-    if state.get("cursor") != cursor:
-        client.call("checkpoint", {"lease": lease, "cursor": cursor}, CONTROL_OPERATIONS)
+    # Local receipts and report publication precede journal acknowledgement.
+    if batch or state.get("cursor") != cursor:
+        response = client.call("checkpoint", {"lease": lease, "cursor": cursor}, CONTROL_OPERATIONS)
+        if not isinstance(response, dict) or response.get("checkpoint") != cursor:
+            raise RuntimeError("Manager journal checkpoint was not confirmed; retain the batch receipt")
         state.set("cursor", cursor)
+        state.set("pending_batch", None)
 
 
 def run_adapter(ctx):
@@ -98,10 +109,10 @@ def run_locked_adapter(ctx):
         if state.get("cursor") is None:
             state.set("cursor", initial.get("checkpoint"))
         while True:
-            client.call("renew", {"lease": lease, "duration-ms": 60_000}, CONTROL_OPERATIONS)
+            renew_manager_lease(client, lease)
             cursor = state.get("cursor")
             values = {"cursor": cursor} if cursor else {}
-            if state.get("pending_decision") or state.pending_objectives():
+            if state.get("pending_batch") or state.get("pending_decision") or state.pending_objectives():
                 page = client.call("read", {**values, "limit": 100}, CONTROL_OPERATIONS)
             else:
                 page = client.call("wait", {**values, "timeout-ms": 25_000}, CONTROL_OPERATIONS)

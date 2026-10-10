@@ -20,6 +20,11 @@ class ManagerState:
             CREATE TABLE IF NOT EXISTS decision_steps (
                 decision_id TEXT NOT NULL, step INTEGER NOT NULL, input_json TEXT NOT NULL,
                 PRIMARY KEY(decision_id, step));
+            CREATE TABLE IF NOT EXISTS objective_sessions (
+                run_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, completed_decisions INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS decision_step_results (
+                decision_id TEXT NOT NULL, step INTEGER NOT NULL, result_json TEXT NOT NULL,
+                PRIMARY KEY(decision_id, step));
         """)
 
     def get(self, key, default=None):
@@ -41,12 +46,23 @@ class ManagerState:
         return {"payload": json.loads(row[0]), "completed": row[1] == "completed",
                 "result": json.loads(row[2]) if row[2] else None, "session_id": row[3]}
 
-    def complete_decision(self, identifier, result, session_id):
+    def complete_decision(self, identifier, result, session_id, run_id):
         with self.db:
+            row = self.db.execute("SELECT input_json FROM decisions WHERE id=?", (identifier,)).fetchone()
+            if not row or json.loads(row[0]).get("runId") != run_id:
+                raise ValueError("Decision has another objective context")
             changed = self.db.execute("UPDATE decisions SET status='completed',result_json=?,session_id=? WHERE id=? AND status='pending'",
                                       (json.dumps(result), session_id, identifier)).rowcount
             if not changed:
                 raise ValueError("Decision is missing or already completed")
+            self.db.execute("""INSERT INTO objective_sessions VALUES (?,?,1)
+                ON CONFLICT(run_id) DO UPDATE SET session_id=excluded.session_id,
+                completed_decisions=CASE WHEN objective_sessions.session_id=excluded.session_id
+                    THEN objective_sessions.completed_decisions+1 ELSE 1 END""", (run_id, session_id))
+
+    def session_for_run(self, run_id, max_decisions=12):
+        row = self.db.execute("SELECT session_id,completed_decisions FROM objective_sessions WHERE run_id=?", (run_id,)).fetchone()
+        return row[0] if row and row[1] < max_decisions else None
 
     def enqueue_objective(self, identifier, workspace_id, objective):
         with self.db:
@@ -71,6 +87,24 @@ class ManagerState:
             previous = self.db.execute("SELECT input_json FROM decision_steps WHERE decision_id=? AND step=?", (decision_id, step)).fetchone()[0]
             if previous != encoded:
                 raise ValueError("Restarted decision changed an already-admitted action; reconcile and request human review")
+
+    def step_result(self, decision_id, step):
+        row = self.db.execute("SELECT result_json FROM decision_step_results WHERE decision_id=? AND step=?",
+                              (decision_id, step)).fetchone()
+        return {"result": json.loads(row[0])} if row else None
+
+    def finish_step(self, active, step, result):
+        with self.db:
+            self.db.execute("INSERT OR IGNORE INTO decision_step_results VALUES (?,?,?)",
+                            (active["id"], step, json.dumps(result)))
+            current = self.get("active_decision") or {}
+            if (current.get("invocationId") != active["invocationId"] or
+                    current.get("id") != active["id"] or current.get("runId") != active["runId"] or
+                    current.get("step", 0) != step):
+                return False
+            self.db.execute("UPDATE adapter_state SET value=? WHERE key='active_decision'",
+                            (json.dumps({**current, "step": step + 1}),))
+        return True
 
 
 def open_manager_state():

@@ -215,3 +215,34 @@ Hermes remains on the coding worker; no manager grant/consumer was activated and
 neither Orca was restarted. Fresh controller sampling confirms global paging/IO
 pressure with available memory and no Orca cgroup OOM or service restart; it does
 not establish one definitive disconnect cause or justify changing limits blindly.
+
+### Native per-Run decision and recovery checkpoint — 2026-10-10
+
+Hermes decisions now route by verified service-owned Run identity, including
+workers on another approved host or worktree. Each objective has its own native
+session, rotated after 12 completed decisions by default. Shared legacy sessions
+are not reused; ambiguous pending decisions require explicit reconciliation.
+Complete wake batches retain their original inputs across partial processing.
+
+Final reports publish idempotently into the same Orca conversation before journal
+acknowledgement. Missing or mismatched report/checkpoint/lease acknowledgements
+fail closed without losing recovery state or repeating completed model work.
+Snapshot reconciliation preserves full scoped receipts but marks its bounded
+model-context sample; it never silently drops oversized canonical evidence.
+
+Model tools require the matching private invocation nonce and addressed Run.
+Stale processes cannot borrow replacement authority or overwrite its context.
+Action inputs/results are durable ordered receipts; cached acceptance is not
+current worker status. Run creation/listing remain adapter/operator-only, not
+model tools. Native memory can still retain sanitized cross-project learning.
+
+Validation: 64 local Python tests; 51 focused decision/CLI tests on pinned ARM
+Python in the worker sandbox; real native plugin bootstrap; shell syntax and
+whitespace checks. The sandbox's loopback firewall correctly blocks a separate
+memory unit test's arbitrary ephemeral port and was not weakened. Production
+memory has its own authenticated fixed-port validation.
+
+Candidate code was mounted read-only into disposable checks, not installed over
+the live plugin. No manager grant/consumer, production Orca restart, native-mobile
+UI or completed multi-host deployment is claimed. Hermes remains on the coding
+worker, never the 1 GiB controller. Final deployment and acceptance remain pending.

@@ -15,14 +15,31 @@ configuring its settings. It never starts a listener during plugin discovery.
 `hermes orca-manager run` is a single fenced event consumer. It wakes native
 Hermes's tool loop for durable Orca events, gaps or queued operator objectives,
 not an idle timer. It keeps delivery/decision receipts, not a second task store.
-Completed decisions survive acknowledgement failure without another model call;
-mutations have persisted step identities and server-side idempotence. Changed
+Completed decisions and final reports survive acknowledgement/delivery failure
+without another model call; reports are posted idempotently to the same Orca Run
+before journal acknowledgement. Mutations have persisted input/result receipts
+and server-side idempotence. Replayed receipts are not current worker status. Changed
 actions on restart require review. Retries are bounded, and revocation stops only
 the manager's own decision process, not workers.
+
+Each service-owned Run has its own native session, rotated after 12 completed
+decisions by default (`max_session_decisions`, operator range 1–20). Legacy shared
+sessions are not reused; an ambiguous pending legacy decision requires explicit
+operator reconciliation. Cross-host dispatch events follow server-provenanced Run
+identity rather than the originating workspace. Gap recovery retains complete
+scoped snapshot receipts but gives the model a marked sample and requires current
+inventory reads; oversized decision evidence fails closed without acknowledging it.
 
 The `orca_manager_inspect` and `orca_manager_act` tools use typed public CLI
 commands. The model cannot supply tokens, leases, executable paths or raw shell
 commands, and cannot adopt user-owned Runs or invoke stop/merge/deploy/admin APIs.
+Every tool invocation must match the adapter's private decision nonce and Run.
+Stale native children cannot borrow a new invocation's lease. The model cannot
+create/list other Runs, although the operator's objective queue and adapter retain
+those narrow CLI operations. Native memory stays shared for sanitized learned rules;
+per-Run chat histories and mutation authority are separate.
+Lease renewals and journal checkpoints need explicit, matching acknowledgements;
+an empty/ambiguous transport result cannot authorize work or discard receipts.
 Queue terminal objectives with `hermes orca-manager objective --request-id <id>
 --workspace-id <exact-id> --objective <text>`; the adapter first forwards them to
 idempotently created Orca-owned Runs. Its terminal is not a chat interface.
@@ -32,7 +49,8 @@ carry server-written provenance, bounded sequence pagination and atomic wake-up
 events. Service-only `conversation-read`/`conversation-post` operations require
 explicit ownership and, for writes, the `conversation:write` grant plus a fenced
 lease. Manager replies never wake themselves; question answers cannot cross Runs
-or be submitted twice. UI rendering and manager push links remain pending.
+or be submitted twice. Browser objective/conversation UI is implemented and tested
+with a hidden real backend; native-mobile rendering and manager push links remain pending.
 
 The Linux worker memory deployment uses separate pinned Hindsight API and Hermes
 environments, a private PostgreSQL Unix socket and authenticated loopback API.
@@ -43,7 +61,7 @@ review before reuse on another machine.
 
 This is not a completed manager deployment. Source-level tests pass, and local
 Hindsight retain/recall/reflect passed on the worker, but the manager still needs
-live server deployment, conversation/UI integration and
+live server deployment, native-mobile integration and
 multihost restart/revocation validation. No paid API fallback, cloud memory,
 third-party account connection or meeting recording is enabled by this plugin.
 
@@ -110,3 +128,11 @@ checks native session-database integrity, and never activates the recovered logi
 overwrites production. The encrypted round-trip restored 15 memory units and five
 native sessions on the worker. Recovery copies remain protected until custody
 migration succeeds; this is not a completed manager launch.
+
+`verify-native-decision-contract.sh` overlays candidate code only in disposable
+services derived from the reviewed production unit. It runs the decision/CLI
+regressions on the pinned ARM Python and boots native plugin help without a model
+request, grant, consumer or installed-plugin replacement. The separate memory HTTP
+unit test uses an arbitrary ephemeral port, intentionally blocked by the production
+loopback policy; run that test locally and use the authenticated fixed-port memory
+verification for the real sandbox. Never relax the firewall to make a test pass.

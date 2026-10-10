@@ -40,6 +40,12 @@ CONTROL_OPERATIONS = {
 MAX_RESULT = 256 * 1024
 
 
+def renew_manager_lease(client, lease):
+    response = client.call("renew", {"lease": lease, "duration-ms": 60_000}, CONTROL_OPERATIONS)
+    if not isinstance(response, dict) or response.get("renewed") is not True:
+        raise RuntimeError("Manager lease renewal was not confirmed")
+
+
 def validated_arguments(operation, values, allowed):
     if operation not in allowed or not isinstance(values, dict):
         raise ValueError("Unsupported Orca manager operation")

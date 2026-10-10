@@ -14,4 +14,5 @@ config_schema:
   memory_model_alias: {type: str, default: hermes-memory, description: Accepted memory backend model alias}
   orca_executable: {type: str, default: '', description: Operator-approved absolute public Orca CLI path}
   orca_credential_file: {type: str, default: '', description: Private scoped service-principal credential file}
-  hermes_executable: {type: str, default: /home/developer/.local/bin/hermes, description: Operator-approved native Hermes CLI path}
+  hermes_executable: {type: str, default: '', description: Operator-approved absolute native Hermes CLI path}
+  max_session_decisions: {type: int, default: 12, description: Rotate each objective session after 1 to 20 completed decisions}
