@@ -131,3 +131,34 @@ and five native sessions, with SQLite integrity checked and recovered OAuth neve
 activated. A fresh disposable database was dropped; production was unchanged.
 Recovery credentials/artifacts are private, never repository inputs. Private
 profile custody and supported native packaging still precede manager activation.
+
+### Native custody and private IPC checkpoint — 2026-10-10
+
+Published the official pinned ARM PM payload with 49 compatible extras under
+root ownership; native boot no longer produces the former packaging warning.
+Private Hindsight dependencies were admitted through Hermes PM, without core
+patches or direct pip/uv environment edits. A malformed seeded wheel cache was
+preserved recoverably before regenerating only its cache entries.
+
+Moved the existing profile, rather than duplicating an active OAuth refresh owner,
+to nologin `hermes-manager`. Separate nologin `hermes-memory` owns the private DB
+and API and receives only static memory keys. All 15 memory units were cloned;
+the coding user is refused both DBs and the private login. The original DB and
+full profile rollback remain protected. Corrected migration settings against
+the actual native plugin reader; retain/semantic recall/reflection now pass in
+the production manager sandbox, including anonymous-access refusal.
+
+Private controller-to-worker IPC uses a dedicated no-shell Unix-forward identity,
+fresh credential-free runtime metadata and the bundled public CLI. Coding-user
+transport access, shell/PTY and TCP forwards are refused. A real invalid-service
+CLI call is denied without owner fallback. The broker and SSH process together
+used roughly 13–25 MiB on the controller; its main PID and restart count are unchanged.
+The broker's own restart test reconnected the private transport, not Orca.
+
+Post-custody encrypted SSD recovery restored all 15 memory units and five native
+sessions into disposable/private recovery state without activating recovered
+OAuth. Private plugin source is materialized into that archive. Production DB
+and user sessions are untouched by the rehearsal. Recovery copies are retained.
+27 standalone Python tests, the private broker contract, shell syntax checks
+and actual worker boundaries pass. No live manager grant/consumer, manager chat
+UI, final Orca deployment or multi-host acceptance is claimed complete.

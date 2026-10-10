@@ -44,7 +44,7 @@ third-party account connection or meeting recording is enabled by this plugin.
 root-owned runtime snapshot without moving OAuth, issuing a grant or starting a
 manager. `hermes-orca-manager.service` exposes only synthetic Hermes paths inside
 its mount sandbox; the developer's real home and runtime sockets stay hidden.
-Only private state and PM lock/lease files are writable. The worker-specific
+Only private state, caches and PM selections are writable; the payload is not. The worker-specific
 runtime paths and UID must be revalidated before reuse elsewhere.
 
 `verify-worker-isolation.sh` derives its properties from that production unit
@@ -58,6 +58,37 @@ enabled on the worker and the boundary check also passed against local SSH.
 These checks do not prove an unbreakable sandbox. Private-profile custody,
 dedicated memory database role and service-only IPC remain required before
 the staged manager is granted authority.
+
+### Private native runtime and transport
+
+The worker now uses a supported, verified `hermes pm bundle` payload pinned to
+`66605471e9f0b0832abbefaf625ce08e948ca540`, including 49 target-compatible extras.
+`stage-native-payload.sh` publishes it root-owned; the production service uses its
+relocatable launcher without pretending to be Docker/Nix or suppressing checks.
+Private plugin dependencies are admitted with documented `pm.sync_venv`, not pip.
+`configure-private-profile.py` migrates canonical `plugins.entries.*.settings`
+through Hermes's config writer and confirms the values with the native reader.
+
+`migrate-private-memory.sh` moves the single OAuth profile to `hermes-manager`,
+clones all memory into a peer-authenticated database owned by separate
+`hermes-memory`, and switches only this integration's services. The memory API
+gets independent static keys, never OAuth. Developer access to both the new DB
+and protected rollback DB is revoked. Recovery artifacts remain root-private;
+the encrypted off-host recovery predates this custody move and is retained.
+API readiness does not prove model-backed reflection: validate it separately
+with `verify-private-memory.sh` in the manager's actual OS sandbox.
+
+The controller's credential-free broker publishes fresh, stripped bootstrap
+metadata and forwards its existing Unix IPC over a pinned SSH connection to a
+separate no-shell worker identity. That identity permits only remote Unix
+forwarding: local forwarding, all TCP listeners, shell/PTY, agent, X11 and tunnel
+access are denied. OpenSSH's remote-admission gate is paired with `PermitListen
+none`; filesystem permissions isolate the Unix listeners from coding users.
+The public CLI is bundled without native agent/admin dependencies, and its
+private launcher accepts only non-administrative manager commands. It refreshes
+metadata per invocation, requires a private service credential and clears ambient
+owner/pairing routing. No owner credential is sent to the worker. A working
+transport is not a manager grant or completed browser/mobile integration.
 
 Native parallel mutation tool calls are serialized before durable step admission;
 read tools remain independent. A concurrent-call regression verifies distinct

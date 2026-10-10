@@ -18,7 +18,7 @@ while IFS= read -r line; do
   esac
 done < "$directory/hermes-orca-manager.service"
 systemd-run --unit="hermes-manager-bootstrap-check-$(date +%s)" --collect --wait --pipe \
-  "${properties[@]}" /home/developer/.hermes/hermes-agent/.hermes/bin/hermes --help
+  "${properties[@]}" /opt/hermes-manager/payload-66605471e9f0/bin/hermes --help
 systemd-run --unit="hermes-manager-boundary-check-$(date +%s)" --collect --wait --pipe \
   "${properties[@]}" \
   -p "BindReadOnlyPaths=$directory/verify-worker-isolation.py:/var/lib/hermes-manager/check-boundaries.py" \

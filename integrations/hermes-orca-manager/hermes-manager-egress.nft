@@ -6,5 +6,10 @@ table inet hermes_manager_guard {
     meta skuid __MANAGER_UID__ ip daddr 127.0.0.53 tcp dport 53 accept
     meta skuid __MANAGER_UID__ ip daddr 127.0.0.1 tcp dport { 8788, 8789 } accept
     meta skuid __MANAGER_UID__ oifname "lo" counter reject with icmpx type port-unreachable
+    meta skuid __MEMORY_UID__ oifname "lo" ct state established,related accept
+    meta skuid __MEMORY_UID__ ip daddr 127.0.0.53 udp dport 53 accept
+    meta skuid __MEMORY_UID__ ip daddr 127.0.0.53 tcp dport 53 accept
+    meta skuid __MEMORY_UID__ ip daddr 127.0.0.1 tcp dport 8789 accept
+    meta skuid __MEMORY_UID__ oifname "lo" counter reject with icmpx type port-unreachable
   }
 }

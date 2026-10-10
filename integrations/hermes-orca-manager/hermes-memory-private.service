@@ -1,0 +1,47 @@
+[Unit]
+Description=Private Hermes semantic/entity/reflection memory backend
+After=postgresql.service hermes-memory-private-bridge.service hermes-manager-egress.service
+Wants=postgresql.service hermes-memory-private-bridge.service
+Requires=hermes-manager-egress.service
+
+[Service]
+Type=simple
+User=hermes-memory
+Group=hermes-memory
+WorkingDirectory=/var/lib/hermes-memory
+Environment=HOME=/var/lib/hermes-memory
+Environment=HF_HOME=/var/cache/hermes-memory/huggingface
+Environment=XDG_CACHE_HOME=/var/cache/hermes-memory
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/bin/bash /usr/local/libexec/hermes-memory-api /var/lib/hermes-memory /opt/hermes-manager/hindsight-api-0.10.1/bin/python postgresql://hermes-memory@/hermes_manager_memory?host=/var/run/postgresql
+Restart=on-failure
+RestartSec=30
+TimeoutStopSec=20
+MemoryMax=3G
+MemorySwapMax=0
+CPUQuota=50%
+Nice=15
+UMask=0077
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+ProcSubset=pid
+LockPersonality=yes
+RestrictNamespaces=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=10.0.0.0/8 100.64.0.0/10 169.254.0.0/16 172.16.0.0/12 192.168.0.0/16 fc00::/7 fe80::/10
+ReadWritePaths=/var/lib/hermes-memory /var/cache/hermes-memory
+InaccessiblePaths=-/run/user/1002 -/run/docker.sock -/run/containerd -/var/lib/hermes-manager
+
+[Install]
+WantedBy=multi-user.target

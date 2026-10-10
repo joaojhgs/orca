@@ -1,0 +1,32 @@
+[Unit]
+Description=Private credential-free transport for Hermes to the Orca runtime
+After=orca-control.service
+Wants=orca-control.service
+
+[Service]
+Type=simple
+User=orca
+Group=orca
+RuntimeDirectory=orca-manager-broker
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=no
+UMask=0077
+ExecStart=/opt/orca-control/bin/node /usr/local/libexec/orca-manager-ipc-broker.mjs /var/lib/orca-control/profile /run/orca-manager-broker
+Restart=on-failure
+RestartSec=10
+MemoryMax=64M
+MemorySwapMax=0
+CPUQuota=10%
+Nice=15
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/run/orca-manager-broker
+
+[Install]
+WantedBy=multi-user.target

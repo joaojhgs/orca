@@ -1,7 +1,6 @@
 [Unit]
-Description=Restricted event-driven Hermes manager for Orca
-After=network-online.target
-After=hermes-manager-egress.service
+Description=Private Hermes-owned authenticated memory LLM bridge
+After=network-online.target hermes-manager-egress.service
 Requires=hermes-manager-egress.service
 Wants=network-online.target
 
@@ -15,14 +14,14 @@ Environment=HERMES_HOME=/var/lib/hermes-manager/.hermes
 Environment=XDG_CACHE_HOME=/var/cache/hermes-manager
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=ORCA_BACKGROUND_LAUNCH=1
-ExecStart=/opt/hermes-manager/payload-66605471e9f0/bin/hermes -p orca-manager orca-manager run
+ExecStart=/opt/hermes-manager/payload-66605471e9f0/bin/hermes -p orca-manager orca-manager memory-llm
 Restart=on-failure
 RestartSec=30
 TimeoutStopSec=20
 UMask=0077
-MemoryMax=2G
+MemoryMax=1G
 MemorySwapMax=0
-CPUQuota=50%
+CPUQuota=25%
 Nice=15
 ProtectSystem=strict
 ProtectHome=yes
