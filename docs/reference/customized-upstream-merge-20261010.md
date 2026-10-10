@@ -51,3 +51,21 @@ live-host deployment smoke tests are not part of this source-only integration.
 Source integration is not a deployment. Deployment must separately build the new
 runtime, preserve existing remote PTYs, validate mixed-version relay capabilities
 and verify artifact/preview/usage flows against the deployed server.
+
+## Manager integration checkpoint (source only)
+
+Added a durable scoped event journal, revocable manager service credentials,
+fenced consumer leases and explicit service-owned Runs. Inventory and worker
+observation reuse existing Tasks, Dispatches, output cursors and host liveness;
+the manager cannot borrow a user's coordinator. Runtime admission limits service
+credentials to an explicit method list and refuses owner/pairing fallback.
+
+Human notification scope rules are persisted independently of manager delivery.
+These foundations are not a completed manager deployment: dispatch, decisions,
+the persistent adapter, policy UI and semantic memory still need integration.
+
+The latest foundation regression batch passed 161 tests in 18 files. Separate
+backend/CLI typechecks and the changed-code quality gate passed. Hermes on the
+private worker authenticated with its own selected default-provider credential;
+native model and cross-process memory smoke tests passed. Hindsight is installed
+but its backend is not yet configured. No production Orca restart was performed.

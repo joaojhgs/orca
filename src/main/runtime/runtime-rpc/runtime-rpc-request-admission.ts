@@ -136,6 +136,30 @@ export class RuntimeRpcRequestAdmission extends RuntimeRpcBinaryRouting {
     if (request.authToken === this.authToken) {
       return { request, callerScope: OWNER_RPC_CALLER_SCOPE }
     }
+    if (/^orcam_[A-Za-z0-9_-]{43}$/.test(request.authToken)) {
+      const principal = this.runtime
+        .getExistingOrchestrationDb()
+        ?.managerPrincipals.authenticate(request.authToken)
+      if (principal) {
+        const params = request.params
+        if (
+          params !== undefined &&
+          (typeof params !== 'object' || params === null || Array.isArray(params))
+        ) {
+          return { error: this.buildError(request.id, 'bad_request', 'Invalid manager params') }
+        }
+        const suppliedToken = params && 'serviceToken' in params ? params.serviceToken : undefined
+        if (suppliedToken !== undefined && suppliedToken !== request.authToken) {
+          return {
+            error: this.buildError(request.id, 'unauthorized', 'Manager credential mismatch')
+          }
+        }
+        return {
+          request: { ...request, params: { ...params, serviceToken: request.authToken } },
+          callerScope: { kind: 'manager-service', principalId: principal.id }
+        }
+      }
+    }
     // Why: a bridged SSH CLI holds only its invocation's credential, scoped to that SSH target.
     const bridgeScope = sshBridgeCredentials.resolve(request.authToken)
     if (bridgeScope) {

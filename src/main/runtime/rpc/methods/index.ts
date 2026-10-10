@@ -21,6 +21,7 @@ import { BROWSER_CLIENT_FILE_CHANNEL_METHODS } from './browser-client-file-chann
 import { BROWSER_NETWORK_TUNNEL_METHODS } from './browser-network-tunnel'
 import { ORCHESTRATION_METHODS } from './orchestration'
 import { NOTIFICATION_METHODS } from './notifications'
+import { MANAGER_METHODS } from './manager'
 import { STATS_METHODS } from './stats'
 import { USAGE_ANALYTICS_METHODS } from './usage-analytics'
 import { DIAGNOSTICS_METHODS } from './diagnostics'
@@ -97,6 +98,7 @@ export const ALL_RPC_METHODS = [
   ...BROWSER_NETWORK_TUNNEL_METHODS,
   ...ORCHESTRATION_METHODS,
   ...NOTIFICATION_METHODS,
+  ...MANAGER_METHODS,
   ...STATS_METHODS,
   ...USAGE_ANALYTICS_METHODS,
   ...DIAGNOSTICS_METHODS,

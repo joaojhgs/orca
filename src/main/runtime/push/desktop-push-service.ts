@@ -61,7 +61,12 @@ export class DesktopPushService {
     this.registry = registry
     this.client = client
     this.outbox = options.runtimeRpc.getPushUnregisterOutbox()
-    this.dispatcher = new PushDispatcher({ client, registry })
+    this.dispatcher = new PushDispatcher({
+      client,
+      registry,
+      allowsDelivery: (event, deviceId) =>
+        this.runtime.allowsMobileNotificationDelivery?.(event, deviceId) ?? true
+    })
     this.registerThrottle = options.registerThrottle ?? new PushRegisterThrottle()
     this.scheduleRetry =
       options.scheduleRetry ??

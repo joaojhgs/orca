@@ -10,6 +10,8 @@ import { buildNotificationOptions } from '../ipc/notification-options'
 import { reserveNotificationCooldown } from '../../shared/notification-burst-cooldown'
 import { AGENT_NOTIFICATION_QUIET_MS } from '../../shared/agent-notification-quiet-window'
 import { agentNotificationStopPoint } from '../../shared/agent-notification-stop-point'
+import { getConnectionExecutionHostId } from '../../shared/execution-host'
+import { agentHookGeneration } from '../agent-hooks/agent-hook-generation'
 
 type PendingNotification = {
   identity: string
@@ -98,6 +100,8 @@ export function createHeadlessNotificationDelivery(deps: {
     deps.dispatch({
       type: 'notification',
       source: request.source,
+      notificationScope: request.notificationScope,
+      notificationKind: request.notificationKind,
       title: options.title,
       body: options.body,
       worktreeId: request.worktreeId,
@@ -202,6 +206,19 @@ export function createHeadlessNotificationDelivery(deps: {
                 worktreeId: latest.worktreeId,
                 worktreeLabel: latest.worktreeId?.split('/').at(-1),
                 paneKey: latest.paneKey,
+                notificationScope: {
+                  executionHostId: getConnectionExecutionHostId(latest.connectionId),
+                  sessionId: latest.providerSession?.id ?? latest.paneKey,
+                  sessionGeneration: agentHookGeneration(latest)
+                },
+                notificationKind:
+                  settled.state === 'blocked'
+                    ? 'permission'
+                    : settled.state === 'waiting'
+                      ? 'question'
+                      : settled.verdict === 'failure'
+                        ? 'failure'
+                        : 'completion',
                 notificationId: `headless:${key}:${settled.identity}`,
                 agentType: latest.payload.agentType,
                 agentState: settled.state,

@@ -3,6 +3,14 @@ import { SQLITE_DATABASE_RUNTIME_INCLUDE } from './vitest-sqlite-database-runtim
 // Real SQLite fixtures keep Node publication and close semantics.
 export const SQLITE_RUNTIME_INCLUDE = [
   ...SQLITE_DATABASE_RUNTIME_INCLUDE,
+  'src/main/runtime/manager/manager-event-journal.test.ts',
+  'src/main/runtime/manager/manager-event-wait.test.ts',
+  'src/main/runtime/manager/manager-principal-store.test.ts',
+  'src/main/runtime/rpc/methods/manager.test.ts',
+  'src/main/runtime/rpc/methods/manager-work.test.ts',
+  'src/main/runtime/rpc/methods/manager-task-inventory.test.ts',
+  'src/main/runtime/rpc/methods/manager-worker-observation.test.ts',
+  'src/main/runtime/runtime-rpc-manager-credential.test.ts',
   'src/main/acp/acp-structured-host-live-listing.test.ts',
   'src/main/acp/acp-structured-host-configured-default.test.ts',
   'src/main/pi/rpc-configured-default.test.ts',

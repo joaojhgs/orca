@@ -1,4 +1,7 @@
 import Database from '../../../sqlite/sync-database'
+import { ManagerEventJournal } from '../../manager/manager-event-journal'
+import { ManagerPrincipalStore } from '../../manager/manager-principal-store'
+import { ManagerRunOwnership } from '../../manager/manager-run-ownership'
 import { attachOrchestrationDbMethods } from './attach-orchestration-db-methods'
 import { hardenOrchestrationDatabaseFiles } from './database-file-permissions'
 import { backfillFederatedStubHomeRuns } from './federation/federated-stub-home-run-backfill'
@@ -15,6 +18,9 @@ import { reconcileSettledWorkerDispatches } from './worker-dispatch/worker-dispa
 
 class OrchestrationDbCore {
   db: Database.Database
+  readonly managerEvents: ManagerEventJournal
+  readonly managerPrincipals: ManagerPrincipalStore
+  readonly managerRuns: ManagerRunOwnership
 
   // Why: the orchestration DB is created lazily for ALL users, but only the
   // small minority who dispatch work ever have dispatch_contexts rows. The
@@ -32,6 +38,9 @@ class OrchestrationDbCore {
     this.db.pragma('busy_timeout = 5000')
     createTables.call(this as unknown as OrchestrationDb)
     migrate.call(this as unknown as OrchestrationDb)
+    this.managerEvents = new ManagerEventJournal(this.db)
+    this.managerPrincipals = new ManagerPrincipalStore(this.db)
+    this.managerRuns = new ManagerRunOwnership(this.db)
     createRunCoordinatorAddressTriggers(this.db)
     backfillFederatedStubHomeRuns(this.db)
     backfillStructuredWorkerOrcaSessionIds(this.db)

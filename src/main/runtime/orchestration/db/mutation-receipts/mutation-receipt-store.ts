@@ -3,6 +3,7 @@ import type { MutationReceiptRow } from '../../types'
 import { OrchestrationError } from '../../orchestration-error'
 import { ensureMutationReceiptCapacity } from '../../mutation-receipt-capacity'
 import type { OrchestrationDb } from '../orchestration-db'
+import { runLifecycleWriteTransaction } from '../lifecycle-write-transaction-runner'
 
 // ── Durable mutation receipts ──
 
@@ -46,8 +47,7 @@ export function beginMutationReceipt(
   | { disposition: 'started'; row: MutationReceiptRow }
   | { disposition: 'pending'; row: MutationReceiptRow }
   | { disposition: 'completed'; row: MutationReceiptRow } {
-  this.db.exec('BEGIN IMMEDIATE')
-  try {
+  return runLifecycleWriteTransaction(this.db, 'mutation_receipt_begin', () => {
     const existing = this.getMutationReceipt(params.callerFingerprint, params.requestId)
     if (existing) {
       if (existing.method !== params.method || existing.payload_hash !== params.payloadHash) {
@@ -56,7 +56,6 @@ export function beginMutationReceipt(
           `Mutation request ${params.requestId} was already used with different input.`
         )
       }
-      this.db.exec('COMMIT')
       return { disposition: existing.state, row: existing }
     }
     ensureMutationReceiptCapacity(this.db)
@@ -68,12 +67,11 @@ export function beginMutationReceipt(
       )
       .run(params.callerFingerprint, params.requestId, params.method, params.payloadHash)
     const row = this.getMutationReceipt(params.callerFingerprint, params.requestId)
-    this.db.exec('COMMIT')
-    return { disposition: 'started', row: row as MutationReceiptRow }
-  } catch (error) {
-    this.db.exec('ROLLBACK')
-    throw error
-  }
+    if (!row) {
+      throw new Error('Created mutation receipt is missing')
+    }
+    return { disposition: 'started', row }
+  })
 }
 
 export function completeMutationReceipt(

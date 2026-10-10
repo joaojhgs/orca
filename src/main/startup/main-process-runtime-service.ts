@@ -45,6 +45,8 @@ import {
 } from '../runtime/agent-status-observed-pane-identity'
 import { startAgentStateRulesLiveUpdates } from '../runtime/agent-state-rules/agent-state-rules-live-update'
 import { recordDurableCrashBreadcrumb } from '../crash-reporting/durable-crash-breadcrumb'
+import { recordManagerHookEvent } from './manager-event-subscription'
+import { resolveNotificationPolicyScope } from '../notifications/notification-policy-scope'
 
 export function getDesktopWindowStatus(): RuntimeDesktopWindowStatus {
   const activation = state.desktopActivationGate
@@ -183,6 +185,20 @@ export function initializeMainProcessRuntime(): OrcaRuntimeService {
     recordDurableCrashBreadcrumb('agent_state_rules_active', rules)
   )
   state.runtime = runtime
+  runtime.configureNotificationScopePolicy({
+    read: () => store.getSettings().notifications.scopePolicy,
+    scope: (event) =>
+      resolveNotificationPolicyScope(store, event.worktreeId, {
+        ...event.notificationScope,
+        ...(event.structuredOrigin
+          ? {
+              executionHostId: event.structuredOrigin.scope.executionHostId,
+              sessionId: event.structuredOrigin.sessionId,
+              sessionGeneration: String(event.structuredOrigin.journalCursor.epoch)
+            }
+          : {})
+      })
+  })
   headlessNotifications = createHeadlessNotificationDelivery({
     enabled: () => state.isServeMode && (!state.mainWindow || state.mainWindow.isDestroyed()),
     settings: () => store.getSettings().notifications,
@@ -191,6 +207,13 @@ export function initializeMainProcessRuntime(): OrcaRuntimeService {
     confirmStopPoint: confirmAgentNotification
   })
   app.once('will-quit', () => headlessNotifications?.dispose())
+  agentHookServer.subscribeEnrichedStatus((event) => {
+    try {
+      recordManagerHookEvent(runtime, store, event)
+    } catch {
+      console.warn('[manager] Canonical status event could not be journaled; reconcile required')
+    }
+  })
   agentHookServer.subscribeEnrichedStatus((event) => headlessNotifications?.status(event))
   agentHookServer.subscribeEnrichedStatus((enriched) =>
     recordObservedAgentStatusPaneIdentity(observedPaneIdentities, enriched.paneKey, runtime)

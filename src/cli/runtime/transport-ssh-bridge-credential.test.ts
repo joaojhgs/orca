@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:net'
@@ -36,11 +36,23 @@ async function captureAuthToken(): Promise<string> {
     await sendRequest(metadata, 'status.get', undefined, 5_000)
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()))
+    rmSync(userDataPath, { recursive: true })
   }
   return authToken
 }
 
 describe.skipIf(process.platform === 'win32')('runtime transport credentials', () => {
+  it('prefers scoped service auth over both an ambient SSH bridge and the owner token', async () => {
+    const token = `orcam_${'x'.repeat(43)}`
+    vi.stubEnv(ORCA_SSH_BRIDGE_CREDENTIAL_ENV, 'sshb_scoped')
+    vi.stubEnv('ORCA_MANAGER_TOKEN', token)
+    expect(await captureAuthToken()).toBe(token)
+  })
+
+  it('fails closed for an invalid manager credential instead of borrowing owner auth', async () => {
+    vi.stubEnv('ORCA_MANAGER_TOKEN', 'invalid')
+    await expect(captureAuthToken()).rejects.toThrow()
+  })
   it('presents the SSH bridge credential instead of the owner token when bridged', async () => {
     vi.stubEnv(ORCA_SSH_BRIDGE_CREDENTIAL_ENV, 'sshb_scoped')
     expect(await captureAuthToken()).toBe('sshb_scoped')

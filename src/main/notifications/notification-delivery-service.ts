@@ -15,6 +15,11 @@ import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import { buildNotificationOptions } from '../ipc/notification-options'
 import { translateMain } from '../i18n/main-i18n'
 import { reserveNotificationCooldown } from '../ipc/notification-burst-cooldown'
+import {
+  resolveNotificationScopePolicy,
+  type NotificationPolicyScope
+} from '../../shared/notification-scope-policy'
+import { notificationPolicyKind } from '../../shared/notification-policy-kind'
 
 export type NotificationDeliveryDependencies = {
   readNotificationSettings: () => NotificationSettings
@@ -40,6 +45,7 @@ export type NotificationDeliveryDependencies = {
   recordAnnounced?: (request: NotificationDispatchRequest) => void
   /** Shared main-agent stop policy runs before tray, mobile, cooldown, or native side effects. */
   confirmStopPoint?: (request: NotificationDispatchRequest) => Promise<boolean>
+  readPolicyScope?: (request: NotificationDispatchRequest) => NotificationPolicyScope
 }
 
 export type NotificationDeliveryService = {
@@ -74,15 +80,27 @@ export function createNotificationDeliveryService(
   }
 
   const dispatch: NotificationDeliveryService['dispatch'] = (request) => {
+    const settings = deps.readNotificationSettings()
+    const scope = deps.readPolicyScope?.(request) ?? request.notificationScope ?? {}
+    const kind = notificationPolicyKind(request)
+    const desktopPolicy = resolveNotificationScopePolicy(
+      settings.scopePolicy,
+      scope,
+      kind,
+      'desktop'
+    )
+    const mobilePolicy = resolveNotificationScopePolicy(settings.scopePolicy, scope, kind, 'mobile')
     // Why: light the tray attention dot before the cooldown/focus/enabled gates so they
     // can't hold it back (clears on window show/restore; see index.ts).
-    if (request.source === 'agent-task-complete' || request.source === 'terminal-bell') {
+    if (
+      desktopPolicy.human &&
+      (request.source === 'agent-task-complete' || request.source === 'terminal-bell')
+    ) {
       if (!deps.isWindowVisible(deps.findActiveWindow())) {
         deps.setTrayAttention(true)
       }
     }
 
-    const settings = deps.readNotificationSettings()
     const hostMuted =
       request.notificationSourceId !== undefined &&
       settings.mutedNotificationSourceIds.includes(request.notificationSourceId)
@@ -97,6 +115,7 @@ export function createNotificationDeliveryService(
     // Why: desktop focus only means this computer sees the worktree; the paired phone may still need the alert.
     if (
       !request.mobileDeliveredByHost &&
+      (mobilePolicy.human || desktopPolicy.human) &&
       deps.dispatchMobileNotification &&
       request.source !== 'test'
     ) {
@@ -116,7 +135,9 @@ export function createNotificationDeliveryService(
           type: 'notification',
           emittedAt: deps.now(),
           source: request.source,
-          ...(!desktopAllowed ? { desktopAllowed: false } : {}),
+          notificationScope: scope,
+          notificationKind: kind,
+          ...(!desktopAllowed || !desktopPolicy.human ? { desktopAllowed: false } : {}),
           title: notificationOptions.title,
           body: notificationOptions.body,
           worktreeId: request.worktreeId,
@@ -131,10 +152,16 @@ export function createNotificationDeliveryService(
       }
     }
 
-    if (!desktopAllowed || hostMuted) {
+    if (!desktopAllowed || hostMuted || !desktopPolicy.human) {
       return {
         delivered: false,
-        reason: !settings.enabled ? 'disabled' : hostMuted ? 'host-muted' : 'source-disabled'
+        reason: !desktopPolicy.human
+          ? 'policy-muted'
+          : !settings.enabled
+            ? 'disabled'
+            : hostMuted
+              ? 'host-muted'
+              : 'source-disabled'
       }
     }
 

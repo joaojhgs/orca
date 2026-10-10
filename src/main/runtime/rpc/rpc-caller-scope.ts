@@ -8,6 +8,7 @@
 import { MOBILE_RPC_METHOD_ALLOWLIST } from '../runtime-rpc/runtime-rpc-mobile-method-allowlist'
 import type { RpcMethodPermission, RuntimeDeviceGrant } from './rpc-method-permission'
 import type { OrcaRuntimeService } from '../orca-runtime'
+import { MANAGER_SERVICE_METHODS } from '../manager/manager-service-methods'
 import {
   bindSshBridgeCall,
   SSH_BRIDGE_HOST_BINDERS,
@@ -19,6 +20,7 @@ export type { RuntimeDeviceGrant }
 
 export type RpcCallerScope =
   | { kind: 'owner' }
+  | { kind: 'manager-service'; principalId: string }
   | { kind: 'mobile' }
   | { kind: 'runtime-paired'; grants: readonly RuntimeDeviceGrant[] }
   /** The `orca` CLI of a remote SSH host, relayed through this host's bridge. `remoteCliControl`
@@ -48,6 +50,11 @@ export function denyRpcMethodForCaller(
   methodName: string,
   permission: RpcMethodPermission | undefined
 ): string | null {
+  if (scope.kind === 'manager-service') {
+    return MANAGER_SERVICE_METHODS.has(methodName)
+      ? null
+      : `Method '${methodName}' is not available to a manager service.`
+  }
   if (scope.kind === 'mobile') {
     return MOBILE_RPC_METHOD_ALLOWLIST.has(methodName)
       ? null

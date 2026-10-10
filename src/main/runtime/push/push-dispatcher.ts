@@ -29,6 +29,7 @@ type PushDispatcherOptions = {
   registry: PushDispatcherRegistry
   /** Test seam: lets a suite drive the single retry without real time. */
   scheduleRetry?: (run: () => void, delayMs: number) => void
+  allowsDelivery?: (event: MobileNotificationEvent, deviceId: string) => boolean
 }
 
 type PushTarget = { deviceId: string; registration: MobilePushRegistration }
@@ -69,10 +70,12 @@ export class PushDispatcher {
   private readonly client: PushGatewayClient
   private readonly registry: PushDispatcherRegistry
   private readonly scheduleRetry: (run: () => void, delayMs: number) => void
+  private readonly allowsDelivery: NonNullable<PushDispatcherOptions['allowsDelivery']>
 
   constructor(options: PushDispatcherOptions) {
     this.client = options.client
     this.registry = options.registry
+    this.allowsDelivery = options.allowsDelivery ?? (() => true)
     this.scheduleRetry =
       options.scheduleRetry ??
       ((run, delayMs) => {
@@ -107,7 +110,8 @@ export class PushDispatcher {
           void this.deliver(
             targets.slice(start, start + MAX_REGISTRATIONS_PER_SEND),
             { ...plan.notification, ...(!sound ? { sound: false } : {}) },
-            0
+            0,
+            event
           )
         }
       }
@@ -157,6 +161,7 @@ export class PushDispatcher {
       const registration = device.pushRegistration
       if (
         !registration ||
+        !this.allowsDelivery(event, device.deviceId) ||
         registration.expiresAt <= Date.now() ||
         !allowsPushDelivery(registration, event)
       ) {
@@ -197,20 +202,23 @@ export class PushDispatcher {
   private async deliver(
     targets: readonly PushTarget[],
     notification: PushSendNotification,
-    attempt: number
+    attempt: number,
+    event: MobileNotificationEvent
   ): Promise<void> {
     if (this.stopped) {
       return
     }
-    const currentTargets = targets.filter((target) =>
-      this.registry
-        .listDevices()
-        .some(
-          (device) =>
-            device.deviceId === target.deviceId &&
-            device.pushRegistration === target.registration &&
-            target.registration.expiresAt > Date.now()
-        )
+    const currentTargets = targets.filter(
+      (target) =>
+        this.allowsDelivery(event, target.deviceId) &&
+        this.registry
+          .listDevices()
+          .some(
+            (device) =>
+              device.deviceId === target.deviceId &&
+              device.pushRegistration === target.registration &&
+              target.registration.expiresAt > Date.now()
+          )
     )
     if (!currentTargets.length) {
       return
@@ -237,7 +245,7 @@ export class PushDispatcher {
       // this payload will refuse the identical retry.
       if (attempt === 0 && result.reason === 'unreachable') {
         this.scheduleRetry(() => {
-          void this.deliver(targets, notification, attempt + 1)
+          void this.deliver(targets, notification, attempt + 1, event)
         }, PUSH_RETRY_DELAY_MS)
       }
     } catch (error) {

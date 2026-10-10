@@ -18,11 +18,19 @@ export const NOTIFICATION_METHODS = [
     name: 'notifications.subscribe',
     permission: 'workspace',
     params: NotificationsSubscribeParams,
-    handler: async (params, { runtime, connectionId }, emit) => {
+    handler: async (params, { runtime, connectionId, pairedDeviceId, clientKind }, emit) => {
       const shouldEmit = createNotificationStreamFilter(params?.includeDesktopSuppressed)
       await new Promise<void>((resolve) => {
         const unsubscribe = runtime.onNotificationDispatched((event) => {
-          if (shouldEmit(event)) {
+          if (
+            shouldEmit(event) &&
+            (runtime.allowsMobileNotificationDelivery?.(
+              event,
+              pairedDeviceId,
+              clientKind === 'runtime' ? 'desktop' : 'mobile'
+            ) ??
+              true)
+          ) {
             emit(event)
           }
         })
@@ -63,11 +71,18 @@ export const NOTIFICATION_METHODS = [
     // Why: returns only notifications with seq > lastSeenSeq. The runtime owns
     // the monotonic seq, so this is the single source of truth for what the
     // client missed while its socket was reaped.
-    handler: async (params, { runtime }) => {
+    handler: async (params, { runtime, pairedDeviceId, clientKind }) => {
       const missed = runtime.getMissedNotificationsSince(params.lastSeenSeq, params.epoch)
       return {
         notifications: missed.filter(
-          createNotificationStreamFilter(params.includeDesktopSuppressed)
+          (event) =>
+            createNotificationStreamFilter(params.includeDesktopSuppressed)(event) &&
+            (runtime.allowsMobileNotificationDelivery?.(
+              event,
+              pairedDeviceId,
+              clientKind === 'runtime' ? 'desktop' : 'mobile'
+            ) ??
+              true)
         ),
         epoch: runtime.getMobileNotificationEpoch(),
         ...(params.deliveredPushes

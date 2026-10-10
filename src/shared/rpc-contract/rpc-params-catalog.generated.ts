@@ -385,6 +385,25 @@ import {
   ManagedServerSelector,
   ManagedServerUpdate
 } from './managed-server-params'
+import {
+  ManagerCheckpointParams,
+  ManagerClaimParams,
+  ManagerEventsReadParams,
+  ManagerEventsWaitParams,
+  ManagerIssueParams,
+  ManagerReleaseParams,
+  ManagerRenewParams,
+  ManagerRevokeParams,
+  ManagerRunCreateParams,
+  ManagerRunListParams,
+  ManagerRunShowParams,
+  ManagerSnapshotParams,
+  ManagerTaskCreateParams,
+  ManagerTaskListParams,
+  ManagerTaskShowParams,
+  ManagerWorkerReadParams,
+  ManagerWorkerShowParams
+} from './manager-params'
 import { MulticaListIssues, MulticaListProjects } from './multica-params'
 import { NativeChatSession, NativeChatUnsubscribe } from './native-chat-params'
 import {
@@ -1095,6 +1114,23 @@ export const RPC_PARAMS_BY_METHOD = {
   'managedServer.status': ManagedServerSelector,
   'managedServer.stop': ManagedServerSelector,
   'managedServer.update': ManagedServerUpdate,
+  'manager.consumerClaim': ManagerClaimParams,
+  'manager.consumerRelease': ManagerReleaseParams,
+  'manager.consumerRenew': ManagerRenewParams,
+  'manager.eventsCheckpoint': ManagerCheckpointParams,
+  'manager.eventsRead': ManagerEventsReadParams,
+  'manager.eventsWait': ManagerEventsWaitParams,
+  'manager.issue': ManagerIssueParams,
+  'manager.revoke': ManagerRevokeParams,
+  'manager.runCreate': ManagerRunCreateParams,
+  'manager.runList': ManagerRunListParams,
+  'manager.runShow': ManagerRunShowParams,
+  'manager.snapshot': ManagerSnapshotParams,
+  'manager.taskCreate': ManagerTaskCreateParams,
+  'manager.taskList': ManagerTaskListParams,
+  'manager.taskShow': ManagerTaskShowParams,
+  'manager.workerRead': ManagerWorkerReadParams,
+  'manager.workerShow': ManagerWorkerShowParams,
   'markdown.readTab': ActivateTab,
   'markdown.saveTab': SaveMarkdownTab,
   'mobileWeb.bundle.chunk': MobileWebBundleChunkParamsSchema,

@@ -1,5 +1,6 @@
 import { InvalidArgumentError, ZodError, formatZodError } from './core'
 import type { RpcEnvelopeMeta, RpcRequest, RpcResponse } from './core'
+import { ManagerAuthorityError } from '../manager/manager-authority-error'
 import {
   computerErrorData,
   errorResponse,
@@ -27,6 +28,9 @@ export function mapDispatcherError(
   meta: RpcEnvelopeMeta,
   error: unknown
 ): RpcResponse {
+  if (error instanceof ManagerAuthorityError) {
+    return errorResponse(request.id, meta, error.code, error.message)
+  }
   if (error instanceof ZodError) {
     return invalidArgumentResponse(request, meta, formatZodError(error))
   }

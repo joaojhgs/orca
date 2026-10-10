@@ -1,4 +1,5 @@
 import { readSshBridgeCredential } from '../../shared/ssh-bridge-credential-env'
+import { readOptionalManagerCredential } from '../manager-credential'
 import { createConnection } from 'node:net'
 import { randomUUID } from 'node:crypto'
 import { findTransport, type RuntimeMetadata } from '../../shared/runtime-bootstrap'
@@ -26,6 +27,7 @@ export async function sendRequest<TResult>(
       `Runtime request timeout must be an integer between 0 and ${MAX_TIMER_DELAY_MS}ms.`
     )
   }
+  const managerCredential = readOptionalManagerCredential()
   return await new Promise((resolve, reject) => {
     const transport = findTransport(metadata, 'unix', 'named-pipe')
     if (!transport) {
@@ -202,8 +204,8 @@ export async function sendRequest<TResult>(
       socket.write(
         `${JSON.stringify({
           id: requestId,
-          // Why: a bridged SSH invocation must present its scoped credential, never the owner token.
-          authToken: readSshBridgeCredential() ?? metadata.authToken,
+          // Neither a manager nor a bridged SSH invocation inherits the metadata's owner token.
+          authToken: managerCredential ?? readSshBridgeCredential() ?? metadata.authToken,
           method,
           params,
           orchestrationCapability: envelope?.orchestrationCapability,

@@ -16,6 +16,13 @@ import { MobileNotificationReplayBuffer } from './mobile-notification-replay'
 import { notifyRuntimeListeners } from './runtime-async-boundaries'
 import { getRuntimeDesktopSurface } from './runtime-desktop-surface'
 import {
+  resolveNotificationScopePolicy,
+  type NotificationScopePolicy,
+  type NotificationPolicyScope,
+  type NotificationPolicyKind
+} from '../../shared/notification-scope-policy'
+import { notificationPolicyKind } from '../../shared/notification-policy-kind'
+import {
   MobileNotificationDismissalStore,
   type DeliveredNotificationIdentity
 } from './mobile-notification-dismissal-store'
@@ -39,6 +46,8 @@ export type MobileNotificationDispatchEvent = {
   /** See `NotificationDispatchRequest.attentionKey`: cooldowns key on it instead of the workspace. */
   attentionKey?: string
   structuredOrigin?: StructuredAttentionOrigin
+  notificationScope?: NotificationPolicyScope
+  notificationKind?: NotificationPolicyKind
 }
 
 export type MobileNotificationDismissEvent = {
@@ -66,6 +75,37 @@ export class RuntimeMobileNotificationController {
   private readonly replay = new MobileNotificationReplayBuffer()
   private pushRegistrar: MobilePushRegistrar | null = null
   private dismissalStore: MobileNotificationDismissalStore | null = null
+  private policy: {
+    read(): NotificationScopePolicy | undefined
+    scope(event: MobileNotificationDispatchEvent): NotificationPolicyScope
+  } | null = null
+
+  configurePolicy(policy: NonNullable<RuntimeMobileNotificationController['policy']>): void {
+    this.policy = policy
+  }
+
+  allowsDelivery(
+    event: MobileNotificationEvent,
+    deviceId?: string,
+    destination: 'desktop' | 'mobile' = 'mobile'
+  ): boolean {
+    if (event.type === 'dismiss') {
+      return true
+    }
+    const kind =
+      event.notificationKind ??
+      notificationPolicyKind({
+        source: event.source === 'plugin' ? 'agent-task-complete' : event.source,
+        agentState: event.agentState
+      })
+    return resolveNotificationScopePolicy(
+      this.policy?.read(),
+      this.policy?.scope(event) ?? event.notificationScope ?? {},
+      kind,
+      destination,
+      deviceId
+    ).human
+  }
 
   configureDismissalStore(userDataPath: string): void {
     this.dismissalStore = new MobileNotificationDismissalStore(userDataPath)
@@ -109,6 +149,12 @@ export class RuntimeMobileNotificationController {
 
   dispatch(event: MobileNotificationEvent): void {
     if (event.type === 'notification') {
+      if (!this.allowsDelivery(event) && !this.allowsDelivery(event, undefined, 'desktop')) {
+        return
+      }
+      if (this.policy) {
+        event = { ...event, notificationScope: this.policy.scope(event) }
+      }
       // Decide once before recording so reconnect and buffer eviction cannot reset cooldown.
       const legacySocketAllowed =
         event.desktopAllowed !== false &&

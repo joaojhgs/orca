@@ -36,6 +36,7 @@ import {
   resolveWorkerStartReadinessTimeoutMs
 } from '../../shared/orchestration-timing-budgets'
 import { MAX_TIMER_DELAY_MS } from '../../shared/timer-delay'
+import { readOptionalManagerCredential } from '../manager-credential'
 import {
   buildOrchestrationRecoveryCommand,
   resolveOrchestrationCliExecutable
@@ -140,6 +141,12 @@ export class RuntimeClient {
       ...compatibilityEnvelope
     }
     if (this.remotePairing) {
+      if (readOptionalManagerCredential()) {
+        throw new RuntimeClientError(
+          'incompatible_runtime',
+          'Manager service credentials require the scoped runtime socket transport, not a paired owner/device connection.'
+        )
+      }
       const transport = await loadWebSocketTransport()
       let response
       try {

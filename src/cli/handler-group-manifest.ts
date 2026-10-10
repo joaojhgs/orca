@@ -13,6 +13,29 @@ export type HandlerGroup = {
 // real exports by handler-group-manifest.test.ts, so drift fails CI, not dispatch.
 export const HANDLER_GROUPS: readonly HandlerGroup[] = [
   {
+    name: 'manager',
+    keys: [
+      'manager run-create',
+      'manager run-list',
+      'manager run-show',
+      'manager task-create',
+      'manager task-list',
+      'manager task-show',
+      'manager worker-show',
+      'manager worker-read',
+      'manager snapshot',
+      'manager read',
+      'manager wait',
+      'manager claim',
+      'manager renew',
+      'manager release',
+      'manager checkpoint',
+      'manager authorize',
+      'manager revoke'
+    ],
+    load: async () => (await import('./handlers/manager.js')).MANAGER_HANDLERS
+  },
+  {
     name: 'reference',
     keys: ['reference list', 'reference add', 'reference remove', 'reference find'],
     load: async () => (await import('./handlers/reference.js')).REFERENCE_HANDLERS

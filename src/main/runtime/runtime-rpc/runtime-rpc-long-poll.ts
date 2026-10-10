@@ -21,6 +21,9 @@ export type RuntimeLongPollClass = 'ask' | 'browser-host' | 'wait'
 
 // Why: single classifier for long-poll requests (handlers that block on an external event), shared by counter/abort/keepalive. See §3.1.
 export function classifyRuntimeLongPoll(request: RpcRequest): RuntimeLongPollClass | null {
+  if (request.method === 'manager.eventsWait') {
+    return 'wait'
+  }
   // Device capture waits for an SSH route and a complete framebuffer. Its
   // operation deadline must not race the local socket's 30 s idle timeout;
   // keep the response channel alive and cancel the operation on disconnect.

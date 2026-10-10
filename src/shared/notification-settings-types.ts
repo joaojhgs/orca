@@ -2,6 +2,11 @@ import type { StructuredAttentionRead, StructuredAttentionOrigin } from './agent
 import type { AgentStatusState, AgentType } from './agent-status-types'
 import type { AgentTurnOutcome } from './agent-turn-outcome'
 import type { NotificationSourceId } from './notification-source'
+import type {
+  NotificationScopePolicy,
+  NotificationPolicyScope,
+  NotificationPolicyKind
+} from './notification-scope-policy'
 
 export type NotificationSettings = {
   enabled: boolean
@@ -24,6 +29,7 @@ export type NotificationSettings = {
   customSoundVolume: number
   /** Desktop opt-outs stored only on this client, per configured source and work reached through it; new sources notify. */
   mutedNotificationSourceIds: NotificationSourceId[]
+  scopePolicy?: NotificationScopePolicy
 }
 
 export type NotificationEventSource = 'agent-task-complete' | 'terminal-bell' | 'test'
@@ -67,6 +73,8 @@ export type NotificationDispatchRequest = {
   structuredOrigin?: StructuredAttentionOrigin
   /** The execution host already pushed this to its paired phones, so main must not fan it out again. */
   mobileDeliveredByHost?: boolean
+  notificationScope?: NotificationPolicyScope
+  notificationKind?: NotificationPolicyKind
 }
 
 export type NotificationDispatchResult = {
@@ -82,6 +90,7 @@ export type NotificationDispatchResult = {
     | 'not-displayed'
     | 'blocked-by-system'
     | 'invalid-request'
+    | 'policy-muted'
 }
 
 export type NotificationDismissResult = {

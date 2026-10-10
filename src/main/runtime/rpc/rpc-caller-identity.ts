@@ -10,6 +10,7 @@
 import type { RpcDispatchStreamingOptions } from './dispatcher-stream-options'
 
 export type RpcCallerIdentity =
+  | { kind: 'manager-service'; principalId: string }
   /** The `orca` CLI over the runtime socket, and the in-process bridges that relay it. */
   | { kind: 'local-cli' }
   /** This host's own desktop app over IPC. One identity for every window, so a reload or an app
@@ -32,9 +33,12 @@ export const DESKTOP_RPC_CALLER: RpcCallerIdentity = { kind: 'desktop' }
  */
 export function resolveRpcCallerIdentity(
   transport:
-    | Pick<RpcDispatchStreamingOptions, 'caller' | 'clientKind' | 'pairedDeviceId'>
+    | Pick<RpcDispatchStreamingOptions, 'caller' | 'clientKind' | 'pairedDeviceId' | 'callerScope'>
     | undefined
 ): RpcCallerIdentity | undefined {
+  if (transport?.callerScope?.kind === 'manager-service') {
+    return { kind: 'manager-service', principalId: transport.callerScope.principalId }
+  }
   if (transport?.caller) {
     return transport.caller
   }
@@ -52,6 +56,8 @@ export function resolveRpcCallerIdentity(
  */
 export function rpcCallerOperationKey(caller: RpcCallerIdentity): string {
   switch (caller.kind) {
+    case 'manager-service':
+      return `manager-service:${caller.principalId}`
     case 'local-cli':
       return 'trusted-local:runtime'
     case 'desktop':

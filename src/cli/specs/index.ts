@@ -22,10 +22,12 @@ import { ARTIFACT_COMMAND_SPECS } from './artifacts'
 import { SEARCH_COMMAND_SPECS } from './search'
 import { PROFILE_STATE_COMMAND_SPECS } from './profile-state'
 import { REFERENCE_COMMAND_SPECS } from './reference'
+import { MANAGER_COMMAND_SPECS } from './manager'
 
 export const COMMAND_SPECS: CommandSpec[] = [
   ...CORE_COMMAND_SPECS,
   ...REFERENCE_COMMAND_SPECS,
+  ...MANAGER_COMMAND_SPECS,
   ...ARTIFACT_COMMAND_SPECS,
   ...ACCOUNT_COMMAND_SPECS,
   ...PROJECT_COMMAND_SPECS,

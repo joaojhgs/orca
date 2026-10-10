@@ -16,6 +16,7 @@ import { isMainWindowVisible } from '../window/main-window-visibility'
 import { activeNotificationsById } from './native-notification-lifecycle'
 import { deliverNativeNotification } from './native-notification-delivery'
 import { createNotificationDeliveryService } from '../notifications/notification-delivery-service'
+import { resolveNotificationPolicyScope } from '../notifications/notification-policy-scope'
 import { confirmNotificationRequest } from '../notifications/agent-notification-eligibility'
 import { agentHookServer } from '../agent-hooks/server'
 import { createAnnouncedNotificationRegistry } from '../notifications/announced-notification-registry'
@@ -146,6 +147,8 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
   )
 
   const deliveryService = createNotificationDeliveryService({
+    readPolicyScope: (request) =>
+      resolveNotificationPolicyScope(store, request.worktreeId, request.notificationScope),
     confirmStopPoint: (request) =>
       confirmNotificationRequest(request, () => agentHookServer.getEnrichedStatusSnapshot()),
     readNotificationSettings: () => store.getSettings().notifications,

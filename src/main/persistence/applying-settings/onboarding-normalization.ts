@@ -6,6 +6,8 @@ import type {
 import type { NotificationSettings } from '../../../shared/notification-settings-types'
 import type { PersistedState } from '../../../shared/persisted-state-types'
 import { getDefaultNotificationSettings } from '../../../shared/notification-settings-defaults'
+import { normalizeNotificationScopePolicy } from '../../../shared/notification-scope-policy'
+import { isDeepStrictEqual } from 'node:util'
 import { normalizeVisibleExecutionHostIds } from '../../../shared/execution-host'
 import {
   getDefaultOnboardingState,
@@ -47,6 +49,7 @@ export function normalizeNotificationSettings(value: unknown): NotificationSetti
   // stayed truthy and `customSoundPath: 42` reached the sound loader.
   const booleanOr = (raw: unknown, fallback: boolean): boolean =>
     typeof raw === 'boolean' ? raw : fallback
+  const scopePolicy = normalizeNotificationScopePolicy(candidate.scopePolicy)
   return {
     enabled: booleanOr(candidate.enabled, defaults.enabled),
     agentTaskComplete: booleanOr(candidate.agentTaskComplete, defaults.agentTaskComplete),
@@ -58,6 +61,7 @@ export function normalizeNotificationSettings(value: unknown): NotificationSetti
         ? candidate.customSoundPath
         : defaults.customSoundPath,
     customSoundVolume,
+    ...(scopePolicy ? { scopePolicy } : {}),
     mutedNotificationSourceIds: normalizeMutedNotificationSourceIds(
       candidate.mutedNotificationSourceIds
     )
@@ -74,6 +78,9 @@ function normalizeMutedNotificationSourceIds(
 }
 
 function sameNotificationSettingValue(raw: unknown, normalized: unknown): boolean {
+  if (normalized && typeof normalized === 'object' && !Array.isArray(normalized)) {
+    return isDeepStrictEqual(raw, normalized)
+  }
   if (Array.isArray(normalized)) {
     return (
       Array.isArray(raw) &&
@@ -100,6 +107,13 @@ export function persistedNotificationSettingsRepaired(
     return true
   }
   const raw = value as Record<string, unknown>
+  if (
+    'scopePolicy' in raw &&
+    raw.scopePolicy !== undefined &&
+    normalized.scopePolicy === undefined
+  ) {
+    return true
+  }
   return Object.entries(normalized).some(
     ([key, normalizedValue]) => !sameNotificationSettingValue(raw[key], normalizedValue)
   )
