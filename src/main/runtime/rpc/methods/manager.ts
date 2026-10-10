@@ -4,6 +4,9 @@ import { MANAGER_OBSERVATION_METHODS } from './manager-observation'
 import { MANAGER_WORK_METHODS } from './manager-work'
 import { MANAGER_TASK_INVENTORY_METHODS } from './manager-task-inventory'
 import { MANAGER_WORKER_OBSERVATION_METHODS } from './manager-worker-observation'
+import { MANAGER_WORKER_START_METHODS } from './manager-worker-start'
+import { MANAGER_MAILBOX_METHODS } from './manager-mailbox'
+import { MANAGER_PLACEMENT_METHODS } from './manager-placement'
 import {
   ManagerCheckpointParams,
   ManagerClaimParams,
@@ -20,6 +23,9 @@ export const MANAGER_METHODS = [
   ...MANAGER_WORK_METHODS,
   ...MANAGER_TASK_INVENTORY_METHODS,
   ...MANAGER_WORKER_OBSERVATION_METHODS,
+  ...MANAGER_WORKER_START_METHODS,
+  ...MANAGER_MAILBOX_METHODS,
+  ...MANAGER_PLACEMENT_METHODS,
   defineMethod({
     name: 'manager.issue',
     permission: 'host-admin',

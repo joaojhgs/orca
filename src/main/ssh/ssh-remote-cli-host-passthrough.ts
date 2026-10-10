@@ -3,6 +3,7 @@ import { app } from 'electron'
 import { spawn as nodeSpawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { readOptionalManagerCredential } from '../../cli/manager-credential'
 import { getCanonicalUserDataPath } from '../persistence'
 import { resolveHostCliKillTimeoutMs } from './ssh-host-cli-deadline'
 export { resolveHostCliKillTimeoutMs } from './ssh-host-cli-deadline'
@@ -121,6 +122,14 @@ export function buildHostCliEnv(args: {
   runtimeSource?: RuntimeSourceStamp | null
 }): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...args.hostEnv }
+  delete env.ORCA_MANAGER_TOKEN
+  delete env.ORCA_MANAGER_CREDENTIAL_FILE
+  const managerCredential = readOptionalManagerCredential({
+    ORCA_MANAGER_TOKEN: args.remoteEnv.ORCA_MANAGER_TOKEN
+  })
+  if (managerCredential !== null) {
+    env.ORCA_MANAGER_TOKEN = managerCredential
+  }
   for (const key of REMOTE_CONTEXT_ENV_VARS) {
     const value = args.remoteEnv[key]
     if (typeof value === 'string' && value.length > 0) {

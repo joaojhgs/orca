@@ -43,12 +43,14 @@ export async function deliverAndSettleWorkerStartReadiness(args: {
   timeoutMs: number
   effects: WorkerEffect[]
   terminalRevealWarning: string | undefined
+  beforeDispatch?: () => void
   /** Keeps the caller's failure receipt naming the stage that actually failed. */
   onStage: (stage: 'dispatch_input' | 'turn_observation') => void
 }): Promise<unknown> {
   const { runtime, db, run, task, structuredSession, terminalHandle, effects } = args
 
   args.onStage('dispatch_input')
+  args.beforeDispatch?.()
   const delivery = await deliverWorkerDispatchPreamble({
     runtime,
     db,

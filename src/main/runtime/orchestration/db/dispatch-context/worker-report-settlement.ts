@@ -1,5 +1,6 @@
 import type { WorkerReportOutcome, WorkerReportSettlement } from '../../types'
 import type { OrchestrationDb } from '../orchestration-db'
+import { recordManagerOrchestrationEvent } from '../../../manager/manager-orchestration-event'
 import { AGENT_PROMPT_STALLED_ERROR } from '../../../agent-prompt-submission-verification'
 import { settleActiveDispatchesForTask } from './dispatch-completion'
 import { getActiveDispatchForTask } from './task-dispatch-reconciliation'
@@ -284,6 +285,14 @@ export function settleWorkerReportInTransaction(
   }
   recordAcceptedReportFact(this, params)
   this.db.exec('RELEASE settle_worker_report')
+  recordManagerOrchestrationEvent(this, {
+    dispatchId: params.dispatchId,
+    eventId: `settlement:${params.dispatchId}:${params.outcome}`,
+    kind: 'dispatch-settled',
+    outcome: params.outcome,
+    occurredAt: Date.now(),
+    summary: params.result
+  })
   return { action: 'settled', outcome: params.outcome, duplicate: false }
 }
 

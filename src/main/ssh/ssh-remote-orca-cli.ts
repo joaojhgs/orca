@@ -58,6 +58,19 @@ export async function runRemoteOrcaCli(
   const parsed = parseRemoteCliArgs(request.argv)
   const json = parsed.flags.has('json')
   const command = parsed.commandPath.join(' ')
+  if (
+    request.env.ORCA_MANAGER_TOKEN !== undefined &&
+    parsed.commandPath[0] !== 'manager' &&
+    command !== 'status'
+  ) {
+    return {
+      stdout: json
+        ? `${JSON.stringify(buildRemoteCliError('Manager service credentials cannot invoke ordinary CLI commands', 'forbidden'))}\n`
+        : '',
+      stderr: json ? '' : 'Manager service credentials cannot invoke ordinary CLI commands\n',
+      exitCode: 1
+    }
+  }
 
   const interactiveMessage =
     HOST_INTERACTIVE_COMMANDS[command] ?? HOST_INTERACTIVE_COMMANDS[parsed.commandPath[0] ?? '']
@@ -92,6 +105,17 @@ export async function runRemoteOrcaCli(
   } catch (err) {
     if (!(err instanceof HostCliUnavailableError)) {
       throw err
+    }
+    if (request.env.ORCA_MANAGER_TOKEN !== undefined) {
+      return {
+        stdout: json
+          ? `${JSON.stringify(buildRemoteCliError('Manager service transport requires the scoped host CLI; no legacy authority fallback', 'incompatible_runtime'))}\n`
+          : '',
+        stderr: json
+          ? ''
+          : 'Manager service transport requires the scoped host CLI; no legacy authority fallback\n',
+        exitCode: 1
+      }
     }
     // Why: fall back to the legacy in-process command switch below so the
     // historical read-only/orchestration surface keeps working even when the

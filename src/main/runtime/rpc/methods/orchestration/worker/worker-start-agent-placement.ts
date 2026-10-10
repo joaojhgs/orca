@@ -64,6 +64,7 @@ type WorkerAgentPlacementArgs = {
   agent: TuiAgent | undefined
   launchPreferences: AgentLaunchPreferences | undefined
   effects: WorkerEffect[]
+  beforeEffect?: () => void
   /** Attributes a throw to the step that was running, the way the caller's own stages do. */
   onStage: (stage: string) => void
 }
@@ -126,6 +127,7 @@ async function launchWorkerAgent(
         args.onStage(stage === 'worktree_create' ? 'worktree_create' : 'terminal_create'),
       workspaces: {
         createWorktree: async ({ startupAgent }) => {
+          args.beforeEffect?.()
           created = await createWorkerWorktree({
             runtime: args.runtime,
             db: args.db,
@@ -185,6 +187,7 @@ function workerSurfaceFactory(
   }
   return {
     createStructuredSession: async ({ worktreeId }) => {
+      args.beforeEffect?.()
       recordSurfaceStage(worktreeId)
       const session = await createStructuredWorkerSessionForWorktree({
         runtime: args.runtime,
@@ -202,6 +205,7 @@ function workerSurfaceFactory(
       }
     },
     createTerminalAgent: async ({ worktreeId }) => {
+      args.beforeEffect?.()
       recordSurfaceStage(worktreeId)
       const terminal = await createExistingWorktreeWorkerTerminal({
         runtime: args.runtime,

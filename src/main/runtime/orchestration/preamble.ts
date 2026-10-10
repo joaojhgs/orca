@@ -52,9 +52,11 @@ function isSessionHandle(handle: string): boolean {
 /** Terminal agents keep their handle's wording; only a session is named by its Orca session ID. */
 function dispatchIdentityLines(params: PreambleParams): string {
   return [
-    isSessionHandle(params.coordinatorHandle)
-      ? `Your coordinator's Orca session ID is: ${params.coordinatorHandle}`
-      : `Your coordinator's terminal handle is: ${params.coordinatorHandle}`,
+    params.coordinatorHandle.startsWith('run:')
+      ? `Your coordinator's durable Run mailbox is: ${params.coordinatorHandle}`
+      : isSessionHandle(params.coordinatorHandle)
+        ? `Your coordinator's Orca session ID is: ${params.coordinatorHandle}`
+        : `Your coordinator's terminal handle is: ${params.coordinatorHandle}`,
     `Your task ID is: ${params.taskId}`,
     ...(isSessionHandle(params.workerHandle)
       ? [`Your Orca session ID is: ${params.workerHandle}`]

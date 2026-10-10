@@ -1,5 +1,3 @@
-import { probeWorkerOpenCodeModelLaunchSupport } from './worker-opencode-model-preflight'
-import { resolveWorkerConfiguredAgentParams } from './worker-configured-agent-preflight'
 import { waitForWorkerAgentReady } from '../../../../launched-agent-composer-readiness'
 import type { OrcaRuntimeService } from '../../../../orca-runtime'
 import { describeTerminalWaitBlockedReason } from '../../../../../../shared/terminal-wait-blocked-reason-legacy-alias'
@@ -10,14 +8,12 @@ import type {
   OrchestrationSessionCaller
 } from '../../../../orchestration/orchestration-caller-identity'
 import { resolveDispatchCreator } from '../runs/dispatch-creator'
-import { resolveDispatchCallerWorktreeId } from '../../orchestration-caller-workspace'
 import {
   resolveWorkerStartModeOnHost,
   type WorkerStartModeReceipt
 } from '../../orchestration-worker-start-mode'
 import { EXISTING_WORKTREE_SETUP, placeWorkerAgent } from './worker-start-agent-placement'
 import { awaitStructuredWorkerSetupGate } from './worker-start-structured-setup-gate'
-import { assertOrchestrationWorktreeCreationSupported } from './folder-worktree-placement'
 import type { WorkerStartInput } from './worker-start-schema'
 import {
   persistGatedSetupSpawnFailure,
@@ -32,8 +28,10 @@ import { CHAT_WORKER_AUTHORITY, chatAssigneeOf, chatWorkerMode } from '../chat-a
 import { recordCreatedWorkerTerminalCustody } from './created-worker-terminal-custody'
 import { tearDownFailedWorkerStart } from './failed-worker-start-teardown'
 import { requireWorkerAuthority, type WorkerEffect } from './worker-topology'
-import { prepareLocalWorkerStart } from './worker-start-validation'
 import { deliverAndSettleWorkerStartReadiness } from './worker-start-readiness-settlement'
+import { resolveLocalWorkerStartTarget } from './local-worker-start-target'
+import type { WorkerStartServiceOrigin } from './worker-start-origin'
+import { ManagerAuthorityError } from '../../../../manager/manager-authority-error'
 
 type WorkerStartMutation = {
   callerFingerprint: string
@@ -51,6 +49,7 @@ export async function startLocalWorker(args: {
   callerSession?: OrchestrationSessionCaller
   existingTask?: TaskRow
   orchestrationMutation?: WorkerStartMutation
+  serviceOrigin?: WorkerStartServiceOrigin
   /** Settings-driven; the executing host still gets to refuse below. */
   mode: WorkerStartModeReceipt
 }): Promise<unknown> {
@@ -61,64 +60,14 @@ export async function startLocalWorker(args: {
   const params = terminal ? { ...args.params, terminal: terminal.address } : args.params
   const chat = terminal ? chatAssigneeOf(terminal) : null
   const coordinatorPane = coordinator?.paneKey ?? null
-  const requestedWorktree = params.worktree ?? 'current'
-  const createsWorktree = requestedWorktree === 'new-child' || requestedWorktree === 'new-top-level'
-  const launchParams = await resolveWorkerConfiguredAgentParams(runtime, params, async () => {
-    const callerWorkspaceId = await resolveDispatchCallerWorktreeId(
+  const { requestedWorktree, createsWorktree, creationWorktree, agent, launch, ...target } =
+    await resolveLocalWorkerStartTarget({
       runtime,
-      params.from,
-      callerSession
-    )
-    const parent = createsWorktree
-      ? await runtime.showManagedWorktree(`id:${callerWorkspaceId}`)
-      : undefined
-    return createsWorktree
-      ? { repo: params.repo ?? parent?.repoId }
-      : {
-          worktree: requestedWorktree === 'current' ? `id:${callerWorkspaceId}` : requestedWorktree
-        }
-  })
-  let openCodeModelLaunchSupported = false
-  if (!createsWorktree && launchParams.agent === 'opencode' && launchParams.model) {
-    const callerWorkspaceId = await resolveDispatchCallerWorktreeId(
-      runtime,
-      params.from,
-      callerSession
-    )
-    openCodeModelLaunchSupported = await probeWorkerOpenCodeModelLaunchSupport(
-      runtime,
-      launchParams,
-      { worktree: requestedWorktree === 'current' ? `id:${callerWorkspaceId}` : requestedWorktree }
-    )
-  }
-
-  const { agent, launch } = prepareLocalWorkerStart({
-    params: launchParams,
-    createsWorktree,
-    runtime,
-    openCodeModelLaunchSupported
-  })
-
-  const coordinatorWorktreeId = await resolveDispatchCallerWorktreeId(
-    runtime,
-    params.from,
-    callerSession
-  )
-  const creationWorktree = createsWorktree
-    ? await runtime.showManagedWorktree(`id:${coordinatorWorktreeId}`)
-    : undefined
-  if (creationWorktree) {
-    await assertOrchestrationWorktreeCreationSupported({
-      runtime,
-      repoSelector: params.repo ?? creationWorktree.repoId,
-      existingPlacement: 'current or an exact existing folder workspace'
+      params,
+      callerSession,
+      serviceOrigin: args.serviceOrigin
     })
-  }
-  let resolvedWorktree = creationWorktree
-    ? undefined
-    : requestedWorktree === 'current'
-      ? await runtime.showManagedTerminalWorkspace(`id:${coordinatorWorktreeId}`)
-      : await runtime.showManagedTerminalWorkspace(requestedWorktree)
+  let resolvedWorktree = target.resolvedWorktree
   if (terminal) {
     await assertExplicitWorkerUsable({
       runtime,
@@ -133,6 +82,7 @@ export async function startLocalWorker(args: {
   let mode = chatWorkerMode(await hostMode, chat)
 
   const startOptions = {
+    ...(args.serviceOrigin ? { managerScope: args.serviceOrigin.scope } : {}),
     worktree: requestedWorktree,
     mode,
     resolvedWorktreeId: resolvedWorktree?.id ?? null,
@@ -150,27 +100,31 @@ export async function startLocalWorker(args: {
         : 'orchestration_default'
       : 'existing_worktree'
   }
-  const started = db.createStartingWorkerDispatch({
-    creator: resolveDispatchCreator(runtime, params.from, callerSession),
-    maxDepth: runtime.getNestedWorkerMaxDepth(),
-    taskId: existingTask?.id,
-    taskSpec: params.spec,
-    taskTitle: params.taskTitle,
-    taskDeps: parseTaskDeps(params.deps),
-    taskParentId: params.parent,
-    taskRunId: run.id,
-    // A handle-less session creates root Tasks: Task lineage is recorded by terminal only.
-    taskCreatedByTerminalHandle: coordinator?.terminalHandle ?? undefined,
-    taskCreatedByPaneKey: coordinatorPane ?? undefined,
-    taskCreatedByProcessIncarnation: coordinator?.terminalHandle
-      ? (runtime.getTerminalProcessIncarnation(coordinator.terminalHandle) ?? undefined)
-      : undefined,
-    taskCreatedByRunGeneration: run.consumer_generation,
-    retryOf: params.retryOf,
-    startOptions,
-    runtimeEpoch: runtime.getRuntimeId(),
-    mutationReceipt: orchestrationMutation
-  })
+  const accept = () =>
+    db.createStartingWorkerDispatch({
+      creator: args.serviceOrigin
+        ? { kind: 'system' }
+        : resolveDispatchCreator(runtime, params.from, callerSession),
+      maxDepth: runtime.getNestedWorkerMaxDepth(),
+      taskId: existingTask?.id,
+      taskSpec: params.spec,
+      taskTitle: params.taskTitle,
+      taskDeps: parseTaskDeps(params.deps),
+      taskParentId: params.parent,
+      taskRunId: run.id,
+      // A handle-less session creates root Tasks: Task lineage is recorded by terminal only.
+      taskCreatedByTerminalHandle: coordinator?.terminalHandle ?? undefined,
+      taskCreatedByPaneKey: coordinatorPane ?? undefined,
+      taskCreatedByProcessIncarnation: coordinator?.terminalHandle
+        ? (runtime.getTerminalProcessIncarnation(coordinator.terminalHandle) ?? undefined)
+        : undefined,
+      taskCreatedByRunGeneration: run.consumer_generation,
+      retryOf: params.retryOf,
+      startOptions,
+      runtimeEpoch: runtime.getRuntimeId(),
+      mutationReceipt: orchestrationMutation
+    })
+  const started = args.serviceOrigin ? args.serviceOrigin.acceptDispatch(accept) : accept()
   const effects: WorkerEffect[] = []
   const task = started.task
   if (resolvedWorktree) {
@@ -196,6 +150,7 @@ export async function startLocalWorker(args: {
       agent,
       launchPreferences: launch.preferences,
       effects,
+      beforeEffect: args.serviceOrigin?.assertAuthority,
       onStage: (stage) => {
         failedStage = stage
       }
@@ -269,6 +224,8 @@ export async function startLocalWorker(args: {
       setupState: setupReceipt.state,
       terminalOwnership: params.terminal ? 'external' : 'created'
     })
+    args.serviceOrigin?.assertAuthority()
+    args.serviceOrigin?.assertPlacement(started.dispatch.id)
 
     return await deliverAndSettleWorkerStartReadiness({
       runtime,
@@ -290,11 +247,18 @@ export async function startLocalWorker(args: {
       timeoutMs: params.timeoutMs ?? 60_000,
       effects,
       terminalRevealWarning: placed.warning,
+      beforeDispatch: args.serviceOrigin?.assertAuthority,
       onStage: (stage) => {
         failedStage = stage
       }
     })
   } catch (error) {
+    if (args.serviceOrigin && error instanceof ManagerAuthorityError) {
+      if (db.getWorkerDispatch(started.dispatch.id)?.state === 'starting') {
+        db.markWorkerStartUnknown(started.dispatch.id, failedStage, error.message, effects)
+      }
+      throw error
+    }
     await tearDownFailedWorkerStart({
       runtime,
       structuredSession: placed?.structuredSession ?? null,

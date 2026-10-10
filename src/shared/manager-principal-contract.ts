@@ -16,7 +16,8 @@ export const MANAGER_ACTIONS = [
 
 export const ManagerPrincipalGrantSchema = z.strictObject({
   scope: ManagerScopeGrantSchema,
-  actions: z.array(z.enum(MANAGER_ACTIONS)).min(1).max(MANAGER_ACTIONS.length)
+  actions: z.array(z.enum(MANAGER_ACTIONS)).min(1).max(MANAGER_ACTIONS.length),
+  maxActiveWorkers: z.number().int().min(1).max(8).optional()
 })
 export const ManagerConsumerLeaseSchema = z.strictObject({
   principalId: z.string().min(1).max(512),

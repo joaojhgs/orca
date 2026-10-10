@@ -4,6 +4,66 @@ const notes = [
   'Uses ORCA_MANAGER_TOKEN or a private ORCA_MANAGER_CREDENTIAL_FILE; never put a token in arguments.'
 ]
 export const MANAGER_COMMAND_SPECS: CommandSpec[] = [
+  ...['placements', 'usage', 'resources'].map((name): CommandSpec => ({
+    path: ['manager', name],
+    summary: `Read scoped ${name} inventory without host or account administration`,
+    usage: `orca manager ${name} [--offset <n>] [--limit <n>] [--json]`,
+    allowedFlags: [...GLOBAL_FLAGS, 'offset', 'limit'],
+    notes: [...notes, 'Usage is cached and explicitly marks stale or unavailable readings.']
+  })),
+  {
+    path: ['manager', 'check'],
+    summary: 'Read or replay one durable owned-Run mailbox delivery',
+    usage: 'orca manager check --lease <json> --run <id> [--limit <n>] [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'lease', 'run', 'limit'],
+    notes: [...notes, 'Acknowledge the delivery only after processing its entire batch.']
+  },
+  {
+    path: ['manager', 'ack'],
+    summary: 'Acknowledge a processed owned-Run mailbox delivery',
+    usage: 'orca manager ack --lease <json> --run <id> --delivery <id> [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'lease', 'run', 'delivery'],
+    notes
+  },
+  {
+    path: ['manager', 'worker-guide'],
+    summary: 'Queue one idempotent follow-up for an active owned worker',
+    usage:
+      'orca manager worker-guide --lease <json> --request-id <id> --run <id> --dispatch <id> --body <text> [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'lease', 'request-id', 'run', 'dispatch', 'body'],
+    notes: [...notes, 'Queued is not proof of receipt and never interrupts a terminal.']
+  },
+  {
+    path: ['manager', 'question-answer'],
+    summary: 'Answer an existing recorded question from an owned worker',
+    usage:
+      'orca manager question-answer --lease <json> --request-id <id> --run <id> --message <id> --body <text> [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'lease', 'request-id', 'run', 'message', 'body'],
+    notes
+  },
+  {
+    path: ['manager', 'worker-start'],
+    summary: 'Start one worker in an exact approved workspace with durable request replay',
+    usage:
+      'orca manager worker-start --lease <json> --request-id <id> --run <id> --task <id> --workspace-id <id> --agent <agent> [--model <id>] [--effort <level>] [--retry-of <id>] [--timeout-ms <n>] [--json]',
+    allowedFlags: [
+      ...GLOBAL_FLAGS,
+      'lease',
+      'request-id',
+      'run',
+      'task',
+      'workspace-id',
+      'agent',
+      'model',
+      'effort',
+      'retry-of',
+      'timeout-ms'
+    ],
+    notes: [
+      ...notes,
+      'Only fresh known-agent launches are permitted. Reuse the request ID after a timeout; unknown outcomes require reconciliation, never an automatic retry.'
+    ]
+  },
   {
     path: ['manager', 'worker-show'],
     summary:

@@ -5,6 +5,7 @@ import { managerWorkspaceScope } from './manager-hook-scope'
 import { managerMayObserve } from '../../../shared/manager-event-contract'
 import { parseWorkerTerminalHostScope } from '../../../shared/worker-terminal-host-scope'
 import { toSshExecutionHostId, toRuntimeExecutionHostId } from '../../../shared/execution-host'
+import type { ManagerAction } from '../../../shared/manager-principal-contract'
 
 export function requireManagerWorker(
   runtime: OrcaRuntimeService,
@@ -12,11 +13,12 @@ export function requireManagerWorker(
     serviceToken: string
     runId: string
     dispatchId: string
-  }
+  },
+  action: ManagerAction = 'worker:read'
 ) {
   const db = runtime.getOrchestrationDb()
   const principal = requireManagerPrincipal(db, params.serviceToken)
-  const grant = db.managerPrincipals.authorize(principal.id, 'worker:read').grant.scope
+  const grant = db.managerPrincipals.authorize(principal.id, action).grant.scope
   db.managerRuns.requireOwnedRun(principal.id, db.getRun(params.runId), grant)
   const dispatch = db.getDispatchContextById(params.dispatchId)
   if (!dispatch || dispatch.run_id !== params.runId) {

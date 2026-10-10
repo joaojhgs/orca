@@ -8,6 +8,9 @@ export const MANAGER_SERVICE_METHODS: ReadonlySet<string> = new Set([
   'manager.consumerRenew',
   'manager.consumerRelease',
   'manager.snapshot',
+  'manager.placements',
+  'manager.usage',
+  'manager.resources',
   'manager.runCreate',
   'manager.runShow',
   'manager.runList',
@@ -15,5 +18,10 @@ export const MANAGER_SERVICE_METHODS: ReadonlySet<string> = new Set([
   'manager.taskList',
   'manager.taskShow',
   'manager.workerShow',
-  'manager.workerRead'
+  'manager.workerRead',
+  'manager.workerStart',
+  'manager.mailboxCheck',
+  'manager.mailboxAck',
+  'manager.workerGuide',
+  'manager.questionAnswer'
 ])

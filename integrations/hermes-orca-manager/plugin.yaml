@@ -1,0 +1,17 @@
+name: orca-manager
+version: 0.1.0
+description: Scoped Orca supervision and host-owned LLM access for local memory.
+author: Orca fork
+license: MIT
+provides_tools:
+  - orca_manager_inspect
+  - orca_manager_act
+requires_auth:
+  - openai-codex
+config_schema:
+  memory_port: {type: int, default: 8789, description: Loopback-only memory LLM port}
+  memory_secret_file: {type: str, default: '', description: Private shared-secret file for the memory backend}
+  memory_model_alias: {type: str, default: hermes-memory, description: Accepted memory backend model alias}
+  orca_executable: {type: str, default: '', description: Operator-approved absolute public Orca CLI path}
+  orca_credential_file: {type: str, default: '', description: Private scoped service-principal credential file}
+  hermes_executable: {type: str, default: /home/developer/.local/bin/hermes, description: Operator-approved native Hermes CLI path}

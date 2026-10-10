@@ -3,6 +3,7 @@ import { OrchestrationError } from '../../orchestration-error'
 import type { OrchestrationDb } from '../orchestration-db'
 import { transitionLifecycleWithDb } from '../lifecycle-transition'
 import { recordFailedStartDispatchIdentity } from '../worker-terminal/failed-start-dispatch-identity'
+import { recordManagerOrchestrationEvent } from '../../../manager/manager-orchestration-event'
 
 export function markWorkerDispatchReady(
   this: OrchestrationDb,
@@ -92,6 +93,13 @@ export function failWorkerStart(
     }
     this.closeQuestionsForDispatch(dispatchId)
     recordFailedStartDispatchIdentity(this, this.getWorkerDispatch(dispatchId) as WorkerDispatchRow)
+    recordManagerOrchestrationEvent(this, {
+      dispatchId,
+      eventId: `start-failed:${dispatchId}`,
+      kind: 'failure',
+      occurredAt: Date.now(),
+      summary: reason
+    })
     this.db.exec('COMMIT')
     return this.getWorkerDispatch(dispatchId) as WorkerDispatchRow
   } catch (error) {

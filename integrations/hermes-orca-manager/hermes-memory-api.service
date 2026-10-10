@@ -1,0 +1,21 @@
+[Unit]
+Description=Hermes local semantic/entity/reflect memory API
+After=hermes-memory-llm-bridge.service
+Wants=hermes-memory-llm-bridge.service
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /home/developer/.hermes/profiles/orca-manager/plugins/orca-manager/run-memory-api.sh
+Restart=on-failure
+RestartSec=30
+MemoryMax=3G
+MemorySwapMax=0
+CPUQuota=50%
+Nice=15
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+PrivateTmp=yes
+UMask=0077
+
+[Install]
+WantedBy=default.target

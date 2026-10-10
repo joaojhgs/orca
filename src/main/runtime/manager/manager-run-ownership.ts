@@ -105,4 +105,18 @@ export class ManagerRunOwnership {
       run.legacy === 0
     )
   }
+
+  eventScope(run: RunRow): ManagerEventScope | null {
+    const value = this.db
+      .prepare(`SELECT run_id, principal_id, scope_json, run_generation
+      FROM manager_run_ownership WHERE run_id = ?`)
+      .get(run.id)
+    if (!value || !this.serviceOwned(run)) {
+      return null
+    }
+    const binding = bindingRow.parse(value)
+    return run.consumer_generation === binding.run_generation
+      ? ManagerEventScopeSchema.parse(JSON.parse(binding.scope_json))
+      : null
+  }
 }

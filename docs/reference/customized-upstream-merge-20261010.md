@@ -69,3 +69,29 @@ backend/CLI typechecks and the changed-code quality gate passed. Hermes on the
 private worker authenticated with its own selected default-provider credential;
 native model and cross-process memory smoke tests passed. Hindsight is installed
 but its backend is not yet configured. No production Orca restart was performed.
+
+### Subsequent implementation checkpoint — 2026-10-10 20:26 UTC
+
+Added narrow worker start, guidance/question tools, canonical dispatch scope and
+atomic durable orchestration wakes. Scoped placements, cached account usage and
+resource projections reuse current collectors without exposing authentication
+metadata. Real worker placement verifies that revocation does not stop a worker.
+
+The standalone Hermes plugin now has a fenced durable adapter and typed model
+tools, native-tool-loop decisions, persisted replay receipts, finite retries and
+gap reconciliation. It has not been granted service authority or launched as a
+manager. Notification/chat UI, OS isolation and deployed multihost acceptance
+remain incomplete; this checkpoint must not be represented as ready supervision.
+
+Worker local Hindsight is configured and active: separate pinned API environment,
+peer-authenticated Unix-socket PostgreSQL, authenticated loopback memory API and
+a serial Hermes-owned LLM route. Retain/semantic recall/reflect, native Hermes
+memory-tool use, fresh-process recall and local PostgreSQL restore all passed.
+The private database backup remains; only its temporary restore clone was removed.
+No cloud memory, borrowed interactive OAuth, paid fallback or new external account
+was configured. Encrypted/off-host and full-profile recovery remain unverified.
+
+Latest targeted Orca batch: 48 tests in 7 files. Standalone plugin: 22 unit tests.
+Changed-code gate: no new findings across 40 TypeScript files. Production backend
+and full CLI typechecks passed, but an all-files backend check including tests
+exceeded 4 GiB and is not claimed green. Neither Orca instance was restarted.

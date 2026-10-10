@@ -1,0 +1,20 @@
+[Unit]
+Description=Hermes-owned authenticated memory LLM bridge
+
+[Service]
+Type=simple
+ExecStart=/home/developer/.local/bin/hermes -p orca-manager orca-manager memory-llm
+Environment=ORCA_BACKGROUND_LAUNCH=1
+Restart=on-failure
+RestartSec=30
+MemoryMax=1G
+MemorySwapMax=0
+CPUQuota=25%
+Nice=15
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+PrivateTmp=yes
+UMask=0077
+
+[Install]
+WantedBy=default.target

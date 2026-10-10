@@ -13,7 +13,7 @@ vi.mock('../persistence', () => ({
 
 import { ORCA_SSH_BRIDGE_CREDENTIAL_ENV } from '../../shared/ssh-bridge-credential-env'
 import { SshBridgeCredentialRegistry } from '../runtime/rpc/ssh-bridge-credentials'
-import { runHostOrcaCliPassthrough } from './ssh-remote-cli-host-passthrough'
+import { buildHostCliEnv, runHostOrcaCliPassthrough } from './ssh-remote-cli-host-passthrough'
 import { runRemoteOrcaCli } from './ssh-remote-orca-cli'
 import { OrcaRuntimeService } from '../runtime/orca-runtime'
 import { HOST_BOUND_SSH_BRIDGE_SCOPE } from './ssh-bridge-caller-scope.test-fixture'
@@ -33,6 +33,33 @@ const RUNTIME_AUTHORITY = {
 } as const
 
 describe('the SSH bridge CLI child', () => {
+  it('passes only the remote service credential, never ambient owner/service secrets or a remote file path', () => {
+    const remoteToken = `orcam_${'r'.repeat(43)}`
+    const env = buildHostCliEnv({
+      hostEnv: {
+        ORCA_MANAGER_TOKEN: `orcam_${'h'.repeat(43)}`,
+        ORCA_MANAGER_CREDENTIAL_FILE: '/owner/credential'
+      },
+      remoteEnv: {
+        ORCA_MANAGER_TOKEN: remoteToken,
+        ORCA_MANAGER_CREDENTIAL_FILE: '/remote/credential'
+      },
+      userDataPath: '/host/profile',
+      remoteCwd: '/remote',
+      bridgeCredential: 'bridge'
+    })
+    expect(env.ORCA_MANAGER_TOKEN).toBe(remoteToken)
+    expect(env.ORCA_MANAGER_CREDENTIAL_FILE).toBeUndefined()
+    const ordinary = buildHostCliEnv({
+      hostEnv: { ORCA_MANAGER_TOKEN: 'ambient', ORCA_MANAGER_CREDENTIAL_FILE: '/owner/credential' },
+      remoteEnv: {},
+      userDataPath: '/host/profile',
+      remoteCwd: '/remote',
+      bridgeCredential: 'bridge'
+    })
+    expect(ordinary.ORCA_MANAGER_TOKEN).toBeUndefined()
+    expect(ordinary.ORCA_MANAGER_CREDENTIAL_FILE).toBeUndefined()
+  })
   it('holds a credential scoped to its SSH target, never the owner token, for its lifetime only', async () => {
     const credentials = new SshBridgeCredentialRegistry()
     const child = new FakeChild()
@@ -113,6 +140,36 @@ describe('the in-process fallback bridge', () => {
     userDataPath: '/host/user-data',
     entryExists: () => false
   }
+  it('refuses a manager credential when the scoped host CLI is missing, without legacy fallback', async () => {
+    const result = await runRemoteOrcaCli(
+      new OrcaRuntimeService(),
+      {
+        argv: ['status', '--json'],
+        cwd: '/remote',
+        env: { ORCA_MANAGER_TOKEN: `orcam_${'m'.repeat(43)}` },
+        callerScope: HOST_BOUND_SSH_BRIDGE_SCOPE
+      },
+      LEGACY_FALLBACK_OPTIONS
+    )
+    expect(result.exitCode).toBe(1)
+    expect(JSON.parse(result.stdout).error.code).toBe('incompatible_runtime')
+  })
+  it.each(['check', 'ask'])(
+    'cannot use the output-ordered legacy %s path with manager credentials',
+    async (verb) => {
+      const result = await runRemoteOrcaCli(
+        new OrcaRuntimeService(),
+        {
+          argv: ['orchestration', verb, '--json'],
+          cwd: '/remote',
+          env: { ORCA_MANAGER_TOKEN: `orcam_${'m'.repeat(43)}` },
+          callerScope: HOST_BOUND_SSH_BRIDGE_SCOPE
+        },
+        LEGACY_FALLBACK_OPTIONS
+      )
+      expect(JSON.parse(result.stdout).error.code).toBe('forbidden')
+    }
+  )
 
   it('applies the host-bound scope to orchestration it would otherwise relay as owner', async () => {
     const runtime = new OrcaRuntimeService()

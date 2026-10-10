@@ -391,6 +391,9 @@ import {
   ManagerEventsReadParams,
   ManagerEventsWaitParams,
   ManagerIssueParams,
+  ManagerMailboxAckParams,
+  ManagerMailboxCheckParams,
+  ManagerQuestionAnswerParams,
   ManagerReleaseParams,
   ManagerRenewParams,
   ManagerRevokeParams,
@@ -401,8 +404,10 @@ import {
   ManagerTaskCreateParams,
   ManagerTaskListParams,
   ManagerTaskShowParams,
+  ManagerWorkerGuideParams,
   ManagerWorkerReadParams,
-  ManagerWorkerShowParams
+  ManagerWorkerShowParams,
+  ManagerWorkerStartParams
 } from './manager-params'
 import { MulticaListIssues, MulticaListProjects } from './multica-params'
 import { NativeChatSession, NativeChatUnsubscribe } from './native-chat-params'
@@ -1121,6 +1126,11 @@ export const RPC_PARAMS_BY_METHOD = {
   'manager.eventsRead': ManagerEventsReadParams,
   'manager.eventsWait': ManagerEventsWaitParams,
   'manager.issue': ManagerIssueParams,
+  'manager.mailboxAck': ManagerMailboxAckParams,
+  'manager.mailboxCheck': ManagerMailboxCheckParams,
+  'manager.placements': ManagerSnapshotParams,
+  'manager.questionAnswer': ManagerQuestionAnswerParams,
+  'manager.resources': ManagerSnapshotParams,
   'manager.revoke': ManagerRevokeParams,
   'manager.runCreate': ManagerRunCreateParams,
   'manager.runList': ManagerRunListParams,
@@ -1129,8 +1139,11 @@ export const RPC_PARAMS_BY_METHOD = {
   'manager.taskCreate': ManagerTaskCreateParams,
   'manager.taskList': ManagerTaskListParams,
   'manager.taskShow': ManagerTaskShowParams,
+  'manager.usage': ManagerSnapshotParams,
+  'manager.workerGuide': ManagerWorkerGuideParams,
   'manager.workerRead': ManagerWorkerReadParams,
   'manager.workerShow': ManagerWorkerShowParams,
+  'manager.workerStart': ManagerWorkerStartParams,
   'markdown.readTab': ActivateTab,
   'markdown.saveTab': SaveMarkdownTab,
   'mobileWeb.bundle.chunk': MobileWebBundleChunkParamsSchema,

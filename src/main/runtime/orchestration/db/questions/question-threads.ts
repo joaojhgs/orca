@@ -2,6 +2,12 @@ import type { MessageRow, QuestionRow } from '../../types'
 import { OrchestrationError } from '../../orchestration-error'
 import { exposeQuestionTimestamps } from '../utc-timestamp'
 import type { OrchestrationDb } from '../orchestration-db'
+import { recordManagerOrchestrationEvent } from '../../../manager/manager-orchestration-event'
+import {
+  beginLifecycleWriteTransaction,
+  commitLifecycleWriteTransaction,
+  rollbackLifecycleWriteTransaction
+} from '../lifecycle-transition'
 
 export function createQuestion(
   this: OrchestrationDb,
@@ -13,7 +19,7 @@ export function createQuestion(
     options?: string[]
   }
 ): { question: QuestionRow; message: MessageRow } {
-  this.db.exec('BEGIN IMMEDIATE')
+  const transaction = beginLifecycleWriteTransaction(this.db, 'question_create')
   try {
     this.requireRun(params.runId)
     const dispatch = this.getDispatchContextById(params.dispatchId)
@@ -51,10 +57,18 @@ export function createQuestion(
       .run(message.id, params.runId, params.dispatchId, params.askerHandle)
     const question = this.getQuestionRaw(message.id) as QuestionRow
     const storedMessage = this.getMessageById(message.id) as MessageRow
-    this.db.exec('COMMIT')
+    recordManagerOrchestrationEvent(this, {
+      dispatchId: params.dispatchId,
+      eventId: `question:${message.id}`,
+      kind: 'question',
+      messageId: message.id,
+      occurredAt: Date.now(),
+      summary: params.question
+    })
+    commitLifecycleWriteTransaction(this.db, transaction)
     return { question: exposeQuestionTimestamps(question), message: storedMessage }
   } catch (error) {
-    this.db.exec('ROLLBACK')
+    rollbackLifecycleWriteTransaction(this.db, transaction)
     throw error
   }
 }
@@ -79,7 +93,7 @@ export function answerQuestion(
     body: string
   }
 ): { question: QuestionRow; message: MessageRow; duplicate: boolean } {
-  this.db.exec('BEGIN IMMEDIATE')
+  const transaction = beginLifecycleWriteTransaction(this.db, 'question_answer')
   try {
     this.requireCurrentConsumer(params.runId, params.consumerGeneration)
     const question = this.getQuestionRaw(params.messageId)
@@ -106,7 +120,7 @@ export function answerQuestion(
       if (!message) {
         throw new Error(`Recorded answer message ${question.answer_message_id} was not found.`)
       }
-      this.db.exec('COMMIT')
+      commitLifecycleWriteTransaction(this.db, transaction)
       return { question: exposeQuestionTimestamps(question), message, duplicate: true }
     }
 
@@ -130,14 +144,14 @@ export function answerQuestion(
       .run(message.id, params.body, params.consumerGeneration, question.message_id)
     const answered = this.getQuestionRaw(question.message_id) as QuestionRow
     const storedMessage = this.getMessageById(message.id) as MessageRow
-    this.db.exec('COMMIT')
+    commitLifecycleWriteTransaction(this.db, transaction)
     return {
       question: exposeQuestionTimestamps(answered),
       message: storedMessage,
       duplicate: false
     }
   } catch (error) {
-    this.db.exec('ROLLBACK')
+    rollbackLifecycleWriteTransaction(this.db, transaction)
     throw error
   }
 }

@@ -8,6 +8,7 @@ import { insertStartingDispatchContextRow } from '../dispatch-row-writer'
 import { recordedCreatorIdentity, type DispatchCreator } from '../dispatch-depth'
 import { transitionLifecycleWithDb } from '../lifecycle-transition'
 import { taskNotFoundError, taskNotStartableError } from '../../task-dispatch-refusal'
+import { runLifecycleWriteTransaction } from '../lifecycle-write-transaction-runner'
 
 export function createStartingWorkerDispatch(
   this: OrchestrationDb,
@@ -43,8 +44,7 @@ export function createStartingWorkerDispatch(
     maxDepth: number
   }
 ): { dispatch: DispatchContextRow; worker: WorkerDispatchRow; task: TaskRow } {
-  this.db.exec('BEGIN IMMEDIATE')
-  try {
+  return runLifecycleWriteTransaction(this.db, 'worker_dispatch_start', () => {
     if (params.mutationReceipt) {
       const receipt = params.mutationReceipt
       const existing = this.getMutationReceipt(receipt.callerFingerprint, receipt.requestId)
@@ -174,17 +174,13 @@ export function createStartingWorkerDispatch(
       to: 'dispatched',
       projection: { result: null, completed_at: null }
     })
-    this.db.exec('COMMIT')
     this.hasAnyDispatchContextsCache = true
     return {
       dispatch: this.getDispatchContextById(id) as DispatchContextRow,
       worker: this.getWorkerDispatch(id) as WorkerDispatchRow,
       task: this.getTask(task.id) as TaskRow
     }
-  } catch (error) {
-    this.db.exec('ROLLBACK')
-    throw error
-  }
+  })
 }
 
 export type WorkerDispatchStartMethods = {

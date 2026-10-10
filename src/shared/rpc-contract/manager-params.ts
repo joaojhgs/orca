@@ -95,3 +95,37 @@ export const ManagerTaskCreateParams = z.strictObject({
   deps: z.array(z.string().min(1).max(512)).max(100).default([]),
   parentId: z.string().min(1).max(512).optional()
 })
+export const ManagerWorkerStartParams = z.strictObject({
+  ...managerWrite,
+  requestId,
+  runId: z.string().min(1).max(512),
+  taskId: z.string().min(1).max(512),
+  workspaceId: z.string().min(1).max(4096),
+  agent: z.enum(['codex', 'claude', 'opencode', 'cursor', 'gemini', 'hermes', 'antigravity']),
+  model: z.string().trim().min(1).max(512).optional(),
+  effort: z.string().trim().min(1).max(512).optional(),
+  retryOf: z.string().min(1).max(512).optional(),
+  timeoutMs: z.number().int().min(1000).max(60_000).default(60_000)
+})
+export const ManagerMailboxCheckParams = z.strictObject({
+  ...managerWrite,
+  runId: z.string().min(1).max(512),
+  limit: z.number().int().min(1).max(100).default(100)
+})
+export const ManagerMailboxAckParams = z.strictObject({
+  ...managerWrite,
+  runId: z.string().min(1).max(512),
+  deliveryId: z.string().min(1).max(512)
+})
+export const ManagerWorkerGuideParams = ManagerWorkerShowParams.extend({
+  lease: ManagerConsumerLeaseSchema,
+  requestId,
+  body: z.string().trim().min(1).max(32_000)
+})
+export const ManagerQuestionAnswerParams = z.strictObject({
+  ...managerWrite,
+  requestId,
+  runId: z.string().min(1).max(512),
+  messageId: z.string().min(1).max(512),
+  body: z.string().trim().min(1).max(32_000)
+})

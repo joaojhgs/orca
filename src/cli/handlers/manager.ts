@@ -31,7 +31,8 @@ function number(flags: Flags, name: string, fallback: number): number {
 }
 function operation(
   method: string,
-  params: (flags: Flags) => Record<string, unknown>
+  params: (flags: Flags) => Record<string, unknown>,
+  timeoutMs = 40_000
 ): CommandHandler {
   return async ({ client, flags, json }) => {
     const status = await client.call<RuntimeStatus>('status.get')
@@ -44,13 +45,62 @@ function operation(
     const result = await client.call(
       method,
       { ...params(flags), serviceToken: readManagerCredential() },
-      { timeoutMs: 40_000 }
+      { timeoutMs }
     )
     printResult(result, json, (value) => JSON.stringify(value, null, 2))
   }
 }
 
 export const MANAGER_HANDLERS: Record<string, CommandHandler> = {
+  ...Object.fromEntries(
+    ['placements', 'usage', 'resources'].map((name) => [
+      `manager ${name}`,
+      operation(`manager.${name}`, (flags) => ({
+        offset: number(flags, 'offset', 0),
+        limit: number(flags, 'limit', 100)
+      }))
+    ])
+  ),
+  'manager check': operation('manager.mailboxCheck', (flags) => ({
+    lease: ManagerConsumerLeaseSchema.parse(optionalJson(flags, 'lease')),
+    runId: text(flags, 'run'),
+    limit: number(flags, 'limit', 100)
+  })),
+  'manager ack': operation('manager.mailboxAck', (flags) => ({
+    lease: ManagerConsumerLeaseSchema.parse(optionalJson(flags, 'lease')),
+    runId: text(flags, 'run'),
+    deliveryId: text(flags, 'delivery')
+  })),
+  'manager worker-guide': operation('manager.workerGuide', (flags) => ({
+    lease: ManagerConsumerLeaseSchema.parse(optionalJson(flags, 'lease')),
+    requestId: text(flags, 'request-id'),
+    runId: text(flags, 'run'),
+    dispatchId: text(flags, 'dispatch'),
+    body: text(flags, 'body')
+  })),
+  'manager question-answer': operation('manager.questionAnswer', (flags) => ({
+    lease: ManagerConsumerLeaseSchema.parse(optionalJson(flags, 'lease')),
+    requestId: text(flags, 'request-id'),
+    runId: text(flags, 'run'),
+    messageId: text(flags, 'message'),
+    body: text(flags, 'body')
+  })),
+  'manager worker-start': operation(
+    'manager.workerStart',
+    (flags) => ({
+      lease: ManagerConsumerLeaseSchema.parse(optionalJson(flags, 'lease')),
+      requestId: text(flags, 'request-id'),
+      runId: text(flags, 'run'),
+      taskId: text(flags, 'task'),
+      workspaceId: text(flags, 'workspace-id'),
+      agent: text(flags, 'agent'),
+      model: flags.has('model') ? text(flags, 'model') : undefined,
+      effort: flags.has('effort') ? text(flags, 'effort') : undefined,
+      retryOf: flags.has('retry-of') ? text(flags, 'retry-of') : undefined,
+      timeoutMs: number(flags, 'timeout-ms', 60_000)
+    }),
+    120_000
+  ),
   'manager worker-show': operation('manager.workerShow', (flags) => ({
     runId: text(flags, 'run'),
     dispatchId: text(flags, 'dispatch')
