@@ -10,6 +10,7 @@ import { DesktopPushService } from './desktop-push-service'
 import { PushUnregisterOutbox } from './push-unregister-outbox'
 import { createPushHostKeypair } from './push-host-challenge-fixtures'
 import { createHeadlessNotificationDelivery } from '../../notifications/headless-notification-delivery'
+import { AGENT_NOTIFICATION_QUIET_MS } from '../../../shared/agent-notification-quiet-window'
 
 const paths: string[] = []
 const services: DesktopPushService[] = []
@@ -150,6 +151,9 @@ it('delivers accepted headless SSH completion through the mobile replay and push
   }
   delivery.status({ ...host, payload: { state: 'working', prompt: 'Build game' } })
   delivery.status({ ...host, payload: { state: 'done', prompt: 'Build game' } })
+  await flush()
+  expect(h.client.send).not.toHaveBeenCalled()
+  await new Promise((resolve) => setTimeout(resolve, AGENT_NOTIFICATION_QUIET_MS + 50))
   await flush()
   expect(h.client.send).toHaveBeenCalledTimes(1)
   expect(h.controller.getMissedSince(0)).toEqual([
