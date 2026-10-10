@@ -799,6 +799,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'computer.typeText': TypeText,
   'diagnostics.memory': null,
   'diagnostics.sessions': DiagnosticsSessionsParams,
+  'emulator.agentScreenshot': AxParams,
   'emulator.attach': AttachParamsOfEmulatorParams,
   'emulator.availability': EmulatorAvailabilityParams,
   'emulator.ax': AxParams,

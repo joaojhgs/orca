@@ -40,7 +40,10 @@ ORCA computer desktop-input --desktop <inventory-id> --action key --key Ctrl+L -
 ORCA computer desktop-input --desktop <inventory-id> --action type --text "hello" --json
 ```
 
-Screenshots return `result.pngBase64`, `width`, and `height`. Decode the PNG on the
+Screenshots return `result.pngBase64`, source `width`/`height`, and actual PNG
+`imageWidth`/`imageHeight`. Large images are downscaled to fit the unchanged SSH
+relay. Convert image pixels to desktop pixels with `x * width / imageWidth` and
+`y * height / imageHeight`, rounding to integers. Decode the PNG on the
 calling host for its image viewer; no controller-local file path is returned.
 Coordinates are integer framebuffer pixels from that fresh screenshot, not the
 normalized Android coordinates. `desktop-input --help` describes move, click,

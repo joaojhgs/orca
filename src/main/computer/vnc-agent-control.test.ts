@@ -26,7 +26,13 @@ beforeEach(() => {
   mocks.current.mockReturnValue(true)
   mocks.open.mockResolvedValue({ socket: { on: vi.fn(), destroy: vi.fn() }, close: vi.fn() })
   mocks.init.mockResolvedValue({ width: 2, height: 1 })
-  mocks.capture.mockResolvedValue('test-image')
+  mocks.capture.mockResolvedValue({
+    pngBase64: 'test-image',
+    width: 2,
+    height: 1,
+    imageWidth: 2,
+    imageHeight: 1
+  })
 })
 describe('VNC device proxy authority', () => {
   it('allows viewing but never input for a view-only target', async () => {
@@ -62,7 +68,7 @@ describe('VNC device proxy authority', () => {
   it('rechecks authority before returning captured pixels', async () => {
     mocks.capture.mockImplementation(async () => {
       mocks.current.mockReturnValue(false)
-      return 'test-image'
+      return { pngBase64: 'test-image' }
     })
     await expect(performVncAgentAction('approved', { kind: 'screenshot' })).rejects.toThrow(
       /expired/
@@ -75,8 +81,8 @@ describe('VNC device proxy authority', () => {
     let resolve: (() => void) | undefined
     mocks.capture.mockImplementation(
       () =>
-        new Promise<string>((done) => {
-          resolve = () => done('pixels')
+        new Promise<{ pngBase64: string }>((done) => {
+          resolve = () => done({ pngBase64: 'pixels' })
         })
     )
     const first = performVncAgentAction('approved', { kind: 'screenshot' })

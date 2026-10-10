@@ -96,7 +96,7 @@ describe('distributed device CLI', () => {
       ['emulator', 'screenshot', '--device', 'ssh-adb:test', '--worktree', 'all', '--json'],
       '/worker'
     )
-    expect(call).toHaveBeenCalledWith('emulator.screenshot', {
+    expect(call).toHaveBeenCalledWith('emulator.agentScreenshot', {
       device: 'ssh-adb:test',
       emulator: undefined,
       worktree: undefined

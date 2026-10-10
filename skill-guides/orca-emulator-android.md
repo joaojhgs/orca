@@ -50,8 +50,11 @@ ORCA emulator launch com.example.app --device <ssh-adb-id> --json
 
 The controller routes screenshots, taps, gestures, typing, buttons, rotation,
 accessibility, launch, permission grant/revoke, and bounded logcat to the device's
-owning environment. Screenshot JSON returns `result.pngBase64`; decode it locally
-for the agent's image viewer. `attach` can set a workspace's default device, but
+owning environment. Screenshot JSON returns `result.pngBase64`, source `width`/
+`height`, and PNG `imageWidth`/`imageHeight`; decode it locally for the agent's image
+viewer. Images are downscaled to fit the unchanged SSH relay. Convert PNG pixel
+positions to Android's normalized coordinates with `x / imageWidth` and
+`y / imageHeight`. `attach` can set a workspace's default device, but
 explicit device ids avoid changing another session's default. Shared-device
 `kill`/`shutdown` detach the preview only and never power off the device.
 

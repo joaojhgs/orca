@@ -1,6 +1,7 @@
 import { defineMethod } from '../core'
 import path from 'node:path'
 import { z } from 'zod'
+import { compactAgentDeviceScreenshot } from '../../../computer/agent-device-screenshot'
 import {
   dispatchSshAndroidPreview,
   listSshAndroidDevices
@@ -46,6 +47,24 @@ async function androidOr<T>(
 }
 
 export const EMULATOR_METHODS = [
+  defineMethod({
+    name: 'emulator.agentScreenshot',
+    params: AxParams,
+    handler: async (params, { runtime }) => {
+      const captured = await androidOr('emulator.screenshot', params, () =>
+        runtime.emulatorScreenshot(params)
+      )
+      if (
+        !captured ||
+        typeof captured !== 'object' ||
+        !('pngBase64' in captured) ||
+        typeof captured.pngBase64 !== 'string'
+      ) {
+        throw new Error('Device screenshot was not returned')
+      }
+      return compactAgentDeviceScreenshot(captured.pngBase64)
+    }
+  }),
   defineMethod({
     name: 'emulator.list',
     params: ListParams,

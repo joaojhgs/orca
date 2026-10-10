@@ -1,11 +1,12 @@
 import { PNG } from 'pngjs'
 import type { VncAgentReader } from './vnc-agent-reader'
+import { encodeAgentDeviceScreenshot } from './agent-device-screenshot'
 
 export async function captureVncAgentFramebuffer(
   reader: VncAgentReader,
   width: number,
   height: number
-): Promise<string> {
+) {
   const request = Buffer.alloc(10)
   request[0] = 3
   request.writeUInt16BE(width, 6)
@@ -67,11 +68,7 @@ export async function captureVncAgentFramebuffer(
       }
     }
     if (pixels === width * height) {
-      const encoded = PNG.sync.write(png).toString('base64')
-      if (encoded.length > 3 * 1024 * 1024) {
-        throw new Error('VNC screenshot exceeds the RPC limit')
-      }
-      return encoded
+      return encodeAgentDeviceScreenshot(png)
     }
   }
   throw new Error('VNC framebuffer capture is incomplete')

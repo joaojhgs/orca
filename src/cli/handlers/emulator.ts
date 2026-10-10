@@ -295,7 +295,7 @@ export const EMULATOR_HANDLERS: Record<string, CommandHandler> = {
   },
   'emulator screenshot': async ({ flags, client, cwd, json }) => {
     const target = await getEmulatorCommandTarget(flags, cwd, client)
-    const res = await client.call('emulator.screenshot', target)
+    const res = await client.call('emulator.agentScreenshot', target)
     printResult(res, json, () => 'Captured device screenshot; use --json for PNG bytes.')
   },
   'emulator logcat': async ({ flags, client, cwd, json }) => {

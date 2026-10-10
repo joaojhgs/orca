@@ -64,9 +64,9 @@ export async function performVncAgentAction(
       const geometry = await initializeVncAgent(reader, password)
       assertAuthority()
       if (action.kind === 'screenshot') {
-        const pngBase64 = await captureVncAgentFramebuffer(reader, geometry.width, geometry.height)
+        const screenshot = await captureVncAgentFramebuffer(reader, geometry.width, geometry.height)
         assertAuthority()
-        return { desktopId, viewOnly: target.viewOnly, ...geometry, pngBase64 }
+        return { desktopId, viewOnly: target.viewOnly, ...screenshot }
       }
       await sendVncAgentInput(reader, action, geometry.width, geometry.height)
       assertAuthority()

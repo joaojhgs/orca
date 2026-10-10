@@ -111,9 +111,8 @@ describe('bounded VNC agent protocol', () => {
       it(`captures fragmented RFB 3.${version} with ${password ? 'password' : 'no password'} authentication`, async () => {
         await withRfbServer(version, password, async (reader) => {
           expect(await initializeVncAgent(reader, password)).toEqual({ width: 2, height: 1 })
-          const png = PNG.sync.read(
-            Buffer.from(await captureVncAgentFramebuffer(reader, 2, 1), 'base64')
-          )
+          const captured = await captureVncAgentFramebuffer(reader, 2, 1)
+          const png = PNG.sync.read(Buffer.from(captured.pngBase64, 'base64'))
           expect([...png.data]).toEqual([255, 0, 0, 255, 0, 255, 0, 255])
         })
       })
