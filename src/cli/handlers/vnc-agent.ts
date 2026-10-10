@@ -31,10 +31,14 @@ export const VNC_AGENT_HANDLERS: Record<string, CommandHandler> = {
       width: number
       height: number
       pngBase64: string
-    }>('computer.desktopAction', {
-      desktopId: getRequiredStringFlag(flags, 'desktop'),
-      action: { kind: 'screenshot' }
-    })
+    }>(
+      'computer.desktopAction',
+      {
+        desktopId: getRequiredStringFlag(flags, 'desktop'),
+        action: { kind: 'screenshot' }
+      },
+      { timeoutMs: 90000 }
+    )
     // Inline bytes cross the relay; a controller-local screenshot path is unusable to the worker.
     printResult(
       result,
@@ -71,7 +75,11 @@ export const VNC_AGENT_HANDLERS: Record<string, CommandHandler> = {
         'Invalid desktop input flags; see computer desktop-input --help'
       )
     }
-    const result = await client.call('computer.desktopAction', { desktopId, action: parsed.data })
+    const result = await client.call(
+      'computer.desktopAction',
+      { desktopId, action: parsed.data },
+      { timeoutMs: 90000 }
+    )
     printResult(
       result,
       json,

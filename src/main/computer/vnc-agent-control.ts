@@ -8,6 +8,25 @@ import { sendVncAgentInput } from './vnc-agent-input'
 
 let inFlight = false
 
+async function resolveAccessWithinDeadline(desktopId: string, signal: AbortSignal) {
+  signal.throwIfAborted()
+  return new Promise<Awaited<ReturnType<typeof resolveDesktopVncAccess>>>((resolve, reject) => {
+    const canceled = () =>
+      reject(new Error('Desktop device authority resolution canceled or timed out'))
+    signal.addEventListener('abort', canceled, { once: true })
+    void resolveDesktopVncAccess(desktopId).then(
+      (access) => {
+        signal.removeEventListener('abort', canceled)
+        resolve(access)
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', canceled)
+        reject(error)
+      }
+    )
+  })
+}
+
 export async function performVncAgentAction(
   desktopId: string,
   action: VncAgentAction,
@@ -33,9 +52,9 @@ export async function performVncAgentAction(
     abort.abort()
     reader?.fail(new Error('Desktop device request timed out; input effects are unverifiable'))
     channel?.socket.destroy()
-  }, 30000)
+  }, 60000)
   try {
-    const { target, password } = await resolveDesktopVncAccess(desktopId)
+    const { target, password } = await resolveAccessWithinDeadline(desktopId, abort.signal)
     if (action.kind !== 'screenshot' && target.viewOnly) {
       throw new Error('Input is disabled for this desktop')
     }

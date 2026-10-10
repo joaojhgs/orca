@@ -28,10 +28,11 @@ describe('distributed device CLI', () => {
   it('returns inline screenshot bytes that a remote worker can save locally', async () => {
     call.mockResolvedValue(okFixture('capture', { width: 2, height: 1, pngBase64: 'pixels' }))
     await main(['computer', 'desktop-screenshot', '--desktop', 'approved', '--json'], '/worker')
-    expect(call).toHaveBeenCalledWith('computer.desktopAction', {
-      desktopId: 'approved',
-      action: { kind: 'screenshot' }
-    })
+    expect(call).toHaveBeenCalledWith(
+      'computer.desktopAction',
+      { desktopId: 'approved', action: { kind: 'screenshot' } },
+      { timeoutMs: 90000 }
+    )
     expect(JSON.parse(String(vi.mocked(console.log).mock.calls[0][0])).result).toEqual({
       width: 2,
       height: 1,
@@ -56,10 +57,11 @@ describe('distributed device CLI', () => {
       ],
       '/worker'
     )
-    expect(call).toHaveBeenCalledWith('computer.desktopAction', {
-      desktopId: 'approved',
-      action: { kind: 'click', x: 4, y: 5, button: 'left', count: 1 }
-    })
+    expect(call).toHaveBeenCalledWith(
+      'computer.desktopAction',
+      { desktopId: 'approved', action: { kind: 'click', x: 4, y: 5, button: 'left', count: 1 } },
+      { timeoutMs: 90000 }
+    )
     call.mockClear()
     await main(
       [

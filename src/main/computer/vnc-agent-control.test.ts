@@ -35,6 +35,35 @@ beforeEach(() => {
   })
 })
 describe('VNC device proxy authority', () => {
+  it('bounds slow authority resolution and releases the device slot after its deadline', async () => {
+    vi.useFakeTimers()
+    try {
+      mocks.access.mockImplementationOnce(() => new Promise(() => {}))
+      const pending = expect(
+        performVncAgentAction('approved', { kind: 'screenshot' })
+      ).rejects.toThrow(/timed out/)
+      await vi.advanceTimersByTimeAsync(60000)
+      await pending
+      expect(mocks.open).not.toHaveBeenCalled()
+      await expect(
+        performVncAgentAction('approved', { kind: 'screenshot' })
+      ).resolves.toMatchObject({
+        pngBase64: 'test-image'
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+  it('cancels authority resolution when the calling agent disconnects', async () => {
+    mocks.access.mockImplementationOnce(() => new Promise(() => {}))
+    const controller = new AbortController()
+    const pending = expect(
+      performVncAgentAction('approved', { kind: 'screenshot' }, controller.signal)
+    ).rejects.toThrow(/canceled/)
+    controller.abort()
+    await pending
+    expect(mocks.open).not.toHaveBeenCalled()
+  })
   it('allows viewing but never input for a view-only target', async () => {
     mocks.access.mockResolvedValue({ target: { id: 'approved', port: 5901, viewOnly: true } })
     await expect(performVncAgentAction('approved', { kind: 'screenshot' })).resolves.toMatchObject({
