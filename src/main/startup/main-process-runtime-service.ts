@@ -179,7 +179,7 @@ export function initializeMainProcessRuntime(): OrcaRuntimeService {
     enabled: () => state.isServeMode && (!state.mainWindow || state.mainWindow.isDestroyed()),
     settings: () => store.getSettings().notifications,
     dispatch: (event) => runtime.dispatchMobileNotification(event),
-    getStatusSnapshot: () => agentHookServer.getStatusSnapshot()
+    getStatusSnapshot: () => agentHookServer.getEnrichedStatusSnapshot()
   })
   app.once('will-quit', () => headlessNotifications?.dispose())
   agentHookServer.subscribeEnrichedStatus((event) => headlessNotifications?.status(event))
