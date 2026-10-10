@@ -1,6 +1,8 @@
 [Unit]
 Description=Restricted event-driven Hermes manager for Orca
 After=network-online.target
+After=hermes-manager-egress.service
+Requires=hermes-manager-egress.service
 Wants=network-online.target
 
 [Service]

@@ -25,7 +25,7 @@ assert int(status["NoNewPrivs"].strip()) == 1
 assert int(status["CapEff"].strip(), 16) == 0
 assert int(status["CapBnd"].strip(), 16) == 0
 print("PASS: runtime/configuration are not writable; sudo and capabilities unavailable")
-for address in ("10.0.1.24", "169.254.169.254", "100.64.0.3"):
+for address in ("127.0.0.1", "10.0.1.24", "169.254.169.254", "100.64.0.3"):
     with socket.socket() as connection:
         connection.settimeout(2)
         assert connection.connect_ex((address, 22 if address != "169.254.169.254" else 80)) != 0, \

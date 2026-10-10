@@ -114,3 +114,10 @@ checks passed. No credential custody moved, manager grant issued, consumer start
 or production Orca restarted. Private memory role, loopback restrictions, narrow
 IPC, manager chat/human gates and deployed multi-host acceptance are still pending.
 Native tool mutations now serialize durable step admission under concurrent calls.
+
+Final production main/preload/renderer and projected browser builds passed.
+The mobile bundle passed packaged and reproducibility verifiers after its separate
+frozen install and generated-asset build (128 assets, 8,075,866 bytes). No production
+deployment/restart yet. Manager-only loopback restrictions are now staged/enabled
+on the worker; repeated sandbox checks also deny local host SSH. Private profile/
+memory custody and service IPC remain pending before a grant or consumer launch.

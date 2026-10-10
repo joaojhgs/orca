@@ -1,0 +1,12 @@
+[Unit]
+Description=Loopback access restrictions for the dedicated Hermes identity only
+After=nftables.service
+Before=hermes-orca-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/hermes-manager-egress
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

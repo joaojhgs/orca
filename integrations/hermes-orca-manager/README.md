@@ -50,9 +50,14 @@ runtime paths and UID must be revalidated before reuse elsewhere.
 `verify-worker-isolation.sh` derives its properties from that production unit
 and runs native launcher help plus negative filesystem/privilege/network checks.
 These passed on the coding worker, with no model request or service credential.
-They do not prove an unbreakable sandbox. Private-profile custody, dedicated
-memory database role, loopback restrictions and service-only IPC remain required
-before the staged manager is granted authority.
+`stage-manager-network.sh` installs only the staged identity's loopback guard:
+the local memory API/bridge and resolver remain allowed; host SSH and other
+loopback services are denied. Its own table never flushes the host firewall or
+affects other users. The production manager unit requires this guard. It is
+enabled on the worker and the boundary check also passed against local SSH.
+These checks do not prove an unbreakable sandbox. Private-profile custody,
+dedicated memory database role and service-only IPC remain required before
+the staged manager is granted authority.
 
 Native parallel mutation tool calls are serialized before durable step admission;
 read tools remain independent. A concurrent-call regression verifies distinct
