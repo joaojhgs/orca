@@ -1,6 +1,9 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { EnrichedAgentHookEventPayload } from '../agent-hooks/server/server-types'
-import { confirmAgentNotification } from './agent-notification-eligibility'
+import {
+  confirmAgentNotification,
+  confirmNotificationRequest
+} from './agent-notification-eligibility'
 import { executionObserverClient } from '../execution-observer/observer-client'
 
 vi.mock('../execution-observer/observer-client', () => ({
@@ -72,4 +75,53 @@ it('suppresses unreadable evidence and automatic reviewers', async () => {
   expect(await confirmAgentNotification(event('waiting'))).toBe(false)
   vi.mocked(executionObserverClient.observe).mockRejectedValue(new Error('offline'))
   expect(await confirmAgentNotification(event('done'))).toBe(false)
+})
+
+it('applies the same host evidence veto to desktop delivery', async () => {
+  const row = event('done')
+  vi.mocked(executionObserverClient.observe).mockResolvedValue({ state: 'working' })
+  expect(
+    await confirmNotificationRequest(
+      { source: 'agent-task-complete', paneKey: 'pane', agentState: 'done' },
+      () => [row]
+    )
+  ).toBe(false)
+  vi.mocked(executionObserverClient.observe).mockResolvedValue({ state: 'done' })
+  expect(
+    await confirmNotificationRequest(
+      { source: 'agent-task-complete', paneKey: 'pane', agentState: 'done' },
+      () => [row]
+    )
+  ).toBe(true)
+})
+
+it('rejects desktop notifications if the pane changes during host observation', async () => {
+  const row = event('done')
+  let snapshot = [row]
+  vi.mocked(executionObserverClient.observe).mockImplementation(async () => {
+    snapshot = []
+    return { state: 'done' }
+  })
+  expect(
+    await confirmNotificationRequest(
+      { source: 'agent-task-complete', paneKey: 'pane' },
+      () => snapshot
+    )
+  ).toBe(false)
+})
+
+it('rejects child attention and agent bells on desktop without touching shell bells', async () => {
+  const row = event('waiting')
+  row.payload.mainAgent = { state: 'working', stateStartedAt: 1 }
+  expect(
+    await confirmNotificationRequest({ source: 'agent-task-complete', paneKey: 'pane' }, () => [
+      row
+    ])
+  ).toBe(false)
+  expect(
+    await confirmNotificationRequest({ source: 'terminal-bell', paneKey: 'pane' }, () => [row])
+  ).toBe(false)
+  expect(
+    await confirmNotificationRequest({ source: 'terminal-bell', paneKey: 'shell' }, () => [row])
+  ).toBe(true)
 })

@@ -6,6 +6,38 @@ import { agentNotificationEvidenceSchema } from '../../shared/agent-notification
 import type { EnrichedAgentHookEventPayload } from '../agent-hooks/server/server-types'
 import { executionObserverClient } from '../execution-observer/observer-client'
 import { connectionManager } from '../ipc/ssh-ipc-context'
+import type { NotificationDispatchRequest } from '../../shared/notification-settings-types'
+
+export async function confirmNotificationRequest(
+  request: NotificationDispatchRequest,
+  getSnapshot: () => EnrichedAgentHookEventPayload[]
+): Promise<boolean> {
+  if (request.surface === 'agent-session') {
+    return true
+  }
+  const rows = getSnapshot().filter(
+    (row) =>
+      row.paneKey === request.paneKey &&
+      (!request.worktreeId || row.worktreeId === request.worktreeId)
+  )
+  if (rows.length !== 1) {
+    return request.source === 'terminal-bell' && rows.length === 0
+  }
+  const row = rows[0]
+  if (request.source === 'terminal-bell') {
+    return false
+  }
+  if (
+    request.agentState &&
+    request.agentState !== (row.payload.mainAgent?.state ?? row.payload.state)
+  ) {
+    return false
+  }
+  if (!(await confirmAgentNotification(row))) {
+    return false
+  }
+  return getSnapshot().some((current) => current === row)
+}
 
 /** Both desktop and serve use the same final host check; stale Stop hooks are not a stop point. */
 export async function confirmAgentNotification(

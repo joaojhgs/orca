@@ -15,7 +15,7 @@ import { isMainWindowVisible } from '../window/main-window-visibility'
 import { activeNotificationsById } from './native-notification-lifecycle'
 import { deliverNativeNotification } from './native-notification-delivery'
 import { createNotificationDeliveryService } from '../notifications/notification-delivery-service'
-import { confirmAgentNotification } from '../notifications/agent-notification-eligibility'
+import { confirmNotificationRequest } from '../notifications/agent-notification-eligibility'
 import { agentHookServer } from '../agent-hooks/server'
 import { createAnnouncedNotificationRegistry } from '../notifications/announced-notification-registry'
 import { registerNotificationSoundHandlers } from './notification-sound-ipc'
@@ -121,37 +121,8 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
   )
 
   const deliveryService = createNotificationDeliveryService({
-    confirmStopPoint: async (request) => {
-      // Structured chat owns its provider lifecycle separately; shell BEL has no agent row.
-      if (request.surface === 'agent-session') {
-        return true
-      }
-      const rows = agentHookServer
-        .getEnrichedStatusSnapshot()
-        .filter(
-          (row) =>
-            row.paneKey === request.paneKey &&
-            (!request.worktreeId || row.worktreeId === request.worktreeId)
-        )
-      if (rows.length !== 1) {
-        return request.source === 'terminal-bell' && rows.length === 0
-      }
-      const row = rows[0]
-      if (request.source === 'terminal-bell') {
-        return false
-      }
-      if (
-        request.agentState &&
-        request.agentState !== (row.payload.mainAgent?.state ?? row.payload.state)
-      ) {
-        return false
-      }
-      if (!(await confirmAgentNotification(row))) {
-        return false
-      }
-      // Resumed, disconnected, or replaced while the execution-host probe was in flight.
-      return agentHookServer.getEnrichedStatusSnapshot().some((current) => current === row)
-    },
+    confirmStopPoint: (request) =>
+      confirmNotificationRequest(request, () => agentHookServer.getEnrichedStatusSnapshot()),
     readNotificationSettings: () => store.getSettings().notifications,
     findActiveWindow: () =>
       BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) ?? null,

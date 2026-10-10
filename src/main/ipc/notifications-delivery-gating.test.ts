@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+// This suite exercises delivery preferences after eligibility; stop-point policy has its own tests.
+vi.mock('../notifications/agent-notification-eligibility', () => ({
+  confirmNotificationRequest: async () => true
+}))
+
 import {
   getAllWindowsMock,
   getDispatchHandler,
@@ -174,24 +179,24 @@ describe('registerNotificationHandlers', () => {
       } as never)
     }
 
-    it('lights the tray dot for an agent completion while the window is hidden', () => {
+    it('lights the tray dot for an agent completion while the window is hidden', async () => {
       getAllWindowsMock.mockReturnValue([
         { isDestroyed: () => false, isVisible: () => false, isMinimized: () => false } as never
       ])
       registerEnabledNotifications()
 
-      getDispatchHandler()({}, { source: 'agent-task-complete' })
+      await getDispatchHandler()({}, { source: 'agent-task-complete' })
 
       expect(setTrayAttentionMock).toHaveBeenCalledWith(true)
     })
 
-    it('lights the tray dot for a terminal bell while the window is minimized', () => {
+    it('lights the tray dot for a terminal bell while the window is minimized', async () => {
       getAllWindowsMock.mockReturnValue([
         { isDestroyed: () => false, isVisible: () => true, isMinimized: () => true } as never
       ])
       registerEnabledNotifications()
 
-      getDispatchHandler()({}, { source: 'terminal-bell' })
+      await getDispatchHandler()({}, { source: 'terminal-bell' })
 
       expect(setTrayAttentionMock).toHaveBeenCalledWith(true)
     })
