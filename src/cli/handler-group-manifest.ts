@@ -161,6 +161,7 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
       'emulator launch',
       'emulator permissions',
       'emulator ax',
+      'emulator screenshot',
       'emulator logcat'
     ],
     load: async () => (await import('./handlers/emulator.js')).EMULATOR_HANDLERS
@@ -169,6 +170,9 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     name: 'computer',
     keys: [
       'computer capabilities',
+      'computer desktops',
+      'computer desktop-screenshot',
+      'computer desktop-input',
       'computer list-apps',
       'computer permissions',
       'computer list-windows',

@@ -29,9 +29,37 @@ device with `emulator_unsupported`. `tap`, `type`, `gesture`, `button`, `rotate`
 `exec` work on both backends, with backend-specific output for `ax` — a `uiautomator` node
 tree on Android, a serve-sim node tree on iOS.
 
-Camera and sensor injection are not wrapped; Android virtual-scene is out of scope. Device
-control is local to the host that owns the SDK, so remote and SSH device control is out of
-scope.
+Camera and sensor injection are not wrapped; Android virtual-scene is out of scope.
+Native device control uses the SDK host. Approved SSH devices instead use the Orca
+controller proxy described below; the calling agent does not need a local SDK or VPN.
+
+## Approved Android devices across SSH hosts
+
+`ORCA emulator devices --json` includes approved devices on connected SSH hosts.
+Use the full `ssh-adb:` id from that inventory, not a bare serial; identical serials
+on different hosts are separate targets. `--local-only` preserves native discovery.
+
+```text
+ORCA emulator devices --json
+ORCA emulator screenshot --device <ssh-adb-id> --json
+ORCA emulator tap 0.5 0.8 --device <ssh-adb-id> --json
+ORCA emulator ax --device <ssh-adb-id> --json
+ORCA emulator logcat --lines 200 --device <ssh-adb-id> --json
+ORCA emulator launch com.example.app --device <ssh-adb-id> --json
+```
+
+The controller routes screenshots, taps, gestures, typing, buttons, rotation,
+accessibility, launch, permission grant/revoke, and bounded logcat to the device's
+owning environment. Screenshot JSON returns `result.pngBase64`; decode it locally
+for the agent's image viewer. `attach` can set a workspace's default device, but
+explicit device ids avoid changing another session's default. Shared-device
+`kill`/`shutdown` detach the preview only and never power off the device.
+
+The SSH proxy does not expose raw `exec`, global permission reset, APK install,
+ADB connect/pair, or arbitrary ports. Only approved attached devices are visible;
+unapproved Wi-Fi devices stay excluded. Disconnected/revoked hosts fail closed,
+never fall back to local ADB. Do not replay input after an ambiguous error; inspect
+a new screenshot first. Local-backend commands below retain their original behavior.
 
 ## Prerequisites
 

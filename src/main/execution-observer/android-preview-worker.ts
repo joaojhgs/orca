@@ -16,6 +16,12 @@ import {
 } from '../emulator/android/android-input-commands'
 import { readAndroidScreenSize } from '../emulator/android/android-screen-size'
 import { androidNaturalOrientation } from '../emulator/android/android-input-mapping'
+import {
+  captureAndroidLogcat,
+  launchAndroidApp,
+  setAndroidPermission
+} from '../emulator/android/android-capability-operations'
+import { ensureAdbOk } from '../emulator/android/android-adb-result'
 import { captureAndroidScreenshot } from '../emulator/android/android-screenshot'
 
 export function isApprovedAndroidDevice(
@@ -83,6 +89,42 @@ export async function observeAndroidPreview(request: AndroidPreviewRequest) {
       throw new Error('Android screenshot is too large')
     }
     return { pngBase64 }
+  }
+  if (action.kind === 'ax') {
+    const dump = `/sdcard/orca-window-${process.pid}.xml`
+    try {
+      ensureAdbOk(
+        await runner(sdk.adb, ['-s', device.serial, 'shell', 'uiautomator', 'dump', dump]),
+        'uiautomator dump'
+      )
+      const xml = ensureAdbOk(
+        await runner(sdk.adb, ['-s', device.serial, 'shell', 'cat', dump]),
+        'read ui dump'
+      ).stdout
+      return { xml }
+    } finally {
+      await runner(sdk.adb, ['-s', device.serial, 'shell', 'rm', '-f', dump])
+    }
+  }
+  if (action.kind === 'logcat') {
+    return {
+      entries: await captureAndroidLogcat(runner, sdk, device.serial, { lines: action.lines })
+    }
+  }
+  if (action.kind === 'launch') {
+    await launchAndroidApp(runner, sdk, device.serial, action.package, action.activity)
+    return { ok: true as const }
+  }
+  if (action.kind === 'permissions') {
+    await setAndroidPermission(
+      runner,
+      sdk,
+      device.serial,
+      action.op,
+      action.package,
+      action.permission
+    )
+    return { ok: true as const }
   }
   if (action.kind === 'button') {
     await androidButton(runner, sdk, device.serial, action.name)

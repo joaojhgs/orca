@@ -10,9 +10,9 @@ export const EMULATOR_COMMAND_SPECS: CommandSpec[] = [
   },
   {
     path: ['emulator', 'devices'],
-    summary: 'List all emulator devices/AVDs across iOS and Android',
-    usage: 'orca emulator devices [--worktree <selector>] [--json]',
-    allowedFlags: [...GLOBAL_FLAGS, 'worktree']
+    summary: 'List local devices and approved Android devices on connected SSH hosts',
+    usage: 'orca emulator devices [--local-only] [--worktree <selector>] [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'worktree', 'local-only']
   },
   {
     path: ['emulator', 'attach'],
@@ -110,6 +110,12 @@ export const EMULATOR_COMMAND_SPECS: CommandSpec[] = [
     path: ['emulator', 'ax'],
     summary: 'Dump the accessibility tree (Android uiautomator; iOS serve-sim AX, frames 0..1)',
     usage: 'orca emulator ax [--device <id>] [--worktree <selector>] [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'device', 'emulator', 'worktree']
+  },
+  {
+    path: ['emulator', 'screenshot'],
+    summary: 'Capture a device screenshot through its owning host',
+    usage: 'orca emulator screenshot [--device <id>] [--worktree <selector>] --json',
     allowedFlags: [...GLOBAL_FLAGS, 'device', 'emulator', 'worktree']
   },
   {

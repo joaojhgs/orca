@@ -30,6 +30,7 @@ export const CLI_BOOLEAN_FLAGS = new Set([
   'json',
   'latest-json',
   'local',
+  'local-only',
   'messages',
   'me',
   'mobile',

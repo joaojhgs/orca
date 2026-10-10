@@ -12,9 +12,42 @@ export const AndroidPreviewApproval = z
   .strict()
 
 const Serial = z.string().min(1).max(256)
+const Package = z
+  .string()
+  .regex(/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/)
+  .max(256)
 export const AndroidPreviewAction = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('list') }).strict(),
   z.object({ kind: z.literal('screenshot'), serial: Serial }).strict(),
+  z.object({ kind: z.literal('ax'), serial: Serial }).strict(),
+  z
+    .object({
+      kind: z.literal('logcat'),
+      serial: Serial,
+      lines: z.number().int().min(1).max(2000).default(200)
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('launch'),
+      serial: Serial,
+      package: Package,
+      activity: z
+        .string()
+        .regex(/^[A-Za-z_.][A-Za-z0-9_.$]*$/)
+        .max(256)
+        .optional()
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('permissions'),
+      serial: Serial,
+      op: z.enum(['grant', 'revoke']),
+      package: Package,
+      permission: Package
+    })
+    .strict(),
   z
     .object({
       kind: z.literal('tap'),
@@ -75,5 +108,23 @@ export const AndroidPreviewResult = z.union([
       .max(128)
   }),
   z.object({ pngBase64: z.string().max(ANDROID_PREVIEW_MAX_BASE64_CHARACTERS) }),
+  z.object({
+    xml: z
+      .string()
+      .min(1)
+      .max(256 * 1024)
+  }),
+  z.object({
+    entries: z
+      .array(
+        z.object({
+          timestamp: z.string().max(100).optional(),
+          level: z.string().max(10).optional(),
+          tag: z.string().max(4096).optional(),
+          message: z.string().max(256 * 1024)
+        })
+      )
+      .max(2000)
+  }),
   z.object({ ok: z.literal(true) })
 ])

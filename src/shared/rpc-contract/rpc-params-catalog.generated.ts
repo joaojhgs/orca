@@ -592,6 +592,7 @@ import {
   SkillUploadChunkRequestSchema,
   SkillUploadCommitRequestSchema
 } from '../skill-upload-session-contract'
+import { ComputerDesktopActionParams } from '../vnc-agent-contract'
 
 // Why: the host parses params with these schemas, so a client that matches this map
 // matches the dispatcher. Clients must import it for types only — parsing a params
@@ -780,6 +781,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'clipboard.startImageUpload': StartImageUpload,
   'computer.capabilities': ComputerCapabilitiesParams,
   'computer.click': Click,
+  'computer.desktopAction': ComputerDesktopActionParams,
   'computer.desktopStreamTicket': ComputerDesktopStreamTicketParams,
   'computer.desktopTargets': ComputerDesktopTargetsParams,
   'computer.drag': DragOfComputerSchemasParams,

@@ -16,6 +16,7 @@ import {
   printResult
 } from '../format'
 import { getComputerCommandTarget } from '../selectors'
+import { VNC_AGENT_HANDLERS } from './vnc-agent'
 import {
   getComputerActionObserveFlags,
   getComputerObserveFlags,
@@ -30,6 +31,7 @@ import {
 } from './computer-action-flags'
 
 export const COMPUTER_HANDLERS: Record<string, CommandHandler> = {
+  ...VNC_AGENT_HANDLERS,
   'computer capabilities': async ({ client, json }) => {
     const result = await client.call<ComputerProviderCapabilities>('computer.capabilities', {})
     printResult(result, json, formatComputerCapabilities)

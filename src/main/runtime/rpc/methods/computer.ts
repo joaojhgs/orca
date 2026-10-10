@@ -7,6 +7,8 @@ import {
   resetComputerSidecarForTest
 } from '../../../computer/sidecar-client'
 import { defineMethod } from '../core'
+import { ComputerDesktopActionParams } from '../../../../shared/vnc-agent-contract'
+import { performVncAgentAction } from '../../../computer/vnc-agent-control'
 import { listDesktopVncTargets } from '../../../computer/desktop-vnc-targets'
 import {
   createDesktopVncStreamTicket,
@@ -39,6 +41,12 @@ export function resetComputerSessionsForTest(): void {
 }
 
 export const COMPUTER_METHODS = [
+  defineMethod({
+    name: 'computer.desktopAction',
+    params: ComputerDesktopActionParams,
+    handler: async (params, { signal }) =>
+      performVncAgentAction(params.desktopId, params.action, signal)
+  }),
   defineMethod({
     name: 'computer.desktopStreamTicket',
     params: ComputerDesktopStreamTicketParams,

@@ -12,6 +12,39 @@ const COMPUTER_ACTION_FLAGS = [
 
 export const COMPUTER_COMMAND_SPECS: CommandSpec[] = [
   {
+    path: ['computer', 'desktops'],
+    summary: 'Discover approved reachable VNC desktops across connected hosts',
+    usage: 'orca computer desktops [--json]',
+    allowedFlags: [...GLOBAL_FLAGS]
+  },
+  {
+    path: ['computer', 'desktop-screenshot'],
+    summary: 'Capture an approved VNC desktop through the Orca controller',
+    usage: 'orca computer desktop-screenshot --desktop <id> --json',
+    allowedFlags: [...GLOBAL_FLAGS, 'desktop']
+  },
+  {
+    path: ['computer', 'desktop-input'],
+    summary: 'Send validated pixel-based input to an approved controllable VNC desktop',
+    usage:
+      'orca computer desktop-input --desktop <id> --action <move|click|scroll|drag|key|type> [--x <px> --y <px>] [--to-x <px> --to-y <px>] [--key <chord> | --text <text>] [--button <left|middle|right>] [--count <n>] [--direction <up|down|left|right>] [--steps <n>] [--json]',
+    allowedFlags: [
+      ...GLOBAL_FLAGS,
+      'desktop',
+      'action',
+      'x',
+      'y',
+      'to-x',
+      'to-y',
+      'key',
+      'text',
+      'button',
+      'count',
+      'direction',
+      'steps'
+    ]
+  },
+  {
     path: ['computer', 'capabilities'],
     summary: 'Show computer-use provider capabilities',
     usage: 'orca computer capabilities [--json]',

@@ -111,6 +111,42 @@ describe('controller Android SSH routing', () => {
     ).resolves.toEqual({ handled: true, result: { ok: true } })
     expect(mocks.observe).not.toHaveBeenCalled()
   })
+  it('proxies accessibility, launch and bounded logs without local ADB', async () => {
+    mocks.observe.mockResolvedValue({
+      xml: '<hierarchy><node text="remote" bounds="[0,0][100,50]"/></hierarchy>'
+    })
+    const ax = await dispatchSshAndroidPreview('emulator.ax', { device: deviceId })
+    expect(ax).toMatchObject({ handled: true, result: { children: [{ text: 'remote' }] } })
+    mocks.observe.mockResolvedValue({ entries: [{ message: 'remote log' }] })
+    await expect(
+      dispatchSshAndroidPreview('emulator.logcat', { device: deviceId, lines: 30 })
+    ).resolves.toEqual({ handled: true, result: [{ message: 'remote log' }] })
+    mocks.observe.mockResolvedValue({ ok: true })
+    await dispatchSshAndroidPreview('emulator.launch', {
+      device: deviceId,
+      package: 'com.example.app'
+    })
+    expect(mocks.observe).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        action: { kind: 'launch', serial: 'USB123', package: 'com.example.app' }
+      }),
+      expect.anything()
+    )
+  })
+  it('rejects shell injection, global permission reset and excessive logs before dispatch', async () => {
+    for (const params of [{ package: 'com.example.app;id' }, { package: '-p' }]) {
+      await expect(
+        dispatchSshAndroidPreview('emulator.launch', { device: deviceId, ...params })
+      ).rejects.toThrow()
+    }
+    await expect(
+      dispatchSshAndroidPreview('emulator.permissions', { device: deviceId, op: 'reset' })
+    ).rejects.toThrow()
+    await expect(
+      dispatchSshAndroidPreview('emulator.logcat', { device: deviceId, lines: 2001 })
+    ).rejects.toThrow()
+    expect(mocks.observe).not.toHaveBeenCalled()
+  })
   it('refuses a result if policy is revoked during the request', async () => {
     mocks.observe.mockImplementation(async () => {
       writePolicy(false)

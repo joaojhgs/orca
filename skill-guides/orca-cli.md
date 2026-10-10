@@ -251,6 +251,17 @@ deliver the file locally if they decline.
 
 The `artifacts` commands, and the separate default-off permission for publishing installed skills, are in `references/publishing.md`. Load it before publishing either kind of link; a skill folder can hold scripts, configuration, or credentials.
 
+## Distributed device control
+
+Connected agents can use the controller's approved desktop and Android device
+proxies even when their execution host has no VPN, VNC client, or ADB installation.
+Use `ORCA computer desktops --json` for reachable approved VNC inventory and
+`ORCA emulator devices --json` for Android inventory. Read the version-matched
+`computer-use` or `orca-emulator-android` guide before screenshots or input.
+VNC uses integer screenshot pixels; Android uses normalized 0..1 coordinates.
+View-only approvals, host disconnection, and policy revocation are enforced at the
+controller; device discovery does not grant access to any additional ports or hosts.
+
 ## Built-In Browser
 
 The built-in browser is the tab surface embedded in Orca and scoped to a worktree. It is not Chrome, Safari, or Orca's own app UI. For external Chrome/Safari/webviews or Orca app chrome/settings, use the Computer Use skill/tool only when the task requires OS/window-level control. Use `orca-cli` for Orca's embedded pages and a page-automation tool such as Playwright or CDP for external pages. Desktop control asked for by name is `ORCA computer ...`, never a browser command.

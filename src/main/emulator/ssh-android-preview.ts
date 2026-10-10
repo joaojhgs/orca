@@ -14,6 +14,7 @@ import {
 import { readSshPreviewPolicy } from '../computer/ssh-preview-policy'
 import type { EmulatorDevice } from './backends/emulator-backend'
 import { mapWithConcurrency } from '../../shared/map-with-concurrency'
+import { parseUiAutomatorXml } from './android/uiautomator-tree'
 
 const PREFIX = 'ssh-adb:'
 const Tuple = z.tuple([z.string().min(1).max(256), z.string().min(1).max(256)])
@@ -137,6 +138,11 @@ type AndroidCommandParams = {
   name?: string
   orientation?: string
   points?: unknown
+  lines?: number
+  package?: string
+  activity?: string
+  op?: string
+  permission?: string
 }
 
 export async function dispatchSshAndroidPreview(method: string, params: AndroidCommandParams) {
@@ -219,7 +225,20 @@ export async function dispatchSshAndroidPreview(method: string, params: AndroidC
     return { handled: true as const, result: { ok: true } }
   }
   const kind = method.slice('emulator.'.length)
-  if (!['screenshot', 'tap', 'gesture', 'type', 'button', 'rotate'].includes(kind)) {
+  if (
+    ![
+      'screenshot',
+      'tap',
+      'gesture',
+      'type',
+      'button',
+      'rotate',
+      'ax',
+      'logcat',
+      'launch',
+      'permissions'
+    ].includes(kind)
+  ) {
     throw new Error('This Android command is not supported through SSH preview')
   }
   const action = AndroidPreviewAction.parse({
@@ -229,11 +248,24 @@ export async function dispatchSshAndroidPreview(method: string, params: AndroidC
     ...(kind === 'gesture' ? { points: params.points } : {}),
     ...(kind === 'type' ? { text: params.text } : {}),
     ...(kind === 'button' ? { name: params.name } : {}),
-    ...(kind === 'rotate' ? { orientation: params.orientation } : {})
+    ...(kind === 'rotate' ? { orientation: params.orientation } : {}),
+    ...(kind === 'logcat' ? { lines: params.lines } : {}),
+    ...(kind === 'launch' ? { package: params.package, activity: params.activity } : {}),
+    ...(kind === 'permissions'
+      ? { op: params.op, package: params.package, permission: params.permission }
+      : {})
   })
   const { result } = await observe(targetId, action)
   if (stream) {
     assertActiveAuthority(stream)
   }
-  return { handled: true as const, result }
+  return {
+    handled: true as const,
+    result:
+      'xml' in result
+        ? parseUiAutomatorXml(result.xml)
+        : 'entries' in result
+          ? result.entries
+          : result
+  }
 }

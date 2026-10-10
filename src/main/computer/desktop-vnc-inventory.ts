@@ -57,7 +57,7 @@ export async function listExecutionDesktopVncTargets() {
   }
 }
 
-export async function createDesktopVncStreamTicket(desktopId?: string) {
+export async function resolveDesktopVncAccess(desktopId?: string) {
   let target: DesktopVncTicketTarget
   let password: string | undefined
   if (desktopId?.startsWith('ssh-vnc:')) {
@@ -75,6 +75,11 @@ export async function createDesktopVncStreamTicket(desktopId?: string) {
     target = { id: local.id, port: local.port, viewOnly: local.viewOnly }
     password = readDesktopVncTargetPassword(local)
   }
+  return { target, password }
+}
+
+export async function createDesktopVncStreamTicket(desktopId?: string) {
+  const { target, password } = await resolveDesktopVncAccess(desktopId)
   const ticket = mintDesktopVncTicket(target)
   return {
     path: `/desktop-vnc?ticket=${encodeURIComponent(ticket)}`,
