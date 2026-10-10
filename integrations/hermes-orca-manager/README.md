@@ -62,3 +62,13 @@ the staged manager is granted authority.
 Native parallel mutation tool calls are serialized before durable step admission;
 read tools remain independent. A concurrent-call regression verifies distinct
 ordered steps rather than spurious input-mismatch failures.
+
+`stage-recovery-backup.sh` pauses only this integration's active memory services,
+captures the complete private profile and a PostgreSQL dump, and restores those
+services even on failure. Encrypt its output off-host; keep the recovery passphrase
+off the worker and out of Git. `verify-recovery-archive.sh` checks decrypted backup
+components in a private recovery directory, restores into a new disposable database,
+checks native session-database integrity, and never activates the recovered login or
+overwrites production. The encrypted round-trip restored 15 memory units and five
+native sessions on the worker. Recovery copies remain protected until custody
+migration succeeds; this is not a completed manager launch.

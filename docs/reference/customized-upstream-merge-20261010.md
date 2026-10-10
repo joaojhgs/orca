@@ -121,3 +121,13 @@ frozen install and generated-asset build (128 assets, 8,075,866 bytes). No produ
 deployment/restart yet. Manager-only loopback restrictions are now staged/enabled
 on the worker; repeated sandbox checks also deny local host SSH. Private profile/
 memory custody and service IPC remain pending before a grant or consumer launch.
+
+### Private recovery checkpoint — 2026-10-10
+
+Added operator-only full-profile/PostgreSQL backup and restore rehearsal scripts.
+Only the integration's own memory services are paused and restored; no user agent
+or Orca restart is involved. Encrypted off-host round-trip restored 15 memory units
+and five native sessions, with SQLite integrity checked and recovered OAuth never
+activated. A fresh disposable database was dropped; production was unchanged.
+Recovery credentials/artifacts are private, never repository inputs. Private
+profile custody and supported native packaging still precede manager activation.
