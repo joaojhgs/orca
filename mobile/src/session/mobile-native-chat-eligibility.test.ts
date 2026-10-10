@@ -94,7 +94,8 @@ describe('resolveMobileNativeChat', () => {
     expect(resolveMobileNativeChat(tab, true)).toEqual({
       agent,
       sessionId: 'real-session',
-      transcriptPath: null
+      transcriptPath: null,
+      connectionId: null
     })
     expect(resolveMobileNativeChat(tab, false)).toBeNull()
   })
@@ -152,7 +153,8 @@ describe('resolveMobileNativeChat', () => {
     ).toEqual({
       agent: 'codex',
       sessionId: 'structured-1',
-      transcriptPath: null
+      transcriptPath: null,
+      connectionId: null
     })
   })
 
@@ -166,7 +168,8 @@ describe('resolveMobileNativeChat', () => {
     ).toEqual({
       agent: 'claude',
       sessionId: 'structured-1',
-      transcriptPath: null
+      transcriptPath: null,
+      connectionId: null
     })
   })
 

@@ -246,3 +246,32 @@ Candidate code was mounted read-only into disposable checks, not installed over
 the live plugin. No manager grant/consumer, production Orca restart, native-mobile
 UI or completed multi-host deployment is claimed. Hermes remains on the coding
 worker, never the 1 GiB controller. Final deployment and acceptance remain pending.
+
+### Native mobile manager checkpoint — 2026-10-10 23:53 UTC
+
+Added a native Manager route from the selected paired controller's Home menu.
+It presents exact SSH/folder workspace choices, service-owned objective history,
+recorded questions and human replies. Read-only history survives revocation;
+consumer connectivity is distinct from confirmed progress. It never guesses a
+workspace or exports pairing/service credentials into conversation data.
+
+Native request recovery stores a validated receipt before dispatch and verifies
+write/delete readbacks. Its key hashes both controller and native pairing identity;
+concurrent requests cannot replace an unresolved receipt. Transport ambiguity
+retains the exact request ID across remounts. Invalid acknowledgements and stale
+logical-client generations are refused. Connected-to-connected migration remounts
+the presentation while preserving the original controller's durable receipt.
+
+Shared receipt schemas preserve browser behavior. Two pre-existing merged mobile
+chat nullability errors were repaired without changing transcript routing.
+The native production typecheck and production renderer typecheck pass, as do
+88 targeted mobile tests in eight files and 20 shared/browser tests in two files
+pass. All changed-source quality scans remain clean.
+
+This is source-only native UI, not a deployed mobile app or live manager. The
+page/WebView bridge intentionally refuses its placeholder identity for recovery;
+a negotiated native-owned receipt seam, OTA route integration and push deep-links
+remain required. Device validation, remaining notification/approval/placement
+gates, live service-grant/model/dispatch acceptance and final VPS deployment remain
+unfinished. Hermes stays on the coding worker. No production Orca, relay or user
+agent was restarted, stopped or replaced, and no manager consumer was started.

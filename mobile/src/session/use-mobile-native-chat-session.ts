@@ -74,7 +74,7 @@ export function useMobileNativeChatSession(args: {
     agent,
     sessionId,
     transcriptPath,
-    executionHostId
+    executionHostId ?? null
   ])
   // Pre-read status is a pure function of the props, so derive it rather than
   // letting the effect write it a commit later.

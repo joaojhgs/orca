@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { Alert, StyleSheet } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useOpenMobileAccounts } from '../accounts/use-open-mobile-accounts'
+import { useOpenHostStackRoute } from '../navigation/use-open-host-stack-route'
 import { getProvenCachedWorktrees } from '../cache/worktree-cache'
 import { ActionSheetModal } from '../components/ActionSheetModal'
 import { ConfirmModal } from '../components/ConfirmModal'
@@ -41,6 +42,7 @@ export function MobileHomeScreen() {
   const openMobileTasks = useOpenMobileTasks()
   const openMobileSession = useOpenMobileSession()
   const openMobileAccounts = useOpenMobileAccounts()
+  const openHostStackRoute = useOpenHostStackRoute()
   const disconnectHostClient = useDisconnectHostClient()
   const forgetHostClient = useForgetHostClient()
   const forceReconnectHost = useForceReconnect()
@@ -178,6 +180,8 @@ export function MobileHomeScreen() {
           onDiagnostics: (hostId) =>
             data.router.push({ pathname: '/connection-log', params: { hostId } }),
           onEdit: openMobileHostEdit,
+          onManager: (hostId) =>
+            openHostStackRoute(hostId, { name: '[hostId]/manager', params: { hostId } }),
           onRemove: (host) => setConfirmRemove(host)
         })}
         onClose={() => setActionTarget(null)}

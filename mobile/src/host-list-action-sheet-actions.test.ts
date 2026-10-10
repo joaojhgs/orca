@@ -5,6 +5,7 @@ import type { ConnectionState, HostProfile } from './transport/types'
 vi.mock('lucide-react-native', () => ({
   Activity: vi.fn(),
   Edit3: vi.fn(),
+  MessageSquare: vi.fn(),
   PowerOff: vi.fn(),
   RefreshCw: vi.fn()
 }))
@@ -37,6 +38,27 @@ function build(overrides: { state?: ConnectionState; hasEverConnected?: boolean 
 }
 
 describe('getHostListActionSheetActions', () => {
+  it('opens the selected controller’s manager only after the native modal closes', () => {
+    const onManager = vi.fn()
+    const onDismiss = vi.fn()
+    const actions = getHostListActionSheetActions({
+      host: HOST,
+      state: 'connected',
+      hasEverConnected: true,
+      onManager,
+      onDismiss,
+      onReconnect: vi.fn(),
+      onDisconnect: vi.fn(),
+      onDiagnostics: vi.fn(),
+      onEdit: vi.fn(),
+      onRemove: vi.fn()
+    })
+    const action = actions.find((entry) => entry.label === 'Manager')
+    expect(action?.closeBeforePress).toBe(true)
+    action?.onPress()
+    expect(onManager).toHaveBeenCalledWith(HOST.id)
+    expect(onDismiss).toHaveBeenCalled()
+  })
   // Why: these navigate or open a second drawer. Presenting while this sheet's native
   // Modal is still up freezes the whole screen on iOS — issue #8791.
   it.each(['Network diagnostics', 'Edit host', 'Remove'])(
