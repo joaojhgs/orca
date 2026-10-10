@@ -113,16 +113,7 @@ export type NewWorkspaceDraft = {
   compareBaseRef?: string
 }
 
-export type UiViewHistory =
-  | 'terminal'
-  | 'settings'
-  | 'tasks'
-  | 'activity'
-  | 'automations'
-  | 'space'
-  | 'skills'
-  | 'artifacts'
-  | 'mobile'
+export type UiViewHistory = TopLevelView
 
 export type UISliceCore = {
   sidebarOpen: boolean
@@ -161,6 +152,7 @@ export type UISliceCore = {
   previousViewBeforeAutomations: Exclude<UiViewHistory, 'automations'>
   previousViewBeforeSpace: Exclude<UiViewHistory, 'space'>
   previousViewBeforeSkills: Exclude<UiViewHistory, 'skills'>
+  previousViewBeforeManager: Exclude<UiViewHistory, 'manager'>
   previousViewBeforeMobile: Exclude<UiViewHistory, 'mobile'>
   previousViewBeforeArtifacts: Exclude<UiViewHistory, 'artifacts'>
   setActiveView: (view: UISliceCore['activeView']) => void
@@ -195,6 +187,8 @@ export type UISliceCore = {
   closeSpacePage: () => void
   openSkillsPage: () => void
   closeSkillsPage: () => void
+  openManagerPage: () => void
+  closeManagerPage: () => void
   pendingSkillShareId: string | null
   openSkillShare: (shareId: string) => void
   clearPendingSkillShare: () => void

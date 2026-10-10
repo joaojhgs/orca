@@ -132,6 +132,34 @@ activated. A fresh disposable database was dropped; production was unchanged.
 Recovery credentials/artifacts are private, never repository inputs. Private
 profile custody and supported native packaging still precede manager activation.
 
+### Browser manager conversation checkpoint — 2026-10-10 23:12 UTC
+
+The sidebar now opens an owner-routed Manager page over canonical service-owned
+Runs. It supports workspace-scoped objectives, paged conversation history,
+follow-ups and answers to recorded questions. Revoked managers retain readable
+history but cannot receive messages. Consumer connectivity is shown separately
+from task progress; accepted submissions are explicitly queued, not started.
+
+Typed shared readers reject absent acknowledgements and inconsistent pagination.
+Ambiguous writes persist their exact request receipt in tab-local recovery storage
+before sending; retry reuses the same identity after reload. Read-only navigation
+remains available while a receipt is unconfirmed. Storage failure prevents writes.
+Explicit desktop server selection never falls back to local when its peer is
+missing; existing skill discovery retains its legacy single-owner behavior.
+
+Validation: 93 targeted tests in nine files, production renderer typecheck, all
+seven changed-source quality scans and a real hidden Electron/backend journey
+pass. That journey creates an objective, posts a manager question, answers it,
+reloads persisted history and verifies read-only UI after revocation. It caught
+and fixed native window-control overlap. Standard shadcn conversation components
+reuse Orca Markdown and existing buttons; no styling gate was weakened.
+
+This remains source-only: native mobile manager navigation, automatic per-Run
+Hermes reports, live private-grant/event-consumer validation, the remaining human
+approval/notification/placement gates and final VPS deployment are not completed.
+Hermes and its private memory services remain on the coding worker, not the
+controller. No production Orca or user agent was restarted or stopped.
+
 ### Native custody and private IPC checkpoint — 2026-10-10
 
 Published the official pinned ARM PM payload with 49 compatible extras under

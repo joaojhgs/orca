@@ -48,6 +48,7 @@ const viewCases: { entry: WorktreeNavHistorySimpleViewEntry; label: string }[] =
   { entry: 'tasks', label: 'Tasks' },
   { entry: 'automations', label: 'Automations' },
   { entry: 'artifacts', label: 'Artifacts' },
+  { entry: 'manager', label: 'Manager' },
   { entry: 'skills', label: 'Skills' }
 ]
 
