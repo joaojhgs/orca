@@ -97,6 +97,40 @@ export class ManagerRunOwnership {
     })
   }
 
+  principalForRun(run: RunRow | undefined): string {
+    if (!run || !this.eventScope(run)) {
+      throw new ManagerAuthorityError(
+        'manager_consumer_fenced',
+        'Run is not a manager conversation'
+      )
+    }
+    const binding = bindingRow.parse(
+      this.db.prepare('SELECT * FROM manager_run_ownership WHERE run_id = ?').get(run.id)
+    )
+    return binding.principal_id
+  }
+
+  listConversations(offset = 0, limit = 50) {
+    const rows = this.db
+      .prepare(`SELECT o.*, r.objective FROM manager_run_ownership o
+      JOIN runs r ON r.id = o.run_id
+      WHERE r.consumer_generation = o.run_generation AND r.legacy = 0
+        AND r.coordinator_handle IS NULL AND r.coordinator_pane_key IS NULL
+        AND r.coordinator_orca_session_id IS NULL
+      ORDER BY r.created_at DESC, r.id LIMIT ? OFFSET ?`)
+      .all(limit + 1, offset)
+    const conversations = rows.slice(0, limit).map((value) => {
+      const row = bindingRow.extend({ objective: z.string() }).parse(value)
+      return {
+        runId: row.run_id,
+        principalId: row.principal_id,
+        objective: row.objective.slice(0, 2000),
+        scope: ManagerEventScopeSchema.parse(JSON.parse(row.scope_json))
+      }
+    })
+    return { conversations, nextOffset: rows.length > limit ? offset + limit : null }
+  }
+
   private serviceOwned(run: RunRow): boolean {
     return (
       run.coordinator_handle === null &&

@@ -11,7 +11,8 @@ export const MANAGER_ACTIONS = [
   'task:write',
   'worker:start',
   'worker:guide',
-  'question:answer'
+  'question:answer',
+  'conversation:write'
 ] as const
 
 export const ManagerPrincipalGrantSchema = z.strictObject({

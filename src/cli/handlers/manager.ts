@@ -10,6 +10,7 @@ import {
 } from '../../shared/manager-event-contract'
 import type { RuntimeStatus } from '../../shared/runtime-types'
 import { readManagerCredential } from '../manager-credential'
+import { managerConversationHandlers } from './manager-conversation'
 import {
   ManagerConsumerLeaseSchema,
   ManagerPrincipalGrantSchema
@@ -52,6 +53,7 @@ function operation(
 }
 
 export const MANAGER_HANDLERS: Record<string, CommandHandler> = {
+  ...managerConversationHandlers(operation, text),
   ...Object.fromEntries(
     ['placements', 'usage', 'resources'].map((name) => [
       `manager ${name}`,

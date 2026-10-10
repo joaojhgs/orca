@@ -18,6 +18,7 @@ OPERATIONS = frozenset({
     'worker-show', 'worker-read', 'run-create', 'task-create', 'worker-start', 'worker-guide',
     'question-answer', 'read', 'wait', 'snapshot', 'claim', 'renew', 'release', 'checkpoint',
     'check', 'ack',
+    'conversation-read', 'conversation-post',
 })
 
 

@@ -1,9 +1,11 @@
 import { GLOBAL_FLAGS, type CommandSpec } from '../args'
+import { MANAGER_CONVERSATION_COMMAND_SPECS } from './manager-conversation'
 
 const notes = [
   'Uses ORCA_MANAGER_TOKEN or a private ORCA_MANAGER_CREDENTIAL_FILE; never put a token in arguments.'
 ]
 export const MANAGER_COMMAND_SPECS: CommandSpec[] = [
+  ...MANAGER_CONVERSATION_COMMAND_SPECS,
   ...['placements', 'usage', 'resources'].map((name): CommandSpec => ({
     path: ['manager', name],
     summary: `Read scoped ${name} inventory without host or account administration`,

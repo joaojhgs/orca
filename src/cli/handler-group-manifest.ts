@@ -18,6 +18,8 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
       'manager run-create',
       'manager run-list',
       'manager run-show',
+      'manager conversation-read',
+      'manager conversation-post',
       'manager task-create',
       'manager task-list',
       'manager task-show',

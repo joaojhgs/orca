@@ -162,3 +162,28 @@ and user sessions are untouched by the rehearsal. Recovery copies are retained.
 27 standalone Python tests, the private broker contract, shell syntax checks
 and actual worker boundaries pass. No live manager grant/consumer, manager chat
 UI, final Orca deployment or multi-host acceptance is claimed complete.
+
+### Durable manager conversation foundation — 2026-10-10
+
+Paired browser/mobile owner operations can now create an objective in a scoped
+manager-owned Run, read its conversation and enqueue human follow-ups. Content
+and sequence ordering reuse existing Orca messages; the small provenance table
+prevents forged mailbox handles from becoming authenticated human/manager chat.
+Creation, message insertion, event wake-up and request receipts commit together.
+The service can read only its own conversations and needs a fenced lease plus
+explicit `conversation:write` to post. Its replies create no self-wake, and
+human question answers cannot cross Runs or be submitted twice. Owner history
+remains readable after revocation, but no further messages can be sent.
+
+The typed CLI and native Hermes tools expose bounded sequence pagination and
+conversation replies/questions, without granting owner/admin operations. Large
+bodies are byte-bounded below the CLI read budget. Browser/mobile owner catalogs
+publish safe manager state and owned conversations, never bearer/hash/consumer
+credentials. Workspace admission is shared with existing service Run creation;
+host ownership and folder-workspace behavior remain canonical.
+
+This is an RPC/CLI foundation, not a rendered or deployed conversation UI. Native
+Hermes remains on the coding worker; no manager grant/consumer was activated and
+neither Orca was restarted. Fresh controller sampling confirms global paging/IO
+pressure with available memory and no Orca cgroup OOM or service restart; it does
+not establish one definitive disconnect cause or justify changing limits blindly.

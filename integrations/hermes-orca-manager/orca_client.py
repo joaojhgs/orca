@@ -16,6 +16,7 @@ READ_OPERATIONS = {
     "task-show": ({"run", "task"}, set()),
     "worker-show": ({"run", "dispatch"}, set()),
     "worker-read": ({"run", "dispatch"}, {"cursor", "limit"}),
+    "conversation-read": ({"run"}, {"after-sequence", "limit"}),
 }
 WRITE_OPERATIONS = {
     "run-create": ({"workspace-id", "objective"}, set()),
@@ -23,6 +24,7 @@ WRITE_OPERATIONS = {
     "worker-start": ({"run", "task", "workspace-id", "agent"}, {"model", "effort", "retry-of"}),
     "worker-guide": ({"run", "dispatch", "body"}, set()),
     "question-answer": ({"run", "message", "body"}, set()),
+    "conversation-post": ({"run", "body"}, {"kind", "reply-to"}),
 }
 CONTROL_OPERATIONS = {
     "read": (set(), {"cursor", "limit"}),
@@ -54,7 +56,7 @@ def validated_arguments(operation, values, allowed):
             if not worker_cursor and not isinstance(value, dict):
                 raise ValueError("Invalid manager cursor or lease")
             value = json.dumps(value, separators=(",", ":"))
-        elif key in {"offset", "limit", "timeout-ms", "duration-ms"}:
+        elif key in {"offset", "limit", "timeout-ms", "duration-ms", "after-sequence"}:
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ValueError("Invalid manager numeric argument")
             value = str(value)

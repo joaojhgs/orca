@@ -23,9 +23,16 @@ the manager's own decision process, not workers.
 The `orca_manager_inspect` and `orca_manager_act` tools use typed public CLI
 commands. The model cannot supply tokens, leases, executable paths or raw shell
 commands, and cannot adopt user-owned Runs or invoke stop/merge/deploy/admin APIs.
-Queue objectives with `hermes orca-manager objective --request-id <id>
+Queue terminal objectives with `hermes orca-manager objective --request-id <id>
 --workspace-id <exact-id> --objective <text>`; the adapter first forwards them to
-idempotently created Orca-owned Runs. Its terminal is not yet a chat interface.
+idempotently created Orca-owned Runs. Its terminal is not a chat interface.
+The conversation RPC foundation now lets paired browser/mobile clients create
+an objective and send human messages to the same authoritative Run. Messages
+carry server-written provenance, bounded sequence pagination and atomic wake-up
+events. Service-only `conversation-read`/`conversation-post` operations require
+explicit ownership and, for writes, the `conversation:write` grant plus a fenced
+lease. Manager replies never wake themselves; question answers cannot cross Runs
+or be submitted twice. UI rendering and manager push links remain pending.
 
 The Linux worker memory deployment uses separate pinned Hindsight API and Hermes
 environments, a private PostgreSQL Unix socket and authenticated loopback API.
@@ -36,12 +43,12 @@ review before reuse on another machine.
 
 This is not a completed manager deployment. Source-level tests pass, and local
 Hindsight retain/recall/reflect passed on the worker, but the manager still needs
-live server deployment, OS-level isolation, conversation/UI integration and
+live server deployment, conversation/UI integration and
 multihost restart/revocation validation. No paid API fallback, cloud memory,
 third-party account connection or meeting recording is enabled by this plugin.
 
 `stage-worker-isolation.sh` stages a separate `hermes-manager` identity and a
-root-owned runtime snapshot without moving OAuth, issuing a grant or starting a
+root-owned native payload without issuing a grant or starting a
 manager. `hermes-orca-manager.service` exposes only synthetic Hermes paths inside
 its mount sandbox; the developer's real home and runtime sockets stay hidden.
 Only private state, caches and PM selections are writable; the payload is not. The worker-specific
@@ -56,8 +63,8 @@ loopback services are denied. Its own table never flushes the host firewall or
 affects other users. The production manager unit requires this guard. It is
 enabled on the worker and the boundary check also passed against local SSH.
 These checks do not prove an unbreakable sandbox. Private-profile custody,
-dedicated memory database role and service-only IPC remain required before
-the staged manager is granted authority.
+the dedicated memory database role and service-only IPC are now installed and
+tested as described below; a scoped manager grant has not been issued yet.
 
 ### Private native runtime and transport
 
@@ -74,7 +81,7 @@ clones all memory into a peer-authenticated database owned by separate
 `hermes-memory`, and switches only this integration's services. The memory API
 gets independent static keys, never OAuth. Developer access to both the new DB
 and protected rollback DB is revoked. Recovery artifacts remain root-private;
-the encrypted off-host recovery predates this custody move and is retained.
+both the original and refreshed encrypted off-host recovery copies are retained.
 API readiness does not prove model-backed reflection: validate it separately
 with `verify-private-memory.sh` in the manager's actual OS sandbox.
 

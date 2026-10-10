@@ -14,6 +14,8 @@ export const MANAGER_SERVICE_METHODS: ReadonlySet<string> = new Set([
   'manager.runCreate',
   'manager.runShow',
   'manager.runList',
+  'manager.conversationRead',
+  'manager.conversationPost',
   'manager.taskCreate',
   'manager.taskList',
   'manager.taskShow',

@@ -386,6 +386,14 @@ import {
   ManagedServerUpdate
 } from './managed-server-params'
 import {
+  ManagerConversationCreateParams,
+  ManagerConversationListParams,
+  ManagerConversationPostParams,
+  ManagerConversationReadParams,
+  ManagerConversationSendParams,
+  ManagerConversationShowParams
+} from './manager-conversation-params'
+import {
   ManagerCheckpointParams,
   ManagerClaimParams,
   ManagerEventsReadParams,
@@ -1124,6 +1132,12 @@ export const RPC_PARAMS_BY_METHOD = {
   'manager.consumerClaim': ManagerClaimParams,
   'manager.consumerRelease': ManagerReleaseParams,
   'manager.consumerRenew': ManagerRenewParams,
+  'manager.conversationCreate': ManagerConversationCreateParams,
+  'manager.conversationPost': ManagerConversationPostParams,
+  'manager.conversationRead': ManagerConversationReadParams,
+  'manager.conversationSend': ManagerConversationSendParams,
+  'manager.conversationShow': ManagerConversationShowParams,
+  'manager.conversationsList': ManagerConversationListParams,
   'manager.eventsCheckpoint': ManagerCheckpointParams,
   'manager.eventsRead': ManagerEventsReadParams,
   'manager.eventsWait': ManagerEventsWaitParams,
@@ -1131,6 +1145,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'manager.mailboxAck': ManagerMailboxAckParams,
   'manager.mailboxCheck': ManagerMailboxCheckParams,
   'manager.placements': ManagerSnapshotParams,
+  'manager.principalsList': ManagerConversationListParams,
   'manager.questionAnswer': ManagerQuestionAnswerParams,
   'manager.resources': ManagerSnapshotParams,
   'manager.revoke': ManagerRevokeParams,

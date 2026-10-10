@@ -2,6 +2,7 @@ import Database from '../../../sqlite/sync-database'
 import { ManagerEventJournal } from '../../manager/manager-event-journal'
 import { ManagerPrincipalStore } from '../../manager/manager-principal-store'
 import { ManagerRunOwnership } from '../../manager/manager-run-ownership'
+import { createManagerConversationTable } from '../../manager/manager-conversation-messages'
 import { attachOrchestrationDbMethods } from './attach-orchestration-db-methods'
 import { hardenOrchestrationDatabaseFiles } from './database-file-permissions'
 import { backfillFederatedStubHomeRuns } from './federation/federated-stub-home-run-backfill'
@@ -41,6 +42,7 @@ class OrchestrationDbCore {
     this.managerEvents = new ManagerEventJournal(this.db)
     this.managerPrincipals = new ManagerPrincipalStore(this.db)
     this.managerRuns = new ManagerRunOwnership(this.db)
+    createManagerConversationTable(this.db)
     createRunCoordinatorAddressTriggers(this.db)
     backfillFederatedStubHomeRuns(this.db)
     backfillStructuredWorkerOrcaSessionIds(this.db)

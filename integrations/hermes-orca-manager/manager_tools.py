@@ -7,7 +7,7 @@ from .manager_state import open_manager_state
 from .orca_client import OrcaClient, READ_OPERATIONS, WRITE_OPERATIONS, validated_arguments
 
 TEXT_KEYS = {"run", "task", "dispatch", "workspace-id", "objective", "spec", "title", "deps",
-             "parent", "agent", "model", "effort", "retry-of", "body", "message"}
+             "parent", "agent", "model", "effort", "retry-of", "body", "message", "kind", "reply-to"}
 MUTATION_LOCK = Lock()
 
 
@@ -22,8 +22,10 @@ def schema(name, description, operations):
     for key in sorted(keys):
         if key in TEXT_KEYS:
             properties[key] = {"type": "string", "minLength": 1, "maxLength": 32768}
-        elif key in {"offset", "limit"}:
+        elif key in {"offset", "limit", "after-sequence"}:
             properties[key] = {"type": "integer", "minimum": 0, "maximum": 10000 if key == "offset" else 200}
+            if key == "after-sequence":
+                properties[key]["maximum"] = 9007199254740991
         elif key == "cursor":
             properties[key] = {"anyOf": [{"type": "string", "minLength": 1, "maxLength": 2048}, {"type": "integer", "minimum": 0}]}
     return {"name": name, "description": description, "parameters": {
@@ -74,7 +76,7 @@ def register_manager_tools(ctx):
         ("orca_manager_inspect", False, READ_OPERATIONS,
          "Inspect approved placements, cached/stale-marked usage/resources, and explicitly addressed owned Runs, Tasks and workers. Contact loss is unverifiable, never process death."),
         ("orca_manager_act", True, WRITE_OPERATIONS,
-         "Create an owned Run/Task, start one bounded known-agent worker in an exact approved workspace, guide it or answer a recorded question. No user-owned Run adoption, shell/admin/stop/deploy/merge/security operations. The adapter owns lease and durable request IDs."),
+         "Create an owned Run/Task, start a bounded worker in an exact approved workspace, guide or answer it, or post a conversation reply/question. No user-owned Run adoption, shell/admin/stop/deploy/merge/security operations. The adapter owns leases and durable request IDs."),
     ]:
         ctx.register_tool(name=name, toolset="orca_manager", schema=schema(name, description, operations),
                           handler=lambda args, mutate=mutate, **kwargs: handle(ctx, args, mutate), check_fn=available)

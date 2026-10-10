@@ -7,6 +7,8 @@ import { MANAGER_WORKER_OBSERVATION_METHODS } from './manager-worker-observation
 import { MANAGER_WORKER_START_METHODS } from './manager-worker-start'
 import { MANAGER_MAILBOX_METHODS } from './manager-mailbox'
 import { MANAGER_PLACEMENT_METHODS } from './manager-placement'
+import { MANAGER_CONVERSATION_OWNER_METHODS } from './manager-conversation-owner'
+import { MANAGER_CONVERSATION_SERVICE_METHODS } from './manager-conversation-service'
 import { managerEventPolicyAllows } from '../../manager/manager-event-policy'
 import {
   ManagerCheckpointParams,
@@ -27,6 +29,8 @@ export const MANAGER_METHODS = [
   ...MANAGER_WORKER_START_METHODS,
   ...MANAGER_MAILBOX_METHODS,
   ...MANAGER_PLACEMENT_METHODS,
+  ...MANAGER_CONVERSATION_OWNER_METHODS,
+  ...MANAGER_CONVERSATION_SERVICE_METHODS,
   defineMethod({
     name: 'manager.issue',
     permission: 'host-admin',

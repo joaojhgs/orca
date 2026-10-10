@@ -85,6 +85,32 @@ export class ManagerPrincipalStore {
     )
   }
 
+  listPublic(offset = 0, limit = 50) {
+    const rows = this.db
+      .prepare(`SELECT * FROM manager_principals
+      ORDER BY created_at, id LIMIT ? OFFSET ?`)
+      .all(limit + 1, offset)
+    const principals = rows.slice(0, limit).map((value) => {
+      const row = principalRow.parse(value)
+      return {
+        id: row.id,
+        label: row.label,
+        createdAt: row.created_at,
+        expiresAt: row.expires_at,
+        actions: publicPrincipal(row).grant.actions,
+        state:
+          row.revoked_at !== null
+            ? ('revoked' as const)
+            : this.active(row)
+              ? ('active' as const)
+              : ('expired' as const),
+        consumerConnected:
+          this.active(row) && row.consumer_id !== null && row.lease_until > this.now()
+      }
+    })
+    return { principals, nextOffset: rows.length > limit ? offset + limit : null }
+  }
+
   authorize(id: string, action: ManagerAction): ManagerPrincipal {
     const principal = publicPrincipal(this.requireActive(id))
     if (!principal.grant.actions.includes(action)) {

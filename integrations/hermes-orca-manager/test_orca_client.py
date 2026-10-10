@@ -69,6 +69,19 @@ class ClientTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Unconfirmed"):
             self.client.inspect("usage", {})
 
+    def test_conversation_tools_are_scoped_typed_and_keep_the_lease_adapter_owned(self):
+        self.client.inspect("conversation-read", {"run": "owned", "after-sequence": 300, "limit": 20})
+        self.client.act("conversation-post", {"run": "owned", "body": "Need a human decision",
+            "kind": "question"}, lease={"generation": 1}, decision_id="durable-question", step=2)
+        first = self.calls[-1][0]
+        self.client.act("conversation-post", {"run": "owned", "body": "Need a human decision",
+            "kind": "question"}, lease={"generation": 2}, decision_id="durable-question", step=2)
+        second = self.calls[-1][0]
+        self.assertEqual(first[first.index("--request-id") + 1], second[second.index("--request-id") + 1])
+        for operation in ["conversation-create", "conversation-send", "principals-list"]:
+            with self.assertRaises(ValueError):
+                self.client.inspect(operation, {})
+
 
 if __name__ == "__main__":
     unittest.main()

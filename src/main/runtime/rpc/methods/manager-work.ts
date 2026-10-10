@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { defineMethod } from '../core'
-import { getConnectionExecutionHostId } from '../../../../shared/execution-host'
 import { managerMayObserve } from '../../../../shared/manager-event-contract'
 import {
   ManagerRunCreateParams,
@@ -9,7 +8,7 @@ import {
 } from '../../../../shared/rpc-contract/manager-params'
 import { ManagerAuthorityError } from '../../manager/manager-authority-error'
 import { requireManagerPrincipal } from '../../manager/manager-runtime-authority'
-import { managerWorkspaceScope } from '../../manager/manager-hook-scope'
+import { resolveManagerWorkspaceScope } from '../../manager/manager-workspace-authority'
 import { managerMutationReceipt } from '../../manager/manager-mutation-receipt'
 
 const runReceipt = z.strictObject({ runId: z.string() })
@@ -24,18 +23,7 @@ export const MANAGER_WORK_METHODS = [
       const db = runtime.getOrchestrationDb()
       const principal = requireManagerPrincipal(db, params.serviceToken, params.lease)
       db.managerPrincipals.withLease(params.lease, 'run:create', () => undefined)
-      const workspace = await runtime.showTerminalWorkspaceLaunchScope(`id:${params.workspaceId}`)
-      // Resolve ownership again after the asynchronous lookup; client host/project claims are not authority.
-      const scope = managerWorkspaceScope(
-        workspace.id,
-        getConnectionExecutionHostId(workspace.connectionId),
-        runtime.listRepos(),
-        runtime.listProjectHostSetups(),
-        runtime.listFolderWorkspaces()
-      )
-      if (workspace.id !== params.workspaceId || !scope) {
-        throw new ManagerAuthorityError('manager_forbidden', 'Workspace has no canonical owner')
-      }
+      const { workspace, scope } = await resolveManagerWorkspaceScope(runtime, params.workspaceId)
       return db.managerPrincipals.withLease(params.lease, 'run:create', () => {
         const grant = db.managerPrincipals.authorize(principal.id, 'run:create').grant.scope
         if (!managerMayObserve(grant, scope)) {
