@@ -22,7 +22,7 @@ async function withRfbServer(
     socket.on('error', () => {})
     socket.write(`RFB 003.00${version}\n`)
     socket.on('data', (data) => {
-      pending = Buffer.concat([pending, data])
+      pending = Buffer.concat([pending, typeof data === 'string' ? Buffer.from(data) : data])
       for (;;) {
         const length =
           phase === 'version'

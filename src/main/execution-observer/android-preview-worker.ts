@@ -1,4 +1,4 @@
-import { runProcess } from '../../shared/child-process/run-process'
+import { runProcess } from '@orca/process-host'
 import {
   ANDROID_PREVIEW_MAX_BASE64_CHARACTERS,
   type AndroidPreviewApproval,

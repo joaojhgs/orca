@@ -24,30 +24,6 @@ export function abortedClaudeRateLimitResult(): ProviderRateLimits {
   }
 }
 
-export function recordClaudeUsageAttempt(
-  state: ClaudeUsageAttemptState,
-  source: UsageRateLimitSource
-): UsageRateLimitSource[] {
-  if (!state.attemptedSources.includes(source)) {
-    state.attemptedSources.push(source)
-  }
-  return state.attemptedSources
-}
-
-export function withClaudeUsageMetadata(
-  limits: ProviderRateLimits,
-  metadata: UsageRateLimitMetadata
-): ProviderRateLimits {
-  return {
-    ...limits,
-    usageMetadata: {
-      ...limits.usageMetadata,
-      ...metadata,
-      attemptedSources: metadata.attemptedSources ?? limits.usageMetadata?.attemptedSources
-    }
-  }
-}
-
 export function makeClaudeUsageResult(
   status: ProviderRateLimits['status'],
   error: string | null,
@@ -105,38 +81,10 @@ export function warnClaudeUsageFetchFailure(
   })
 }
 
-export function mergeClaudeUsageWindows(
-  primary: ProviderRateLimits,
-  supplement: ProviderRateLimits | null
-): ProviderRateLimits {
-  if (!supplement) {
-    return primary
-  }
-  return {
-    ...primary,
-    session: primary.session ?? supplement.session,
-    weekly: primary.weekly ?? supplement.weekly,
-    fableWeekly: primary.fableWeekly ?? supplement.fableWeekly ?? null,
-    // Only OAuth reports the extra-usage cap; keep it when the CLI supplements windows.
-    extraUsage: primary.extraUsage ?? supplement.extraUsage ?? null
-  }
-}
-
-export function canSupplementClaudeOAuthUsage(input: {
-  oauthLimits: ProviderRateLimits
-  authPreparation?: ClaudeRuntimeAuthPreparation
-  allowUsagePanelSupplement: boolean
-}): boolean {
-  return Boolean(
-    input.allowUsagePanelSupplement &&
-    !input.authPreparation?.managedRefreshDeferredByLivePty &&
-    !input.oauthLimits.fableWeekly &&
-    (input.oauthLimits.session || input.oauthLimits.weekly)
-  )
-}
-
-export function isManagedClaudeAuth(
-  authPreparation: ClaudeRuntimeAuthPreparation | undefined
-): boolean {
-  return authPreparation?.provenance.startsWith('managed:') === true
+// Why plain: the profile/host reason is shown on the account row, not as raw text in usage.
+export function claudeUsageUnavailable(): ProviderRateLimits {
+  return makeClaudeUsageResult('error', 'Claude usage is unavailable right now.', {
+    failureKind: 'usage-unavailable',
+    attemptedSources: []
+  })
 }

@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('node:fs/promises', () => ({ readFile: mocks.readFile }))
 vi.mock('../ipc/ssh-active-relay-sessions', () => ({ activeSessions: mocks.sessions }))
 vi.mock('../ssh/ssh-relay-exec-command', () => ({ execCommand: mocks.exec }))
-vi.mock('../../shared/child-process/run-process', () => ({ runProcess: mocks.runProcess }))
+vi.mock('@orca/process-host', () => ({ runProcess: mocks.runProcess }))
 
 const { ExecutionObserverClient } = await import('./observer-client')
 

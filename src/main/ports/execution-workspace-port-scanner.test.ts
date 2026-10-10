@@ -24,6 +24,7 @@ const workspace = {
   repoId: 'remote',
   displayName: 'test',
   path: '/remote/project',
+  runsHere: false,
   connectionId: 'personal'
 }
 const scan = {
@@ -83,7 +84,15 @@ describe('execution-host port ownership', () => {
       pid: 45
     })
     expect(mocks.ports).toHaveBeenCalledWith(
-      [{ id: 'worktree', repoId: 'remote', displayName: 'test', path: '/remote/project' }],
+      [
+        {
+          id: 'worktree',
+          repoId: 'remote',
+          displayName: 'test',
+          path: '/remote/project',
+          runsHere: true
+        }
+      ],
       connection
     )
   })

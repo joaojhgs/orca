@@ -19,7 +19,8 @@ import { describeAiVaultScanError } from '../../../../shared/ai-vault-scan-error
 import { STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY } from '../../../../shared/protocol-version'
 import {
   assertLegacyAiVaultResumeAllowed,
-  projectStructuredAiVaultSessions
+  projectStructuredAiVaultSessions,
+  searchWithStructuredOwners
 } from '../../../ai-vault/structured-session-ownership'
 import { ensureStructuredAgentSessionHostUnlessRefused } from '../../structured-agent-session-host-refusal'
 import {
@@ -34,10 +35,15 @@ export { AiVaultListSessionsParams, AiVaultPrepareSessionResumeParams, AiVaultSe
 export const AI_VAULT_METHODS = [
   defineMethod({
     name: 'aiVault.searchSessions',
+    permission: 'workspace',
     params: AiVaultSearchSessionsParams,
-    handler: async (params, { clientKind }) => {
+    handler: async (params, { runtime, clientKind, clientCapabilities }) => {
       if (!params.executionHostScope || params.executionHostScope === 'local') {
-        return searchSessionService(params, clientKind ? 'relay' : 'runtime')
+        const response = searchSessionService(params, clientKind ? 'relay' : 'runtime')
+        return clientKind === undefined ||
+          clientCapabilities?.includes(STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY)
+          ? searchWithStructuredOwners(response, () => runtime.ensureStructuredAgentSessionHost())
+          : response
       }
       const result = await searchAiVaultSessionsByHost(params, params.executionHostScope)
       return result.kind === 'results' && clientKind
@@ -47,6 +53,7 @@ export const AI_VAULT_METHODS = [
   }),
   defineMethod({
     name: 'aiVault.searchStatus',
+    permission: 'workspace',
     params: AiVaultSearchStatusParams,
     handler: (params, { clientKind }) =>
       params.executionHostScope?.startsWith('ssh:')
@@ -55,6 +62,7 @@ export const AI_VAULT_METHODS = [
   }),
   defineMethod({
     name: 'aiVault.setSearchEnabled',
+    permission: 'settings-write',
     params: AiVaultSetSearchEnabledParamsSchema,
     handler: async (params, { runtime, clientKind, pairedDeviceId }) => {
       // Paired clients only: an in-process caller writes this host's own settings directly,
@@ -74,6 +82,7 @@ export const AI_VAULT_METHODS = [
   }),
   defineMethod({
     name: 'aiVault.resolveSessionTitles',
+    permission: 'workspace',
     params: AiVaultSessionTitlesParams,
     handler: (params, { runtime, signal }) =>
       params.executionHostScope?.startsWith('ssh:')
@@ -85,6 +94,7 @@ export const AI_VAULT_METHODS = [
   }),
   defineMethod({
     name: 'aiVault.listSessions',
+    permission: 'workspace',
     params: AiVaultListSessionsParams,
     handler: async (params, { runtime, clientKind, clientCapabilities }) => {
       await ensureStructuredAgentSessionHostUnlessRefused(() =>
@@ -109,18 +119,19 @@ export const AI_VAULT_METHODS = [
       }
       // Why: web clients consume this response directly (no parent-side retag),
       // so sessions must come back stamped as the runtime host they addressed.
-      const stamped = params.executionHostId
-        ? stampRuntimeOwnedSessions(result, params.executionHostId)
-        : result
-      return projectStructuredAiVaultSessions(
-        stamped,
+      const projected = projectStructuredAiVaultSessions(
+        result,
         clientKind === undefined ||
           (clientCapabilities?.includes(STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY) ?? false)
       )
+      return params.executionHostId
+        ? stampRuntimeOwnedSessions(projected, params.executionHostId)
+        : projected
     }
   }),
   defineMethod({
     name: 'aiVault.prepareSessionResume',
+    permission: 'workspace',
     params: AiVaultPrepareSessionResumeParams,
     handler: async (params, { runtime }) => {
       const requestedHost = parseExecutionHostId(params.executionHostId)
@@ -131,6 +142,7 @@ export const AI_VAULT_METHODS = [
       const args: AiVaultPrepareSessionResumeArgs = {
         agent: params.agent,
         ...(params.sessionId ? { sessionId: params.sessionId } : {}),
+        ...(params.fork ? { fork: true } : {}),
         filePath: params.filePath,
         codexHome: params.codexHome,
         // Why: the RPC executes on the transcript-owning host; never let a

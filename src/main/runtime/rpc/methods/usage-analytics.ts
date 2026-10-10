@@ -4,6 +4,7 @@ import { defineMethod } from '../core'
 export const USAGE_ANALYTICS_METHODS = [
   defineMethod({
     name: 'usage.analytics',
+    permission: 'workspace',
     params: UsageAnalyticsParams,
     handler: (params, { runtime, clientKind }) => {
       if (clientKind === 'mobile') {

@@ -4,6 +4,7 @@ import { defineMethod } from '../core'
 export const WORKSPACE_CLEANUP_METHODS = [
   defineMethod({
     name: 'workspaceCleanup.control',
+    permission: 'workspace',
     params: WorkspaceCleanupControlParams,
     handler: (params, { runtime, pairedDeviceId, clientId, signal, clientKind }) => {
       if (clientKind === 'mobile') {

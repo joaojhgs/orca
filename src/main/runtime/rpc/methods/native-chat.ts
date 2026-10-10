@@ -1,31 +1,18 @@
 import type { NativeChatMessage } from '../../../../shared/native-chat-types'
 import { resolveNativeChatTranscriptAgent } from '../../../../shared/native-chat-agent-support'
-import { parseExecutionHostId } from '../../../../shared/execution-host'
-import { resolveFilesystemRouteForHost } from '../../../providers/execution-host-provider-dispatch'
-import { getSshFilesystemProvider } from '../../../providers/ssh-filesystem-dispatch'
+import { isRemoteTranscriptHost, remoteTranscriptProvider } from './native-chat-transcript-host'
 import {
   readRemoteTranscriptTail,
   subscribeRemoteTranscript
 } from '../../../native-chat/remote-transcript-reader'
 
-function remoteTranscriptProvider(hostId: string) {
-  // Legacy clients spell the connection id without the ssh: prefix.
-  const legacy = getSshFilesystemProvider(hostId)
-  if (legacy) {
-    return legacy
-  }
-  if (!parseExecutionHostId(hostId)) {
-    return null
-  }
-  const route = resolveFilesystemRouteForHost(hostId)
-  return route.kind === 'ssh' ? route.provider : null
-}
 import {
   readNativeChatTranscriptTail,
   subscribeNativeChatTranscript,
   type NativeChatTranscriptSubscription,
   type SubscribeNativeChatTranscriptArgs
 } from '../../../native-chat/transcript-watch'
+import { nativeChatTranscriptPathOnExecutionHost } from '../../../native-chat/ssh-transcript-path'
 import { defineMethod, defineStreamingMethod, type RpcContext } from '../core'
 import { sanitizeNativeChatRpcBlock } from './native-chat-rpc-block-sanitize'
 import {
@@ -96,13 +83,14 @@ function pageForClient(
 export const NATIVE_CHAT_METHODS = [
   defineMethod({
     name: 'nativeChat.readSession',
+    permission: 'workspace',
     params: NativeChatSession,
-    handler: async (params, { clientKind, signal }) => {
+    handler: async (params, { runtime, clientKind, signal }) => {
       const limit = params.limit ?? MOBILE_NATIVE_CHAT_DEFAULT_WINDOW
-      const remoteProvider = params.executionHostId
+      const remoteProvider = isRemoteTranscriptHost(params.executionHostId)
         ? remoteTranscriptProvider(params.executionHostId)
         : null
-      const result = params.executionHostId
+      const result = isRemoteTranscriptHost(params.executionHostId)
         ? remoteProvider && params.transcriptPath
           ? await readRemoteTranscriptTail({
               provider: remoteProvider,
@@ -116,7 +104,11 @@ export const NATIVE_CHAT_METHODS = [
             {
               agent: params.agent,
               sessionId: params.sessionId,
-              transcriptPath: params.transcriptPath,
+              transcriptPath: nativeChatTranscriptPathOnExecutionHost(
+                runtime.getAgentProviderSessionRows(),
+                params.sessionId,
+                params.transcriptPath
+              ),
               limit,
               beforeOffset: params.beforeOffset
             },
@@ -139,6 +131,7 @@ export const NATIVE_CHAT_METHODS = [
   }),
   defineStreamingMethod({
     name: 'nativeChat.subscribe',
+    permission: 'workspace',
     params: NativeChatSession,
     handler: async (params, { runtime, connectionId, clientKind, signal }, emit) => {
       if (signal?.aborted) {
@@ -179,7 +172,7 @@ export const NATIVE_CHAT_METHODS = [
       if (closed) {
         return
       }
-      if (params.executionHostId) {
+      if (isRemoteTranscriptHost(params.executionHostId)) {
         const provider = remoteTranscriptProvider(params.executionHostId)
         if (!provider || !params.transcriptPath) {
           emit({
@@ -227,7 +220,11 @@ export const NATIVE_CHAT_METHODS = [
       const subscribeArgs: SubscribeNativeChatTranscriptArgs = {
         agent: params.agent,
         sessionId: params.sessionId,
-        transcriptPath: params.transcriptPath,
+        transcriptPath: nativeChatTranscriptPathOnExecutionHost(
+          runtime.getAgentProviderSessionRows(),
+          params.sessionId,
+          params.transcriptPath
+        ),
         initialLimit: limit,
         onInitialSnapshot: (messages, hasMore, beforeOffset, error, lifecycle) => {
           if (closed) {
@@ -306,6 +303,7 @@ export const NATIVE_CHAT_METHODS = [
   }),
   defineMethod({
     name: 'nativeChat.unsubscribe',
+    permission: 'workspace',
     params: NativeChatUnsubscribe,
     handler: async (params, { runtime, connectionId }) => {
       const connection = connectionId ?? 'local'

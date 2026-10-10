@@ -338,7 +338,8 @@ export function UsageRosterPanel({
               mode={statusBarUsageMode}
             />
           )
-          if (showSignInAction) {
+          const custom = renderRow?.(p, rowNode)
+          if (showSignInAction && !custom) {
             return (
               <DropdownMenuItem
                 key={p.provider}
@@ -349,7 +350,6 @@ export function UsageRosterPanel({
               </DropdownMenuItem>
             )
           }
-          const custom = renderRow?.(p, rowNode)
           return (
             <React.Fragment key={p.provider}>
               {custom || (

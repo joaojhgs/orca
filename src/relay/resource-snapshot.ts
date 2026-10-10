@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import os from 'node:os'
-import { runProcess } from '../shared/child-process/run-process'
+import { runProcess } from '@orca/process-host'
 import type { HostMemory, SessionMemory } from '../shared/process-stats-types'
 import { parseLinuxAvailableMemory } from '../main/memory/host-memory'
 

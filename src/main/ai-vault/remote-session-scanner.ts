@@ -56,6 +56,7 @@ export async function scanRemoteAiVaultSessions(args: {
   provider: RemoteSessionFilesystemProvider
   executionHostId: ExecutionHostId
   remoteHome: string
+  kiroHomeDir?: string
   hostPlatform: RemoteHostPlatform
   includeAntigravityIdeSessions?: boolean
   limit?: number
@@ -88,7 +89,8 @@ export async function scanRemoteAiVaultSessions(args: {
           ...remoteSessionSources(
             args.remoteHome,
             args.hostPlatform,
-            args.includeAntigravityIdeSessions
+            args.includeAntigravityIdeSessions,
+            args.kiroHomeDir
           ),
           ...remoteOpenCodeSources(
             provider.openCode,

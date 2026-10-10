@@ -7,6 +7,7 @@ import {
   type SshRemoteRuntime,
   type SshTarget
 } from '../../../../shared/ssh-types'
+import { isRelayCliControlEnabled } from '../../../../shared/ssh-relay-cli-policy'
 
 /** `auto` stores nothing, so the host follows DEFAULT_SSH_REMOTE_RUNTIME when it flips. */
 export type SshRemoteRuntimeChoice = 'auto' | SshRemoteRuntime
@@ -25,6 +26,7 @@ export type EditingTarget = {
   relayGracePeriodSeconds: string
   relayKeepAliveUntilReset: boolean
   remoteRuntime: SshRemoteRuntimeChoice
+  allowRemoteCliControl: boolean
 }
 
 export const EMPTY_FORM: EditingTarget = {
@@ -40,7 +42,8 @@ export const EMPTY_FORM: EditingTarget = {
   systemSshConnectionReuse: true,
   relayGracePeriodSeconds: String(DEFAULT_BOUNDED_SSH_RELAY_GRACE_PERIOD_SECONDS),
   relayKeepAliveUntilReset: DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS === 0,
-  remoteRuntime: 'auto'
+  remoteRuntime: 'auto',
+  allowRemoteCliControl: false
 }
 
 export function getEditingTargetForSshTarget(target: SshTarget): EditingTarget {
@@ -65,7 +68,8 @@ export function getEditingTargetForSshTarget(target: SshTarget): EditingTarget {
     ),
     relayKeepAliveUntilReset:
       (target.relayGracePeriodSeconds ?? DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS) === 0,
-    remoteRuntime: target.remoteRuntime ?? 'auto'
+    remoteRuntime: target.remoteRuntime ?? 'auto',
+    allowRemoteCliControl: isRelayCliControlEnabled(target)
   }
 }
 
@@ -173,7 +177,8 @@ export function hasAdvancedConnectionValues(form: EditingTarget): boolean {
     form.proxyCommand.trim().length > 0 ||
     form.jumpHost.trim().length > 0 ||
     !form.systemSshConnectionReuse ||
-    form.remoteRuntime !== 'auto'
+    form.remoteRuntime !== 'auto' ||
+    form.allowRemoteCliControl
   )
 }
 
@@ -191,7 +196,8 @@ export function isSshTargetFormDirty(current: EditingTarget, baseline: EditingTa
     current.systemSshConnectionReuse !== baseline.systemSshConnectionReuse ||
     current.relayGracePeriodSeconds !== baseline.relayGracePeriodSeconds ||
     current.relayKeepAliveUntilReset !== baseline.relayKeepAliveUntilReset ||
-    current.remoteRuntime !== baseline.remoteRuntime
+    current.remoteRuntime !== baseline.remoteRuntime ||
+    current.allowRemoteCliControl !== baseline.allowRemoteCliControl
   )
 }
 

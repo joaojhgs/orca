@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ProviderRateLimits, RateLimitBucket } from '../../shared/rate-limit-types'
-import { runProcess } from '../../shared/child-process/run-process'
+import { runProcess } from '@orca/process-host'
 import { record } from './credential-discovery'
 
 export function parseAntigravityUsageReport(value: unknown): ProviderRateLimits | null {

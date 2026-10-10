@@ -133,19 +133,22 @@ function subscribeHandler(): (
 }
 
 function streamingContext(clientKind: RpcContext['clientKind']): RpcContext {
-  return {
-    runtime: {
-      registerSubscriptionCleanup: vi.fn(),
-      cleanupSubscription: vi.fn(),
-      cleanupSubscriptionsByPrefix: vi.fn()
-    } as unknown as RpcContext['runtime'],
-    connectionId: 'connection-1',
-    clientKind
+  const runtime = {
+    getAgentProviderSessionRows: () => [],
+    registerSubscriptionCleanup: vi.fn(),
+    cleanupSubscription: vi.fn(),
+    cleanupSubscriptionsByPrefix: vi.fn()
   }
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: native chat handlers use only the hook rows and these subscription members.
+  const handlerRuntime = runtime as unknown as RpcContext['runtime']
+  return { runtime: handlerRuntime, connectionId: 'connection-1', clientKind }
 }
 
 function ctxWith(clientKind: RpcContext['clientKind']): RpcContext {
-  return { runtime: {} as RpcContext['runtime'], clientKind }
+  const runtime = { getAgentProviderSessionRows: () => [] }
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: readSession uses only the hook rows.
+  const handlerRuntime = runtime as unknown as RpcContext['runtime']
+  return { runtime: handlerRuntime, clientKind }
 }
 
 function firstOutput(result: unknown): string {
@@ -162,6 +165,19 @@ function activeWatcherArgs(): NonNullable<typeof watcher.args> {
 }
 
 describe('nativeChat.readSession clientKind truncation gating', () => {
+  it('reads a browser-addressed runtime transcript on the serving host', async () => {
+    cachedResult.value.messages = [makeTextMessage('serving runtime')]
+    const result = await readSessionHandler()(
+      {
+        agent: 'claude',
+        sessionId: 's',
+        executionHostId: 'runtime:controller'
+      },
+      ctxWith('runtime')
+    )
+    expect(result).toMatchObject({ messages: cachedResult.value.messages })
+  })
+
   it('passes request cancellation to transcript resolution', async () => {
     const controller = new AbortController()
     const context = { ...ctxWith('runtime'), signal: controller.signal }

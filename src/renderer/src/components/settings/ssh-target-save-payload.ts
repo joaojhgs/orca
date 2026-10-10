@@ -72,7 +72,8 @@ export function buildSshTargetSavePayload(form: EditingTarget): SshTargetSavePay
     ...(proxyCommand ? { proxyCommand } : {}),
     ...(jumpHost ? { jumpHost } : {}),
     ...(systemSshConnectionReuse === false ? { systemSshConnectionReuse } : {}),
-    ...(remoteRuntime ? { remoteRuntime } : {})
+    ...(remoteRuntime ? { remoteRuntime } : {}),
+    allowRemoteCliControl: form.allowRemoteCliControl
   }
 
   return {
@@ -89,6 +90,7 @@ export function buildSshTargetSavePayload(form: EditingTarget): SshTargetSavePay
         jumpHost,
         systemSshConnectionReuse,
         remoteRuntime,
+        allowRemoteCliControl: form.allowRemoteCliControl,
         source: 'manual'
       }
     }

@@ -44,6 +44,8 @@ export function createZcodePlanCredentialsApi(): PreloadApi['zcodePlanCredential
   }
 }
 
+// Why: the paired server owns Claude and Codex accounts; list, select and remove
+// use its accounts.* RPCs. Sign-in needs the host's own login flow.
 export function createClaudeAccountsApi(): PreloadApi['claudeAccounts'] {
   return {
     list: async () =>
@@ -55,6 +57,7 @@ export function createClaudeAccountsApi(): PreloadApi['claudeAccounts'] {
     add: (args) => control({ operation: 'claude.add', ...args }, 600_000),
     cancelPendingLogin: () => control({ operation: 'claude.cancelLogin' }),
     reauthenticate: (args) => control({ operation: 'claude.reauthenticate', ...args }, 600_000),
+    waitForSignInLink: () => Promise.resolve(null),
     remove: (args) => callRuntimeResult('accounts.removeClaude', args),
     select: (args) => control({ operation: 'claude.select', ...args })
   }

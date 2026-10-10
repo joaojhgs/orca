@@ -1,9 +1,9 @@
 import { spawn } from 'node:child_process'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { spawnProcess } from '../../../shared/child-process/run-process'
+import { spawnProcess } from '@orca/process-host'
 import { captureAndroidScreenshot, extractPngFromAdbOutput } from './android-screenshot'
 
-vi.mock('../../../shared/child-process/run-process', () => ({ spawnProcess: vi.fn() }))
+vi.mock('@orca/process-host', () => ({ spawnProcess: vi.fn() }))
 
 afterEach(() => vi.mocked(spawnProcess).mockReset())
 

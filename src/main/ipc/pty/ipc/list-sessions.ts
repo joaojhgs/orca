@@ -5,7 +5,10 @@ import {
 } from '../../../providers/pty-process-list-admission'
 import { ptyOwnership } from '../provider/ownership-state'
 import { getProvider, registeredPtyProviders } from '../provider/registry'
-import { toSshExecutionHostId } from '../../../../shared/execution-host'
+import {
+  getConnectionExecutionHostId,
+  LOCAL_EXECUTION_HOST_ID
+} from '../../../../shared/execution-host'
 
 /** Host-authoritative inventory shared by IPC and paired-browser diagnostics. */
 export async function listPtySessions(
@@ -30,22 +33,28 @@ export async function listPtySessions(
   await visitPtyProcessListingsInBatches(
     scope === undefined
       ? registeredPtyProviders()
-      : [{ provider: getProvider(scope.connectionId), connectionId: scope.connectionId }],
-    ({ provider, connectionId }) =>
-      connectionId === null || scope !== undefined
+      : [
+          {
+            provider: getProvider(getConnectionExecutionHostId(scope.connectionId)),
+            hostId: getConnectionExecutionHostId(scope.connectionId)
+          }
+        ],
+    ({ provider, hostId }) =>
+      hostId === LOCAL_EXECUTION_HOST_ID || scope !== undefined
         ? provider.listProcesses()
         : provider.listProcesses().catch(() => []),
-    ({ provider, connectionId }, sessions) => {
+    ({ provider, hostId }, sessions) => {
       for (const rawSession of sessions) {
         const session = admission.admit(rawSession)
         // Why: kill actions only send back the PTY id, so rebuild ownership while listing to keep reconnect-discovered remote sessions routed to their provider.
-        ptyOwnership.set(session.id, connectionId)
+        ptyOwnership.set(session.id, hostId)
         deduped.set(session.id, {
           id: session.id,
           cwd: session.cwd,
           title: session.title,
-          executionHostId: connectionId === null ? 'local' : toSshExecutionHostId(connectionId),
+          executionHostId: hostId,
           ...(session.worktreeId !== undefined ? { worktreeId: session.worktreeId } : {}),
+          ...(session.exiting === true ? { exiting: true as const } : {}),
           // Why: the renderer's binding map is empty during restore, so ownership is the only
           // liveness evidence it has. Absence is authoritative only from a provider that
           // serializes claims — otherwise it is 'unknown', never 'absent' (#8459).

@@ -1,8 +1,12 @@
 import type { SessionMemory } from '../../../../shared/process-stats-types'
 import { parsePaneKey as parseStablePaneKey } from '../../../../shared/stable-pane-id'
+import { getWorktreePathBasenameFromId } from '../../../../shared/worktree/id'
 import type { DaemonSession, MergeContext } from './resource-usage-merge-types'
 import type { ResourceSessionBindingIndex } from './resource-session-bindings'
 
+export function deriveWorktreeNameFromWorktreeId(worktreeId: string): string {
+  return getWorktreePathBasenameFromId(worktreeId) ?? worktreeId
+}
 function shortCwd(cwd: string): string {
   if (!cwd) {
     return ''

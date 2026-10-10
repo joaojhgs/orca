@@ -10,7 +10,7 @@ import {
   executionPortsSchema,
   executionUsageSchema
 } from '../../shared/execution-observer-response'
-import { runProcess } from '../../shared/child-process/run-process'
+import { runProcess } from '@orca/process-host'
 import type { SshConnection } from '../ssh/ssh-connection'
 import { execCommand } from '../ssh/ssh-relay-exec-command'
 import { activeSessions } from '../ipc/ssh-active-relay-sessions'

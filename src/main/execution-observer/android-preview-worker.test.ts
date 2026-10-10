@@ -7,7 +7,7 @@ import {
 import { isApprovedAndroidDevice, observeAndroidPreview } from './android-preview-worker'
 
 const mocks = vi.hoisted(() => ({ run: vi.fn(), screenshot: vi.fn() }))
-vi.mock('../../shared/child-process/run-process', () => ({ runProcess: mocks.run }))
+vi.mock('@orca/process-host', () => ({ runProcess: mocks.run }))
 vi.mock('../emulator/android/android-sdk-host-discovery', () => ({
   discoverAndroidSdkFromHost: () => ({
     adb: '/adb',

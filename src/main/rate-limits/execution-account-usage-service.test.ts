@@ -236,7 +236,7 @@ describe('ExecutionAccountUsageService', () => {
     const owner = host('local')
     owner.collect = vi.fn(
       () =>
-        new Promise((done) => {
+        new Promise<ProviderRateLimits>((done) => {
           resolve = done
         })
     )

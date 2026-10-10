@@ -8,15 +8,26 @@ import { stopMissingWorktreeTerminals } from './missing-worktree-terminal-reconc
 import type { RuntimeCommandSurfaceHost } from './orca-runtime-core'
 import type { WorktreeVisibilitySourceMatcher } from '../../shared/worktree/visibility-sources'
 import type { RuntimeStore } from './runtime-store-contract'
+import { getWorkspaceAttachments } from '../../shared/workspace-attachments'
 import type { TerminalWorkspaceLaunchScope } from './runtime-legacy-worker-terminal-recovery-types'
 import type {
+  WorkspacePortHostKillRequest,
+  WorkspacePortHostScanResult,
   WorkspacePortKillRequest,
   WorkspacePortKillResult,
   WorkspacePortProbe,
   WorkspacePortScanResult
 } from '../../shared/workspace-ports'
-import { filterWorkspacePortProbes, killWorkspacePort } from '../ports/workspace-port-ownership'
 import { scanExecutionWorkspacePorts } from '../ports/execution-workspace-port-scanner'
+import { filterWorkspacePortProbes, killWorkspacePort } from '../ports/workspace-port-ownership'
+import {
+  killWorkspacePortOnExecutionHost,
+  scanWorkspacePortsOnExecutionHost,
+  type WorkspacePortExecutionHostDeps
+} from '../ports/workspace-port-execution-host'
+import { getActiveMultiplexer } from '../ssh/ssh-target-registry'
+import { resolveWorktreeHostRouting } from './worktree-launch-host-repo'
+import { parseExecutionHostId } from '../../shared/execution-host'
 
 export class OrcaRuntimeWithListManagedWorktrees extends OrcaRuntimeWithRestoreStructuredAgentSessionTabsOnce {
   listManagedWorktrees(
@@ -113,7 +124,8 @@ export class OrcaRuntimeWithListManagedWorktrees extends OrcaRuntimeWithRestoreS
   }
 
   async showManagedWorktree(worktreeSelector: string) {
-    return await this.resolveWorktreeSelector(worktreeSelector)
+    const worktree = await this.resolveWorktreeSelector(worktreeSelector)
+    return { ...worktree, linkedItems: getWorkspaceAttachments(worktree) }
   }
 
   /**
@@ -152,6 +164,26 @@ export class OrcaRuntimeWithListManagedWorktrees extends OrcaRuntimeWithRestoreS
     return killWorkspacePort(await this.getWorkspacePortProbes(args.repoId), args)
   }
 
+  // Why the workspace, not a client-named host: this server resolves where the workspace runs.
+  async scanWorkspacePortsOnHost(worktreeSelector: string): Promise<WorkspacePortHostScanResult> {
+    const { executionHostId } = await this.resolveRuntimeFileTarget(worktreeSelector)
+    return scanWorkspacePortsOnExecutionHost(executionHostId, this.getWorkspacePortHostDeps())
+  }
+
+  async killWorkspacePortOnHost(
+    args: WorkspacePortHostKillRequest
+  ): Promise<WorkspacePortKillResult> {
+    const { executionHostId } = await this.resolveRuntimeFileTarget(args.worktree)
+    return killWorkspacePortOnExecutionHost(executionHostId, args, this.getWorkspacePortHostDeps())
+  }
+
+  protected getWorkspacePortHostDeps(): WorkspacePortExecutionHostDeps {
+    return {
+      getLocalProbes: () => this.getWorkspacePortProbes(),
+      getSshMultiplexer: getActiveMultiplexer
+    }
+  }
+
   // Why: remote clients may invoke this over RPC, so the runtime derives
   // allowed worktree paths from its own store instead of trusting client paths.
   protected async getWorkspacePortProbes(repoId?: string): Promise<WorkspacePortProbe[]> {
@@ -159,18 +191,19 @@ export class OrcaRuntimeWithListManagedWorktrees extends OrcaRuntimeWithRestoreS
   }
 
   protected async getAllExecutionWorkspacePortProbes() {
-    const reposById = new Map(
-      this.requireStore()
-        .getRepos()
-        .map((repo) => [repo.id, repo])
-    )
-    return (await this.listResolvedWorktrees()).map((worktree) => ({
-      id: worktree.id,
-      repoId: worktree.repoId,
-      displayName: worktree.displayName,
-      path: worktree.git.path,
-      connectionId: reposById.get(worktree.repoId)?.connectionId ?? null
-    }))
+    const repos = this.requireStore().getRepos()
+    return (await this.listResolvedWorktrees()).map((worktree) => {
+      const routing = resolveWorktreeHostRouting(repos, worktree)
+      const host = routing.kind === 'resolved' ? parseExecutionHostId(routing.hostId) : null
+      return {
+        id: worktree.id,
+        repoId: worktree.repoId,
+        displayName: worktree.displayName,
+        path: worktree.git.path,
+        connectionId: host?.kind === 'ssh' ? host.connectionId : null,
+        runsHere: routing.kind === 'unowned' || host?.kind === 'local'
+      }
+    })
   }
 
   async sleepManagedWorktree(worktreeSelector: string): Promise<{ worktreeId: string }> {

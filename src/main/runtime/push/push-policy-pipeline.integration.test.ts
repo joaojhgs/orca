@@ -133,6 +133,7 @@ it('delivers accepted headless SSH completion through the mobile replay and push
     enabled: () => true,
     settings: () => ({
       enabled: true,
+      mutedNotificationSourceIds: [],
       agentTaskComplete: true,
       terminalBell: true,
       suppressWhenFocused: true,

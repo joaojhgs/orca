@@ -1,16 +1,18 @@
+import { isRemoteRuntimePtyId } from '../../../../shared/remote-runtime-pty-id'
 import { getPtyIpc } from '../../pty-host-bindings'
-import { parseAppSshPtyId } from '../../../providers/ssh-pty-id'
 import { inspectPtyProviderProcessForRenderer } from '../../../providers/pty-process-inspection'
 import { clientOnlyUnverifiableInspection } from '../../../../shared/terminal-process-inspection'
 import { listPtySessions } from './list-sessions'
 import type { PtySessionListScope } from '../../../../shared/pty-listed-session'
-import { ptyOwnership } from '../provider/ownership-state'
 import {
   getProviderForPty,
   hasPtyProviderForInspection,
-  sshProviders,
-  tryGetProviderForPty
+  isDispatchablePtyHost,
+  resolvePtyExecutionHost,
+  tryGetProviderForPty,
+  type ResolvedPtyHost
 } from '../provider/registry'
+import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host'
 import { ptySizes } from '../delivery/visibility-state'
 import { isValidPaneKey } from '../pane/key-state'
 import {
@@ -21,7 +23,7 @@ import {
 } from '../pane/serializer-state'
 
 export function installPtyInspectIpcHandlers(deps: {
-  getLocalPtyProviderStartupPromise: (connectionId?: string | null) => Promise<void> | undefined
+  getLocalPtyProviderStartupPromise: (hostId?: ResolvedPtyHost) => Promise<void> | undefined
 }): void {
   const ipcMain = getPtyIpc()
   const { getLocalPtyProviderStartupPromise } = deps
@@ -31,9 +33,7 @@ export function installPtyInspectIpcHandlers(deps: {
   // renderer-kill.ts inlines this — pty:kill's listener teardown is
   // ordering-sensitive and must not gain even a no-barrier microtask.
   const awaitSwapWindow = async (id: string): Promise<void> => {
-    await getLocalPtyProviderStartupPromise(
-      ptyOwnership.get(id) ?? parseAppSshPtyId(id)?.connectionId
-    )
+    await getLocalPtyProviderStartupPromise(resolvePtyExecutionHost(id))
   }
 
   ipcMain.handle('pty:listSessions', (_event, scope?: PtySessionListScope) =>
@@ -43,19 +43,13 @@ export function installPtyInspectIpcHandlers(deps: {
     'pty:getAuthoritativeBufferSnapshotCapabilities',
     async (_event, args: { ids?: unknown }) => {
       const ids = Array.isArray(args?.ids) ? args.ids.slice(0, 512) : []
-      const hasLocalPtyId = ids.some((value) => {
-        if (
-          typeof value !== 'string' ||
-          value.length === 0 ||
-          value.length > 512 ||
-          value.startsWith('remote:') ||
-          parseAppSshPtyId(value)
-        ) {
-          return false
-        }
-        const ownedConnectionId = ptyOwnership.get(value)
-        return ownedConnectionId === undefined || ownedConnectionId === null
-      })
+      const hasLocalPtyId = ids.some(
+        (value) =>
+          typeof value === 'string' &&
+          value.length > 0 &&
+          value.length <= 512 &&
+          resolvePtyExecutionHost(value) === LOCAL_EXECUTION_HOST_ID
+      )
       if (hasLocalPtyId) {
         await getLocalPtyProviderStartupPromise()
       }
@@ -72,15 +66,17 @@ export function installPtyInspectIpcHandlers(deps: {
         }
         seen.add(value)
         const provider = tryGetProviderForPty(value)
-        // Resolved providers without the optional method are definitively non-authoritative; null remains retryable.
+        // Resolved providers without the optional method, and hosts no provider here can serve, are
+        // definitively non-authoritative; an unattached SSH relay remains retryable.
         capabilities.push({
           id: value,
-          authoritative:
-            provider === undefined || provider === null
+          authoritative: !provider
+            ? isDispatchablePtyHost(resolvePtyExecutionHost(value))
               ? null
-              : provider.canProvideAuthoritativeBufferSnapshot
-                ? provider.canProvideAuthoritativeBufferSnapshot(value)
-                : false
+              : false
+            : provider.canProvideAuthoritativeBufferSnapshot
+              ? provider.canProvideAuthoritativeBufferSnapshot(value)
+              : false
         })
       }
       return capabilities
@@ -88,22 +84,16 @@ export function installPtyInspectIpcHandlers(deps: {
   )
 
   ipcMain.handle('pty:hasPty', async (_event, args: { id: string }): Promise<boolean | null> => {
-    if (typeof args?.id !== 'string' || args.id.startsWith('remote:')) {
-      // Why: same routing hazard pty:kill guards against — ptyOwnership never holds
-      // a runtime terminal handle and parseAppSshPtyId ignores it, so the lookup
-      // falls through to the local provider and its "not in my table" reads as an
-      // authoritative dead. That is a fabricated answer about another host's PTY.
+    if (typeof args?.id !== 'string' || isRemoteRuntimePtyId(args.id)) {
+      // Why before the swap wait: a runtime terminal handle runs on another host, so only
+      // "unverifiable" is honest and the local daemon startup is irrelevant to it.
       return null
     }
     // Why: the pre-swap LocalPtyProvider does not own restored daemon ids, and
     // its "no PTY" is exactly the false the renderer reconciler is allowed to
     // close panes on.
     await awaitSwapWindow(args.id)
-    const ownedConnectionId = ptyOwnership.get(args.id)
-    const parsedSshId = ownedConnectionId === undefined ? parseAppSshPtyId(args.id) : null
-    const provider = parsedSshId
-      ? sshProviders.get(parsedSshId.connectionId)
-      : tryGetProviderForPty(args.id)
+    const provider = tryGetProviderForPty(args.id)
     if (!provider?.hasPty) {
       return null
     }
@@ -146,8 +136,8 @@ export function installPtyInspectIpcHandlers(deps: {
         steadyState?: boolean
       }
     ) => {
-      // Why: same routing hazard as pty:hasPty — an unroutable id must read as client-only unverifiable, not as a local-provider answer or a raised IPC error.
-      if (typeof args?.id !== 'string' || !args.id || args.id.startsWith('remote:')) {
+      // Why: as pty:hasPty — another host's PTY reads as client-only unverifiable, not a raised IPC error.
+      if (typeof args?.id !== 'string' || !args.id || isRemoteRuntimePtyId(args.id)) {
         return clientOnlyUnverifiableInspection('terminal_gone')
       }
       // Why: the pre-swap LocalPtyProvider does not own restored daemon ids, so
@@ -253,7 +243,7 @@ export function installPtyInspectIpcHandlers(deps: {
     async (_event, args: { ptyId?: unknown }): Promise<void> => {
       if (
         typeof args?.ptyId !== 'string' ||
-        !args.ptyId.startsWith('remote:') ||
+        !isRemoteRuntimePtyId(args.ptyId) ||
         args.ptyId.length > 512
       ) {
         return

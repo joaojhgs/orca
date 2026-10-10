@@ -1,10 +1,10 @@
 import {
+  getRepoExecutionHostId,
   LOCAL_EXECUTION_HOST_ID,
-  type ExecutionHostId,
   normalizeExecutionHostId,
   parseExecutionHostId,
   toRuntimeExecutionHostId,
-  toSshExecutionHostId
+  type ExecutionHostId
 } from './execution-host'
 import {
   areTaskProviderIdentitiesEqual,
@@ -114,7 +114,7 @@ export function buildTaskSourceContextFromRepo(args: {
   return normalizeTaskSourceContext({
     provider: args.provider,
     projectId: args.projectId,
-    hostId: getRepoHostId(args.repo),
+    hostId: getRepoExecutionHostId(args.repo),
     repoId: args.repo.id,
     projectHostSetupId: args.projectHostSetupId,
     providerIdentity: args.providerIdentity,
@@ -156,6 +156,7 @@ export function getTaskSourceCacheScope(
   context: Pick<TaskSourceContext, 'provider' | 'hostId' | 'projectId' | 'projectHostSetupId'> & {
     providerIdentity?: TaskProviderIdentity | null
     repoId?: string | null
+    accountLabel?: string | null
   }
 ): string {
   return [
@@ -164,7 +165,8 @@ export function getTaskSourceCacheScope(
     context.projectId,
     context.projectHostSetupId ?? '',
     context.repoId ?? '',
-    taskProviderIdentityCachePart(context.providerIdentity)
+    taskProviderIdentityCachePart(context.providerIdentity),
+    ...(context.accountLabel?.trim() ? [context.accountLabel.trim()] : [])
   ]
     .map(encodeCachePart)
     .join(':')
@@ -192,15 +194,6 @@ export function buildWorkspaceRunContext(args: {
     repoId,
     path: repoPath
   }
-}
-
-function getRepoHostId(repo: Pick<Repo, 'connectionId' | 'executionHostId'>): ExecutionHostId {
-  const explicit = normalizeExecutionHostId(repo.executionHostId)
-  if (explicit) {
-    return explicit
-  }
-  const connectionId = normalizeNonEmptyString(repo.connectionId)
-  return connectionId ? toSshExecutionHostId(connectionId) : LOCAL_EXECUTION_HOST_ID
 }
 
 function normalizeTaskProvider(value: unknown): TaskProvider | null {

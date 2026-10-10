@@ -102,8 +102,8 @@ function mobileRpcMethods(): string[] {
   return [...new Set([...mobileLiteralRpcMethods(), ...MOBILE_DYNAMIC_RPC_METHODS])].sort()
 }
 
-function mobileRpcAllowlist(): Set<string> {
-  return new Set(MOBILE_RPC_METHOD_ALLOWLIST)
+function mobileRpcAllowlist(): ReadonlySet<string> {
+  return MOBILE_RPC_METHOD_ALLOWLIST
 }
 
 function registeredRuntimeMethods(): Set<string> {
@@ -165,6 +165,8 @@ describe('mobile RPC allowlist', () => {
       'agentSession.cancel',
       'agentSession.queuedMessageSend',
       'agentSession.queuedMessageDelete',
+      'agentSession.queuedMessageUpdate',
+      'agentSession.queuedMessageEditHold',
       'agentSession.queuedMessagesResume',
       'agentSession.close',
       'agentSession.respondToApproval',
@@ -178,6 +180,8 @@ describe('mobile RPC allowlist', () => {
       'agentSession.history',
       'agentSession.subscribe',
       'agentSession.unsubscribe',
+      'agentSession.subscribeStatus',
+      'agentSession.readVisual',
       'agentSession.hold',
       'agentSession.release'
     ])

@@ -1,3 +1,4 @@
+import type { ManagedOrcadPreloadApi } from './managed-orcad-api'
 import type { RuntimeHostStatusSnapshot } from '../../shared/runtime-host-status'
 import type {
   RuntimeBrowserDriverState,
@@ -129,8 +130,10 @@ export type RuntimeApi = {
       expectedEnvironmentPairingRevision?: number
       expectedEnvironmentRuntimeId?: string
     }) => Promise<RuntimeRpcResponse<unknown>>
+    cancelSubscription: (args: { subscriptionId: string }) => Promise<void>
     subscribe: (
       args: {
+        subscriptionId?: string
         selector: string
         method: string
         params?: unknown
@@ -147,6 +150,8 @@ export type RuntimeApi = {
         onTransportReplayed?: () => void
       }
     ) => Promise<RuntimeEnvironmentSubscriptionHandle>
+    // Why optional: only the desktop preload deploys servers over SSH.
+    managedOrcad?: ManagedOrcadPreloadApi
   }
   wsl: {
     isAvailable: () => Promise<boolean>

@@ -36,7 +36,7 @@ export async function scanExecutionWorkspacePorts(
     try {
       const probes = selected
         .filter((workspace) => workspace.connectionId === connectionId)
-        .map(({ connectionId: _connectionId, ...workspace }) => workspace)
+        .map(({ connectionId: _connectionId, ...workspace }) => ({ ...workspace, runsHere: true }))
       const scan = await executionObserverClient.ports(probes, connection)
       if (
         scan.unavailableReason ||

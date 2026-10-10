@@ -12,16 +12,19 @@ import {
 export const MULTICA_METHODS = [
   defineMethod({
     name: 'multica.listWorkspaces',
+    permission: 'workspace',
     params: null,
     handler: () => listMulticaWorkspaces()
   }),
   defineMethod({
     name: 'multica.listProjects',
+    permission: 'workspace',
     params: MulticaListProjects,
     handler: (params) => listMulticaProjects(params?.workspaceId)
   }),
   defineMethod({
     name: 'multica.listIssues',
+    permission: 'workspace',
     params: MulticaListIssues,
     handler: (params) => listMulticaIssues(params ?? {})
   })

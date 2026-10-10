@@ -75,7 +75,7 @@ describe('execution-host diagnostics', () => {
         ...expired,
         usageMetadata: { ...expired.usageMetadata, credentialSource: 'credentials-file' }
       })
-    ).toBe('Refreshing sign-in')
+    ).toBe('Sign-in expired')
   })
   it('does not label an unsupported OpenCode collector as a failed login or refresh', () => {
     expect(

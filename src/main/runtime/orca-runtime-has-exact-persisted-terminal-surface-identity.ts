@@ -209,6 +209,10 @@ export class OrcaRuntimeWithHasExactPersistedTerminalSurfaceIdentity extends Orc
     return this.artifacts.hostingStatus()
   }
 
+  releaseFinishedAutomationRunTerminals(): Promise<number> {
+    return this.automation.releaseFinishedRunTerminals()
+  }
+
   setArtifactService(service: ArtifactService): void {
     this.artifacts.setService(service)
   }

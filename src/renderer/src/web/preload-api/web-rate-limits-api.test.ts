@@ -1,62 +1,88 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createEmptyRateLimitState } from '../../../../shared/rate-limit-state-factory'
-import { createRateLimitsApi } from './web-rate-limits-api'
-import { callRuntimeResult } from './web-runtime-calls'
+import { createRateLimitsApi, fetchAccountsSnapshot } from './web-rate-limits-api'
+import type { RuntimeRpcResponse } from '../../../../shared/runtime-rpc-envelope'
 
-vi.mock('./web-runtime-calls', () => ({ callRuntimeResult: vi.fn() }))
-vi.mock('./web-runtime-session', () => ({ requireActiveEnvironmentOrNull: () => ({ id: 'host' }) }))
-afterEach(() => {
-  vi.restoreAllMocks()
-  vi.useRealTimers()
-  vi.unstubAllGlobals()
-})
+const mocks = vi.hoisted(() => ({ call: vi.fn(), subscribe: vi.fn(), owner: 'one' }))
+vi.mock('./web-runtime-calls', () => ({ callRuntimeResult: mocks.call }))
+vi.mock('./web-runtime-session', () => ({
+  requireActiveEnvironmentOrNull: () => ({ id: mocks.owner, createdAt: 1 }),
+  getClientForEnvironment: () => ({ subscribe: mocks.subscribe })
+}))
 
 describe('browser host usage tracking', () => {
-  it('reads all provider data from the host without forcing provider requests', async () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mocks.owner = 'one'
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('reads aggregated usage without forcing provider requests', async () => {
     const state = createEmptyRateLimitState()
-    vi.mocked(callRuntimeResult).mockResolvedValue({ rateLimits: state })
+    mocks.call.mockResolvedValue({ rateLimits: state })
     expect(await createRateLimitsApi().get()).toBe(state)
-    expect(callRuntimeResult).toHaveBeenLastCalledWith(
-      'accounts.list',
-      { refreshUsage: false },
-      60_000
-    )
+    expect(mocks.call).toHaveBeenLastCalledWith('accounts.list', { refreshUsage: false }, 60_000)
   })
-  it('uses stale-aware polling, pauses in hidden tabs and stops after unsubscribe', async () => {
-    vi.useFakeTimers()
-    const document = { visibilityState: 'visible' }
-    vi.stubGlobal('document', document)
+
+  it('uses the server stream and unsubscribes when its last reader leaves', async () => {
     const state = createEmptyRateLimitState()
-    vi.mocked(callRuntimeResult).mockClear().mockResolvedValue({ rateLimits: state })
+    const unsubscribe = vi.fn()
+    let receive: (response: RuntimeRpcResponse<unknown>) => void = () => {}
+    mocks.subscribe.mockImplementation((_method, _params, callbacks) => {
+      receive = callbacks.onResponse
+      return Promise.resolve({ unsubscribe })
+    })
     const listener = vi.fn()
     const stop = createRateLimitsApi().onUpdate(listener)
-    await vi.advanceTimersByTimeAsync(1)
+    await vi.waitFor(() => expect(mocks.subscribe).toHaveBeenCalledTimes(1))
+    receive({
+      id: 'usage',
+      ok: true,
+      result: { snapshot: { rateLimits: state } },
+      _meta: { runtimeId: 'one' }
+    })
     expect(listener).toHaveBeenCalledWith(state)
-    expect(callRuntimeResult).toHaveBeenLastCalledWith('accounts.usage', undefined, 60_000)
-    document.visibilityState = 'hidden'
-    const count = vi.mocked(callRuntimeResult).mock.calls.length
-    await vi.advanceTimersByTimeAsync(60_000)
-    expect(callRuntimeResult).toHaveBeenCalledTimes(count)
     stop()
-    document.visibilityState = 'visible'
-    await vi.advanceTimersByTimeAsync(60_000)
-    expect(callRuntimeResult).toHaveBeenCalledTimes(count)
+    expect(unsubscribe).toHaveBeenCalledTimes(1)
   })
-  it('falls back to cached accounts on old hosts without forced polling', async () => {
-    vi.useFakeTimers()
-    const state = createEmptyRateLimitState()
-    vi.mocked(callRuntimeResult)
-      .mockRejectedValueOnce(Object.assign(new Error('old host'), { code: 'method_not_found' }))
-      .mockResolvedValue({ rateLimits: state })
+
+  it('rejects a snapshot from an environment replaced during the request', async () => {
+    mocks.call.mockImplementation(async () => {
+      mocks.owner = 'two'
+      return { rateLimits: createEmptyRateLimitState() }
+    })
+    await expect(fetchAccountsSnapshot(false)).rejects.toThrow('paired Orca server changed')
+  })
+
+  it('ignores stream frames from a previous owner and does not reuse its cache', async () => {
+    const state = createEmptyRateLimitState({
+      inactiveCodexAccounts: [
+        {
+          accountId: 'old-owner',
+          rateLimits: null,
+          updatedAt: 0,
+          isFetching: false
+        }
+      ]
+    })
+    let receive: (response: RuntimeRpcResponse<unknown>) => void = () => {}
+    mocks.subscribe.mockImplementation((_method, _params, callbacks) => {
+      receive = callbacks.onResponse
+      return Promise.resolve({ unsubscribe: vi.fn() })
+    })
     const listener = vi.fn()
     const stop = createRateLimitsApi().onUpdate(listener)
-    await vi.advanceTimersByTimeAsync(1)
-    expect(listener).toHaveBeenCalledWith(state)
-    expect(callRuntimeResult).toHaveBeenLastCalledWith(
-      'accounts.list',
-      { refreshUsage: false },
-      60_000
-    )
+    await vi.waitFor(() => expect(mocks.subscribe).toHaveBeenCalledTimes(1))
+    mocks.owner = 'two'
+    receive({
+      id: 'usage',
+      ok: true,
+      result: { snapshot: { rateLimits: state } },
+      _meta: { runtimeId: 'one' }
+    })
+    expect(listener).not.toHaveBeenCalled()
+    mocks.call.mockRejectedValue(new Error('offline'))
+    expect(await createRateLimitsApi().get()).toEqual(createEmptyRateLimitState())
     stop()
   })
 })

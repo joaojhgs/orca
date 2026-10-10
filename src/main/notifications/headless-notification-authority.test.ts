@@ -18,6 +18,7 @@ function fixture() {
     enabled: () => true,
     settings: () => ({
       enabled: true,
+      mutedNotificationSourceIds: [],
       agentTaskComplete: true,
       terminalBell: true,
       suppressWhenFocused: true,

@@ -100,7 +100,7 @@ function wrapCommandProcess(proc: ChildProcess): SystemSshCommandChannel {
       proc.stdin!.write(chunk, encoding, cb)
     },
     final(cb) {
-      // Why: stdin scripts such as execution probes cannot finish before remote EOF.
+      // EOF must reach the remote reader, not just this local facade.
       proc.stdin!.end(cb)
     }
   })

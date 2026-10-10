@@ -27,6 +27,13 @@ import { useResourceSessionInventory } from './use-resource-session-inventory'
 import { useResourceUsageActions } from './use-resource-usage-actions'
 import { useResourceUsageDerivedModel } from './use-resource-usage-derived-model'
 import { withRemoteResourceSamples } from './remote-resource-samples'
+import { useRuntimeHostResources } from './use-runtime-host-resources'
+import {
+  collectRuntimeResourceEnvironmentIds,
+  getRuntimeHostResourceNotices,
+  toRuntimeHostResourceSamples
+} from './runtime-host-resources'
+import { getRepoExecutionHostId } from '../../../../shared/execution-host'
 
 const POLL_MS = 2_000
 
@@ -89,6 +96,25 @@ export function useResourceUsageStatusController() {
     getResourceUsageDeferredSshSessionIdsByTabId(s, open)
   )
   const resourceSnapshot = useMemo(() => withRemoteResourceSamples(snapshot), [snapshot])
+  const runtimeEnvironments = useAppStore((s) => s.runtimeEnvironments)
+  const runtimeEnvironmentIds = useMemo(
+    () =>
+      collectRuntimeResourceEnvironmentIds([
+        ...repos.map(getRepoExecutionHostId),
+        ...allWorktrees.map((worktree) => worktree.hostId)
+      ]),
+    [repos, allWorktrees]
+  )
+  const runtimeHostResults = useRuntimeHostResources(open, runtimeEnvironmentIds, POLL_MS)
+  const { runtimeHostResources, runtimeHostNotices } = useMemo(() => {
+    const hostLabel = (environmentId: string): string =>
+      runtimeEnvironments.find((environment) => environment.id === environmentId)?.name ||
+      environmentId
+    return {
+      runtimeHostResources: toRuntimeHostResourceSamples(runtimeHostResults, hostLabel),
+      runtimeHostNotices: getRuntimeHostResourceNotices(runtimeHostResults, hostLabel)
+    }
+  }, [runtimeHostResults, runtimeEnvironments])
   // Why: ptyIdsByTabId tracks mounted/live panes only; Resource Manager reads restored wake hints only for classification.
   const resourceSessionBindings = useMemo<ResourceSessionBindingInputs>(
     () => ({
@@ -207,6 +233,7 @@ export function useResourceUsageStatusController() {
   const derived = useResourceUsageDerivedModel({
     open,
     resourceSnapshot,
+    runtimeHostResources,
     sessions,
     resourceSessionBindings,
     runtimePaneTitlesByTabId,
@@ -260,6 +287,7 @@ export function useResourceUsageStatusController() {
     setPopoverBodyNode,
     daemonActions,
     resourceSnapshot,
+    runtimeHostNotices,
     spaceScanReady,
     recordFeatureInteraction,
     ...derived,

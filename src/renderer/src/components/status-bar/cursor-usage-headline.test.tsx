@@ -21,6 +21,7 @@ vi.mock('@/i18n/i18n', () => ({
 vi.mock('@/lib/agent-catalog', () => ({ AgentIcon: () => null }))
 vi.mock('@/hooks/useResetCountdownClock', () => ({ useResetCountdownClock: () => 0 }))
 vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenuGroup: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   DropdownMenuItem: ({ children }: React.PropsWithChildren) => <div>{children}</div>
 }))
 vi.mock('@/components/settings/SettingsFormControls', () => ({
@@ -56,7 +57,7 @@ describe('Cursor compact usage headline', () => {
       const segment = renderToStaticMarkup(
         <ProviderSegment p={p} compact={false} mode="compact" display={display} />
       )
-      expect(segment).toContain(`${shown}% ${display === 'used' ? 'used' : 'left'} Cursor Models`)
+      expect(segment).toContain(`>${shown}% Cursor Models<`)
       const row = renderToStaticMarkup(
         <UsageRow
           p={p}
@@ -80,13 +81,22 @@ describe('Cursor compact usage headline', () => {
       expect(getUsageTone(p)).toBe('urgent')
       expect(getTightestUsageSection(p)?.label).toBe(bucket)
       expect(getUsageHeadlineSection(p)?.label).toBe('Cursor Models')
-      const overflow = renderToStaticMarkup(<UsageOverflowChip hidden={[p]} display="used" />)
+      const overflow = renderToStaticMarkup(
+        <UsageOverflowChip hidden={[p]} providerCount={1} display="used" />
+      )
       expect(overflow).toContain('data-tone="urgent"')
+      // The "+N" title is read on its own, so it keeps the sentence label.
+      expect(overflow).toMatch(/title="[^"]*% used"/)
       expect(
         pickCollapsedUsageChips(
           [
-            { provider: 'codex', width: 60, urgent: false },
-            { provider: 'cursor', width: 60, urgent: getUsageTone(p) === 'urgent' }
+            { provider: 'codex', width: 60, urgent: false, percentage: true },
+            {
+              provider: 'cursor',
+              width: 60,
+              urgent: getUsageTone(p) === 'urgent',
+              percentage: true
+            }
           ],
           20,
           10,
@@ -135,8 +145,8 @@ describe('Cursor compact usage headline', () => {
     const detailed = renderToStaticMarkup(
       <ProviderSegment p={cursorPools(7, 18)} compact={false} mode="verbose" display="used" />
     )
-    expect(detailed).toContain('Cursor Models 7% used')
-    expect(detailed).toContain('Other Models 18% used')
+    expect(detailed).toContain('>Cursor Models 7%<')
+    expect(detailed).toContain('>Other Models 18%<')
     const legacy: ProviderRateLimits = { ...cursorPools(0, 0), buckets: [], monthly: windowAt(44) }
     expect(getUsageHeadlineSection(legacy)?.window.usedPercent).toBe(44)
     const noPrimary: ProviderRateLimits = {

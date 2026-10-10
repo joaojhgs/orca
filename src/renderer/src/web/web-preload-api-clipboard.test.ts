@@ -619,7 +619,7 @@ describe('web UI preload API', () => {
 
   it('rejects oversized decoded clipboard images before canvas conversion', async () => {
     const runtimeCalls: { method: string; params: unknown }[] = []
-    const close = vi.fn()
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
     const readAsDataURL = vi.fn(() => {
       throw new Error('FileReader should not receive oversized decoded image data')
     })
@@ -645,12 +645,13 @@ describe('web UI preload API', () => {
     const { MAX_CLIPBOARD_IMAGE_PIXELS } = await import('./preload-api/web-clipboard-api')
     installClipboardImageBlob(new Blob(['small'], { type: 'image/jpeg' }))
     vi.stubGlobal(
-      'createImageBitmap',
-      vi.fn().mockResolvedValue({
-        close,
-        height: 1,
-        width: MAX_CLIPBOARD_IMAGE_PIXELS + 1
-      })
+      'Image',
+      class {
+        src = ''
+        naturalHeight = 1
+        naturalWidth = MAX_CLIPBOARD_IMAGE_PIXELS + 1
+        decode = vi.fn().mockResolvedValue(undefined)
+      }
     )
     vi.stubGlobal(
       'FileReader',
@@ -663,7 +664,8 @@ describe('web UI preload API', () => {
     await expect(globals.window.api.ui.saveClipboardImageAsTempFile()).rejects.toThrow(
       'Clipboard image is too large'
     )
-    expect(close).toHaveBeenCalledTimes(1)
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1)
+    revokeObjectURL.mockRestore()
     expect(readAsDataURL).not.toHaveBeenCalled()
     expect(runtimeCalls).toEqual([])
   })

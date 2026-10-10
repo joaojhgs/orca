@@ -1,8 +1,5 @@
-import {
-  spawnProcess,
-  runProcessSync,
-  type ChildProcessHandle
-} from '../../shared/child-process/run-process'
+import { spawnProcess, runProcessSync } from '@orca/process-host'
+import type { ChildProcessHandle } from '@orca/process-host/process-spec'
 import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { app } from 'electron'
 
