@@ -4,6 +4,7 @@ import { collectExecutionUsage } from './usage-collector'
 import { scanWorkspacePorts } from '../ports/local-workspace-port-scanner'
 import { observeSkillLibrary } from './skill-library-worker'
 import { observeAndroidPreview } from './android-preview-worker'
+import { observeAgentNotification } from './agent-notification-worker'
 
 async function main() {
   const encoded = process.env.ORCA_OBSERVER_REQUEST
@@ -13,6 +14,9 @@ async function main() {
   const request = executionObserverRequestSchema.parse(
     JSON.parse(Buffer.from(encoded, 'base64').toString())
   )
+  if (request.operation === 'agent-notification-evidence') {
+    return observeAgentNotification(request.sessionId, request.transcriptPath)
+  }
   if (request.operation === 'discover') {
     return discoverExecutionCredentials()
   }

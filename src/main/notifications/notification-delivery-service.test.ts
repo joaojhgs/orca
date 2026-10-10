@@ -87,6 +87,20 @@ beforeEach(() => {
 })
 
 describe('createNotificationDeliveryService', () => {
+  it('uses the stop-point veto before mobile, tray, or native delivery', async () => {
+    const harness = makeHarness(makeSettings())
+    const service = createNotificationDeliveryService({
+      ...harness.deps,
+      confirmStopPoint: async () => false
+    })
+    expect(await service.dispatch(makeRequest())).toEqual({
+      delivered: false,
+      reason: 'invalid-request'
+    })
+    expect(harness.deps.dispatchMobileNotification).not.toHaveBeenCalled()
+    expect(harness.deps.setTrayAttention).not.toHaveBeenCalled()
+    expect(harness.deps.deliverNative).not.toHaveBeenCalled()
+  })
   it('lights the tray dot before the enabled/cooldown gates can reject the event', () => {
     const harness = makeHarness(makeSettings({ enabled: false }))
     const result = createNotificationDeliveryService(harness.deps).dispatch(makeRequest())

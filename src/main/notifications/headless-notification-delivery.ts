@@ -9,7 +9,7 @@ import { agentMainAgentVerdict } from '../../shared/agent-main-agent-verdict'
 import { buildNotificationOptions } from '../ipc/notification-options'
 import { reserveNotificationCooldown } from '../../shared/notification-burst-cooldown'
 import { AGENT_NOTIFICATION_QUIET_MS } from '../../shared/agent-notification-quiet-window'
-import { isAgentStatusHeldOpenByChildWork } from '../../shared/agent-lead-status-fold'
+import { agentNotificationStopPoint } from '../../shared/agent-notification-stop-point'
 
 type PendingNotification = {
   identity: string
@@ -35,19 +35,21 @@ function isLiveNotificationEvidence(event: EnrichedAgentHookEventPayload): boole
 
 function notificationCandidate(event: EnrichedAgentHookEventPayload, working: boolean) {
   const payload = event.payload
-  const mainState = payload.mainAgent?.state ?? payload.state
-  const needsInput = payload.state === 'waiting' || payload.state === 'blocked'
+  const mainState = agentNotificationStopPoint(event)
+  const needsInput = mainState === 'waiting' || mainState === 'blocked'
   const verdict = agentMainAgentVerdict(payload)
   const completion =
     mainState === 'done' &&
-    !isAgentStatusHeldOpenByChildWork(payload) &&
     working &&
     !payload.sessionBoundary &&
     !['cancellation', 'superseded', 'unconfirmed', 'interruption'].includes(verdict ?? '')
   if (!completion && !needsInput) {
     return null
   }
-  const state = needsInput ? payload.state : mainState
+  if (!mainState) {
+    return null
+  }
+  const state = mainState
   const timestamp =
     payload.mainAgent?.state === state
       ? payload.mainAgent.stateStartedAt
@@ -64,6 +66,7 @@ export function createHeadlessNotificationDelivery(deps: {
   settings(): NotificationSettings
   dispatch(event: MobileNotificationDispatchEvent): void
   getStatusSnapshot?(): EnrichedAgentHookEventPayload[]
+  confirmStopPoint?(event: EnrichedAgentHookEventPayload): Promise<boolean>
   now?: () => number
 }) {
   const paneStates = new Map<string, PaneNotificationState>()
@@ -145,7 +148,6 @@ export function createHeadlessNotificationDelivery(deps: {
           identity: candidate.identity,
           event,
           timer: setTimeout(() => {
-            previous.pending = null
             const latest = deps.getStatusSnapshot
               ? deps
                   .getStatusSnapshot()
@@ -166,24 +168,57 @@ export function createHeadlessNotificationDelivery(deps: {
             if (!settled || settled.identity !== pending.identity) {
               return
             }
-            previous.announced = settled.identity
-            if (settled.state === 'done') {
-              previous.working = false
+            const deliverConfirmed = (confirmed: boolean) => {
+              if (previous.pending !== pending || paneStates.get(key) !== previous) {
+                return
+              }
+              if (!confirmed) {
+                previous.pending = null
+                return
+              }
+              const current =
+                deps
+                  .getStatusSnapshot?.()
+                  .find(
+                    (row) =>
+                      row.paneKey === latest.paneKey && row.connectionId === latest.connectionId
+                  ) ?? (deps.getStatusSnapshot ? undefined : pending.event)
+              if (
+                !current ||
+                !isLiveNotificationEvidence(current) ||
+                current.providerSession?.id !== latest.providerSession?.id ||
+                current.launchToken !== latest.launchToken ||
+                notificationCandidate(current, previous.working)?.identity !== settled.identity
+              ) {
+                return
+              }
+              previous.pending = null
+              previous.announced = settled.identity
+              if (settled.state === 'done') {
+                previous.working = false
+              }
+              send({
+                source: 'agent-task-complete',
+                worktreeId: latest.worktreeId,
+                worktreeLabel: latest.worktreeId?.split('/').at(-1),
+                paneKey: latest.paneKey,
+                notificationId: `headless:${key}:${settled.identity}`,
+                agentType: latest.payload.agentType,
+                agentState: settled.state,
+                agentTurnOutcome: settled.verdict ?? undefined,
+                agentPrompt: latest.payload.prompt,
+                agentLastAssistantMessage: latest.payload.lastAssistantMessage,
+                agentToolName: latest.payload.toolName,
+                agentToolInput: latest.payload.toolInput
+              })
             }
-            send({
-              source: 'agent-task-complete',
-              worktreeId: latest.worktreeId,
-              worktreeLabel: latest.worktreeId?.split('/').at(-1),
-              paneKey: latest.paneKey,
-              notificationId: `headless:${key}:${settled.identity}`,
-              agentType: latest.payload.agentType,
-              agentState: settled.state,
-              agentTurnOutcome: settled.verdict ?? undefined,
-              agentPrompt: latest.payload.prompt,
-              agentLastAssistantMessage: latest.payload.lastAssistantMessage,
-              agentToolName: latest.payload.toolName,
-              agentToolInput: latest.payload.toolInput
-            })
+            if (deps.confirmStopPoint) {
+              void deps
+                .confirmStopPoint(latest)
+                .then(deliverConfirmed, () => deliverConfirmed(false))
+            } else {
+              deliverConfirmed(true)
+            }
           }, AGENT_NOTIFICATION_QUIET_MS)
         }
         previous.pending = pending
@@ -208,6 +243,18 @@ export function createHeadlessNotificationDelivery(deps: {
     },
     sideEffects(batch: TerminalSideEffectBatch) {
       if (deps.enabled() && !batch.replay && batch.facts.some((fact) => fact.kind === 'bell')) {
+        // An agent BEL cannot bypass the stop-point gate; ordinary shell bells still work.
+        if (
+          batch.paneKey &&
+          deps
+            .getStatusSnapshot?.()
+            .some(
+              (row) =>
+                row.paneKey === batch.paneKey && row.connectionId === (batch.connectionId ?? null)
+            )
+        ) {
+          return
+        }
         send({
           source: 'terminal-bell',
           worktreeId: batch.worktreeId,

@@ -21,7 +21,8 @@ export function record(value: unknown): JsonRecord | undefined {
  *  `lineFilter` skips JSON.parse for raw lines the caller can reject by substring. */
 export function readJsonlCursor(
   cursor: JsonlCursor,
-  lineFilter?: (line: string) => boolean
+  lineFilter?: (line: string) => boolean,
+  endOffset?: number
 ): JsonRecord[] | undefined {
   if (!cursor.filePath) {
     return undefined
@@ -35,15 +36,17 @@ export function readJsonlCursor(
   if (!stats.isFile()) {
     return undefined
   }
-  if (stats.size < cursor.offset) {
+  const readEnd =
+    endOffset === undefined ? stats.size : Math.max(0, Math.min(stats.size, endOffset))
+  if (readEnd < cursor.offset) {
     cursor.offset = 0
     cursor.carry = ''
   }
-  if (stats.size === cursor.offset) {
+  if (readEnd === cursor.offset) {
     return []
   }
-  const bytesToRead = Math.min(stats.size - cursor.offset, TRANSCRIPT_READ_MAX_BYTES)
-  const start = stats.size - cursor.offset > bytesToRead ? stats.size - bytesToRead : cursor.offset
+  const bytesToRead = Math.min(readEnd - cursor.offset, TRANSCRIPT_READ_MAX_BYTES)
+  const start = readEnd - cursor.offset > bytesToRead ? readEnd - bytesToRead : cursor.offset
   const buffer = Buffer.allocUnsafe(bytesToRead)
   let bytesRead = 0
   let fd: number | undefined

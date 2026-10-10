@@ -10,7 +10,7 @@ beforeEach(() => {
 })
 afterEach(() => vi.useRealTimers())
 
-function fixture() {
+function fixture(confirmStopPoint?: (event: EnrichedAgentHookEventPayload) => Promise<boolean>) {
   const settings: NotificationSettings = {
     enabled: true,
     agentTaskComplete: true,
@@ -18,7 +18,8 @@ function fixture() {
     suppressWhenFocused: true,
     customSoundId: 'system',
     customSoundPath: null,
-    customSoundVolume: 1
+    customSoundVolume: 1,
+    mutedNotificationSourceIds: []
   }
   const dispatch = vi.fn()
   let headless = true
@@ -27,7 +28,8 @@ function fixture() {
     enabled: () => headless,
     settings: () => settings,
     dispatch,
-    getStatusSnapshot: () => snapshot
+    getStatusSnapshot: () => snapshot,
+    confirmStopPoint
   })
   const event = (
     state: 'working' | 'done' | 'waiting' | 'blocked',
@@ -168,7 +170,7 @@ it('does not announce a child completion while the lead is working', () => {
   expect(f.dispatch).not.toHaveBeenCalled()
 })
 
-it('still notifies a persistent child question while the lead continues working', () => {
+it('does not notify a child question while the lead continues working', () => {
   const f = fixture()
   f.status(f.event('working'))
   const waiting = f.event('waiting', {
@@ -185,8 +187,7 @@ it('still notifies a persistent child question while the lead continues working'
   f.advance()
   f.status({ ...waiting, receivedAt: Date.now() })
   f.settle()
-  expect(f.dispatch).toHaveBeenCalledTimes(1)
-  expect(f.dispatch).toHaveBeenCalledWith(expect.objectContaining({ agentState: 'waiting' }))
+  expect(f.dispatch).not.toHaveBeenCalled()
 })
 
 it('checks current authoritative evidence when a pane is removed without a new hook', () => {
@@ -302,4 +303,109 @@ it('delivers live bells but never replayed bells or silent-title idle hints', ()
   f.delivery.sideEffects({ ptyId: 'pty', seq: 3, worktreeId: 'wt', facts: [{ kind: 'bell' }] })
   expect(f.dispatch).toHaveBeenCalledTimes(1)
   expect(f.dispatch).toHaveBeenCalledWith(expect.objectContaining({ source: 'terminal-bell' }))
+})
+
+it('rejects a stale root stop even when no resumed working hook arrived', async () => {
+  const confirm = vi.fn().mockResolvedValue(false)
+  const f = fixture(confirm)
+  f.status(f.event('working'))
+  f.status(f.event('done'))
+  await vi.advanceTimersByTimeAsync(AGENT_NOTIFICATION_QUIET_MS)
+  expect(confirm).toHaveBeenCalledOnce()
+  expect(f.dispatch).not.toHaveBeenCalled()
+})
+
+it.each(['resume', 'dispose', 'replace'] as const)(
+  'does not send after %s during host confirmation',
+  async (change) => {
+    let resolve: ((confirmed: boolean) => void) | undefined
+    const confirmation = new Promise<boolean>((done) => {
+      resolve = done
+    })
+    const f = fixture(() => confirmation)
+    f.status(f.event('working', { launchToken: 'first' }))
+    f.status(f.event('done', { launchToken: 'first' }))
+    f.settle()
+    if (change === 'resume') {
+      f.status(f.event('working', { launchToken: 'first' }))
+    }
+    if (change === 'dispose') {
+      f.delivery.dispose()
+    }
+    if (change === 'replace') {
+      f.status(f.event('done', { launchToken: 'second' }))
+    }
+    resolve?.(true)
+    await Promise.resolve()
+    expect(f.dispatch).not.toHaveBeenCalled()
+  }
+)
+
+it('does not allow a child stop to trigger a delayed root completion', () => {
+  const f = fixture()
+  f.status(f.event('working'))
+  f.status(
+    f.event('done', {
+      hookEventName: 'SubagentStop',
+      payload: {
+        state: 'done',
+        prompt: '',
+        mainAgent: { state: 'done', stateStartedAt: 1 }
+      }
+    })
+  )
+  f.settle()
+  expect(f.dispatch).not.toHaveBeenCalled()
+})
+
+it('does not notify when a Codex roster refresh drains children without a new root Stop', () => {
+  const f = fixture()
+  f.status(f.event('working'))
+  f.status(
+    f.event('done', {
+      payload: {
+        state: 'done',
+        agentType: 'codex',
+        prompt: '',
+        mainAgent: { state: 'done', stateStartedAt: 1 }
+      }
+    })
+  )
+  f.settle()
+  expect(f.dispatch).not.toHaveBeenCalled()
+  f.status(f.event('working'))
+  f.status(
+    f.event('done', {
+      hookEventName: 'Stop',
+      payload: {
+        state: 'done',
+        agentType: 'codex',
+        prompt: '',
+        mainAgent: { state: 'done', stateStartedAt: 2 }
+      }
+    })
+  )
+  f.settle()
+  expect(f.dispatch).toHaveBeenCalledOnce()
+})
+
+it('keeps agent bells behind the stop-point gate while allowing ordinary shell bells', () => {
+  const f = fixture()
+  f.status(f.event('working'))
+  f.delivery.sideEffects({
+    ptyId: 'pty',
+    seq: 1,
+    paneKey: 'pane',
+    connectionId: 'personal',
+    facts: [{ kind: 'bell' }]
+  })
+  expect(f.dispatch).not.toHaveBeenCalled()
+  f.delivery.sideEffects({
+    ptyId: 'shell',
+    seq: 2,
+    paneKey: 'shell',
+    connectionId: 'personal',
+    facts: [{ kind: 'bell' }]
+  })
+  expect(f.dispatch).toHaveBeenCalledOnce()
 })

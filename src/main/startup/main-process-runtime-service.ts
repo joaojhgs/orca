@@ -4,6 +4,7 @@ import {
 } from '../ai-vault-search/session-search-enablement'
 import { LOCAL_EXECUTION_HOST_ID } from '../../shared/execution-host'
 import { createHeadlessNotificationDelivery } from '../notifications/headless-notification-delivery'
+import { confirmAgentNotification } from '../notifications/agent-notification-eligibility'
 import { sessionSearchScopeCatalogFromStore } from '../ai-vault-search/session-search-store-scope-catalog'
 import { getCanonicalUserDataPath } from '../persistence/loading-store/user-data-path'
 import { app } from 'electron'
@@ -179,7 +180,8 @@ export function initializeMainProcessRuntime(): OrcaRuntimeService {
     enabled: () => state.isServeMode && (!state.mainWindow || state.mainWindow.isDestroyed()),
     settings: () => store.getSettings().notifications,
     dispatch: (event) => runtime.dispatchMobileNotification(event),
-    getStatusSnapshot: () => agentHookServer.getEnrichedStatusSnapshot()
+    getStatusSnapshot: () => agentHookServer.getEnrichedStatusSnapshot(),
+    confirmStopPoint: confirmAgentNotification
   })
   app.once('will-quit', () => headlessNotifications?.dispose())
   agentHookServer.subscribeEnrichedStatus((event) => headlessNotifications?.status(event))

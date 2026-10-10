@@ -37,6 +37,8 @@ export type NotificationDeliveryDependencies = {
   now: () => number
   /** Told once per path that actually announced the request: a desktop banner shown, or a mobile alert sent. */
   recordAnnounced?: (request: NotificationDispatchRequest) => void
+  /** Shared main-agent stop policy runs before tray, mobile, cooldown, or native side effects. */
+  confirmStopPoint?: (request: NotificationDispatchRequest) => Promise<boolean>
 }
 
 export type NotificationDeliveryService = {
@@ -69,105 +71,109 @@ export function createNotificationDeliveryService(
     return result instanceof Promise ? result.then(recordIfDelivered) : recordIfDelivered(result)
   }
 
-  return {
-    dispatch: (request) => {
-      // Why: light the tray attention dot before the cooldown/focus/enabled gates so they
-      // can't hold it back (clears on window show/restore; see index.ts).
-      if (request.source === 'agent-task-complete' || request.source === 'terminal-bell') {
-        if (!deps.isWindowVisible(deps.findActiveWindow())) {
-          deps.setTrayAttention(true)
-        }
+  const dispatch: NotificationDeliveryService['dispatch'] = (request) => {
+    // Why: light the tray attention dot before the cooldown/focus/enabled gates so they
+    // can't hold it back (clears on window show/restore; see index.ts).
+    if (request.source === 'agent-task-complete' || request.source === 'terminal-bell') {
+      if (!deps.isWindowVisible(deps.findActiveWindow())) {
+        deps.setTrayAttention(true)
       }
-
-      const settings = deps.readNotificationSettings()
-      const hostMuted =
-        request.notificationSourceId !== undefined &&
-        settings.mutedNotificationSourceIds.includes(request.notificationSourceId)
-      // Machine mutes leave mobile eligibility and its cooldown unchanged.
-      const desktopAllowed =
-        settings.enabled &&
-        (request.source !== 'agent-task-complete' || settings.agentTaskComplete) &&
-        (request.source !== 'terminal-bell' || settings.terminalBell)
-
-      const notificationOptions = buildNotificationOptions(request)
-
-      // Why: desktop focus only means this computer sees the worktree; the paired phone may still need the alert.
-      if (deps.dispatchMobileNotification && request.source !== 'test') {
-        if (
-          reserveNotificationCooldown(
-            recentMobileNotifications,
-            JSON.stringify([
-              desktopAllowed,
-              request.source,
-              request.agentState,
-              dedupeKeyFor(request)
-            ]),
-            deps.now()
-          )
-        ) {
-          deps.dispatchMobileNotification({
-            type: 'notification',
-            emittedAt: deps.now(),
-            source: request.source,
-            ...(!desktopAllowed ? { desktopAllowed: false } : {}),
-            title: notificationOptions.title,
-            body: notificationOptions.body,
-            worktreeId: request.worktreeId,
-            ...(request.notificationId ? { notificationId: request.notificationId } : {}),
-            // Why: background push needs the agent's real state to pick "needs input"
-            // vs "finished" — and to stay silent while the agent is still working.
-            ...(request.agentState ? { agentState: request.agentState } : {})
-          })
-          deps.recordAnnounced?.(request)
-        }
-      }
-
-      if (!desktopAllowed || hostMuted) {
-        return {
-          delivered: false,
-          reason: !settings.enabled ? 'disabled' : hostMuted ? 'host-muted' : 'source-disabled'
-        }
-      }
-
-      const browserWindow = deps.findActiveWindow()
-      if (
-        settings.suppressWhenFocused &&
-        request.isActiveWorktree &&
-        browserWindow &&
-        browserWindow.isFocused()
-      ) {
-        return { delivered: false, reason: 'suppressed-focus' }
-      }
-
-      // Why: the Settings test button is an explicit, often-repeated user action, so it bypasses burst dedupe.
-      if (request.source !== 'test') {
-        // Dedupe by worktree, not source — agent-finish and terminal-bell often fire in one chunk; surface only the first.
-        if (
-          !reserveNotificationCooldown(
-            recentDesktopNotifications,
-            dedupeKeyFor(request),
-            deps.now()
-          )
-        ) {
-          return { delivered: false, reason: 'cooldown' }
-        }
-      }
-
-      if (!deps.isNotificationSupported()) {
-        return { delivered: false, reason: 'not-supported' }
-      }
-
-      if (deps.platform !== 'darwin') {
-        return deliverNativeAndRecord(request, notificationOptions, settings)
-      }
-      // Why: macOS silently swallows notifications while permission is denied/undecided (verified macOS 26); skip so the renderer can show a fallback.
-      return deps.readAuthorizationStatus().then((authorization) => {
-        if (authorization === 'denied' || authorization === 'not-determined') {
-          deps.recordDeliveryOutcome('failed')
-          return { delivered: false, reason: 'blocked-by-system' }
-        }
-        return deliverNativeAndRecord(request, notificationOptions, settings)
-      })
     }
+
+    const settings = deps.readNotificationSettings()
+    const hostMuted =
+      request.notificationSourceId !== undefined &&
+      settings.mutedNotificationSourceIds.includes(request.notificationSourceId)
+    // Machine mutes leave mobile eligibility and its cooldown unchanged.
+    const desktopAllowed =
+      settings.enabled &&
+      (request.source !== 'agent-task-complete' || settings.agentTaskComplete) &&
+      (request.source !== 'terminal-bell' || settings.terminalBell)
+
+    const notificationOptions = buildNotificationOptions(request)
+
+    // Why: desktop focus only means this computer sees the worktree; the paired phone may still need the alert.
+    if (deps.dispatchMobileNotification && request.source !== 'test') {
+      if (
+        reserveNotificationCooldown(
+          recentMobileNotifications,
+          JSON.stringify([
+            desktopAllowed,
+            request.source,
+            request.agentState,
+            dedupeKeyFor(request)
+          ]),
+          deps.now()
+        )
+      ) {
+        deps.dispatchMobileNotification({
+          type: 'notification',
+          emittedAt: deps.now(),
+          source: request.source,
+          ...(!desktopAllowed ? { desktopAllowed: false } : {}),
+          title: notificationOptions.title,
+          body: notificationOptions.body,
+          worktreeId: request.worktreeId,
+          ...(request.notificationId ? { notificationId: request.notificationId } : {}),
+          // Why: background push needs the agent's real state to pick "needs input"
+          // vs "finished" — and to stay silent while the agent is still working.
+          ...(request.agentState ? { agentState: request.agentState } : {})
+        })
+        deps.recordAnnounced?.(request)
+      }
+    }
+
+    if (!desktopAllowed || hostMuted) {
+      return {
+        delivered: false,
+        reason: !settings.enabled ? 'disabled' : hostMuted ? 'host-muted' : 'source-disabled'
+      }
+    }
+
+    const browserWindow = deps.findActiveWindow()
+    if (
+      settings.suppressWhenFocused &&
+      request.isActiveWorktree &&
+      browserWindow &&
+      browserWindow.isFocused()
+    ) {
+      return { delivered: false, reason: 'suppressed-focus' }
+    }
+
+    // Why: the Settings test button is an explicit, often-repeated user action, so it bypasses burst dedupe.
+    if (request.source !== 'test') {
+      // Dedupe by worktree, not source — agent-finish and terminal-bell often fire in one chunk; surface only the first.
+      if (
+        !reserveNotificationCooldown(recentDesktopNotifications, dedupeKeyFor(request), deps.now())
+      ) {
+        return { delivered: false, reason: 'cooldown' }
+      }
+    }
+
+    if (!deps.isNotificationSupported()) {
+      return { delivered: false, reason: 'not-supported' }
+    }
+
+    if (deps.platform !== 'darwin') {
+      return deliverNativeAndRecord(request, notificationOptions, settings)
+    }
+    // Why: macOS silently swallows notifications while permission is denied/undecided (verified macOS 26); skip so the renderer can show a fallback.
+    return deps.readAuthorizationStatus().then((authorization) => {
+      if (authorization === 'denied' || authorization === 'not-determined') {
+        deps.recordDeliveryOutcome('failed')
+        return { delivered: false, reason: 'blocked-by-system' }
+      }
+      return deliverNativeAndRecord(request, notificationOptions, settings)
+    })
+  }
+  return {
+    dispatch: (request) =>
+      deps.confirmStopPoint && request.source !== 'test'
+        ? deps
+            .confirmStopPoint(request)
+            .then((confirmed): NotificationDispatchResult | Promise<NotificationDispatchResult> =>
+              confirmed ? dispatch(request) : { delivered: false, reason: 'invalid-request' }
+            )
+        : dispatch(request)
   }
 }
