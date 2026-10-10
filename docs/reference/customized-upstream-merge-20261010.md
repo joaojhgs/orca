@@ -95,3 +95,22 @@ Latest targeted Orca batch: 48 tests in 7 files. Standalone plugin: 22 unit test
 Changed-code gate: no new findings across 40 TypeScript files. Production backend
 and full CLI typechecks passed, but an all-files backend check including tests
 exceeded 4 GiB and is not claimed green. Neither Orca instance was restarted.
+
+### Notification and sandbox checkpoint — 2026-10-10 21:12 UTC
+
+Added actual server-owned revision-fenced notification policy persistence and
+scope/actor/destination/device settings. Hidden rendered Electron E2E verifies
+human mute and manager supervision remain independent after refresh. Durable
+worker-mail/contact wakes use the existing journal; manager mutes apply at read/
+wait consumption and never erase history or infer worker death from contact loss.
+Latest focused batch: 58 tests/9 files, 23 standalone plugin tests, changed-code
+gate zero findings/36 TypeScript files. Production backend typecheck passed with
+3.2 GiB peak and no swap. Production renderer/backend builds passed before the
+latest small policy fix; final production bundles are being rebuilt separately.
+
+Staged private `hermes-manager` identity and immutable native runtime snapshot.
+Native boot plus production-unit-derived negative filesystem/privilege/network
+checks passed. No credential custody moved, manager grant issued, consumer started
+or production Orca restarted. Private memory role, loopback restrictions, narrow
+IPC, manager chat/human gates and deployed multi-host acceptance are still pending.
+Native tool mutations now serialize durable step admission under concurrent calls.

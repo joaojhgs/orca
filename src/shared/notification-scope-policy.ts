@@ -121,6 +121,14 @@ export function resolveNotificationScopePolicy(
       manager = rule.manager && scope.actor !== 'manager'
       managerRuleId = rule.id
     }
+  }
+  const humanRules = [...rules].sort(
+    (a, b) =>
+      priority[a.selector.level] - priority[b.selector.level] ||
+      Number(!!a.actor) - Number(!!b.actor) ||
+      Number(a.human?.destinations?.length === 1) - Number(b.human?.destinations?.length === 1)
+  )
+  for (const rule of humanRules) {
     const setting = rule.human
     if (
       !setting ||
@@ -131,6 +139,7 @@ export function resolveNotificationScopePolicy(
     }
     human =
       setting.mode === 'all' ||
+      (setting.mode === 'manager-only' && scope.actor === 'manager') ||
       (setting.mode === 'selected' && setting.events?.includes(kind) === true)
     humanRuleId = rule.id
   }

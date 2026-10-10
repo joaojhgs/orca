@@ -34,6 +34,65 @@ const policy: NotificationScopePolicy = {
   deviceOverrides: []
 }
 describe('notification policy independent audiences', () => {
+  it('human destination specificity does not reorder manager subscription overrides', () => {
+    const value: NotificationScopePolicy = {
+      rules: [
+        {
+          id: 'first',
+          selector: { level: 'server' },
+          manager: false,
+          human: { mode: 'off', destinations: ['desktop'] }
+        },
+        { id: 'latest', selector: { level: 'server' }, manager: true, human: { mode: 'all' } }
+      ],
+      deviceOverrides: []
+    }
+    for (const destination of ['desktop', 'mobile'] as const) {
+      expect(resolveNotificationScopePolicy(value, scope, 'question', destination)).toMatchObject({
+        manager: true,
+        managerRuleId: 'latest',
+        human: destination === 'mobile'
+      })
+    }
+  })
+  it('destination-specific overrides take precedence over a later broad rule at the same scope', () => {
+    const value: NotificationScopePolicy = {
+      rules: [
+        {
+          id: 'desktop',
+          selector: { level: 'server' },
+          human: { mode: 'off', destinations: ['desktop'] }
+        },
+        {
+          id: 'both',
+          selector: { level: 'server' },
+          human: { mode: 'all', destinations: ['desktop', 'mobile'] }
+        }
+      ],
+      deviceOverrides: []
+    }
+    expect(resolveNotificationScopePolicy(value, scope, 'question', 'desktop')).toMatchObject({
+      human: false,
+      humanRuleId: 'desktop'
+    })
+    expect(resolveNotificationScopePolicy(value, scope, 'question', 'mobile')).toMatchObject({
+      human: true,
+      humanRuleId: 'both'
+    })
+  })
+  it('manager-only human rules allow the manager but never ordinary roots or workers', () => {
+    const value: NotificationScopePolicy = {
+      rules: [
+        { id: 'manager-alerts', selector: { level: 'server' }, human: { mode: 'manager-only' } }
+      ],
+      deviceOverrides: []
+    }
+    for (const actor of ['root', 'worker', 'manager'] as const) {
+      expect(
+        resolveNotificationScopePolicy(value, { ...scope, actor }, 'question', 'mobile')
+      ).toMatchObject({ human: actor === 'manager', manager: actor !== 'manager' })
+    }
+  })
   it('preserves existing defaults without a new policy', () => {
     expect(resolveNotificationScopePolicy(undefined, scope, 'completion', 'mobile')).toMatchObject({
       human: true,

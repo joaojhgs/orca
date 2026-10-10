@@ -413,6 +413,8 @@ import { MulticaListIssues, MulticaListProjects } from './multica-params'
 import { NativeChatSession, NativeChatUnsubscribe } from './native-chat-params'
 import {
   NotificationGetMissedSinceParams,
+  NotificationPolicyTargetsParams,
+  NotificationPolicyUpdateParams,
   NotificationRegisterPushParams,
   NotificationUnsubscribeParams,
   NotificationsSubscribeParams
@@ -1157,6 +1159,9 @@ export const RPC_PARAMS_BY_METHOD = {
   'nativeChat.unsubscribe': NativeChatUnsubscribe,
   'network.browserTunnel': BrowserNetworkTunnelAttachParams,
   'notifications.getMissedSince': NotificationGetMissedSinceParams,
+  'notifications.policyRead': null,
+  'notifications.policyTargets': NotificationPolicyTargetsParams,
+  'notifications.policyUpdate': NotificationPolicyUpdateParams,
   'notifications.registerPush': NotificationRegisterPushParams,
   'notifications.subscribe': NotificationsSubscribeParams,
   'notifications.testPush': null,

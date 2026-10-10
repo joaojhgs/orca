@@ -9,7 +9,7 @@ export function recordManagerOrchestrationEvent(
   input: {
     dispatchId: string
     eventId: string
-    kind: 'question' | 'dispatch-settled' | 'failure'
+    kind: 'question' | 'dispatch-settled' | 'failure' | 'mail'
     occurredAt: number
     summary: string
     messageId?: string

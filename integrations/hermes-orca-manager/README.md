@@ -39,3 +39,21 @@ Hindsight retain/recall/reflect passed on the worker, but the manager still need
 live server deployment, OS-level isolation, conversation/UI integration and
 multihost restart/revocation validation. No paid API fallback, cloud memory,
 third-party account connection or meeting recording is enabled by this plugin.
+
+`stage-worker-isolation.sh` stages a separate `hermes-manager` identity and a
+root-owned runtime snapshot without moving OAuth, issuing a grant or starting a
+manager. `hermes-orca-manager.service` exposes only synthetic Hermes paths inside
+its mount sandbox; the developer's real home and runtime sockets stay hidden.
+Only private state and PM lock/lease files are writable. The worker-specific
+runtime paths and UID must be revalidated before reuse elsewhere.
+
+`verify-worker-isolation.sh` derives its properties from that production unit
+and runs native launcher help plus negative filesystem/privilege/network checks.
+These passed on the coding worker, with no model request or service credential.
+They do not prove an unbreakable sandbox. Private-profile custody, dedicated
+memory database role, loopback restrictions and service-only IPC remain required
+before the staged manager is granted authority.
+
+Native parallel mutation tool calls are serialized before durable step admission;
+read tools remain independent. A concurrent-call regression verifies distinct
+ordered steps rather than spurious input-mismatch failures.

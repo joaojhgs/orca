@@ -1,0 +1,53 @@
+[Unit]
+Description=Restricted event-driven Hermes manager for Orca
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hermes-manager
+Group=hermes-manager
+WorkingDirectory=/var/lib/hermes-manager
+Environment=HOME=/var/lib/hermes-manager
+Environment=HERMES_HOME=/home/developer/.hermes
+Environment=HERMES_RUNTIME_DIR=/home/developer/.hermes/tools
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=ORCA_BACKGROUND_LAUNCH=1
+ExecStart=/home/developer/.hermes/hermes-agent/.hermes/bin/hermes -p orca-manager orca-manager run
+Restart=on-failure
+RestartSec=30
+TimeoutStopSec=20
+UMask=0077
+MemoryMax=2G
+MemorySwapMax=0
+CPUQuota=50%
+Nice=15
+ProtectSystem=strict
+ProtectHome=tmpfs
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+ProcSubset=pid
+LockPersonality=yes
+RestrictNamespaces=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=10.0.0.0/8 100.64.0.0/10 169.254.0.0/16 172.16.0.0/12 192.168.0.0/16 fc00::/7 fe80::/10
+ReadWritePaths=/var/lib/hermes-manager /var/cache/hermes-manager
+InaccessiblePaths=-/run/user/1002 -/run/docker.sock -/run/containerd -/var/lib/orca-control
+BindPaths=/var/lib/hermes-manager/.hermes:/home/developer/.hermes
+BindPaths=/var/cache/hermes-manager/pm-install.lock:/home/developer/.hermes/installs/cc8a41bd51a00e31/.install.lock
+BindPaths=/var/cache/hermes-manager/pm-leases:/home/developer/.hermes/installs/cc8a41bd51a00e31/environments/cc7d9b6001cf4ebb87db82dd847828cd/.leases
+BindReadOnlyPaths=/opt/hermes-manager/runtime-66605471e9f0/hermes-agent:/home/developer/.hermes/hermes-agent
+BindReadOnlyPaths=/opt/hermes-manager/runtime-66605471e9f0/tools:/home/developer/.hermes/tools
+BindReadOnlyPaths=/opt/hermes-manager/runtime-66605471e9f0/installs:/home/developer/.hermes/installs
+
+[Install]
+WantedBy=multi-user.target

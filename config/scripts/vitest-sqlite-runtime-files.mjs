@@ -4,6 +4,9 @@ import { SQLITE_DATABASE_RUNTIME_INCLUDE } from './vitest-sqlite-database-runtim
 export const SQLITE_RUNTIME_INCLUDE = [
   ...SQLITE_DATABASE_RUNTIME_INCLUDE,
   'src/main/runtime/manager/manager-event-journal.test.ts',
+  'src/main/runtime/manager/manager-contact-event.test.ts',
+  'src/main/runtime/manager/manager-mail-event.test.ts',
+  'src/main/runtime/rpc/methods/notification-policy-rpc.test.ts',
   'src/main/runtime/manager/manager-event-wait.test.ts',
   'src/main/runtime/manager/manager-principal-store.test.ts',
   'src/main/runtime/rpc/methods/manager.test.ts',

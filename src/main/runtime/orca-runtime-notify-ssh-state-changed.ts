@@ -1,5 +1,6 @@
 // @ts-nocheck -- mechanically split from OrcaRuntimeService; behavior is covered by AST equivalence and characterization tests.
 import { OrcaRuntimeWithGetStatus } from './orca-runtime-get-status'
+import { recordManagerContactEvent } from './manager/manager-contact-event'
 import type { SshConnectionState } from '../../shared/ssh-types'
 import { getPublicSshState } from './public-ssh-state'
 import { splitWorktreeId } from '../../shared/worktree/id'
@@ -18,6 +19,14 @@ export class OrcaRuntimeWithNotifySshStateChanged extends OrcaRuntimeWithGetStat
   // Why: SSH state changes originate in main's ssh handlers, not in runtime
   // methods, so they need a public entry point onto the client-event stream.
   notifySshStateChanged(targetId: string, state: SshConnectionState): void {
+    const db = this.getExistingOrchestrationDb()
+    if (db) {
+      try {
+        recordManagerContactEvent(db, targetId, state.status === 'connected')
+      } catch {
+        console.warn('[manager] Execution contact could not be journaled; reconcile required')
+      }
+    }
     this.bumpSshRelayRecoveryGeneration(targetId)
     this.invalidateSshWorktreeScanCache(targetId)
     if (state.status !== 'connected') {

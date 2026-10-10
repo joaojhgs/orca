@@ -7,6 +7,7 @@ import { MANAGER_WORKER_OBSERVATION_METHODS } from './manager-worker-observation
 import { MANAGER_WORKER_START_METHODS } from './manager-worker-start'
 import { MANAGER_MAILBOX_METHODS } from './manager-mailbox'
 import { MANAGER_PLACEMENT_METHODS } from './manager-placement'
+import { managerEventPolicyAllows } from '../../manager/manager-event-policy'
 import {
   ManagerCheckpointParams,
   ManagerClaimParams,
@@ -55,7 +56,9 @@ export const MANAGER_METHODS = [
         db.managerPrincipals.authorize(principal.id, 'events:read').grant.scope
       )
       return {
-        ...db.managerEvents.read(grant, params.cursor, params.limit),
+        ...db.managerEvents.read(grant, params.cursor, params.limit, (event) =>
+          managerEventPolicyAllows(runtime.getManagerEventPolicy(), event)
+        ),
         checkpoint: db.managerEvents.getCheckpoint(principal.id)
       }
     }
@@ -80,7 +83,8 @@ export const MANAGER_METHODS = [
         params.cursor,
         params.timeoutMs,
         authorize,
-        signal
+        signal,
+        (event) => managerEventPolicyAllows(runtime.getManagerEventPolicy(), event)
       )
     }
   }),

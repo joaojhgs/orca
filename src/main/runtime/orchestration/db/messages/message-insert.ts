@@ -4,6 +4,7 @@ import { exposeMessageTimestamps } from '../utc-timestamp'
 import type { OrchestrationDb } from '../orchestration-db'
 import { runLifecycleWriteTransaction } from '../lifecycle-write-transaction-runner'
 import { UNBOUND_RUN_ID } from '../contract-constants'
+import { recordManagerMailEvent } from '../../../manager/manager-mail-event'
 
 // ── Messages ──
 
@@ -26,45 +27,49 @@ export type MessageInsert = {
 }
 
 export function insertMessage(this: OrchestrationDb, msg: MessageInsert): MessageRow {
-  // A sender in no Run (two plain terminals, `send --to <handle>`) still gets durable mail. It is
-  // filed under the unbound Run, never the legacy one, which the schema-skew probe reads as pre-Runs.
-  // Created on first use so `run list` shows it only to a user who has such mail.
-  const runId = msg.runId ?? UNBOUND_RUN_ID
-  if (msg.runId == null) {
-    this.db
-      .prepare(
-        `INSERT OR IGNORE INTO runs (id, objective, home_database, consumer_generation, legacy)
+  return runLifecycleWriteTransaction(this.db, 'message_insert_with_manager_wake', () => {
+    // A sender in no Run (two plain terminals, `send --to <handle>`) still gets durable mail. It is
+    // filed under the unbound Run, never the legacy one, which the schema-skew probe reads as pre-Runs.
+    // Created on first use so `run list` shows it only to a user who has such mail.
+    const runId = msg.runId ?? UNBOUND_RUN_ID
+    if (msg.runId == null) {
+      this.db
+        .prepare(
+          `INSERT OR IGNORE INTO runs (id, objective, home_database, consumer_generation, legacy)
          VALUES (?, 'Mail from terminals in no Run', 'this_database', 0, 0)`
-      )
-      .run(UNBOUND_RUN_ID)
-  }
-  const deliveryContract = msg.deliveryContract ?? 'current_delivery'
-  this.requireRun(runId)
-  const id = msg.id ?? generateId('msg')
-  const stmt = this.db.prepare(`
+        )
+        .run(UNBOUND_RUN_ID)
+    }
+    const deliveryContract = msg.deliveryContract ?? 'current_delivery'
+    this.requireRun(runId)
+    const id = msg.id ?? generateId('msg')
+    const stmt = this.db.prepare(`
     INSERT INTO messages (
       id, run_id, delivery_contract, from_handle, to_handle, subject, body,
       type, priority, thread_id, payload, sender_pane_key
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
-  stmt.run(
-    id,
-    runId,
-    deliveryContract,
-    msg.from,
-    msg.to,
-    msg.subject,
-    msg.body ?? '',
-    msg.type ?? 'status',
-    msg.priority ?? 'normal',
-    msg.threadId ?? null,
-    msg.payload ?? null,
-    msg.senderPaneKey ?? null
-  )
-  return exposeMessageTimestamps(
-    this.db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as MessageRow
-  )
+    stmt.run(
+      id,
+      runId,
+      deliveryContract,
+      msg.from,
+      msg.to,
+      msg.subject,
+      msg.body ?? '',
+      msg.type ?? 'status',
+      msg.priority ?? 'normal',
+      msg.threadId ?? null,
+      msg.payload ?? null,
+      msg.senderPaneKey ?? null
+    )
+    const message = exposeMessageTimestamps(
+      this.db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as MessageRow
+    )
+    recordManagerMailEvent(this, message)
+    return message
+  })
 }
 
 export function insertMessages(this: OrchestrationDb, messages: MessageInsert[]): MessageRow[] {

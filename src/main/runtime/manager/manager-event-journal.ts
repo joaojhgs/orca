@@ -120,13 +120,14 @@ export class ManagerEventJournal {
     after: ManagerEventCursor | undefined,
     timeoutMs: number,
     authorize: () => void,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    acceptEvent?: (event: ManagerEvent) => boolean
   ): Promise<ManagerEventPage> {
     return waitForManagerEvent(
       this.listeners,
       () => {
         authorize()
-        return this.read(typeof grant === 'function' ? grant() : grant, after)
+        return this.read(typeof grant === 'function' ? grant() : grant, after, 100, acceptEvent)
       },
       timeoutMs,
       signal
@@ -137,7 +138,12 @@ export class ManagerEventJournal {
     return { journalId: this.metadata().journal_id, sequence: this.tail() }
   }
 
-  read(grant: ManagerScopeGrant, after?: ManagerEventCursor, limit = 100): ManagerEventPage {
+  read(
+    grant: ManagerScopeGrant,
+    after?: ManagerEventCursor,
+    limit = 100,
+    acceptEvent?: (event: ManagerEvent) => boolean
+  ): ManagerEventPage {
     const allowed = ManagerScopeGrantSchema.parse(grant)
     const cursor = after ? ManagerEventCursorSchema.parse(after) : undefined
     const metadata = this.metadata()
@@ -161,7 +167,7 @@ export class ManagerEventJournal {
     for (const row of rows) {
       const event = eventFromRow(row)
       sequence = event.sequence
-      if (managerMayObserve(allowed, event.scope)) {
+      if (managerMayObserve(allowed, event.scope) && (acceptEvent?.(event) ?? true)) {
         events.push(event)
         if (events.length === pageLimit) {
           break

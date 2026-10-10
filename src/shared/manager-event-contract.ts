@@ -24,7 +24,8 @@ export const MANAGER_EVENT_KINDS = [
   'failure',
   'contact-lost',
   'contact-restored',
-  'progress'
+  'progress',
+  'mail'
 ] as const
 
 export const ManagerEventInputSchema = z.strictObject({

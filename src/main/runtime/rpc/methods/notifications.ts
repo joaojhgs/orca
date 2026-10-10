@@ -1,10 +1,14 @@
 import { createNotificationStreamFilter } from './notification-stream-policy'
+import { notificationPolicyTargets } from '../../../notifications/notification-policy-targets'
+import { agentHookServer } from '../../../agent-hooks/server'
 import { defineStreamingMethod, defineMethod } from '../core'
 import {
   NotificationGetMissedSinceParams,
   NotificationRegisterPushParams,
   NotificationUnsubscribeParams,
-  NotificationsSubscribeParams
+  NotificationsSubscribeParams,
+  NotificationPolicyTargetsParams,
+  NotificationPolicyUpdateParams
 } from '../../../../shared/rpc-contract/notifications-params'
 
 // Why: monotonically increasing per-process counter eliminates the
@@ -14,6 +18,29 @@ let notificationsSubscriptionSeq = 0
 
 // Legacy callers retain filtered socket alerts; push clients opt into the full event stream.
 export const NOTIFICATION_METHODS = [
+  defineMethod({
+    name: 'notifications.policyRead',
+    permission: 'settings-write',
+    params: null,
+    handler: (_params, { runtime }) => runtime.getNotificationPolicy()
+  }),
+  defineMethod({
+    name: 'notifications.policyUpdate',
+    permission: 'settings-write',
+    params: NotificationPolicyUpdateParams,
+    handler: (params, { runtime }) =>
+      runtime.updateNotificationPolicy(params.policy, params.expectedRevision)
+  }),
+  defineMethod({
+    name: 'notifications.policyTargets',
+    permission: 'settings-write',
+    params: NotificationPolicyTargetsParams,
+    handler: (params, { runtime }) => {
+      const rows = notificationPolicyTargets(runtime, agentHookServer.getEnrichedStatusSnapshot())
+      const end = params.offset + params.limit
+      return { targets: rows.slice(params.offset, end), nextOffset: end < rows.length ? end : null }
+    }
+  }),
   defineStreamingMethod({
     name: 'notifications.subscribe',
     permission: 'workspace',

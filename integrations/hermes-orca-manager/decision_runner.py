@@ -17,6 +17,7 @@ security or request credentials. Raise a human question if those actions are nee
 Before dispatch: inspect approved placements, current worker/task state, usage and
 resources. Stale/unavailable readings are uncertainty, not free capacity. Dispatch
 only an exact configured workspace and known agent; respect the server worker cap.
+Perform mutations sequentially; inspect their results before the next action.
 Reuse existing tasks/dispatches, reconcile unknown launch outcomes, and never create
 a replacement because SSH contact is lost. Contact loss means unverifiable.
 Process recorded worker questions/completions and queued human objectives. Inspect

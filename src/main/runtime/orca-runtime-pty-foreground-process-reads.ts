@@ -1,6 +1,11 @@
 // @ts-nocheck -- mechanically split from OrcaRuntimeService; behavior is covered by AST equivalence and characterization tests.
 import { OrcaRuntimeWithStateFields } from './orca-runtime-state-fields'
 import {
+  readNotificationPolicy,
+  writeNotificationPolicy
+} from '../notifications/notification-policy-persistence'
+import type { NotificationScopePolicy } from '../../shared/notification-scope-policy'
+import {
   persistClientHostedBrowserPages,
   rehydrateClientHostedBrowserPages
 } from './client-hosted-browser-page-persistence'
@@ -199,6 +204,18 @@ export class OrcaRuntimeWithPtyForegroundProcessReads extends OrcaRuntimeWithSta
 
   getClientSettings() {
     return this.clientSettings.get()
+  }
+
+  getNotificationPolicy() {
+    return readNotificationPolicy(this.requireStore())
+  }
+
+  getManagerEventPolicy(): NotificationScopePolicy | undefined {
+    return this.store?.getSettings().notifications?.scopePolicy
+  }
+
+  updateNotificationPolicy(policy: NotificationScopePolicy, expectedRevision: string) {
+    return writeNotificationPolicy(this.requireStore(), policy, expectedRevision)
   }
 
   requestArtifactPublishingApproval(enabled: boolean, owner: string) {

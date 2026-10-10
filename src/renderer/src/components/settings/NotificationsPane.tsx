@@ -11,6 +11,7 @@ import {
 import { NotificationSettingToggle } from './NotificationSettingToggle'
 import { NotificationHostToggles } from './NotificationHostToggles'
 import { NotificationSoundSection } from './NotificationSoundSection'
+import { NotificationScopeRules } from './NotificationScopeRules'
 import {
   createNotificationVolumeDraftState,
   resolveNotificationVolumeDraftState,
@@ -42,16 +43,20 @@ export function NotificationsPane({
   const updateNotificationSettings = async (
     updates: Partial<GlobalSettings['notifications']>
   ): Promise<void> => {
+    const previous = notificationSettingsRef.current
     const nextNotifications = {
       ...notificationSettingsRef.current,
       ...updates
     }
     notificationSettingsRef.current = nextNotifications
-    await updateSettings({
-      notifications: {
-        ...nextNotifications
+    try {
+      await updateSettings({ notifications: { ...nextNotifications } })
+    } catch (error) {
+      if (notificationSettingsRef.current === nextNotifications) {
+        notificationSettingsRef.current = previous
       }
-    })
+      throw error
+    }
   }
 
   useEffect(() => {
@@ -193,6 +198,9 @@ export function NotificationsPane({
         onVolumeCommit={handleVolumeCommit}
         onUpdateNotificationSettings={updateNotificationSettings}
       />
+
+      <Separator />
+      <NotificationScopeRules />
 
       <Separator />
 

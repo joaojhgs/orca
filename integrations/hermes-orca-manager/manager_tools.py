@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import json
+from threading import Lock
 from .manager_state import open_manager_state
 from .orca_client import OrcaClient, READ_OPERATIONS, WRITE_OPERATIONS, validated_arguments
 
 TEXT_KEYS = {"run", "task", "dispatch", "workspace-id", "objective", "spec", "title", "deps",
              "parent", "agent", "model", "effort", "retry-of", "body", "message"}
+MUTATION_LOCK = Lock()
 
 
 def client_from_context(ctx):
@@ -32,24 +34,31 @@ def schema(name, description, operations):
     }}
 
 
+def act_serially(client, args):
+    # Hermes may issue tool calls concurrently; durable action steps must stay ordered.
+    with MUTATION_LOCK:
+        state = open_manager_state()
+        try:
+            active = state.get("active_decision")
+            if not active or not active.get("lease") or not active.get("id"):
+                raise ValueError("No adapter-authorized decision is active")
+            step = active.get("step", 0)
+            validated_arguments(args["operation"], args["arguments"], WRITE_OPERATIONS)
+            state.admit_step(active["id"], step, args["operation"], args["arguments"])
+            result = client.act(args["operation"], args["arguments"], lease=active["lease"], decision_id=active["id"], step=step)
+            state.set("active_decision", {**active, "step": step + 1})
+            return result
+        finally:
+            state.db.close()
+
+
 def handle(ctx, args, mutate):
     try:
         if not isinstance(args, dict) or set(args) != {"operation", "arguments"}:
             raise ValueError("Only operation and typed arguments are accepted")
         client = client_from_context(ctx)
         if mutate:
-            state = open_manager_state()
-            try:
-                active = state.get("active_decision")
-                if not active or not active.get("lease") or not active.get("id"):
-                    raise ValueError("No adapter-authorized decision is active")
-                step = active.get("step", 0)
-                validated_arguments(args["operation"], args["arguments"], WRITE_OPERATIONS)
-                state.admit_step(active["id"], step, args["operation"], args["arguments"])
-                result = client.act(args["operation"], args["arguments"], lease=active["lease"], decision_id=active["id"], step=step)
-                state.set("active_decision", {**active, "step": step + 1})
-            finally:
-                state.db.close()
+            result = act_serially(client, args)
         else:
             result = client.inspect(args["operation"], args["arguments"])
         return json.dumps({"ok": True, "result": result}, ensure_ascii=False)
