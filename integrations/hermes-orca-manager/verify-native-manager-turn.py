@@ -1,7 +1,11 @@
 """Operator acceptance probe: native provider turn, without Orca or shell tools."""
 import json
 import os
+import pwd
 import subprocess
+from pathlib import Path
+
+import yaml
 
 from .decision_runner import parse_native_result
 
@@ -9,6 +13,14 @@ from .decision_runner import parse_native_result
 def verify_native_turn():
     if os.environ.get("HERMES_HOME") != "/var/lib/hermes-manager/.hermes":
         raise RuntimeError("Probe must run in the private manager sandbox")
+    if os.getuid() != pwd.getpwnam("hermes-manager").pw_uid:
+        raise RuntimeError("Probe must use the private manager identity")
+    profile = Path("/var/lib/hermes-manager/.hermes/profiles/orca-manager/config.yaml")
+    config = yaml.safe_load(profile.read_text())
+    model = config.get("model", {})
+    if (model.get("provider") != "openai-codex" or model.get("openai_runtime") != "auto"
+            or config.get("auth", {}).get("adopt_external_logins") is not False):
+        raise RuntimeError("Probe refuses another provider or borrowed credentials")
     expected = "ORCA_MANAGER_NATIVE_READY"
     executable = "/opt/hermes-manager/payload-66605471e9f0/bin/hermes"
     result = subprocess.run(
