@@ -30,6 +30,7 @@ type PushDispatcherOptions = {
   /** Test seam: lets a suite drive the single retry without real time. */
   scheduleRetry?: (run: () => void, delayMs: number) => void
   allowsDelivery?: (event: MobileNotificationEvent, deviceId: string) => boolean
+  allowsSound?: (event: MobileNotificationEvent, deviceId: string) => boolean
 }
 
 type PushTarget = { deviceId: string; registration: MobilePushRegistration }
@@ -71,11 +72,13 @@ export class PushDispatcher {
   private readonly registry: PushDispatcherRegistry
   private readonly scheduleRetry: (run: () => void, delayMs: number) => void
   private readonly allowsDelivery: NonNullable<PushDispatcherOptions['allowsDelivery']>
+  private readonly allowsSound: NonNullable<PushDispatcherOptions['allowsSound']>
 
   constructor(options: PushDispatcherOptions) {
     this.client = options.client
     this.registry = options.registry
     this.allowsDelivery = options.allowsDelivery ?? (() => true)
+    this.allowsSound = options.allowsSound ?? (() => true)
     this.scheduleRetry =
       options.scheduleRetry ??
       ((run, delayMs) => {
@@ -104,7 +107,10 @@ export class PushDispatcher {
       }
       for (const sound of [true, false]) {
         const targets = plan.targets.filter(
-          (target) => (target.registration.filter.sound !== false) === sound
+          (target) =>
+            (event.type !== 'dismiss' &&
+              target.registration.filter.sound !== false &&
+              this.allowsSound(event, target.deviceId)) === sound
         )
         for (let start = 0; start < targets.length; start += MAX_REGISTRATIONS_PER_SEND) {
           void this.deliver(
@@ -221,6 +227,18 @@ export class PushDispatcher {
           )
     )
     if (!currentTargets.length) {
+      return
+    }
+    const newlySilent =
+      notification.sound !== false
+        ? currentTargets.filter((target) => !this.allowsSound(event, target.deviceId))
+        : []
+    if (newlySilent.length) {
+      void this.deliver(newlySilent, { ...notification, sound: false }, attempt, event)
+      const audible = currentTargets.filter((target) => !newlySilent.includes(target))
+      if (audible.length) {
+        void this.deliver(audible, notification, attempt, event)
+      }
       return
     }
     try {

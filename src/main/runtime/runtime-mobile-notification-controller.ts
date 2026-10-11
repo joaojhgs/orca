@@ -89,9 +89,21 @@ export class RuntimeMobileNotificationController {
     deviceId?: string,
     destination: 'desktop' | 'mobile' = 'mobile'
   ): boolean {
-    if (event.type === 'dismiss') {
-      return true
-    }
+    return event.type === 'dismiss' || this.resolvePolicy(event, deviceId, destination).human
+  }
+
+  allowsSound(event: MobileNotificationEvent, deviceId?: string): boolean {
+    return (
+      event.type !== 'dismiss' &&
+      this.resolvePolicy(event, deviceId, 'mobile').delivery !== 'silent'
+    )
+  }
+
+  private resolvePolicy(
+    event: MobileNotificationDispatchEvent,
+    deviceId: string | undefined,
+    destination: 'desktop' | 'mobile'
+  ) {
     const kind =
       event.notificationKind ??
       notificationPolicyKind({
@@ -104,7 +116,7 @@ export class RuntimeMobileNotificationController {
       kind,
       destination,
       deviceId
-    ).human
+    )
   }
 
   configureDismissalStore(userDataPath: string): void {

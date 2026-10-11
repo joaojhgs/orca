@@ -29,6 +29,7 @@ export const NotificationScopePolicySchema = z.strictObject({
         human: z
           .strictObject({
             mode: z.enum(['inherit', 'off', 'all', 'selected', 'manager-only']),
+            delivery: z.enum(['inherit', 'immediate', 'silent']).optional(),
             events: z
               .array(z.enum(NOTIFICATION_POLICY_KINDS))
               .max(NOTIFICATION_POLICY_KINDS.length)
@@ -49,6 +50,7 @@ export const NotificationScopePolicySchema = z.strictObject({
       z.strictObject({
         deviceId: id,
         muted: z.boolean().optional(),
+        silent: z.boolean().optional(),
         mutedEvents: z
           .array(z.enum(NOTIFICATION_POLICY_KINDS))
           .max(NOTIFICATION_POLICY_KINDS.length)
@@ -104,11 +106,15 @@ export function resolveNotificationScopePolicy(
   humanRuleId: string | null
   managerRuleId: string | null
   deviceVeto: boolean
+  delivery: 'immediate' | 'silent'
+  deliveryRuleId: string | null
 } {
   let human = true
   let manager = scope.actor !== 'manager'
   let humanRuleId: string | null = null
   let managerRuleId: string | null = null
+  let delivery: 'immediate' | 'silent' = 'immediate'
+  let deliveryRuleId: string | null = null
   const rules = (policy?.rules ?? [])
     .filter((rule) => matches(rule, scope))
     .sort(
@@ -130,24 +136,34 @@ export function resolveNotificationScopePolicy(
   )
   for (const rule of humanRules) {
     const setting = rule.human
-    if (
-      !setting ||
-      setting.mode === 'inherit' ||
-      (setting.destinations && !setting.destinations.includes(destination))
-    ) {
+    if (!setting || (setting.destinations && !setting.destinations.includes(destination))) {
       continue
     }
-    human =
-      setting.mode === 'all' ||
-      (setting.mode === 'manager-only' && scope.actor === 'manager') ||
-      (setting.mode === 'selected' && setting.events?.includes(kind) === true)
-    humanRuleId = rule.id
+    if (setting.mode !== 'inherit') {
+      human =
+        setting.mode === 'all' ||
+        (setting.mode === 'manager-only' && scope.actor === 'manager') ||
+        (setting.mode === 'selected' && setting.events?.includes(kind) === true)
+      humanRuleId = rule.id
+    }
+    if (setting.delivery && setting.delivery !== 'inherit') {
+      delivery = setting.delivery
+      deliveryRuleId = rule.id
+    }
   }
   const override = deviceId
     ? policy?.deviceOverrides.find((row) => row.deviceId === deviceId)
     : undefined
   const deviceVeto = override?.muted === true || override?.mutedEvents?.includes(kind) === true
-  return { human: human && !deviceVeto, manager, humanRuleId, managerRuleId, deviceVeto }
+  return {
+    human: human && !deviceVeto,
+    manager,
+    humanRuleId,
+    managerRuleId,
+    deviceVeto,
+    delivery: override?.silent === true ? 'silent' : delivery,
+    deliveryRuleId
+  }
 }
 
 export function normalizeNotificationScopePolicy(

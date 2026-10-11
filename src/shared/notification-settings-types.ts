@@ -79,6 +79,8 @@ export type NotificationDispatchRequest = {
 
 export type NotificationDispatchResult = {
   delivered: boolean
+  /** An explicit server-side silence decision also vetoes renderer custom sounds. */
+  silent?: boolean
   /** Why delivery was skipped (set when delivered is false); 'blocked-by-system' = macOS would silently swallow it. */
   reason?:
     | 'disabled'

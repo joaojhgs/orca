@@ -65,7 +65,9 @@ export class DesktopPushService {
       client,
       registry,
       allowsDelivery: (event, deviceId) =>
-        this.runtime.allowsMobileNotificationDelivery?.(event, deviceId) ?? true
+        this.runtime.allowsMobileNotificationDelivery?.(event, deviceId) ?? true,
+      allowsSound: (event, deviceId) =>
+        this.runtime.allowsMobileNotificationSound?.(event, deviceId) ?? true
     })
     this.registerThrottle = options.registerThrottle ?? new PushRegisterThrottle()
     this.scheduleRetry =

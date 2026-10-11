@@ -70,6 +70,49 @@ describe('registerNotificationHandlers', () => {
     }
   })
 
+  it('does not restore macOS system sound when server policy explicitly silences the banner', async () => {
+    const originalPlatform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true })
+    try {
+      const store = {
+        getSettings: () => ({
+          notifications: {
+            enabled: true,
+            agentTaskComplete: true,
+            terminalBell: true,
+            suppressWhenFocused: false,
+            customSoundId: 'system',
+            customSoundPath: null,
+            mutedNotificationSourceIds: [],
+            scopePolicy: {
+              rules: [
+                {
+                  id: 'quiet',
+                  selector: { level: 'server' },
+                  human: { mode: 'inherit', delivery: 'silent' }
+                }
+              ],
+              deviceOverrides: []
+            }
+          }
+        })
+      }
+      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: a source:test request only reads settings; unrelated Store persistence is intentionally absent.
+      registerNotificationHandlers(store as never)
+      expect(await getDispatchHandler()({}, { source: 'test' })).toEqual({
+        delivered: true,
+        silent: true
+      })
+      expect(notificationCtorMock).toHaveBeenCalledWith({
+        title: 'Orca notifications are on',
+        body: 'This is a test notification from Orca.',
+        silent: true
+      })
+    } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
+    }
+  })
+
   it('does not request a native macOS sound when a custom sound is configured', async () => {
     const originalPlatform = process.platform
     Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true })

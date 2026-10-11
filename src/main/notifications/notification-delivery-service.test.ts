@@ -87,6 +87,37 @@ beforeEach(() => {
 })
 
 describe('createNotificationDeliveryService', () => {
+  it('returns server silence to veto custom sounds without silencing an independent mobile policy', async () => {
+    const harness = makeHarness(
+      makeSettings({
+        scopePolicy: {
+          rules: [
+            {
+              id: 'quiet',
+              selector: { level: 'server' },
+              human: { mode: 'inherit', delivery: 'silent', destinations: ['desktop'] }
+            }
+          ],
+          deviceOverrides: []
+        }
+      })
+    )
+    const result = await createNotificationDeliveryService(harness.deps).dispatch(makeRequest())
+    expect(result).toEqual({ delivered: true, silent: true })
+    expect(harness.deliverNative.mock.calls[0]?.[1]).toMatchObject({ silent: true })
+    expect(harness.dispatchMobileNotification).toHaveBeenCalledOnce()
+    expect(harness.dispatchMobileNotification.mock.calls[0]?.[0]).not.toHaveProperty('sound')
+  })
+  it('does not mistake native custom-sound suppression for a policy veto', async () => {
+    const harness = makeHarness(makeSettings({ customSoundId: 'bong' }))
+    harness.deps.deliverNative = (_request, options) => {
+      options.silent = true
+      return { delivered: true }
+    }
+    expect(await createNotificationDeliveryService(harness.deps).dispatch(makeRequest())).toEqual({
+      delivered: true
+    })
+  })
   it('uses the stop-point veto before mobile, tray, or native delivery', async () => {
     const harness = makeHarness(makeSettings())
     const service = createNotificationDeliveryService({

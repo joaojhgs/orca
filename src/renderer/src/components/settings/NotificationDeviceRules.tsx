@@ -61,7 +61,7 @@ export function NotificationDeviceRules({
   }, [kind, environmentId, reload])
   async function update(
     deviceId: string,
-    changes: { muted?: boolean; mutedEvents?: NotificationPolicyKind[] }
+    changes: { muted?: boolean; silent?: boolean; mutedEvents?: NotificationPolicyKind[] }
   ) {
     setBusy(true)
     setError(null)
@@ -106,6 +106,15 @@ export function NotificationDeviceRules({
                 onToggle={() => void update(device.deviceId, { muted: !muted })}
               />
               <Collapsible>
+                <NotificationSettingToggle
+                  label="Silent delivery"
+                  description="Disable sounds without enabling any otherwise-muted alerts."
+                  checked={override?.silent === true}
+                  disabled={busy}
+                  onToggle={() =>
+                    void update(device.deviceId, { silent: override?.silent !== true })
+                  }
+                />
                 <CollapsibleTrigger variant="row">Muted event types</CollapsibleTrigger>
                 <CollapsibleContent>
                   <FieldGroup>

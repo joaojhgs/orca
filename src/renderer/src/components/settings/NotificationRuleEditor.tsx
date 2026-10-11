@@ -21,6 +21,7 @@ import {
 } from '../ui/select'
 import {
   HUMAN_RULE_MODES,
+  HUMAN_DELIVERY_MODES,
   NOTIFICATION_EVENT_LABELS,
   editNotificationRule,
   findNotificationRule,
@@ -59,6 +60,7 @@ export function NotificationRuleEditor({
     rule?.manager === undefined ? 'inherit' : rule.manager ? 'on' : 'off'
   )
   const [busy, setBusy] = useState(false)
+  const [delivery, setDelivery] = useState(rule?.human?.delivery ?? 'inherit')
   const [previewKind, setPreviewKind] = useState<NotificationPolicyKind>('question')
   const pending = useRef(false)
   const [error, setError] = useState<string | null>(null)
@@ -66,7 +68,8 @@ export function NotificationRuleEditor({
     id: rule?.id ?? 'preview',
     mode,
     events,
-    manager
+    manager,
+    delivery
   })
   const scope = { ...target.scope, actor: actor === 'any' ? ('root' as const) : actor }
   const previewDestinations =
@@ -86,7 +89,8 @@ export function NotificationRuleEditor({
               id: createUuidV4(),
               mode,
               events,
-              manager
+              manager,
+              delivery
             })
       )
     } catch (cause) {
@@ -155,6 +159,30 @@ export function NotificationRuleEditor({
         </FieldSet>
       )}
       <Field data-disabled={busy}>
+        <FieldLabel id="notification-human-delivery">Human delivery</FieldLabel>
+        <ToggleGroup
+          type="single"
+          value={delivery}
+          aria-labelledby="notification-human-delivery"
+          disabled={busy}
+          className="justify-start"
+          onValueChange={(value) => {
+            const selected = HUMAN_DELIVERY_MODES.find((option) => option === value)
+            if (selected) {
+              setDelivery(selected)
+            }
+          }}
+        >
+          <ToggleGroupItem value="inherit">Inherit</ToggleGroupItem>
+          <ToggleGroupItem value="immediate">Immediate</ToggleGroupItem>
+          <ToggleGroupItem value="silent">Silent</ToggleGroupItem>
+        </ToggleGroup>
+        <FieldDescription>
+          Silent keeps eligible alerts but disables system and custom sounds. It does not unmute
+          alerts or delay manager wake-ups. Device sound disables remain final vetoes.
+        </FieldDescription>
+      </Field>
+      <Field data-disabled={busy}>
         <FieldLabel id="notification-manager-mode">Manager event subscription</FieldLabel>
         <ToggleGroup
           type="single"
@@ -218,7 +246,8 @@ export function NotificationRuleEditor({
           <output key={channel} className="text-xs text-muted-foreground" aria-live="polite">
             {NOTIFICATION_EVENT_LABELS[previewKind]} ({channel}, {scope.actor}): human{' '}
             {preview.human ? 'allowed' : 'muted'} by {describe(preview.humanRuleId)}; manager{' '}
-            {preview.manager ? 'subscribed' : 'off'} by {describe(preview.managerRuleId)}.
+            {preview.manager ? 'subscribed' : 'off'} by {describe(preview.managerRuleId)}. Human
+            delivery: {preview.delivery} by {describe(preview.deliveryRuleId)}.
           </output>
         )
       })}

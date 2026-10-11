@@ -1,5 +1,23 @@
 # Customized fork: upstream merge, 2026-10-10
 
+## Silent notification policy checkpoint — 2026-10-11
+
+Scoped human delivery now supports inherited, immediate and silent modes independently
+of eligibility and manager subscriptions. Device silence and existing sound disables
+are final vetoes. Native banners, renderer custom sounds and Electron headless push
+share the policy; transport retries recheck newly tightened silence and device mutes.
+The existing push gateway sound field is reused, without a new gateway protocol.
+Settings expose delivery modes and per-device silence using existing form primitives.
+
+Validation: 86 tests in ten suites, production backend and renderer typechecks.
+An expanded IPC/headless run passed 49 tests (including macOS system-sound veto)
+but found nine failures in older IPC fixtures: missing Store inventory methods
+and unverified stop requests. Those paths were already gated before this change;
+the fixtures are not being loosened to bypass stop verification.
+This checkpoint is source-only. Durable digest delivery, live manager activation,
+final evidence/placement gates and full multi-host/device acceptance remain required.
+Neither desktop nor VPS Orca was restarted; the active manager service remains absent.
+
 ## Manager staging checkpoint — 2026-10-11
 
 Workspace custody source `deb72fccc6` and immutable integration staging source

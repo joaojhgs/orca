@@ -11,6 +11,8 @@ export type HumanRuleMode = (typeof HUMAN_RULE_MODES)[number]
 export type RuleActor = 'any' | 'root' | 'worker' | 'manager'
 export type RuleDestination = 'both' | 'desktop' | 'mobile'
 export type ManagerDelivery = 'inherit' | 'on' | 'off'
+export const HUMAN_DELIVERY_MODES = ['inherit', 'immediate', 'silent'] as const
+export type HumanDeliveryMode = (typeof HUMAN_DELIVERY_MODES)[number]
 
 export function findNotificationRule(
   policy: NotificationScopePolicy,
@@ -36,6 +38,7 @@ export function editNotificationRule(
     mode: HumanRuleMode
     events: NotificationPolicyKind[]
     manager: ManagerDelivery
+    delivery?: HumanDeliveryMode
   }
 ): NotificationScopePolicy {
   const existing = findNotificationRule(policy, target, actor, destination)
@@ -45,6 +48,7 @@ export function editNotificationRule(
     ...(actor !== 'any' ? { actor } : {}),
     human: {
       mode: draft.mode,
+      ...(draft.delivery ? { delivery: draft.delivery } : {}),
       ...(draft.mode === 'selected' ? { events: draft.events } : {}),
       destinations: destination === 'both' ? ['desktop', 'mobile'] : [destination]
     },

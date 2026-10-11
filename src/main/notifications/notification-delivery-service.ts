@@ -69,11 +69,12 @@ export function createNotificationDeliveryService(
     options: ReturnType<typeof buildNotificationOptions>,
     settings: NotificationSettings
   ): NotificationDispatchResult | Promise<NotificationDispatchResult> => {
+    const policySilent = options.silent === true
     const recordIfDelivered = (result: NotificationDispatchResult): NotificationDispatchResult => {
       if (result.delivered) {
         deps.recordAnnounced?.(request)
       }
-      return result
+      return policySilent ? { ...result, silent: true } : result
     }
     const result = deps.deliverNative(request, options, settings)
     return result instanceof Promise ? result.then(recordIfDelivered) : recordIfDelivered(result)
@@ -111,6 +112,9 @@ export function createNotificationDeliveryService(
       (request.source !== 'terminal-bell' || settings.terminalBell)
 
     const notificationOptions = buildNotificationOptions(request, translateMain)
+    if (desktopPolicy.delivery === 'silent') {
+      notificationOptions.silent = true
+    }
 
     // Why: desktop focus only means this computer sees the worktree; the paired phone may still need the alert.
     if (

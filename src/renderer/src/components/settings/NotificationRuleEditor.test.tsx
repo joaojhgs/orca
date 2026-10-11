@@ -16,6 +16,40 @@ const policy: NotificationScopePolicy = {
   deviceOverrides: [{ deviceId: 'phone', muted: true }]
 }
 afterEach(() => vi.unstubAllGlobals())
+it('saves silent delivery independently of inherited eligibility and previews it', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const container = document.createElement('div')
+  const root = createRoot(container)
+  const save = vi.fn(async (_next: NotificationScopePolicy) => undefined)
+  try {
+    await act(async () =>
+      root.render(
+        <NotificationRuleEditor
+          policy={policy}
+          target={target}
+          actor="any"
+          destination="desktop"
+          save={save}
+        />
+      )
+    )
+    const button = (label: string) =>
+      [...container.querySelectorAll<HTMLButtonElement>('button')].find(
+        (row) => row.textContent === label
+      )
+    await act(async () => button('Silent')?.click())
+    expect(container.textContent).toContain('delivery: silent')
+    await act(async () => button('Save rule')?.click())
+    expect(save.mock.calls[0]?.[0].rules[0]?.human).toMatchObject({
+      mode: 'inherit',
+      delivery: 'silent',
+      destinations: ['desktop']
+    })
+    expect(save.mock.calls[0]?.[0].deviceOverrides).toEqual(policy.deviceOverrides)
+  } finally {
+    await act(async () => root.unmount())
+  }
+})
 it('serializes saves, preserves device policy and shows a save failure without claiming success', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const container = document.createElement('div')
