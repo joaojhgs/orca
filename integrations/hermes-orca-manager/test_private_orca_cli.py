@@ -2,6 +2,7 @@
 import importlib.util
 import json
 import os
+import stat
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -14,6 +15,24 @@ spec.loader.exec_module(launcher)
 
 
 class PrivateLauncherTests(unittest.TestCase):
+    def test_interactive_identity_requires_root_owned_operator_routing(self):
+        with TemporaryDirectory(prefix='hermes-interactive-routing-test-') as directory:
+            config = Path(directory) / 'interactive.json'
+            config.write_text(json.dumps({'user': 'developer', 'profile': '/home/developer/.hermes/profiles/orca-manager'}))
+            info = SimpleNamespace(st_mode=stat.S_IFREG | 0o644, st_uid=0, st_size=200)
+            account = SimpleNamespace(pw_uid=1002, pw_dir='/home/developer')
+            with patch.object(launcher, 'OPERATOR_CONFIG', config), \
+                    patch.object(launcher.Path, 'lstat', return_value=info), \
+                    patch.object(launcher.pwd, 'getpwnam', return_value=account):
+                self.assertEqual(launcher.configured_identity(), (1002, Path('/home/developer/.hermes/profiles/orca-manager')))
+                info.st_uid = 1002
+                with self.assertRaises(ValueError):
+                    launcher.configured_identity()
+                info.st_uid = 0
+                info.st_mode |= 0o020
+                with self.assertRaises(ValueError):
+                    launcher.configured_identity()
+
     def test_owner_and_administration_commands_are_refused_before_credential_access(self):
         with patch.object(launcher.pwd, 'getpwnam', return_value=SimpleNamespace(pw_uid=os.getuid())):
             for arguments in (['terminal', 'create'], ['manager', 'authorize'], ['manager', 'revoke'],

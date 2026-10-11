@@ -7,6 +7,13 @@ import {
 } from '../../../../../../shared/workspace-statuses'
 import { ALL_GROUP_KEY, getPRLaneKey } from './group-keys'
 import type { WorktreeGroupBy } from './row-types'
+import {
+  LOCAL_EXECUTION_HOST_ID,
+  type ExecutionHostId
+} from '../../../../../../shared/execution-host'
+import { getFolderWorkspaceHostId } from '../../folder-workspace-host-id'
+import { createSidebarProjectGroupIndex } from './project-group-owner-index'
+import { getFolderWorkspaceHostIdentity } from '../../../../../../shared/folder-workspace-worktree'
 
 /** A folder workspace paired with the project group that owns it. The pair is
  *  carried through grouping because FolderWorkspaceRow needs a non-optional
@@ -25,12 +32,19 @@ export type RenderableFolderWorkspace = {
  */
 export function getRenderableFolderWorkspaces(
   folderWorkspaces: readonly FolderWorkspace[],
-  projectGroups: readonly ProjectGroup[]
+  projectGroups: readonly ProjectGroup[],
+  defaultHostId: ExecutionHostId = LOCAL_EXECUTION_HOST_ID
 ): RenderableFolderWorkspace[] {
-  const projectGroupsById = new Map(projectGroups.map((group) => [group.id, group]))
+  const index = createSidebarProjectGroupIndex(projectGroups, defaultHostId)
   const renderable: RenderableFolderWorkspace[] = []
-  for (const folderWorkspace of folderWorkspaces) {
-    const projectGroup = projectGroupsById.get(folderWorkspace.projectGroupId)
+  const uniqueFolders = new Map(
+    folderWorkspaces.map((row) => [getFolderWorkspaceHostIdentity(row), row])
+  )
+  for (const folderWorkspace of uniqueFolders.values()) {
+    const projectGroup = index.resolve(
+      folderWorkspace.projectGroupId,
+      getFolderWorkspaceHostId(folderWorkspace, {}, defaultHostId)
+    )
     // A group filtered out for host visibility legitimately hides its workspaces.
     if (!projectGroup?.parentPath) {
       continue

@@ -89,7 +89,8 @@ function countUnreadFolderRows(sources: UnreadBadgeCountSources): number {
     hiddenOtherDevicePairings
       ? filterFolderWorkspacesFromOtherDevices(onVisibleHosts, hiddenOtherDevicePairings)
       : onVisibleHosts,
-    filterProjectGroupsForVisibleHosts(projectGroups, visibleHostIds, defaultHostId)
+    filterProjectGroupsForVisibleHosts(projectGroups, visibleHostIds, defaultHostId),
+    defaultHostId
   )
   return new Set(rows.map(({ folderWorkspace }) => folderWorkspace.id)).size
 }

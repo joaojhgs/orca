@@ -98,7 +98,9 @@ def handle(ctx, args, mutate):
 
 
 def register_manager_tools(ctx):
-    available = lambda: bool(ctx.get_config("orca_executable", default="") and ctx.get_config("orca_credential_file", default=""))
+    available = lambda: bool(os.environ.get("ORCA_MANAGER_DECISION_INVOCATION") and
+                             ctx.get_config("orca_executable", default="") and
+                             ctx.get_config("orca_credential_file", default=""))
     for name, mutate, operations, description in [
         ("orca_manager_inspect", False, MODEL_READ_OPERATIONS,
          "Inspect approved placements, cached/stale-marked usage/resources, and explicitly addressed owned Runs, Tasks and workers. Contact loss is unverifiable, never process death."),

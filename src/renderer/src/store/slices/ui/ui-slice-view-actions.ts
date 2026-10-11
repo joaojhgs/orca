@@ -4,12 +4,8 @@ import { rewindHistoryIndexPastView } from '../worktree-nav-history'
 export function createUiViewActions(set: UISliceSet, get: UISliceGet): Partial<UISlice> {
   return {
     openManagerPage: () => {
-      get().recordViewVisit('manager')
-      set((state) => ({
-        activeView: 'manager',
-        previousViewBeforeManager:
-          state.activeView === 'manager' ? state.previousViewBeforeManager : state.activeView
-      }))
+      // Why: old navigation/history entries must return to the normal agent terminal surface.
+      set({ activeView: 'terminal' })
     },
     closeManagerPage: () => {
       if (get().activeView === 'manager') {

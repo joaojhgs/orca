@@ -5,6 +5,8 @@ from .memory_llm import serve_memory_llm
 def register(ctx):
     from .manager_tools import register_manager_tools
     register_manager_tools(ctx)
+    from .event_tools import register_event_tools
+    register_event_tools(ctx)
 
     def setup(parser):
         subcommands = parser.add_subparsers(dest="orca_manager_command", required=True)

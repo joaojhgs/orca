@@ -12,6 +12,7 @@ import tempfile
 NODE = '/opt/hermes-manager/payload-66605471e9f0/tools/node-26.7.0-linux-arm64/bin/node'
 CLI = '/opt/hermes-manager/orca-cli/index.cjs'
 PROFILE = Path('/var/lib/hermes-manager/.hermes/profiles/orca-manager')
+OPERATOR_CONFIG = Path('/etc/hermes-manager/interactive.json')
 TRANSPORT = Path('/run/hermes-manager-transport')
 OPERATIONS = frozenset({
     'placements', 'usage', 'resources', 'run-list', 'run-show', 'task-list', 'task-show',
@@ -52,18 +53,35 @@ def fresh_metadata():
     return value
 
 
+def configured_identity():
+    if not OPERATOR_CONFIG.exists():
+        return pwd.getpwnam('hermes-manager').pw_uid, PROFILE
+    info = OPERATOR_CONFIG.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022 or info.st_size > 4096:
+        raise ValueError('Interactive routing must be a root-owned operator configuration')
+    settings = json.loads(OPERATOR_CONFIG.read_text())
+    if set(settings) != {'user', 'profile'} or settings['user'] != 'developer':
+        raise ValueError('Unexpected interactive identity')
+    account = pwd.getpwnam(settings['user'])
+    profile = Path(account.pw_dir) / '.hermes/profiles/orca-manager'
+    if settings['profile'] != str(profile):
+        raise ValueError('Unexpected interactive profile')
+    return account.pw_uid, profile
+
+
 def main(arguments):
-    if os.getuid() != pwd.getpwnam('hermes-manager').pw_uid:
-        raise ValueError('Only the private manager identity may invoke this launcher')
+    expected_uid, profile = configured_identity()
+    if os.getuid() != expected_uid:
+        raise ValueError('Only the configured Hermes identity may invoke this launcher')
     if len(arguments) < 2 or arguments[0] != 'manager' or arguments[1] not in OPERATIONS:
         raise ValueError('Only non-administrative manager operations are permitted')
     if any(flag in arguments for flag in ('--environment', '--host', '--pairing-code')):
         raise ValueError('Private manager cannot select a paired owner connection')
-    credential = PROFILE / 'orca-manager.credential'
+    credential = profile / 'orca-manager.credential'
     info = credential.lstat()
     if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
         raise ValueError('Manager credential must be a private caller-owned regular file')
-    bootstrap = PROFILE / 'orca-bootstrap'
+    bootstrap = profile / 'orca-bootstrap'
     bootstrap.mkdir(mode=0o700, exist_ok=True)
     info = bootstrap.lstat()
     if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:

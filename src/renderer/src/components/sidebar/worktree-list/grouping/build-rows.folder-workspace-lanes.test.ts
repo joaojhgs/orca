@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildRows } from './build-rows'
-import { getFolderWorkspaceLaneKey } from './folder-workspace-lanes'
+import { getFolderWorkspaceLaneKey, getRenderableFolderWorkspaces } from './folder-workspace-lanes'
 import { getPRGroupKey, getPRLaneKey } from './group-keys'
 import type { Row, WorktreeGroupBy } from './row-types'
 import { repo, worktree } from '../../worktree-list-groups-test-fixtures'
@@ -82,6 +82,32 @@ function folderRows(rows: Row[]): Extract<Row, { type: 'folder-workspace' }>[] {
 }
 
 const ALL_GROUP_BY: WorktreeGroupBy[] = ['repo', 'workspace-status', 'pr-status', 'none']
+
+describe('folder workspace owner identity', () => {
+  it('uses the caller default owner for legacy unannotated catalog rows', () => {
+    const remoteGroup = { ...GROUP, executionHostId: 'runtime:vps' }
+    const pairs = getRenderableFolderWorkspaces(
+      [makeFolderWorkspace()],
+      [GROUP, remoteGroup],
+      'runtime:vps'
+    )
+    expect(pairs.map((pair) => pair.projectGroup.executionHostId)).toEqual(['runtime:vps'])
+  })
+
+  it('deduplicates snapshots while retaining different owners with the same folder ID', () => {
+    const localFolder = makeFolderWorkspace()
+    const remoteFolder = makeFolderWorkspace({ executionHostId: 'runtime:vps' })
+    const pairs = getRenderableFolderWorkspaces(
+      [localFolder, { ...localFolder }, remoteFolder, { ...remoteFolder }],
+      [GROUP, { ...GROUP, executionHostId: 'runtime:vps' }]
+    )
+    expect(pairs).toHaveLength(2)
+    expect(pairs.map((pair) => pair.folderWorkspace.executionHostId ?? 'local')).toEqual([
+      'local',
+      'runtime:vps'
+    ])
+  })
+})
 
 describe('folder workspaces render under every Group by mode', () => {
   // The three non-repo arms are the acceptance evidence; the repo arm is a

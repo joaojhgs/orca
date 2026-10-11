@@ -15,6 +15,8 @@ import {
   withRepoSectionDisplayLabels
 } from './section-order'
 import { buildFolderWorkspaceRow } from './row-builders'
+import { getRepoExecutionHostId } from '../../../../../../shared/execution-host'
+import { createSidebarProjectGroupIndex } from './project-group-owner-index'
 
 export function appendProjectGroupSections(
   ctx: SectionAppendContext,
@@ -28,11 +30,15 @@ export function appendProjectGroupSections(
 ): void {
   const { orderedGroups, projectGroups, folderWorkspaces, projectOrderBy, repoOrder } = args
   const { result, collapsedGroups } = ctx
+  const index = createSidebarProjectGroupIndex(projectGroups, ctx.defaultHostId)
 
   const groupByProjectGroupId = new Map<string | null, OrderedGroupEntry[]>()
   for (const entry of orderedGroups) {
     const repo = entry[1].repo
-    const projectGroupId = repo?.projectGroupId ?? null
+    const group = repo?.projectGroupId
+      ? index.resolve(repo.projectGroupId, getRepoExecutionHostId(repo))
+      : undefined
+    const projectGroupId = group ? index.identity(group) : null
     const list = groupByProjectGroupId.get(projectGroupId) ?? []
     list.push(entry)
     groupByProjectGroupId.set(projectGroupId, list)
@@ -58,12 +64,12 @@ export function appendProjectGroupSections(
     })
   }
 
-  const projectGroupsById = new Map(projectGroups.map((group) => [group.id, group]))
+  const projectGroupsById = new Map(index.groups.map((group) => [index.identity(group), group]))
   // Membership already decided by getRenderableFolderWorkspaces in buildRows, so
   // repo grouping no longer owns the filter — it only groups and orders (#15362).
   const folderWorkspacesByProjectGroupId = new Map<string, RenderableFolderWorkspace[]>()
   for (const pair of folderWorkspaces) {
-    const groupId = pair.folderWorkspace.projectGroupId
+    const groupId = index.identity(pair.projectGroup)
     const list = folderWorkspacesByProjectGroupId.get(groupId) ?? []
     list.push(pair)
     folderWorkspacesByProjectGroupId.set(groupId, list)
@@ -74,9 +80,11 @@ export function appendProjectGroupSections(
     )
   }
   const childGroupsByParentId = new Map<string | null, ProjectGroup[]>()
-  for (const group of projectGroups) {
-    const parentId =
-      group.parentGroupId && projectGroupsById.has(group.parentGroupId) ? group.parentGroupId : null
+  for (const group of index.groups) {
+    const parent = group.parentGroupId
+      ? index.resolve(group.parentGroupId, index.owner(group))
+      : undefined
+    const parentId = parent ? index.identity(parent) : null
     const children = childGroupsByParentId.get(parentId) ?? []
     children.push(group)
     childGroupsByParentId.set(parentId, children)
@@ -92,27 +100,29 @@ export function appendProjectGroupSections(
     const folderWorkspaceCount = folderWorkspacesByProjectGroupId.get(groupId)?.length ?? 0
     const children = childGroupsByParentId.get(groupId) ?? []
     return children.reduce(
-      (count, child) => count + getProjectGroupSubtreeCount(child.id),
+      (count, child) => count + getProjectGroupSubtreeCount(index.identity(child)),
       directCount + folderWorkspaceCount
     )
   }
 
   const appendProjectGroup = (projectGroup: ProjectGroup, depth: number): void => {
-    const repoEntries = sortRepoEntriesWithinGroup(groupByProjectGroupId.get(projectGroup.id) ?? [])
-    const childGroups = childGroupsByParentId.get(projectGroup.id) ?? []
+    const identity = index.identity(projectGroup)
+    const repoEntries = sortRepoEntriesWithinGroup(groupByProjectGroupId.get(identity) ?? [])
+    const childGroups = childGroupsByParentId.get(identity) ?? []
     const key = getProjectGroupHeaderKey(projectGroup.id)
     result.push({
       type: 'header',
       key,
       label: projectGroup.name,
-      count: getProjectGroupSubtreeCount(projectGroup.id),
+      count: getProjectGroupSubtreeCount(identity),
       tone: PROJECT_GROUP_META.tone,
       icon: PROJECT_GROUP_META.icon,
       projectGroup,
+      hostId: index.owner(projectGroup),
       projectGroupDepth: depth
     })
     if (!collapsedGroups.has(key)) {
-      for (const pair of folderWorkspacesByProjectGroupId.get(projectGroup.id) ?? []) {
+      for (const pair of folderWorkspacesByProjectGroupId.get(identity) ?? []) {
         result.push(buildFolderWorkspaceRow(pair, depth + 1))
       }
       appendOrderedGroups(ctx, withRepoSectionDisplayLabels(repoEntries), depth + 1)
@@ -120,7 +130,7 @@ export function appendProjectGroupSections(
         appendProjectGroup(childGroup, depth + 1)
       }
     }
-    groupByProjectGroupId.delete(projectGroup.id)
+    groupByProjectGroupId.delete(identity)
   }
 
   for (const projectGroup of childGroupsByParentId.get(null) ?? []) {
