@@ -2,8 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { sha256 } from '@noble/hashes/sha256'
 import {
   PendingManagerMutationSchema,
+  ManagerReceiptOwnerKeySchema,
   type PendingManagerMutation
 } from '../../../src/shared/manager-conversation-request'
+import type { MobileManagerReceiptStore } from './mobile-manager-receipt-store-contract'
 
 const prefix = 'orca:manager-pending:v1:'
 const mutations = new Map<string, Promise<void>>()
@@ -19,8 +21,18 @@ export function managerReceiptOwnerKey(hostId: string, pairingIdentity: string):
 }
 
 function validateOwnerKey(key: string): void {
-  if (!new RegExp(`^${prefix}[a-f0-9]{64}$`).test(key)) {
+  if (!ManagerReceiptOwnerKeySchema.safeParse(key).success) {
     throw new Error('Manager request recovery identity is invalid.')
+  }
+}
+
+export function nativeManagerReceiptStore(ownerKey: string): MobileManagerReceiptStore {
+  validateOwnerKey(ownerKey)
+  return {
+    ownerKey,
+    read: () => readMobileManagerReceipt(ownerKey),
+    save: (request) => saveMobileManagerReceipt(ownerKey, request),
+    clear: (requestId) => clearMobileManagerReceipt(ownerKey, requestId)
   }
 }
 

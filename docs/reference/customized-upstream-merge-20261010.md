@@ -275,3 +275,30 @@ remain required. Device validation, remaining notification/approval/placement
 gates, live service-grant/model/dispatch acceptance and final VPS deployment remain
 unfinished. Hermes stays on the coding worker. No production Orca, relay or user
 agent was restarted, stopped or replaced, and no manager consumer was started.
+
+### Native-owned WebView recovery checkpoint — 2026-10-11 00:08 UTC
+
+The mobile Manager page now uses the paired native app's verified receipt store,
+through one narrowly scoped, capability-negotiated `native.manager.receipt` verb.
+Read/save/clear operations are strictly checked; native code chooses the paired
+controller's hashed storage key. Pages cannot select arbitrary storage paths,
+export pairing credentials, forward this verb to a host or substitute DOM storage.
+Acknowledgements require successful native storage readbacks. A changed pairing
+refuses a bound read before reading its replacement pairing's receipt.
+
+The hybrid Manager route has a browser-only sibling and mandatory recovery grant;
+unsupported shells retain native fallback. Its grant union stays under the existing
+ceiling. Binding reacts to connected-to-connected migrations even during initial
+recovery, and a new objective deep-link remounts the correct conversation.
+
+Validation: 1,386 tests across 101 mobile manager/WebView/platform suites passed.
+The real mobile page under the shipped CSP passed its question/reply, missing-grant
+and same-route objective-change checks; manifest and native-storage closure checks
+also passed. Full mobile and production renderer typechecks passed. The mobile
+test-typecheck ratchet includes 968 test files, with the same four exclusions and
+unchanged 122-file baseline. Changed-source quality scans remain clean.
+
+This checkpoint is source-only, not a deployed mobile binary or live manager.
+Push routing, silent/digest controls, approval/placement gates, actual private
+grant/model/dispatch acceptance and final custom Electron deployment remain
+required. No production service, relay, game or user agent was stopped or restarted.

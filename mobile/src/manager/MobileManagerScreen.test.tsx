@@ -115,7 +115,9 @@ describe('native Manager screen', () => {
     expect(mocks.host).toHaveBeenCalledWith('controller-a')
     expect(mocks.manager).toHaveBeenLastCalledWith(
       client,
-      managerReceiptOwnerKey('controller-a', 'private-pairing-a'),
+      expect.objectContaining({
+        ownerKey: managerReceiptOwnerKey('controller-a', 'private-pairing-a')
+      }),
       true,
       'run-deeplink'
     )

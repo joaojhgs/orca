@@ -31,8 +31,9 @@ const doubles = vi.hoisted((): { client: FakeRpcClient | null } => ({ client: nu
 
 // Reaching the real one imports the Expo runtime this test does not have; the hook reads one field.
 vi.mock('../transport/client-context', () => ({
-  useHostClient: () => ({ client: doubles.client })
+  useHostClient: () => ({ client: doubles.client, clientId: 'private-pairing' })
 }))
+vi.mock('@react-native-async-storage/async-storage', () => ({ default: {} }))
 
 import {
   bridgeId,

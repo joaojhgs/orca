@@ -52,6 +52,11 @@ export const MOBILE_WEB_PAGE_ROUTES = [
     pathname: '/h/[hostId]/tasks',
     grants: ['navigate', 'storage', 'externalLink', 'haptics', 'native.clipboard.write']
   },
+  // Recovery stays in the paired native app; mutations wait for its verified storage receipt.
+  {
+    pathname: '/h/[hostId]/manager',
+    grants: ['navigate', 'storage', 'externalLink', 'haptics', 'native.manager.receipt']
+  },
   // The file explorer. `navigate` because its Back pops the native stack. `storage` for the shared
   // components the host layout renders above it.
   //

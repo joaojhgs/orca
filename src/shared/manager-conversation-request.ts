@@ -9,3 +9,6 @@ export const PendingManagerMutationSchema = z.discriminatedUnion('kind', [
   ManagerConversationSendParams.extend({ kind: z.literal('send') })
 ])
 export type PendingManagerMutation = z.infer<typeof PendingManagerMutationSchema>
+export const ManagerReceiptOwnerKeySchema = z
+  .string()
+  .regex(/^orca:manager-pending:v1:[a-f0-9]{64}$/)

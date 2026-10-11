@@ -17,6 +17,7 @@ vi.mock('react-native', () => ({ AppState: mocks.appState }))
 vi.mock('expo-crypto', () => ({ randomUUID: mocks.randomUUID }))
 import {
   managerReceiptOwnerKey,
+  nativeManagerReceiptStore,
   readMobileManagerReceipt,
   saveMobileManagerReceipt
 } from './mobile-manager-request-store'
@@ -63,9 +64,10 @@ function success(result: unknown): RpcResponse {
 }
 
 function mount(client: RpcClient, initialRunId?: string, foreground = false) {
+  const receipts = nativeManagerReceiptStore(owner)
   let latest: MobileManagerConversations | null = null
   function Probe(props: { foreground: boolean }) {
-    latest = useMobileManagerConversations(client, owner, props.foreground, initialRunId)
+    latest = useMobileManagerConversations(client, receipts, props.foreground, initialRunId)
     return null
   }
   let renderer: ReturnType<typeof create>

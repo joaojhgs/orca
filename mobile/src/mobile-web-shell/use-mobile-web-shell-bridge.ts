@@ -13,6 +13,11 @@ import { createBridgeHost, type BridgeHost } from './bridge-host'
 import type { BridgeSessionBack } from './bridge-host-back'
 import type { BridgeNavigateBackOutcome } from './bridge-host-contract'
 import type { BridgeNativeVerb } from './bridge/bridge-native-verbs'
+import {
+  isManagerReceiptVerb,
+  type ManagerReceiptVerb
+} from './bridge/bridge-manager-receipt-verbs'
+import { createNativeManagerReceiptVerbServer } from '../manager/native-manager-receipt-verb-server'
 import type { BridgeErrorCapture } from './bridge/bridge-error-capture'
 import type { MobileWebShellSessionState } from './mobile-web-shell-session-contract'
 import type { PageHostSnapshot } from './use-page-host-snapshot'
@@ -101,7 +106,10 @@ export type MobileWebShellBridgeArgs = {
   /** Plays one haptic on this device, on the page's behalf. */
   onHaptic: (kind: BridgeHapticsKind) => void
   /** Serves one `native.` verb on this device, for a page that was granted it. */
-  serveNativeVerb: (verb: BridgeNativeVerb, params: unknown) => Promise<unknown>
+  serveNativeVerb: (
+    verb: Exclude<BridgeNativeVerb, ManagerReceiptVerb>,
+    params: unknown
+  ) => Promise<unknown>
   /** Pops the stack this page was pushed onto, and says so when it did not. */
   onNavigateBack: () => BridgeNavigateBackOutcome
   /**
@@ -188,6 +196,10 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
       return
     }
     const latest = argsRef.current
+    const serveManagerReceipt = createNativeManagerReceiptVerbServer({
+      hostId: args.hostId,
+      readClientIdentity: () => clientIdRef.current
+    })
     // The host outlives every render after this one, so each callback it holds reads the ref at
     // call time: a closure captured here would settle frames into a screen that has moved on, and
     // adding one is an entry in `MobileWebShellBridgeArgs` and a line here, nothing else.
@@ -219,7 +231,10 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
       onNavigateBack: () => argsRef.current.onNavigateBack(),
       onExternalLink: (url) => argsRef.current.onExternalLink(url),
       onHaptic: (kind) => argsRef.current.onHaptic(kind),
-      serveNativeVerb: (verb, params) => argsRef.current.serveNativeVerb(verb, params),
+      serveNativeVerb: (verb, params) =>
+        isManagerReceiptVerb(verb)
+          ? serveManagerReceipt(verb, params)
+          : argsRef.current.serveNativeVerb(verb, params),
       readStorage: () => argsRef.current.readStorage(),
       onStorageWrite: (key, value) => argsRef.current.onStorageWrite(key, value),
       onPageFault: (error) => argsRef.current.onPageFault(error),
@@ -242,7 +257,7 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
       hostRef.current = null
       host.dispose()
     }
-  }, [buildId, client, sessionId, snapshot])
+  }, [args.hostId, buildId, client, sessionId, snapshot])
 
   return {
     bridgeEnabled: ready !== null,

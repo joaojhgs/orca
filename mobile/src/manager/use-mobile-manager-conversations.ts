@@ -12,11 +12,7 @@ import type { ManagerConversationDetail } from '../../../src/shared/manager-conv
 import type { PendingManagerMutation } from '../../../src/shared/manager-conversation-request'
 import type { RpcClient } from '../transport/rpc-client'
 import { mobileManagerCall, MobileManagerRefusalError } from './mobile-manager-call'
-import {
-  clearMobileManagerReceipt,
-  readMobileManagerReceipt,
-  saveMobileManagerReceipt
-} from './mobile-manager-request-store'
+import type { MobileManagerReceiptStore } from './mobile-manager-receipt-store-contract'
 import {
   readMobileManagerWorkspaces,
   type MobileManagerWorkspaceChoice
@@ -36,7 +32,7 @@ const definitiveRefusals = new Set([
 
 export function useMobileManagerConversations(
   client: RpcClient,
-  ownerKey: string,
+  receipts: MobileManagerReceiptStore,
   foreground: boolean,
   initialRunId?: string
 ) {
@@ -114,7 +110,8 @@ export function useMobileManagerConversations(
   useEffect(() => {
     let canceled = false
     active.current = true
-    void readMobileManagerReceipt(ownerKey)
+    void receipts
+      .read()
       .then((receipt) => {
         if (!canceled) {
           setPending(receipt)
@@ -132,7 +129,7 @@ export function useMobileManagerConversations(
       canceled = true
       active.current = false
     }
-  }, [ownerKey])
+  }, [receipts])
 
   useEffect(() => {
     if (!foreground) {
@@ -177,8 +174,8 @@ export function useMobileManagerConversations(
       if (!recoveryReady) {
         throw new Error('Restore request recovery storage before sending a manager message.')
       }
-      const earlier = await readMobileManagerReceipt(ownerKey)
-      await saveMobileManagerReceipt(ownerKey, request)
+      const earlier = await receipts.read()
+      await receipts.save(request)
       if (!active.current) {
         return
       }
@@ -212,14 +209,14 @@ export function useMobileManagerConversations(
           cause instanceof MobileManagerRefusalError &&
           definitiveRefusals.has(cause.code)
         ) {
-          await clearMobileManagerReceipt(ownerKey, request.requestId)
+          await receipts.clear(request.requestId)
           if (active.current) {
             setPending(null)
           }
         }
         throw cause
       }
-      await clearMobileManagerReceipt(ownerKey, request.requestId)
+      await receipts.clear(request.requestId)
       if (!active.current) {
         return
       }

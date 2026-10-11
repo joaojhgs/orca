@@ -16,6 +16,11 @@ import {
   mediaReleaseResultSchema
 } from './bridge-media-verbs'
 import { PAGE_STORAGE_MAX_KEY_CHARS } from '../page-storage-keys'
+import {
+  MANAGER_RECEIPT_VERBS,
+  managerReceiptParams,
+  managerReceiptResult
+} from './bridge-manager-receipt-verbs'
 
 /**
  * The shell-answered request seam: what a `native.` method is, and every verb there is.
@@ -44,7 +49,8 @@ export const BRIDGE_NATIVE_VERB_NAMES = [
   'native.audio.start',
   'native.audio.read',
   'native.audio.stop',
-  'native.storage.read'
+  'native.storage.read',
+  ...MANAGER_RECEIPT_VERBS
 ] as const
 
 export type BridgeNativeVerb = (typeof BRIDGE_NATIVE_VERB_NAMES)[number]
@@ -136,6 +142,10 @@ export const BRIDGE_NATIVE_VERBS: Readonly<Record<BridgeNativeVerb, BridgeNative
   'native.storage.read': {
     params: storageReadParamsSchema,
     result: storageReadResultSchema
+  },
+  'native.manager.receipt': {
+    params: managerReceiptParams,
+    result: managerReceiptResult
   }
 }
 

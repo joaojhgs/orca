@@ -200,7 +200,8 @@ describe('the grants this app implements', () => {
       'native.audio.start',
       'native.audio.read',
       'native.audio.stop',
-      'native.storage.read'
+      'native.storage.read',
+      'native.manager.receipt'
     ])
   })
 

@@ -16,7 +16,8 @@ import { useHostDescriptor } from '../transport/host-descriptor-store'
 import { firstParam } from '../navigation/route-param-reader'
 import { colors } from '../theme/mobile-theme'
 import { useMobileManagerConnectionKey } from './use-mobile-manager-connection-key'
-import { managerReceiptOwnerKey } from './mobile-manager-request-store'
+import { useMobileManagerReceiptStore } from './use-mobile-manager-receipt-store'
+import type { MobileManagerReceiptStore } from './mobile-manager-receipt-store-contract'
 import { ManagerButton } from './mobile-manager-button'
 import { MobileManagerConversation } from './mobile-manager-conversation'
 import { MobileManagerObjectiveForm } from './mobile-manager-objective-form'
@@ -38,16 +39,8 @@ export function MobileManagerScreen() {
       return () => setForeground(false)
     }, [])
   )
-  let ownerKey: string | null = null
-  let recoveryError: string | null = null
-  if (hostId && clientId) {
-    try {
-      ownerKey = managerReceiptOwnerKey(hostId, clientId)
-    } catch (cause) {
-      recoveryError = cause instanceof Error ? cause.message : 'Native pairing is required.'
-    }
-  }
-  const connectionKey = useMobileManagerConnectionKey(client, ownerKey)
+  const { store: receipts, error: recoveryError } = useMobileManagerReceiptStore(hostId, clientId)
+  const connectionKey = useMobileManagerConnectionKey(client, receipts?.ownerKey ?? null)
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
@@ -64,11 +57,11 @@ export function MobileManagerScreen() {
       <Text style={styles.controller}>
         Controller: {descriptor?.machineName ?? hostId ?? 'Not selected'}
       </Text>
-      {client && ownerKey && state === 'connected' ? (
+      {client && receipts && state === 'connected' ? (
         <ManagerSurface
-          key={connectionKey}
+          key={JSON.stringify([connectionKey, initialRunId])}
           client={client}
-          ownerKey={ownerKey}
+          receipts={receipts}
           foreground={foreground}
           initialRunId={initialRunId || undefined}
         />
@@ -86,13 +79,13 @@ export function MobileManagerScreen() {
 
 function ManagerSurface(props: {
   client: RpcClient
-  ownerKey: string
+  receipts: MobileManagerReceiptStore
   foreground: boolean
   initialRunId?: string
 }) {
   const manager = useMobileManagerConversations(
     props.client,
-    props.ownerKey,
+    props.receipts,
     props.foreground,
     props.initialRunId
   )
