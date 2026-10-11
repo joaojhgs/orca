@@ -195,9 +195,18 @@ the production-unit-derived sandbox before the separately authorized activation.
 `/usr/local/bin/hermes-manager-console` command, without starting or enabling the
 manager. The developer's only sudo permission is its argument-free, root-owned
 console entry point. It checks the unit digest, loaded identity, absence of drop-ins
-and private grant before starting exactly `hermes-orca-manager.service`. It then
+and private grant before enabling and starting exactly `hermes-orca-manager.service`. It then
 follows only that unit's logs with no pager and a fixed environment. Launch this
 command in the worker's registered Orca workspace; it does not expose the private
 profile to the terminal. Closing the console does not stop the persistent service.
 This operator launch path is not a manager tool and cannot select another command,
 service, identity, grant or executable.
+
+Native notification settings now select an explicit paired Orca server and edit
+the same server policy as the browser: saved scopes, actor/destination filters,
+selected events, silent/digest delivery, independent manager wakes and device mutes.
+Reads and writes are fenced to the selected connection generation; conflicting or
+unconfirmed saves require a fresh read rather than automatic replay. Unsupported
+servers show a refusal, not a local-policy fallback. Saved disconnected scopes and
+device overrides remain intact. The global native settings route needs an updated
+mobile app; deploying the server alone does not update an installed native shell.

@@ -1,5 +1,6 @@
 import { NotificationDisplayTest } from '../src/settings/notification-display-test'
 import { NativeNotificationDeliverySettings } from '../src/settings/native-notification-delivery-settings'
+import { NativeNotificationPolicySettings } from '../src/settings/native-notification-policy-settings'
 import { useRouter } from 'expo-router'
 import NotificationsScreen from '../src/settings/notification-settings-screen'
 import { nativeNotificationSettingsOperations } from '../src/settings/native-notification-settings-operations'
@@ -14,6 +15,7 @@ export default function NativeNotificationsRoute() {
       {(enabled) => (
         <>
           <NativeNotificationDeliverySettings enabled={enabled} />
+          <NativeNotificationPolicySettings />
           <NotificationDisplayTest onTroubleshoot={() => router.push('/troubleshoot')} />
         </>
       )}

@@ -495,3 +495,28 @@ OOM counters remain zero, but an eight-second sample showed up to 56% CPU steal,
 19% I/O wait and roughly 10 MiB/s swap-out. Available RAM alone does not establish
 low pressure. No service restart, limit change, process kill or live release switch
 was performed; persistent manager launch and full deployment acceptance remain.
+
+### Fixed worker console and native notification controls — 2026-10-11 02:44 UTC
+
+The coding worker now has the reviewed manager unit and fixed operator console
+staged. It remains inactive, without a service credential. The developer can invoke
+only the argument-free console through sudo; an extra argument is refused, and
+missing private authority returns exit 69 without starting the unit. Initial console
+source is committed/pushed as db44eeb9ed. The updated first-launch action enables
+only this fixed unit so it can survive a worker reboot; staging never enables it.
+
+Native mobile notification controls use the existing authoritative server policy,
+shared browser rule-editing logic and existing native picker components. They select
+an explicit server, retain saved disconnected scopes/devices, separate human
+delivery from manager wakes, support silent/digest and per-device event vetoes, and
+reject stale connection results or unconfirmed save replay. Source validation:
+26 mobile tests across five suites, 20 existing shared/browser/persistence/RPC tests,
+70 Python integration tests, mobile/backend/renderer production typechecks and
+the mobile test ratchet (972 included, four intentional exclusions, unchanged
+122-file baseline). New-test focused typecheck also passed. Actual installed mobile
+app/device delivery remains unverified and requires an updated native shell.
+
+The production release build is running in its own 4 GiB, zero-swap, single-CPU
+user service. VPS Orca still runs main-bf32886551-stop-points, restart count zero;
+all seven listed remote terminals are connected. No grant, persistent manager,
+live release switch or desktop restart has occurred. Full goal remains active.

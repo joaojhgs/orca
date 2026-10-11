@@ -52,7 +52,7 @@ class ManagerConsoleTests(unittest.TestCase):
                 patch.object(console, 'run_systemctl', side_effect=[self.properties, '', '']) as service, \
                 patch.object(console.os, 'execve') as execute:
             console.main([])
-        self.assertEqual(service.call_args_list[1].args, ('start', console.UNIT))
+        self.assertEqual(service.call_args_list[1].args, ('enable', '--now', console.UNIT))
         self.assertEqual(service.call_args_list[2].args, ('is-active', '--quiet', console.UNIT))
         executable, argv, environment = execute.call_args.args
         self.assertEqual(executable, '/usr/bin/journalctl')

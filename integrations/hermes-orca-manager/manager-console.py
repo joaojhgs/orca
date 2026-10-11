@@ -47,7 +47,7 @@ def main(arguments):
     if values != {'FragmentPath': str(UNIT_PATH), 'DropInPaths': '', 'NeedDaemonReload': 'no',
                   'User': 'hermes-manager', 'Group': 'hermes-manager'}:
         raise ValueError('Loaded manager unit differs from the reviewed service')
-    run_systemctl('start', UNIT)
+    run_systemctl('enable', '--now', UNIT)
     run_systemctl('is-active', '--quiet', UNIT)
     print('Hermes manager is running on the coding worker. Closing this console does not stop it.',
           flush=True)
