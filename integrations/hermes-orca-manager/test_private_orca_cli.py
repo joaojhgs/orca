@@ -15,6 +15,13 @@ spec.loader.exec_module(launcher)
 
 
 class PrivateLauncherTests(unittest.TestCase):
+    def setUp(self):
+        temporary = TemporaryDirectory(prefix='orca-cli-routing-fixture-')
+        self.addCleanup(temporary.cleanup)
+        routing = patch.object(launcher, 'OPERATOR_CONFIG', Path(temporary.name) / 'absent.json')
+        routing.start()
+        self.addCleanup(routing.stop)
+
     def test_interactive_identity_requires_root_owned_operator_routing(self):
         with TemporaryDirectory(prefix='hermes-interactive-routing-test-') as directory:
             config = Path(directory) / 'interactive.json'

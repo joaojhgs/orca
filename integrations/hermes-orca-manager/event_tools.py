@@ -11,6 +11,13 @@ def read_events(ctx, args, wait=False):
         if not isinstance(args, dict) or set(args) - allowed:
             raise ValueError("Only a cursor and bounded event options are accepted")
         values = dict(args)
+        if 'cursor' in values:
+            cursor = values['cursor']
+            if (not isinstance(cursor, dict) or set(cursor) != {'journalId', 'sequence'} or
+                    not isinstance(cursor['journalId'], str) or not 1 <= len(cursor['journalId']) <= 200 or
+                    isinstance(cursor['sequence'], bool) or not isinstance(cursor['sequence'], int) or
+                    not 0 <= cursor['sequence'] <= 9007199254740991):
+                raise ValueError('Use the exact journal cursor returned by Orca')
         key, default, maximum = ("timeout-ms", 10000, 20000) if wait else ("limit", 50, 200)
         value = values.setdefault(key, default)
         if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= maximum:
@@ -40,6 +47,10 @@ def register_event_tools(ctx):
         ctx.register_tool(name=name, toolset="orca_events", schema={
             "name": name, "description": description,
             "parameters": {"type": "object", "additionalProperties": False,
-                           "properties": {"cursor": {"type": "object"},
+                           "properties": {"cursor": {
+                               "type": "object", "additionalProperties": False,
+                               "properties": {"journalId": {"type": "string", "minLength": 1, "maxLength": 200},
+                                              "sequence": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}},
+                               "required": ["journalId", "sequence"]},
                                           key: {"type": "integer", "minimum": 1, "maximum": maximum}}},
         }, handler=lambda args, wait=wait, **kwargs: read_events(ctx, args, wait), check_fn=available)

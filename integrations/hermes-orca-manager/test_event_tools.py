@@ -25,16 +25,19 @@ class EventToolTests(unittest.TestCase):
 
     def test_native_session_can_read_and_wait_without_a_manager_decision(self):
         with patch.object(events, 'OrcaClient') as client:
-            client.return_value.call.return_value = {'events': [], 'cursor': {'sequence': 1}}
+            cursor = {'journalId': 'fixture-journal', 'sequence': 1}
+            client.return_value.call.return_value = {'events': [], 'cursor': cursor}
             for wait in (False, True):
-                response = json.loads(events.read_events(self.context(), {'cursor': {'sequence': 1}}, wait))
+                response = json.loads(events.read_events(self.context(), {'cursor': cursor}, wait))
                 self.assertTrue(response['ok'])
             self.assertEqual([call.args[0] for call in client.return_value.call.call_args_list], ['read', 'wait'])
 
     def test_disabled_and_mutating_or_over_budget_arguments_never_reach_transport(self):
         with patch.object(events, 'OrcaClient') as client:
             for args, wait in [({'lease': {}}, False), ({'limit': 201}, False),
-                               ({'timeout-ms': 20001}, True), ({'limit': True}, False)]:
+                               ({'timeout-ms': 20001}, True), ({'limit': True}, False),
+                               ({'cursor': {'sequence': 1}}, False),
+                               ({'cursor': {'journalId': 'fixture', 'sequence': True}}, True)]:
                 self.assertFalse(json.loads(events.read_events(self.context(), args, wait))['ok'])
             self.assertFalse(json.loads(events.read_events(self.context(False), {}))['ok'])
             client.assert_not_called()
