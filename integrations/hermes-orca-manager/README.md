@@ -50,7 +50,9 @@ events. Service-only `conversation-read`/`conversation-post` operations require
 explicit ownership and, for writes, the `conversation:write` grant plus a fenced
 lease. Manager replies never wake themselves; question answers cannot cross Runs
 or be submitted twice. Browser objective/conversation UI is implemented and tested
-with a hidden real backend; native-mobile rendering and manager push links remain pending.
+with a hidden real backend. Native-mobile rendering, native-owned WebView recovery
+and checked manager push routes are implemented and tested in source. Live
+deployment and actual device delivery remain separate acceptance checks.
 
 The Linux worker memory deployment uses separate pinned Hindsight API and Hermes
 environments, a private PostgreSQL Unix socket and authenticated loopback API.
@@ -61,7 +63,7 @@ review before reuse on another machine.
 
 This is not a completed manager deployment. Source-level tests pass, and local
 Hindsight retain/recall/reflect passed on the worker, but the manager still needs
-live server deployment, native-mobile integration and
+live server activation, device validation and
 multihost restart/revocation validation. No paid API fallback, cloud memory,
 third-party account connection or meeting recording is enabled by this plugin.
 
@@ -136,3 +138,10 @@ request, grant, consumer or installed-plugin replacement. The separate memory HT
 unit test uses an arbitrary ephemeral port, intentionally blocked by the production
 loopback policy; run that test locally and use the authenticated fixed-port memory
 verification for the real sandbox. Never relax the firewall to make a test pass.
+
+`stage-manager-update.sh <source-commit> <standalone-cli>` publishes a root-owned,
+checksummed candidate under `/opt/hermes-manager/candidates`, including the
+per-objective decision module and regression tests. Repeating it verifies the
+existing bytes instead of overwriting them. It does not select the active plugin,
+replace the active CLI, touch OAuth or issue a grant. Validate the candidate using
+the production-unit-derived sandbox before the separately authorized activation.

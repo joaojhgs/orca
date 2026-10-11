@@ -1,5 +1,44 @@
 # Customized fork: upstream merge, 2026-10-10
 
+## Manager staging checkpoint — 2026-10-11
+
+Workspace custody source `deb72fccc6` and immutable integration staging source
+`088557e878` are pushed to fork main and fast-forwarded into the primary checkout.
+Manager dispatch acceptance checks canonical agent status and existing supervised
+Dispatch reservations before admitting another writer; unknown starts/stops and
+disconnected contact do not release custody. No user session is adopted or stopped.
+This is not a universal filesystem lock or a completed final-evidence policy.
+
+Validation: 123 manager/orchestration tests in 14 files, production backend
+typecheck and seven changed-source checks; 43 additional conversation, event and
+notification-policy tests in seven files. Full CLI/Electron/preload/browser/mobile
+web release build passed, including 734 CLI closure files, five CLI commands and
+the 138-asset mobile-web bundle. No native Electron version change (43.7.5).
+
+Candidate controller output is staged at
+`/opt/orca-control/releases/manager-deb72fccc6`. The new CLI reaches the existing
+runtime after one unconfirmed short probe. The live symlink still selects
+`main-bf32886551-stop-points`; PID 1641416 and NRestarts=0 are unchanged.
+This is staged output, not a new server process or deployed Manager UI.
+
+Worker candidate code and standalone CLI are staged under
+`/opt/hermes-manager/candidates/088557e878262c8169399a69145af2b6d14fdf59`.
+Checksums and repeat staging verified. Fifty-one Python tests passed in the
+production-unit-derived ARM sandbox; native plugin help booted successfully.
+The installer now includes `objective_decisions.py`. Active plugin/CLI, OAuth,
+grants and service selection are unchanged. Memory API/bridge remain active,
+NRestarts=0; manager consumer remains inactive and uninstalled.
+
+Resource observations still show intermittent contention despite available RAM:
+332 MiB available, about 591 MiB host swap, 54–56% CPU steal and active paging,
+with HTTPS 200 taking 3.2 seconds. A post-staging sample had zero Orca memory
+high/max/OOM counters, intervals ranging from 2% to 38% steal and HTTPS 200 in
+4.9 seconds. The socket-throttle counter stayed at 61,188 across a four-second
+interval; socket memory was about 332 KiB. This is not evidence of a current
+socket-limit disconnect cause. No limits, swap, firewalls,
+relays or user agents were changed. Full goal remains active: final gates and
+notification controls, live activation and multihost/device acceptance remain.
+
 This merge brings upstream `stablyai/orca` main through
 `5c7c4930421aca419feb290c36905c19cdb10e2a` into the fork's main branch.
 The previous fork tip was `bf3288655171ff8ef9e2931b66a85220a0a7eb16`.
