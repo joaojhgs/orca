@@ -190,3 +190,14 @@ per-objective decision module and regression tests. Repeating it verifies the
 existing bytes instead of overwriting them. It does not select the active plugin,
 replace the active CLI, touch OAuth or issue a grant. Validate the candidate using
 the production-unit-derived sandbox before the separately authorized activation.
+
+`stage-manager-console.sh` installs the reviewed production unit and the fixed
+`/usr/local/bin/hermes-manager-console` command, without starting or enabling the
+manager. The developer's only sudo permission is its argument-free, root-owned
+console entry point. It checks the unit digest, loaded identity, absence of drop-ins
+and private grant before starting exactly `hermes-orca-manager.service`. It then
+follows only that unit's logs with no pager and a fixed environment. Launch this
+command in the worker's registered Orca workspace; it does not expose the private
+profile to the terminal. Closing the console does not stop the persistent service.
+This operator launch path is not a manager tool and cannot select another command,
+service, identity, grant or executable.
