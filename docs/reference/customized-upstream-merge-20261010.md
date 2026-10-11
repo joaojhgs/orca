@@ -1,5 +1,30 @@
 # Customized fork: upstream merge, 2026-10-10
 
+## Evidence-gated manager results checkpoint — 2026-10-11
+
+Manager Tasks now freeze work/verification requirements in the canonical Task's
+receipt transaction. Worker launch specs carry requested checks and exact work
+report bindings. Root completion requires every Task's current completed Dispatch
+and latest authenticated successful worker report, plus a separately dispatched
+verifier for every work Task. Verification JSON binds the Task/Dispatch/report and
+must include passing requested tests and clean branch/full-commit evidence where
+specified. Existing pending questions and decision gates block certification.
+
+Result message, provenance receipt and root-notification intent are atomic;
+mutation replay cannot duplicate them. Ordinary replies/worker stops stay silent.
+Existing notification links and digest queues are reused; late digests recheck
+current facts and human instruction revisions. No new Task lifecycle owner or
+notification gateway protocol was introduced. This is separate-agent report
+verification, not filesystem/test-runner attestation or a sandbox security proof.
+
+Validation: 71 focused tests in six suites and 64 Python integration tests passed.
+Production backend, renderer and CLI typechecks passed, along with all seven
+changed-source quality categories. No live worker/model/device result is claimed.
+
+Source-only checkpoint. The persistent manager is still inactive and neither
+Orca service has been restarted. Placement/usage/resource decision gates, final
+production deployment and the full live multi-host/device acceptance remain.
+
 ## Durable human digest checkpoint — 2026-10-11 01:21 UTC
 
 Notification rules now expose one-minute digests alongside inherited, immediate

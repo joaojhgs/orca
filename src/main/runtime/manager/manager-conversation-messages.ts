@@ -7,6 +7,8 @@ import {
   type ManagerConversationMessage
 } from '../../../shared/manager-conversation-contract'
 import { ManagerAuthorityError } from './manager-authority-error'
+import { createManagerCompletionTables } from './manager-completion-evidence'
+import { ManagerCompletionReceiptSchema } from '../../../shared/manager-completion-contract'
 import {
   createManagerQuestionNotificationTable,
   queueManagerQuestionNotification
@@ -32,6 +34,7 @@ export function createManagerConversationTable(db: OrchestrationDb['db']): void 
   CREATE UNIQUE INDEX IF NOT EXISTS manager_conversation_question_answer
     ON manager_conversation_messages(reply_to) WHERE role = 'human' AND reply_to IS NOT NULL;`)
   createManagerQuestionNotificationTable(db)
+  createManagerCompletionTables(db)
 }
 
 function conversationMessage(db: OrchestrationDb, value: unknown) {
@@ -40,6 +43,11 @@ function conversationMessage(db: OrchestrationDb, value: unknown) {
   if (!message) {
     throw new Error('Conversation message is missing')
   }
+  const completion = db.db
+    .prepare('SELECT verified_at, evidence FROM manager_objective_completions WHERE message_id = ?')
+    .get(message.id)
+  const checked =
+    completion && z.object({ verified_at: z.number(), evidence: z.string() }).parse(completion)
   return ManagerConversationMessageSchema.parse({
     id: message.id,
     runId: message.run_id,
@@ -48,7 +56,15 @@ function conversationMessage(db: OrchestrationDb, value: unknown) {
     kind: source.kind,
     body: message.body,
     replyTo: source.reply_to,
-    createdAt: exposeMessageTimestamps(message).created_at
+    createdAt: exposeMessageTimestamps(message).created_at,
+    ...(checked
+      ? {
+          completion: ManagerCompletionReceiptSchema.parse({
+            verifiedAt: checked.verified_at,
+            evidence: JSON.parse(checked.evidence)
+          })
+        }
+      : {})
   })
 }
 

@@ -54,6 +54,29 @@ with a hidden real backend. Native-mobile rendering, native-owned WebView recove
 and checked manager push routes are implemented and tested in source. Live
 deployment and actual device delivery remain separate acceptance checks.
 
+Objective completion is distinct from a worker's completion claim. `task-create`
+freezes `--requirements` (work role, exact test commands, optional Git branch) in
+the canonical Task's mutation transaction and adds them to its launch spec. After
+an authenticated successful work report, a new verification Task addresses that
+exact Task/Dispatch/report; it must run/check the requested results independently
+and send the typed JSON evidence described in its server-generated launch spec.
+The manager cannot use the implementation worker as its own verifier.
+
+`conversation-post --completion-evidence <json>` lists every canonical Task,
+current Dispatch and accepted report exactly once. It refuses missing reports,
+old attempts, missing/failed tests, wrong/dirty Git evidence, unowned verification,
+pending questions or approval gates. Normal prose replies do not certify a result.
+The result, evidence receipt and one root-notification intent commit together;
+replaying the mutation does not create another result or notification. Completed
+objectives cannot add more Tasks until a new human instruction is recorded.
+Late notification digests recheck the certificate against current canonical facts.
+
+This is provenance-checked **separate-agent verification**, not a cryptographic
+attestation of the filesystem or test runner. The controller never executes a
+worker-supplied shell command. Human requirements expressed only as prose still
+need Hermes to translate them faithfully into frozen test/Git requirements;
+neither idle status nor an LLM's unbound text supplies completion authority.
+
 The Linux worker memory deployment uses separate pinned Hindsight API and Hermes
 environments, a private PostgreSQL Unix socket and authenticated loopback API.
 `memory-test` verifies retain/semantic recall/reflect and anonymous-access refusal.

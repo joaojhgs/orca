@@ -8,6 +8,7 @@ import { requireManagerPrincipal } from '../../manager/manager-runtime-authority
 import { ManagerAuthorityError } from '../../manager/manager-authority-error'
 import type { OrchestrationDb } from '../../orchestration/db'
 import { exposeDispatchContext } from './orchestration/worker/worker-observation'
+import { readManagerTaskRequirements } from '../../manager/manager-completion-evidence'
 
 function requireRun(db: OrchestrationDb, serviceToken: string, runId: string) {
   const principal = requireManagerPrincipal(db, serviceToken)
@@ -84,6 +85,12 @@ export const MANAGER_TASK_INVENTORY_METHODS = [
       const dispatch = db.getDispatchContext(task.id)
       return {
         task,
+        completionRequirements: readManagerTaskRequirements(db, task.id),
+        reportFacts: dispatch
+          ? db
+              .getAttemptObservationFacts(dispatch.id)
+              .filter((fact) => fact.facet === 'worker_report')
+          : [],
         dispatch: dispatch ? exposeDispatchContext(dispatch) : null,
         observedAt: Date.now()
       }

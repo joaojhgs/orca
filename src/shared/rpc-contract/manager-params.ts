@@ -5,6 +5,7 @@ import {
   ManagerPrincipalGrantSchema
 } from '../manager-principal-contract'
 import { ORCHESTRATION_WORKER_READ_SOURCES } from '../orchestration-worker-output'
+import { ManagerTaskRequirementsSchema } from '../manager-completion-contract'
 
 const serviceToken = z.string().regex(/^orcam_[A-Za-z0-9_-]{43}$/)
 export const ManagerIssueParams = z.strictObject({
@@ -93,7 +94,8 @@ export const ManagerTaskCreateParams = z.strictObject({
   spec: z.string().trim().min(1).max(128_000),
   taskTitle: z.string().trim().min(1).max(200).optional(),
   deps: z.array(z.string().min(1).max(512)).max(100).default([]),
-  parentId: z.string().min(1).max(512).optional()
+  parentId: z.string().min(1).max(512).optional(),
+  completionRequirements: ManagerTaskRequirementsSchema.default({ role: 'work', tests: [] })
 })
 export const ManagerWorkerStartParams = z.strictObject({
   ...managerWrite,

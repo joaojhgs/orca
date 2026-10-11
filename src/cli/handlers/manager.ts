@@ -141,7 +141,8 @@ export const MANAGER_HANDLERS: Record<string, CommandHandler> = {
     spec: text(flags, 'spec'),
     taskTitle: flags.has('title') ? text(flags, 'title') : undefined,
     deps: flags.has('deps') ? text(flags, 'deps').split(',') : [],
-    parentId: flags.has('parent') ? text(flags, 'parent') : undefined
+    parentId: flags.has('parent') ? text(flags, 'parent') : undefined,
+    completionRequirements: optionalJson(flags, 'requirements')
   })),
   'manager snapshot': operation('manager.snapshot', (flags) => ({
     offset: number(flags, 'offset', 0),

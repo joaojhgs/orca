@@ -20,7 +20,10 @@ export function managerConversationHandlers(
       requestId: text(flags, 'request-id'),
       body: text(flags, 'body'),
       kind: flags.has('kind') ? text(flags, 'kind') : 'reply',
-      replyTo: flags.has('reply-to') ? text(flags, 'reply-to') : undefined
+      replyTo: flags.has('reply-to') ? text(flags, 'reply-to') : undefined,
+      completionEvidence: flags.has('completion-evidence')
+        ? JSON.parse(text(flags, 'completion-evidence'))
+        : undefined
     }))
   }
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { ManagerConsumerLeaseSchema } from '../manager-principal-contract'
+import { ManagerCompletionEvidenceSchema } from '../manager-completion-contract'
 
 const id = z.string().min(1).max(512)
 const body = z.string().trim().min(1).max(32_000)
@@ -33,5 +34,6 @@ export const ManagerConversationPostParams = z.strictObject({
   ...ManagerConversationSendParams.shape,
   serviceToken: ManagerConversationReadParams.shape.serviceToken,
   lease: ManagerConsumerLeaseSchema,
-  kind: z.enum(['reply', 'question', 'progress']).default('reply')
+  kind: z.enum(['reply', 'question', 'progress']).default('reply'),
+  completionEvidence: ManagerCompletionEvidenceSchema.optional()
 })

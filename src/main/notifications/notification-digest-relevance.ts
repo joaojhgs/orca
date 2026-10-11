@@ -7,6 +7,7 @@ import { getConnectionExecutionHostId } from '../../shared/execution-host'
 import { agentNotificationStopPoint } from '../../shared/agent-notification-stop-point'
 import { confirmAgentNotification } from './agent-notification-eligibility'
 import { ManagerAuthorityError } from '../runtime/manager/manager-authority-error'
+import { managerCompletionMessage } from '../runtime/manager/manager-completion-evidence'
 
 /** Null defers delivery when current execution evidence cannot be verified. */
 export async function confirmNotificationDigestRelevance(
@@ -30,6 +31,9 @@ export async function confirmNotificationDigestRelevance(
       const principalId = db.managerRuns.principalForRun(run)
       const principal = db.managerPrincipals.authorize(principalId, 'conversation:write')
       db.managerRuns.requireOwnedRun(principalId, run, principal.grant.scope)
+      if (event.notificationKind === 'completion') {
+        return managerCompletionMessage(db, run.id) === target.messageId
+      }
       return Boolean(
         db.db
           .prepare(`SELECT 1 FROM manager_conversation_messages c

@@ -20,11 +20,11 @@ READ_OPERATIONS = {
 }
 WRITE_OPERATIONS = {
     "run-create": ({"workspace-id", "objective"}, set()),
-    "task-create": ({"run", "spec"}, {"title", "deps", "parent"}),
+    "task-create": ({"run", "spec"}, {"title", "deps", "parent", "requirements"}),
     "worker-start": ({"run", "task", "workspace-id", "agent"}, {"model", "effort", "retry-of"}),
     "worker-guide": ({"run", "dispatch", "body"}, set()),
     "question-answer": ({"run", "message", "body"}, set()),
-    "conversation-post": ({"run", "body"}, {"kind", "reply-to"}),
+    "conversation-post": ({"run", "body"}, {"kind", "reply-to", "completion-evidence"}),
 }
 CONTROL_OPERATIONS = {
     "read": (set(), {"cursor", "limit"}),

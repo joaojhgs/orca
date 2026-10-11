@@ -122,7 +122,7 @@ export const MANAGER_COMMAND_SPECS: CommandSpec[] = [
     path: ['manager', 'task-create'],
     summary: 'Add an idempotent Task to an explicitly addressed manager-owned Run',
     usage:
-      'orca manager task-create --lease <json> --request-id <id> --run <id> --spec <text> [--title <text>] [--deps <ids>] [--parent <id>] [--json]',
+      'orca manager task-create --lease <json> --request-id <id> --run <id> --spec <text> [--title <text>] [--deps <ids>] [--parent <id>] [--requirements <json>] [--json]',
     allowedFlags: [
       ...GLOBAL_FLAGS,
       'lease',
@@ -131,7 +131,8 @@ export const MANAGER_COMMAND_SPECS: CommandSpec[] = [
       'spec',
       'title',
       'deps',
-      'parent'
+      'parent',
+      'requirements'
     ],
     notes
   },

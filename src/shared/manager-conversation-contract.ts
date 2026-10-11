@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { ManagerEventScopeSchema } from './manager-event-contract'
 import { MANAGER_ACTIONS } from './manager-principal-contract'
+import { ManagerCompletionReceiptSchema } from './manager-completion-contract'
 
 export const ManagerConversationMessageSchema = z.strictObject({
   id: z.string(),
@@ -10,7 +11,8 @@ export const ManagerConversationMessageSchema = z.strictObject({
   kind: z.enum(['reply', 'question', 'progress']),
   body: z.string(),
   replyTo: z.string().nullable(),
-  createdAt: z.string()
+  createdAt: z.string(),
+  completion: ManagerCompletionReceiptSchema.optional()
 })
 export type ManagerConversationMessage = z.infer<typeof ManagerConversationMessageSchema>
 

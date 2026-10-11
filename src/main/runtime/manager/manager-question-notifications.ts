@@ -4,6 +4,7 @@ import type { OrcaRuntimeService } from '../orca-runtime'
 import type { MobileNotificationDispatchEvent } from '../runtime-mobile-notification-controller'
 import { managerNotificationId } from '../../../shared/manager-notification-target'
 import { ManagerAuthorityError } from './manager-authority-error'
+import { managerCompletionMessage } from './manager-completion-evidence'
 
 const pendingQuestion = z.object({ message_id: z.string(), run_id: z.string() })
 type Question = z.infer<typeof pendingQuestion>
@@ -68,18 +69,30 @@ function questionEvent(
     throw new Error('Question Run is missing')
   }
   const notificationId = managerNotificationId({ runId: run.id, messageId: question.message_id })
+  const completion = managerCompletionMessage(db, run.id) === question.message_id
+  if (
+    !completion &&
+    db.db
+      .prepare('SELECT 1 FROM manager_objective_completions WHERE message_id = ?')
+      .get(question.message_id)
+  ) {
+    retireQuestion(db, question.message_id, 'fenced')
+    return null
+  }
   return {
     type: 'notification',
     source: 'plugin',
-    title: 'Hermes needs your decision',
-    body: 'Open this objective in Manager to read and answer the question.',
+    title: completion ? 'Hermes objective verified' : 'Hermes needs your decision',
+    body: completion
+      ? 'Open this objective in Manager to inspect its result and verification evidence.'
+      : 'Open this objective in Manager to read and answer the question.',
     notificationId,
     attentionKey: notificationId,
     emittedAt: Date.now(),
     ...(scope.workspaceId && Buffer.byteLength(JSON.stringify(scope.workspaceId)) <= 1024
       ? { worktreeId: scope.workspaceId }
       : {}),
-    notificationKind: 'question',
+    notificationKind: completion ? 'completion' : 'question',
     notificationScope: {
       ...scope,
       actor: 'manager',
@@ -111,7 +124,8 @@ function drainQuestions(runtime: Runtime, db: OrchestrationDb): void {
     .prepare(`SELECT c.message_id, c.run_id FROM manager_question_notifications n
     JOIN manager_conversation_messages c ON c.message_id = n.message_id
     JOIN messages m ON m.id = c.message_id
-    WHERE n.processed_at IS NULL AND c.role = 'manager' AND c.kind = 'question'
+    WHERE n.processed_at IS NULL AND c.role = 'manager' AND (c.kind = 'question' OR EXISTS
+      (SELECT 1 FROM manager_objective_completions v WHERE v.message_id = c.message_id))
     ORDER BY m.sequence LIMIT 50`)
     .all()
   for (const row of pending) {

@@ -8,7 +8,8 @@ from .manager_state import open_manager_state
 from .orca_client import OrcaClient, READ_OPERATIONS, WRITE_OPERATIONS, validated_arguments
 
 TEXT_KEYS = {"run", "task", "dispatch", "workspace-id", "objective", "spec", "title", "deps",
-             "parent", "agent", "model", "effort", "retry-of", "body", "message", "kind", "reply-to"}
+             "parent", "agent", "model", "effort", "retry-of", "body", "message", "kind", "reply-to",
+             "requirements", "completion-evidence"}
 MUTATION_LOCK = Lock()
 MODEL_READ_OPERATIONS = {key: value for key, value in READ_OPERATIONS.items() if key != "run-list"}
 MODEL_WRITE_OPERATIONS = {key: value for key, value in WRITE_OPERATIONS.items() if key != "run-create"}
@@ -99,7 +100,7 @@ def register_manager_tools(ctx):
         ("orca_manager_inspect", False, MODEL_READ_OPERATIONS,
          "Inspect approved placements, cached/stale-marked usage/resources, and explicitly addressed owned Runs, Tasks and workers. Contact loss is unverifiable, never process death."),
         ("orca_manager_act", True, MODEL_WRITE_OPERATIONS,
-         "Create a Task in this decision's Run, start a bounded worker in an exact approved workspace, guide or answer it, or post a conversation reply/question. A replayed result is an earlier receipt, not current worker status: inspect live state before acting. No Run creation/adoption, shell/admin/stop/deploy/merge/security operations. The adapter owns leases and durable request IDs."),
+         "Create a Task with frozen requirements, start a bounded worker in an exact approved workspace, guide/answer it, or post a conversation reply/question. A completion-evidence JSON string covers all Tasks and requires separately dispatched verification for work Tasks; ordinary replies do not complete objectives. Replayed receipts are not current worker status: inspect live state. No Run creation/adoption, shell/admin/stop/deploy/merge/security operations. The adapter owns leases and durable request IDs."),
     ]:
         ctx.register_tool(name=name, toolset="orca_manager", schema=schema(name, description, operations),
                           handler=lambda args, mutate=mutate, **kwargs: handle(ctx, args, mutate), check_fn=available)

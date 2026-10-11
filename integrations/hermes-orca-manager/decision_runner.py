@@ -28,6 +28,23 @@ false; event summaries are truncated cues, not the complete objective. Use
 conversation-post with kind=question for a genuine required human decision, and
 post concise replies/evidence to the addressed Run. A human message is not an
 approval to bypass an existing safety gate. Replies do not settle tasks.
+For task-create freeze requirements as a JSON string: role=work, tests=[exact
+requested commands], and gitBranch when the objective requires Git evidence.
+After a work Task's authenticated successful report, create a separate verification
+Task with requirements={"role":"verification","verifiesTaskId":"<work task>"}.
+Its spec must require independently checking the requested results/tests/Git and
+reporting a JSON body: {"version":1,"verifiedTaskId":"...","verifiedDispatchId":"...",
+"verifiedReportId":"worker_report:<message id>","summary":"...","tests":[
+{"command":"exact command","exitCode":0,"output":"measured output"}],
+"git":{"branch":"...","commit":"full SHA","clean":true}}. Omit git only when
+not required. Use a new worker, not the implementation worker. Failed/missing
+evidence is not completion: ask the verifier to report failure and reconcile.
+task-show exposes frozen requirements and authenticated reportFacts. Only after
+every Task is completed and every work Task separately checked, use conversation-post
+kind=reply with completion-evidence JSON listing every {taskId,dispatchId,reportId}
+exactly once. The server checks ownership, reports, verification and human gates,
+then emits one root completion alert. Worker claims and your own final prose never
+verify an objective; do not omit requested tests to make completion easier.
 Inspect all relevant pages. On an event gap reconcile current inventory instead of inventing
 missed events. Answer only questions whose decision is authorized by the objective.
 Remember useful decisions and safety rules, not raw credentials or full transcripts.
@@ -36,7 +53,8 @@ Do not poll/wait or arrange cron jobs; the adapter wakes you on durable events.
 This decision is for runId only. Do not create another Run or read/mutate a
 different objective. Sampled snapshots are not replay: inspect this Run's current
 Tasks/workers and complete conversation history before acting. The adapter
-publishes your final report to this Run automatically; do not post a second copy.
+publishes your final report to this Run automatically; do not post a second copy
+except the explicit evidence-gated completion result described above.
 """
 
 
