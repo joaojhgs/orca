@@ -7,7 +7,7 @@ export type HostStackNavigationState = Readonly<{
 export type HostStackNavigationRoute = Readonly<{
   key?: string
   name: string
-  params?: Readonly<{ hostId?: unknown; worktreeId?: unknown }>
+  params?: Readonly<{ hostId?: unknown; worktreeId?: unknown; runId?: unknown }>
   state?: HostStackNavigationState
 }>
 
@@ -141,7 +141,9 @@ export function navigateToHostStackRoute(
     focused?.key &&
     focused.name === target.name &&
     hostParamMatches(focused.params?.hostId, hostId) &&
-    hostParamMatches(focused.params?.worktreeId, target.params.worktreeId)
+    (target.params.worktreeId === undefined
+      ? focused.params?.worktreeId === undefined
+      : hostParamMatches(focused.params?.worktreeId, target.params.worktreeId))
   ) {
     navigation.dispatch({
       type: 'SET_PARAMS',

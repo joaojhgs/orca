@@ -8,6 +8,7 @@ import { readOrcaPushPayload, type OrcaPushPayload } from './push-payload'
 import type { Notification, NotificationBehavior } from 'expo-notifications'
 import { readNativeNotificationData } from './native-notification-data'
 import { loadNotificationDeliveryPreferences } from './notification-delivery-preferences'
+import { readManagerNotificationTarget } from '../../../src/shared/manager-notification-target'
 
 const RECENT_FOREGROUND_PUSH_CAP = 512
 const recentForegroundPushes = new Set<string>()
@@ -22,12 +23,14 @@ function claimForegroundPush(payload: OrcaPushPayload): boolean {
   ) {
     return true
   }
-  const key = JSON.stringify([
-    payload.hostFingerprint,
-    payload.notificationEpoch,
-    payload.notificationId ?? null,
-    seq
-  ])
+  const key = readManagerNotificationTarget(payload.notificationId)
+    ? JSON.stringify([payload.hostFingerprint, 'manager', payload.notificationId])
+    : JSON.stringify([
+        payload.hostFingerprint,
+        payload.notificationEpoch,
+        payload.notificationId ?? null,
+        seq
+      ])
   if (recentForegroundPushes.has(key)) {
     return false
   }
@@ -146,6 +149,9 @@ export function pushNotificationRouteData(
   }
   return {
     hostId,
+    ...(readManagerNotificationTarget(payload.notificationId)
+      ? { notificationId: payload.notificationId }
+      : {}),
     ...(payload.paneKey ? { paneKey: payload.paneKey } : {}),
     ...(payload.worktreeId ? { worktreeId: payload.worktreeId } : {})
   }

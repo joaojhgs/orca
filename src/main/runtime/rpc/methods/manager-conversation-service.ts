@@ -10,6 +10,7 @@ import {
 } from '../../manager/manager-conversation-messages'
 import { requireManagerPrincipal } from '../../manager/manager-runtime-authority'
 import { managerMutationReceipt } from '../../manager/manager-mutation-receipt'
+import { tryDeliverPendingManagerQuestions } from '../../manager/manager-question-notifications'
 
 export const MANAGER_CONVERSATION_SERVICE_METHODS = [
   defineMethod({
@@ -35,7 +36,7 @@ export const MANAGER_CONVERSATION_SERVICE_METHODS = [
     handler: (params, { runtime }) => {
       const db = runtime.getOrchestrationDb()
       const principal = requireManagerPrincipal(db, params.serviceToken, params.lease)
-      return db.managerPrincipals.withLease(params.lease, 'conversation:write', () => {
+      const result = db.managerPrincipals.withLease(params.lease, 'conversation:write', () => {
         db.managerRuns.requireOwnedRun(principal.id, db.getRun(params.runId), principal.grant.scope)
         const message = managerMutationReceipt(
           db,
@@ -48,6 +49,8 @@ export const MANAGER_CONVERSATION_SERVICE_METHODS = [
         )
         return { message, accepted: true }
       })
+      tryDeliverPendingManagerQuestions(runtime)
+      return result
     }
   })
 ]

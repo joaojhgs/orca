@@ -7,6 +7,7 @@ import { sha256 } from '@noble/hashes/sha256'
 import { loadHostCatalog } from '../transport/host-store'
 import type { HostCatalogEntry } from '../transport/types'
 import { getNotificationNavigationTarget } from './notification-routing'
+import { managerNotificationId } from '../../../src/shared/manager-notification-target'
 import {
   foregroundNotificationBehavior,
   canPresentForegroundPush,
@@ -72,6 +73,32 @@ describe('shouldSuppressForegroundPush', () => {
   it('allows one eligible native push and suppresses an in-process duplicate', async () => {
     await expect(shouldSuppressForegroundPush(push())).resolves.toBe(false)
     await expect(shouldSuppressForegroundPush(push())).resolves.toBe(true)
+  })
+
+  it('deduplicates a recovered manager question across controller epochs without conflating hosts or questions', async () => {
+    const id = managerNotificationId({ runId: 'run_one', messageId: 'msg_one' })
+    const recovered = (overrides: Record<string, unknown> = {}) =>
+      apnsData({
+        hostFingerprint,
+        notificationId: id,
+        notificationSeq: 1,
+        notificationEpoch: 'epoch-1',
+        ...overrides
+      })
+    await expect(shouldSuppressForegroundPush(recovered())).resolves.toBe(false)
+    await expect(
+      shouldSuppressForegroundPush(recovered({ notificationSeq: 4, notificationEpoch: 'epoch-2' }))
+    ).resolves.toBe(true)
+    await expect(
+      shouldSuppressForegroundPush(
+        recovered({
+          notificationId: managerNotificationId({ runId: 'run_one', messageId: 'msg_other' })
+        })
+      )
+    ).resolves.toBe(false)
+    await expect(
+      shouldSuppressForegroundPush(recovered({ hostFingerprint: otherHostFingerprint }))
+    ).resolves.toBe(false)
   })
 
   it('reads flat FCM fields and allows the first native push', async () => {

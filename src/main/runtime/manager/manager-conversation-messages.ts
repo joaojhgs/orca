@@ -7,6 +7,10 @@ import {
   type ManagerConversationMessage
 } from '../../../shared/manager-conversation-contract'
 import { ManagerAuthorityError } from './manager-authority-error'
+import {
+  createManagerQuestionNotificationTable,
+  queueManagerQuestionNotification
+} from './manager-question-notifications'
 
 const provenance = z.object({
   message_id: z.string(),
@@ -27,6 +31,7 @@ export function createManagerConversationTable(db: OrchestrationDb['db']): void 
   CREATE INDEX IF NOT EXISTS manager_conversation_run ON manager_conversation_messages(run_id);
   CREATE UNIQUE INDEX IF NOT EXISTS manager_conversation_question_answer
     ON manager_conversation_messages(reply_to) WHERE role = 'human' AND reply_to IS NOT NULL;`)
+  createManagerQuestionNotificationTable(db)
 }
 
 function conversationMessage(db: OrchestrationDb, value: unknown) {
@@ -129,6 +134,9 @@ export function appendManagerConversation(
       .prepare(`INSERT INTO manager_conversation_messages
         (message_id, run_id, role, kind, reply_to) VALUES (?, ?, ?, ?, ?)`)
       .run(message.id, run.id, input.role, input.kind, input.replyTo ?? null)
+    if (!human && input.kind === 'question') {
+      queueManagerQuestionNotification(db, message.id)
+    }
     if (human) {
       db.managerEvents.append({
         eventId: `manager-conversation:${message.id}`,

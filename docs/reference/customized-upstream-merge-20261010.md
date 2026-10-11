@@ -302,3 +302,35 @@ This checkpoint is source-only, not a deployed mobile binary or live manager.
 Push routing, silent/digest controls, approval/placement gates, actual private
 grant/model/dispatch acceptance and final custom Electron deployment remain
 required. No production service, relay, game or user agent was stopped or restarted.
+
+### Manager question notification checkpoint — 2026-10-11 00:25 UTC
+
+Explicit manager questions now queue a notification intent in the canonical
+conversation transaction, alongside its mutation receipt. Fanout happens after
+commit, never inside a rollback-able write. Startup recovery uses bounded batches;
+answered questions, revoked/expired managers and replaced coordinators are retired.
+Manager-specific human mutes do not suppress the separate human-to-manager wake.
+Ordinary replies/progress reports remain silent. Existing root-agent stop-point,
+YOLO and child filters are unchanged.
+
+The existing strict gateway protocol carries a checked, versioned notification
+ID naming the canonical Run and message. No new gateway fields or URL/host authority
+are accepted. Native push taps still resolve the controller by paired fingerprint,
+then open that objective. Same-route taps retarget an already-open conversation.
+Foreground deduplication recognizes the stable message ID across controller epochs;
+it is bounded in-process deduplication, not durable phone/provider delivery proof.
+Older phones retain the workspace fallback when its wire-size budget permits it.
+The RPC UI-state enum now also accepts the Manager page instead of dropping it.
+
+Validation: 47 manager/message/gateway/ID/UI-schema tests, 51 existing notification
+policy/headless/root-stop regressions and 183 mobile notification/navigation tests
+passed. Fresh SQLite connection recovery preserves intent and request replay.
+Full production main and mobile typechecks pass. The mobile test-typecheck ratchet
+includes 969 files with unchanged four exclusions and 122-file baseline. All seven
+changed-source quality scans pass with no findings.
+
+This records notification handoff, not confirmed OS display or exactly-once network
+delivery. Verified final-result eligibility, desktop/browser conversation links,
+silent/digest controls, placement/approval gates, real manager grant/model/dispatch
+acceptance and deployment remain unfinished. No production service or user session
+was stopped or restarted; Hermes and its private memory stay on the coding worker.
