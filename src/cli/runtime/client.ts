@@ -223,9 +223,9 @@ export class RuntimeClient {
     return this.requestTimeoutMs
   }
 
-  async getCliStatus(): Promise<RuntimeRpcSuccess<CliStatusResult>> {
+  async getCliStatus(timeoutMs?: number): Promise<RuntimeRpcSuccess<CliStatusResult>> {
     if (this.remotePairing) {
-      const response = await this.call<RuntimeStatus>('status.get')
+      const response = await this.call<RuntimeStatus>('status.get', undefined, { timeoutMs })
       this.remoteCompat.noteVerifiedStatus(response.result)
       const graphState = response.result.graphStatus
       return {
@@ -259,7 +259,7 @@ export class RuntimeClient {
         _meta: response._meta
       }
     }
-    return getCliStatus(this.userDataPath)
+    return getCliStatus(this.userDataPath, timeoutMs)
   }
 
   private async ensureOrchestrationContractCompatible(timeoutMs: number): Promise<void> {

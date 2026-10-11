@@ -13,7 +13,8 @@ import { isProcessRunning } from './runtime-pid-liveness'
 export { projectRemoteAppStatus, resolveDesktopWindowStatus }
 
 export async function getCliStatus(
-  userDataPath: string
+  userDataPath: string,
+  timeoutMs = 1000
 ): Promise<RuntimeRpcSuccess<CliStatusResult>> {
   const metadata = tryReadMetadata(userDataPath)
   const transport = metadata ? findTransport(metadata, 'unix', 'named-pipe') : null
@@ -38,7 +39,7 @@ export async function getCliStatus(
   }
 
   try {
-    const response = await sendRequest<RuntimeStatus>(metadata, 'status.get', undefined, 1000)
+    const response = await sendRequest<RuntimeStatus>(metadata, 'status.get', undefined, timeoutMs)
     if (response.ok === false) {
       throw new RuntimeRpcFailureError(response)
     }

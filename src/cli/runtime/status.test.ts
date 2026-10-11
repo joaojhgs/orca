@@ -30,6 +30,56 @@ afterEach(async () => {
 // Why: legacy runtime metadata compatibility only applies to local Unix socket
 // metadata; Windows uses named pipes and cannot run this fixture directly.
 describe.skipIf(process.platform === 'win32')('CLI runtime status', () => {
+  it('allows a bounded longer preflight without slowing the default status probe', async () => {
+    const userDataPath = mkdtempSync(join(tmpdir(), 'orca-runtime-status-delayed-'))
+    const endpoint = join(userDataPath, 'runtime.sock')
+    const server = createServer((socket) => {
+      sockets.add(socket)
+      socket.once('close', () => sockets.delete(socket))
+      socket.once('data', (data) => {
+        const request: unknown = JSON.parse(String(data).trim())
+        if (!request || typeof request !== 'object' || !('id' in request)) {
+          return
+        }
+        const timer = setTimeout(() => {
+          socket.write(
+            `${JSON.stringify({
+              id: request.id,
+              ok: true,
+              result: {
+                runtimeId: 'runtime-delayed',
+                graphStatus: 'ready',
+                authoritativeWindowId: null,
+                capabilities: ['terminal.prompt-delivery.v1']
+              },
+              _meta: { runtimeId: 'runtime-delayed' }
+            })}\n`
+          )
+        }, 1250)
+        socket.once('close', () => clearTimeout(timer))
+      })
+    })
+    servers.add(server)
+    await new Promise<void>((resolve) => server.listen(endpoint, resolve))
+    writeFileSync(
+      getRuntimeMetadataPath(userDataPath),
+      JSON.stringify({
+        runtimeId: 'runtime-delayed',
+        pid: process.pid,
+        transports: [{ kind: 'unix', endpoint }],
+        authToken: 'token',
+        startedAt: Date.now()
+      })
+    )
+    const client = new RuntimeClient(userDataPath)
+    expect((await client.getCliStatus()).result.runtime.reachable).toBe(false)
+    expect((await client.getCliStatus(10_000)).result.runtime).toMatchObject({
+      reachable: true,
+      runtimeId: 'runtime-delayed',
+      capabilities: ['terminal.prompt-delivery.v1']
+    })
+  })
+
   it('uses the legacy singular runtime transport when reporting status', async () => {
     const userDataPath = mkdtempSync(join(tmpdir(), 'orca-runtime-status-'))
     const endpoint = join(userDataPath, 'runtime.sock')

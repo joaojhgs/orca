@@ -30,7 +30,8 @@ export const terminalSendHandler: CommandHandler = async ({ flags, client, cwd, 
   let promptDeliverySupported = false
   let promptDeliveryRuntimeId: string | null = null
   if (promptCandidate) {
-    const status = await client.getCliStatus()
+    // Why: a fast UI status probe can misclassify a busy execution host before safe delivery.
+    const status = await client.getCliStatus(10_000)
     if (!status.result.runtime.reachable) {
       throw new RuntimeClientError(
         'runtime_unavailable',

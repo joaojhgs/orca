@@ -407,6 +407,7 @@ describe('terminal send CLI', () => {
     })
 
     expect(client.getCliStatus).toHaveBeenCalledOnce()
+    expect(client.getCliStatus).toHaveBeenCalledWith(10_000)
     expect(console.log).toHaveBeenCalledWith('Input refused by term-1.')
     expect(process.exitCode).toBe(1)
   })
