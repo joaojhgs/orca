@@ -21,6 +21,7 @@ export function startDesktopPushService(runtimeRpc: OrcaRuntimeRpcServer): void 
     const pushService = DesktopPushService.create({
       runtime,
       runtimeRpc,
+      userDataPath: app.getPath('userData'),
       gatewayUrl: getOrcaPushGatewayUrl()
     })
     pushService?.start()

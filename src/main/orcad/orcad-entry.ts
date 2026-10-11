@@ -371,6 +371,7 @@ async function startOrcadRuntime(
   const pushService = DesktopPushService.create({
     runtime,
     runtimeRpc: rpc,
+    userDataPath: runtimeUserDataPath,
     gatewayUrl: resolvePushGatewayOrigin(process.env, getAppEnvironment().isPackaged())
   })
   pushService?.start()

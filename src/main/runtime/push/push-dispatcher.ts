@@ -53,7 +53,7 @@ export function mapPushAgentState(
   return state === undefined || state === 'done' || state === 'finished' ? 'finished' : undefined
 }
 
-function allowsPushDelivery(
+export function allowsPushDelivery(
   registration: MobilePushRegistration,
   event: MobileNotificationEvent
 ): boolean {
@@ -96,12 +96,16 @@ export class PushDispatcher {
     this.outcomes.flush()
   }
 
-  enqueue(event: MobileNotificationEvent): void {
+  enqueue(
+    event: MobileNotificationEvent,
+    deviceIds?: ReadonlySet<string>,
+    forceSilent = false
+  ): void {
     if (this.stopped) {
       return
     }
     try {
-      const plan = this.planSend(event)
+      const plan = this.planSend(event, deviceIds)
       if (!plan) {
         return
       }
@@ -109,6 +113,7 @@ export class PushDispatcher {
         const targets = plan.targets.filter(
           (target) =>
             (event.type !== 'dismiss' &&
+              !forceSilent &&
               target.registration.filter.sound !== false &&
               this.allowsSound(event, target.deviceId)) === sound
         )
@@ -127,7 +132,8 @@ export class PushDispatcher {
   }
 
   private planSend(
-    event: MobileNotificationEvent
+    event: MobileNotificationEvent,
+    deviceIds?: ReadonlySet<string>
   ): { targets: PushTarget[]; notification: PushSendNotification } | null {
     if (event.type === 'dismiss') {
       const target = event.dismissedDelivery ?? event
@@ -167,6 +173,7 @@ export class PushDispatcher {
       const registration = device.pushRegistration
       if (
         !registration ||
+        (deviceIds && !deviceIds.has(device.deviceId)) ||
         !this.allowsDelivery(event, device.deviceId) ||
         registration.expiresAt <= Date.now() ||
         !allowsPushDelivery(registration, event)

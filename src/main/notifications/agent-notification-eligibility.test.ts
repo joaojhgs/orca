@@ -5,6 +5,7 @@ import {
   confirmNotificationRequest
 } from './agent-notification-eligibility'
 import { executionObserverClient } from '../execution-observer/observer-client'
+import { agentHookGeneration } from '../agent-hooks/agent-hook-generation'
 
 vi.mock('../execution-observer/observer-client', () => ({
   executionObserverClient: { observe: vi.fn() }
@@ -108,6 +109,22 @@ it('rejects desktop notifications if the pane changes during host observation', 
       () => snapshot
     )
   ).toBe(false)
+})
+it('rejects a delayed request after a different process generation occupies the same pane', async () => {
+  const row = event('done')
+  const oldGeneration = agentHookGeneration(row)
+  row.launchToken = 'replacement'
+  expect(
+    await confirmNotificationRequest(
+      {
+        source: 'agent-task-complete',
+        paneKey: row.paneKey,
+        notificationScope: { sessionId: row.providerSession?.id, sessionGeneration: oldGeneration }
+      },
+      () => [row]
+    )
+  ).toBe(false)
+  expect(executionObserverClient.observe).not.toHaveBeenCalled()
 })
 
 it('rejects child attention and agent bells on desktop without touching shell bells', async () => {

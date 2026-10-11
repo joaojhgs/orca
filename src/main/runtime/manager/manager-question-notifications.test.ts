@@ -19,6 +19,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { OrchestrationDb } from '../orchestration/db'
+import { confirmNotificationDigestRelevance } from '../../notifications/notification-digest-relevance'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -53,6 +54,41 @@ async function questions() {
 }
 
 describe('manager question notification handoff', () => {
+  it.each(['answered', 'revoked', 'expired', 'replaced'] as const)(
+    'revalidates %s manager questions already handed off to a digest',
+    async (reason) => {
+      const f = await questions()
+      const message = f.append()
+      const events: MobileNotificationEvent[] = []
+      f.runtime.onNotificationDispatched((event) => events.push(event))
+      deliverPendingManagerQuestions(f.runtime)
+      const event = events[0]
+      if (!event) {
+        throw new Error('Question was not handed off')
+      }
+      expect(await confirmNotificationDigestRelevance(f.runtime, event)).toBe(true)
+      if (reason === 'answered') {
+        appendManagerConversation(f.db, {
+          runId: f.runId,
+          role: 'human',
+          kind: 'reply',
+          body: 'Answered',
+          replyTo: message.id
+        })
+      } else if (reason === 'revoked') {
+        f.db.managerPrincipals.revoke(f.credential.principal.id)
+      } else if (reason === 'expired') {
+        f.db.db
+          .prepare('UPDATE manager_principals SET expires_at = 0 WHERE id = ?')
+          .run(f.credential.principal.id)
+      } else {
+        f.db.db
+          .prepare('UPDATE runs SET consumer_generation = consumer_generation + 1 WHERE id = ?')
+          .run(f.runId)
+      }
+      expect(await confirmNotificationDigestRelevance(f.runtime, event)).toBe(false)
+    }
+  )
   it('queues only explicit questions, after commit, and never duplicates an acknowledged RPC replay', async () => {
     const f = await questions()
     const events: MobileNotificationEvent[] = []

@@ -1,4 +1,5 @@
-import { BrowserWindow, Notification, ipcMain, powerMonitor } from 'electron'
+import { app, BrowserWindow, Notification, ipcMain, powerMonitor } from 'electron'
+import { join } from 'node:path'
 import { readDesktopAwayState } from '../notifications/desktop-away-state'
 import type { Store } from '../persistence'
 import type {
@@ -16,9 +17,12 @@ import { isMainWindowVisible } from '../window/main-window-visibility'
 import { activeNotificationsById } from './native-notification-lifecycle'
 import { deliverNativeNotification } from './native-notification-delivery'
 import { createNotificationDeliveryService } from '../notifications/notification-delivery-service'
+import type { NotificationDeliveryService } from '../notifications/notification-delivery-service'
 import { resolveNotificationPolicyScope } from '../notifications/notification-policy-scope'
 import { confirmNotificationRequest } from '../notifications/agent-notification-eligibility'
+import { confirmNotificationDigestRelevance } from '../notifications/notification-digest-relevance'
 import { agentHookServer } from '../agent-hooks/server'
+import { agentHookGeneration } from '../agent-hooks/agent-hook-generation'
 import { createAnnouncedNotificationRegistry } from '../notifications/announced-notification-registry'
 import { registerNotificationSoundHandlers } from './notification-sound-ipc'
 import { openNotificationSystemSettings } from './notification-system-settings-link'
@@ -32,7 +36,9 @@ import {
   resetNotificationPermissionEvidence
 } from './notification-permission-probe'
 
+let currentDeliveryService: NotificationDeliveryService | null = null
 export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntimeService): void {
+  currentDeliveryService?.dispose()
   ipcMain.removeHandler('notifications:getDesktopAwayState')
   ipcMain.handle('notifications:getDesktopAwayState', () => readDesktopAwayState(powerMonitor))
   resetNotificationPermissionEvidence()
@@ -113,6 +119,13 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
         )
       )
       const genericMobileIds = new Set(uniqueIds)
+      currentDeliveryService?.retireDigest(
+        [...uniqueIds],
+        Array.isArray(paneKeys)
+          ? paneKeys.filter((key): key is string => typeof key === 'string')
+          : [],
+        Array.isArray(reads) ? reads.filter(isStructuredAttentionRead) : []
+      )
       // Positioned structured alerts need the journal boundary; pane-wide reads retire the rest.
       for (const paneKey of Array.isArray(paneKeys) ? paneKeys : []) {
         if (typeof paneKey === 'string') {
@@ -147,10 +160,38 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
   )
 
   const deliveryService = createNotificationDeliveryService({
-    readPolicyScope: (request) =>
-      resolveNotificationPolicyScope(store, request.worktreeId, request.notificationScope),
+    ...(typeof app.getPath === 'function'
+      ? { desktopDigestPath: join(app.getPath('userData'), 'desktop-notification-digests.json') }
+      : {}),
+    readPolicyScope: (request) => {
+      const scope = resolveNotificationPolicyScope(
+        store,
+        request.worktreeId,
+        request.notificationScope
+      )
+      const matches = agentHookServer
+        .getEnrichedStatusSnapshot()
+        .filter((row) => row.paneKey === request.paneKey && row.worktreeId === request.worktreeId)
+      const row = matches.length === 1 ? matches[0] : undefined
+      return row && request.surface !== 'agent-session'
+        ? {
+            ...scope,
+            sessionId: row.providerSession?.id ?? row.paneKey,
+            sessionGeneration: agentHookGeneration(row)
+          }
+        : scope
+    },
     confirmStopPoint: (request) =>
       confirmNotificationRequest(request, () => agentHookServer.getEnrichedStatusSnapshot()),
+    confirmDigestRelevant: (request) =>
+      runtime
+        ? confirmNotificationDigestRelevance(runtime, {
+            ...request,
+            type: 'notification',
+            title: '',
+            body: ''
+          })
+        : confirmNotificationRequest(request, () => agentHookServer.getEnrichedStatusSnapshot()),
     readNotificationSettings: () => store.getSettings().notifications,
     findActiveWindow: () =>
       BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) ?? null,
@@ -171,6 +212,7 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
       }
     }
   })
+  currentDeliveryService = deliveryService
 
   // A remote host reported no pending prompt: its alerts relayed to this desktop's phones are over.
   ipcMain.removeHandler('notifications:settleStructuredPrompts')

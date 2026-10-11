@@ -6,6 +6,18 @@
  * expressed once against injected collaborators instead of ambient Electron singletons.
  */
 import type { BrowserWindow } from 'electron'
+import { randomUUID } from 'node:crypto'
+import { NotificationDigestQueue } from './notification-digest-queue'
+import type { DesktopDigestPayload } from './notification-digest-payload'
+import {
+  DesktopDigestPayloadSchema,
+  notificationDigestBody,
+  notificationDigestKey
+} from './notification-digest-payload'
+import {
+  attentionOriginWasRead,
+  type StructuredAttentionRead
+} from '../../shared/agent-session-attention'
 import type {
   NotificationDispatchRequest,
   NotificationDispatchResult,
@@ -46,9 +58,17 @@ export type NotificationDeliveryDependencies = {
   /** Shared main-agent stop policy runs before tray, mobile, cooldown, or native side effects. */
   confirmStopPoint?: (request: NotificationDispatchRequest) => Promise<boolean>
   readPolicyScope?: (request: NotificationDispatchRequest) => NotificationPolicyScope
+  desktopDigestPath?: string
+  confirmDigestRelevant?: (request: NotificationDispatchRequest) => Promise<boolean | null>
 }
 
 export type NotificationDeliveryService = {
+  dispose(): void
+  retireDigest(
+    ids: readonly string[],
+    paneKeys: readonly string[],
+    reads: readonly StructuredAttentionRead[]
+  ): void
   dispatch: (
     request: NotificationDispatchRequest
   ) => NotificationDispatchResult | Promise<NotificationDispatchResult>
@@ -59,6 +79,9 @@ export function createNotificationDeliveryService(
 ): NotificationDeliveryService {
   const recentDesktopNotifications = new Map<string, number>()
   const recentMobileNotifications = new Map<string, number>()
+  const digestQueue = deps.desktopDigestPath
+    ? new NotificationDigestQueue(deps.desktopDigestPath, DesktopDigestPayloadSchema, deps.now)
+    : null
 
   // Keyed news is announced once by its producer, so only its own repeat may collapse it.
   const dedupeKeyFor = (request: NotificationDispatchRequest): string =>
@@ -80,7 +103,10 @@ export function createNotificationDeliveryService(
     return result instanceof Promise ? result.then(recordIfDelivered) : recordIfDelivered(result)
   }
 
-  const dispatch: NotificationDeliveryService['dispatch'] = (request) => {
+  const dispatch = (
+    request: NotificationDispatchRequest,
+    digest?: { title: string; body: string }
+  ): NotificationDispatchResult | Promise<NotificationDispatchResult> => {
     const settings = deps.readNotificationSettings()
     const scope = deps.readPolicyScope?.(request) ?? request.notificationScope ?? {}
     const kind = notificationPolicyKind(request)
@@ -111,14 +137,16 @@ export function createNotificationDeliveryService(
       (request.source !== 'agent-task-complete' || settings.agentTaskComplete) &&
       (request.source !== 'terminal-bell' || settings.terminalBell)
 
-    const notificationOptions = buildNotificationOptions(request, translateMain)
-    if (desktopPolicy.delivery === 'silent') {
+    const notificationOptions: ReturnType<typeof buildNotificationOptions> =
+      digest ?? buildNotificationOptions(request, translateMain)
+    if (digest || desktopPolicy.delivery === 'silent') {
       notificationOptions.silent = true
     }
 
     // Why: desktop focus only means this computer sees the worktree; the paired phone may still need the alert.
     if (
       !request.mobileDeliveredByHost &&
+      !digest &&
       (mobilePolicy.human || desktopPolicy.human) &&
       deps.dispatchMobileNotification &&
       request.source !== 'test'
@@ -169,6 +197,19 @@ export function createNotificationDeliveryService(
       }
     }
 
+    if (!digest && desktopPolicy.delivery === 'digest' && request.source !== 'test') {
+      const queued =
+        digestQueue?.enqueue(
+          notificationDigestKey(scope, kind, 'desktop'),
+          request.notificationId ?? randomUUID(),
+          {
+            request: { ...request, notificationScope: scope, notificationKind: kind },
+            options: notificationOptions
+          }
+        ) ?? false
+      return { delivered: false, reason: queued ? 'digest-queued' : 'digest-unavailable' }
+    }
+
     const browserWindow = deps.findActiveWindow()
     if (
       settings.suppressWhenFocused &&
@@ -205,7 +246,58 @@ export function createNotificationDeliveryService(
       return deliverNativeAndRecord(request, notificationOptions, settings)
     })
   }
+  digestQueue?.start(async (items, isPending) => {
+    const allowed: DesktopDigestPayload[] = []
+    for (const item of items) {
+      const scope = deps.readPolicyScope?.(item.request) ?? item.request.notificationScope ?? {}
+      if (
+        !resolveNotificationScopePolicy(
+          deps.readNotificationSettings().scopePolicy,
+          scope,
+          notificationPolicyKind(item.request),
+          'desktop'
+        ).human
+      ) {
+        continue
+      }
+      const relevant = deps.confirmDigestRelevant
+        ? await deps.confirmDigestRelevant(item.request)
+        : await deps.confirmStopPoint?.(item.request)
+      if (relevant === null) {
+        return false
+      }
+      if (relevant === false || !isPending(item)) {
+        continue
+      }
+      allowed.push(item)
+    }
+    const current = allowed.filter(isPending)
+    const latest = current.at(-1)
+    if (!latest) {
+      return true
+    }
+    const result = await dispatch(latest.request, {
+      title: latest.options.title,
+      body: notificationDigestBody(current.length, latest.options.body)
+    })
+    return result.delivered || !['blocked-by-system', 'not-displayed'].includes(result.reason ?? '')
+  })
   return {
+    dispose: () => digestQueue?.stop(),
+    retireDigest: (ids, paneKeys, reads) => {
+      try {
+        digestQueue?.cancel(
+          ({ request }) =>
+            (request.notificationId !== undefined && ids.includes(request.notificationId)) ||
+            (request.paneKey !== undefined &&
+              paneKeys.includes(request.paneKey) &&
+              (!request.structuredOrigin ||
+                reads.some((read) => attentionOriginWasRead(request.structuredOrigin, read))))
+        )
+      } catch {
+        console.warn('[notifications] Desktop digest dismissal could not be persisted')
+      }
+    },
     dispatch: (request) =>
       deps.confirmStopPoint && request.source !== 'test'
         ? deps

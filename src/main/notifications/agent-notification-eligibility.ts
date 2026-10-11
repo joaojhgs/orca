@@ -7,6 +7,7 @@ import type { EnrichedAgentHookEventPayload } from '../agent-hooks/server/server
 import { executionObserverClient } from '../execution-observer/observer-client'
 import { connectionManager } from '../ipc/ssh-ipc-context'
 import type { NotificationDispatchRequest } from '../../shared/notification-settings-types'
+import { agentHookGeneration } from '../agent-hooks/agent-hook-generation'
 
 export async function confirmNotificationRequest(
   request: NotificationDispatchRequest,
@@ -24,6 +25,13 @@ export async function confirmNotificationRequest(
     return request.source === 'terminal-bell' && rows.length === 0
   }
   const row = rows[0]
+  const scope = request.notificationScope
+  if (
+    (scope?.sessionGeneration && scope.sessionGeneration !== agentHookGeneration(row)) ||
+    (scope?.sessionId && scope.sessionId !== (row.providerSession?.id ?? row.paneKey))
+  ) {
+    return false
+  }
   if (request.source === 'terminal-bell') {
     return false
   }

@@ -29,7 +29,7 @@ export const NotificationScopePolicySchema = z.strictObject({
         human: z
           .strictObject({
             mode: z.enum(['inherit', 'off', 'all', 'selected', 'manager-only']),
-            delivery: z.enum(['inherit', 'immediate', 'silent']).optional(),
+            delivery: z.enum(['inherit', 'immediate', 'silent', 'digest']).optional(),
             events: z
               .array(z.enum(NOTIFICATION_POLICY_KINDS))
               .max(NOTIFICATION_POLICY_KINDS.length)
@@ -106,14 +106,14 @@ export function resolveNotificationScopePolicy(
   humanRuleId: string | null
   managerRuleId: string | null
   deviceVeto: boolean
-  delivery: 'immediate' | 'silent'
+  delivery: 'immediate' | 'silent' | 'digest'
   deliveryRuleId: string | null
 } {
   let human = true
   let manager = scope.actor !== 'manager'
   let humanRuleId: string | null = null
   let managerRuleId: string | null = null
-  let delivery: 'immediate' | 'silent' = 'immediate'
+  let delivery: 'immediate' | 'silent' | 'digest' = 'immediate'
   let deliveryRuleId: string | null = null
   const rules = (policy?.rules ?? [])
     .filter((rule) => matches(rule, scope))
@@ -161,7 +161,7 @@ export function resolveNotificationScopePolicy(
     humanRuleId,
     managerRuleId,
     deviceVeto,
-    delivery: override?.silent === true ? 'silent' : delivery,
+    delivery: override?.silent === true && delivery !== 'digest' ? 'silent' : delivery,
     deliveryRuleId
   }
 }

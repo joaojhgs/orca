@@ -1,5 +1,36 @@
 # Customized fork: upstream merge, 2026-10-10
 
+## Durable human digest checkpoint — 2026-10-11 01:21 UTC
+
+Notification rules now expose one-minute digests alongside inherited, immediate
+and silent delivery. Desktop IPC/native delivery and Electron headless push use
+bounded, private server-local queues. Queue records are checked on load, survive
+service replacement, preserve concurrent arrivals and cancellation, and refuse
+overflow or unreadable storage rather than delivering an immediate alert anyway.
+Batching is per destination/device, registration, host, project, workspace,
+session generation, actor and event kind. The initial minute is fixed; an
+unverifiable source or failed handoff is retained with a one-minute retry delay.
+
+Before handoff, current policy, device authorization and source relevance are
+rechecked. Root work resuming, child-only stops and replaced process generations
+do not become delayed completion alerts. Manager questions are checked against
+their canonical Run/message and current principal; answered, revoked, expired
+or coordinator-replaced questions are retired. Ordinary manager wake-ups stay
+independent. Digests are silent, retain the latest event's existing click identity,
+and describe recorded eligible alerts, not an inferred objective completion.
+
+Validation: 134 tests in thirteen suites plus 22 IPC/startup/source-relevance tests
+in three suites. Production backend/renderer typechecks and changed-source checks
+passed. The earlier nine legacy IPC-fixture failures remain documented below;
+this is not a full-suite pass. No actual OS/device receipt is claimed. Push handoff
+still uses the existing dispatcher's finite retry and is not guaranteed delivery.
+
+Source-only checkpoint: the VPS still runs the previous release and the persistent
+Hermes manager remains inactive. Final objective evidence/placement gates,
+browser/native notification links, native-mobile policy settings, bounded live
+manager activation and deployment/resource acceptance remain required. Existing
+desktop Orca, SSH relays, user agents, service limits and firewalls are unchanged.
+
 ## Silent notification policy checkpoint — 2026-10-11
 
 Scoped human delivery now supports inherited, immediate and silent modes independently

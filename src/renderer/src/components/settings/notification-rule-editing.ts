@@ -11,7 +11,7 @@ export type HumanRuleMode = (typeof HUMAN_RULE_MODES)[number]
 export type RuleActor = 'any' | 'root' | 'worker' | 'manager'
 export type RuleDestination = 'both' | 'desktop' | 'mobile'
 export type ManagerDelivery = 'inherit' | 'on' | 'off'
-export const HUMAN_DELIVERY_MODES = ['inherit', 'immediate', 'silent'] as const
+export const HUMAN_DELIVERY_MODES = ['inherit', 'immediate', 'silent', 'digest'] as const
 export type HumanDeliveryMode = (typeof HUMAN_DELIVERY_MODES)[number]
 
 export function findNotificationRule(

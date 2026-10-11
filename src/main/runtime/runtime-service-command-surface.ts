@@ -33,6 +33,7 @@ export type RuntimeServiceCommandSurface = {
   configureNotificationScopePolicy: RuntimeMobileNotificationController['configurePolicy']
   allowsMobileNotificationDelivery: RuntimeMobileNotificationController['allowsDelivery']
   allowsMobileNotificationSound: RuntimeMobileNotificationController['allowsSound']
+  getMobileNotificationDeliveryMode: RuntimeMobileNotificationController['deliveryMode']
   getMissedNotificationsSince: RuntimeMobileNotificationController['getMissedSince']
   configureNotificationDismissalStore: RuntimeMobileNotificationController['configureDismissalStore']
   reconcileDismissedPushes: RuntimeMobileNotificationController['reconcileDismissedPushes']
@@ -136,6 +137,7 @@ export function installRuntimeServiceCommandSurface(
     configureNotificationScopePolicy: notifications.configurePolicy.bind(notifications),
     allowsMobileNotificationDelivery: notifications.allowsDelivery.bind(notifications),
     allowsMobileNotificationSound: notifications.allowsSound.bind(notifications),
+    getMobileNotificationDeliveryMode: notifications.deliveryMode.bind(notifications),
     getMissedNotificationsSince: notifications.getMissedSince.bind(notifications),
     configureNotificationDismissalStore: notifications.configureDismissalStore.bind(notifications),
     reconcileDismissedPushes: notifications.reconcileDismissedPushes.bind(notifications),

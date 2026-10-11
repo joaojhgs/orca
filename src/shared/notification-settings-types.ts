@@ -93,6 +93,8 @@ export type NotificationDispatchResult = {
     | 'blocked-by-system'
     | 'invalid-request'
     | 'policy-muted'
+    | 'digest-queued'
+    | 'digest-unavailable'
 }
 
 export type NotificationDismissResult = {

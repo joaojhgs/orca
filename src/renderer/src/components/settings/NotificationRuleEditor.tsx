@@ -176,10 +176,12 @@ export function NotificationRuleEditor({
           <ToggleGroupItem value="inherit">Inherit</ToggleGroupItem>
           <ToggleGroupItem value="immediate">Immediate</ToggleGroupItem>
           <ToggleGroupItem value="silent">Silent</ToggleGroupItem>
+          <ToggleGroupItem value="digest">One-minute digest</ToggleGroupItem>
         </ToggleGroup>
         <FieldDescription>
           Silent keeps eligible alerts but disables system and custom sounds. It does not unmute
-          alerts or delay manager wake-ups. Device sound disables remain final vetoes.
+          alerts or delay manager wake-ups. Digests batch by session and event type for one minute,
+          persist on the server and arrive silently. Device sound disables remain final vetoes.
         </FieldDescription>
       </Field>
       <Field data-disabled={busy}>

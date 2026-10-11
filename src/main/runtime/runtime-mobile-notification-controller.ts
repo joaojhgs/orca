@@ -95,8 +95,14 @@ export class RuntimeMobileNotificationController {
   allowsSound(event: MobileNotificationEvent, deviceId?: string): boolean {
     return (
       event.type !== 'dismiss' &&
-      this.resolvePolicy(event, deviceId, 'mobile').delivery !== 'silent'
+      this.resolvePolicy(event, deviceId, 'mobile').delivery === 'immediate'
     )
+  }
+
+  deliveryMode(event: MobileNotificationEvent, deviceId?: string) {
+    return event.type === 'dismiss'
+      ? 'immediate'
+      : this.resolvePolicy(event, deviceId, 'mobile').delivery
   }
 
   private resolvePolicy(

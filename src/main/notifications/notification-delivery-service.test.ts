@@ -4,6 +4,9 @@ import {
   flush
 } from '../runtime/push/push-dispatcher.test-fixture'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { BrowserWindow } from 'electron'
 import { createNotificationDeliveryService } from './notification-delivery-service'
 import type { NotificationDeliveryDependencies } from './notification-delivery-service'
@@ -87,6 +90,103 @@ beforeEach(() => {
 })
 
 describe('createNotificationDeliveryService', () => {
+  it('queues a silent desktop digest across service replacement without batching the independent mobile audience', async () => {
+    vi.useFakeTimers()
+    const dir = mkdtempSync(join(tmpdir(), 'orca-desktop-digest-'))
+    const harness = makeHarness(
+      makeSettings({
+        scopePolicy: {
+          rules: [
+            {
+              id: 'digest',
+              selector: { level: 'server' },
+              human: { mode: 'inherit', delivery: 'digest', destinations: ['desktop'] }
+            }
+          ],
+          deviceOverrides: []
+        }
+      })
+    )
+    const deps = {
+      ...harness.deps,
+      desktopDigestPath: join(dir, 'digest.json'),
+      confirmStopPoint: async () => true
+    }
+    let service = createNotificationDeliveryService(deps)
+    try {
+      expect(
+        await service.dispatch(makeRequest({ notificationId: 'first', attentionKey: 'first' }))
+      ).toEqual({ delivered: false, reason: 'digest-queued' })
+      expect(
+        await service.dispatch(makeRequest({ notificationId: 'second', attentionKey: 'second' }))
+      ).toEqual({ delivered: false, reason: 'digest-queued' })
+      expect(harness.deliverNative).not.toHaveBeenCalled()
+      expect(harness.dispatchMobileNotification).toHaveBeenCalledTimes(2)
+      service.dispose()
+      service = createNotificationDeliveryService(deps)
+      now += 60_000
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(harness.deliverNative).toHaveBeenCalledOnce()
+      expect(harness.deliverNative.mock.calls[0]?.[1]).toMatchObject({
+        silent: true,
+        body: expect.stringContaining('2 eligible alerts recorded')
+      })
+      expect(harness.dispatchMobileNotification).toHaveBeenCalledTimes(2)
+    } finally {
+      service.dispose()
+      vi.useRealTimers()
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+  it('removes canceled digest entries before native delivery', async () => {
+    vi.useFakeTimers()
+    const dir = mkdtempSync(join(tmpdir(), 'orca-desktop-digest-'))
+    const harness = makeHarness(
+      makeSettings({
+        scopePolicy: {
+          rules: [
+            { id: 'd', selector: { level: 'server' }, human: { mode: 'all', delivery: 'digest' } }
+          ],
+          deviceOverrides: []
+        }
+      })
+    )
+    const service = createNotificationDeliveryService({
+      ...harness.deps,
+      desktopDigestPath: join(dir, 'digest.json'),
+      confirmStopPoint: async () => true
+    })
+    try {
+      await service.dispatch(makeRequest({ notificationId: 'read' }))
+      service.retireDigest(['read'], [], [])
+      now += 60_000
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(harness.deliverNative).not.toHaveBeenCalled()
+    } finally {
+      service.dispose()
+      vi.useRealTimers()
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+  it('reports unavailable durable digest storage instead of bypassing it with an immediate banner', async () => {
+    const harness = makeHarness(
+      makeSettings({
+        scopePolicy: {
+          rules: [
+            { id: 'd', selector: { level: 'server' }, human: { mode: 'all', delivery: 'digest' } }
+          ],
+          deviceOverrides: []
+        }
+      })
+    )
+    const service = createNotificationDeliveryService(harness.deps)
+    expect(await service.dispatch(makeRequest())).toEqual({
+      delivered: false,
+      reason: 'digest-unavailable'
+    })
+    expect(harness.deliverNative).not.toHaveBeenCalled()
+    service.dispose()
+  })
   it('returns server silence to veto custom sounds without silencing an independent mobile policy', async () => {
     const harness = makeHarness(
       makeSettings({

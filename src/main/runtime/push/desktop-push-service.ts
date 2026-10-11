@@ -13,6 +13,8 @@ import type { DeviceRegistry } from '../device-registry'
 import type { OrcaRuntimeService } from '../orca-runtime'
 import type { OrcaRuntimeRpcServer } from '../runtime-rpc'
 import { PushDispatcher } from './push-dispatcher'
+import { PushDigestDelivery } from './push-digest-delivery'
+import { confirmNotificationDigestRelevance } from '../../notifications/notification-digest-relevance'
 import { PushGatewayClient } from './push-gateway-client'
 import { PushRegisterThrottle } from './push-register-throttle'
 import type { PushUnregisterOutbox } from './push-unregister-outbox'
@@ -26,6 +28,7 @@ type DesktopPushServiceOptions = {
   runtime: OrcaRuntimeService
   runtimeRpc: OrcaRuntimeRpcServer
   gatewayUrl: string
+  userDataPath?: string
   /** Test seam: lets a suite drive the service without a live gateway. */
   client?: PushGatewayClient
   /** Test seam: lets a suite drive the outbox backoff without real timers. */
@@ -41,6 +44,7 @@ export class DesktopPushService {
   private readonly outbox: PushUnregisterOutbox
   private readonly client: PushGatewayClient
   private readonly dispatcher: PushDispatcher
+  private readonly digestDelivery: PushDigestDelivery
   private readonly registerThrottle: PushRegisterThrottle
   private readonly scheduleRetry: (run: () => void, delayMs: number) => void
   private unsubscribe: (() => void) | null = null
@@ -70,6 +74,16 @@ export class DesktopPushService {
         this.runtime.allowsMobileNotificationSound?.(event, deviceId) ?? true
     })
     this.registerThrottle = options.registerThrottle ?? new PushRegisterThrottle()
+    this.digestDelivery = new PushDigestDelivery({
+      userDataPath: options.userDataPath,
+      registry,
+      dispatcher: this.dispatcher,
+      confirmRelevant: (event) => confirmNotificationDigestRelevance(this.runtime, event),
+      allowsDelivery: (event, deviceId) =>
+        this.runtime.allowsMobileNotificationDelivery?.(event, deviceId) ?? true,
+      deliveryMode: (event, deviceId) =>
+        this.runtime.getMobileNotificationDeliveryMode?.(event, deviceId) ?? 'immediate'
+    })
     this.scheduleRetry =
       options.scheduleRetry ??
       ((run, delayMs) => {
@@ -93,9 +107,10 @@ export class DesktopPushService {
   start(): void {
     this.stopped = false
     this.dispatcher.start()
+    this.digestDelivery.start()
     this.runtime.setMobilePushRegistrar(this)
     this.unsubscribe = this.runtime.onNotificationDispatched((event) => {
-      this.dispatcher.enqueue(event)
+      this.digestDelivery.enqueue(event)
     })
     // Unpairing queues a delete without going through this service; drain on that too.
     this.runtimeRpc.setOnPushUnregisterQueued(() => {
@@ -108,6 +123,7 @@ export class DesktopPushService {
   stop(): void {
     this.stopped = true
     this.dispatcher.stop()
+    this.digestDelivery.stop()
     this.unsubscribe?.()
     this.unsubscribe = null
     this.runtimeRpc.setOnPushUnregisterQueued(null)
