@@ -3,12 +3,15 @@ import os
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
-import importlib.util
+import importlib
+import sys
+import types
 from pathlib import Path
 
-spec = importlib.util.spec_from_file_location("orca_client", Path(__file__).with_name("orca_client.py"))
-client_module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(client_module)
+package = types.ModuleType('orca_client_tests')
+package.__path__ = [str(Path(__file__).parent)]
+sys.modules[package.__name__] = package
+client_module = importlib.import_module(package.__name__ + '.orca_client')
 
 
 class ClientTests(unittest.TestCase):
@@ -68,6 +71,31 @@ class ClientTests(unittest.TestCase):
         self.client.runner = lambda *a, **k: SimpleNamespace(returncode=0, stdout='{"result":{}}')
         with self.assertRaisesRegex(RuntimeError, "Unconfirmed"):
             self.client.inspect("usage", {})
+
+    def test_nonzero_capacity_response_preserves_replay_identity_and_private_errors(self):
+        def runner(command, **kwargs):
+            self.calls.append((command, kwargs))
+            return SimpleNamespace(returncode=1, stderr="private credential path", stdout=json.dumps({
+                "ok": False, "error": {"code": "manager_forbidden", "message":
+                    "Host/account editing-build capacity is reserved or insufficient; reconcile before dispatch"}}))
+        self.client.runner = runner
+        for generation in [1, 2]:
+            with self.assertRaises(RuntimeError) as error:
+                self.client.act("worker-start", {"run": "r", "task": "t", "workspace-id": "w", "agent": "codex"},
+                                lease={"generation": generation}, decision_id="decision", step=1)
+            self.assertEqual(error.exception.diagnostic["category"], "capacity_wait")
+            self.assertNotIn("private", str(error.exception))
+        identifiers = [command[command.index("--request-id") + 1] for command, _ in self.calls]
+        self.assertEqual(identifiers[0], identifiers[1])
+
+    def test_failed_transport_with_unknown_or_oversized_payload_remains_unconfirmed(self):
+        for output in ['{"ok":false,"error":{"code":"secret-code","message":"secret"}}',
+                       "x" * (client_module.MAX_RESULT + 1)]:
+            self.client.runner = lambda *a, **k: SimpleNamespace(returncode=1, stdout=output, stderr="secret")
+            with self.assertRaises(RuntimeError) as error:
+                self.client.inspect("usage", {})
+            self.assertFalse(hasattr(error.exception, "diagnostic"))
+            self.assertNotIn("secret", str(error.exception))
 
     def test_conversation_tools_are_scoped_typed_and_keep_the_lease_adapter_owned(self):
         self.client.inspect("conversation-read", {"run": "owned", "after-sequence": 300, "limit": 20})

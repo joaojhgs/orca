@@ -6,6 +6,7 @@ import os
 from threading import Lock
 from .manager_state import open_manager_state
 from .orca_client import OrcaClient, READ_OPERATIONS, WRITE_OPERATIONS, validated_arguments
+from .orca_failure import OrcaOperationError
 
 TEXT_KEYS = {"run", "task", "dispatch", "workspace-id", "objective", "spec", "title", "deps",
              "parent", "agent", "model", "effort", "retry-of", "body", "message", "kind", "reply-to",
@@ -88,6 +89,8 @@ def handle(ctx, args, mutate):
                 state.db.close()
         return json.dumps({"ok": True, "result": result,
                            **({"replayed": receipt["replayed"]} if mutate else {})}, ensure_ascii=False)
+    except OrcaOperationError as error:
+        return json.dumps({"ok": False, "error": str(error), **error.diagnostic})
     except ValueError as error:
         return json.dumps({"ok": False, "error": str(error)})
     except Exception:

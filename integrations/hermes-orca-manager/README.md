@@ -106,10 +106,20 @@ Task's waits atomically. Revocation, coordinator replacement and an already
 dispatched Task retire the wait. Lost accepted responses still replay the original
 receipt without a second launch, even if current usage/resources become unavailable.
 
-This is not a completed manager deployment. Source-level tests pass, and local
-Hindsight retain/recall/reflect passed on the worker, but the manager still needs
-live server activation, device validation and
-multihost restart/revocation validation. No paid API fallback, cloud memory,
+The private CLI adapter preserves finite `capacity_wait` diagnostics for recognized
+worker-start refusals instead of calling every failure an unconfirmed launch. It
+never forwards arbitrary transport messages, stderr or error data to the model.
+Unknown responses and contact loss remain unconfirmed; a diagnostic is not a launch
+receipt, permission override or evidence of worker death. The original Task and
+request identity remain available for reconciliation without launching a replacement.
+
+The controller integration and restricted worker manager are deployed. The manager
+was launched through its Orca console; two native decisions, an operator reply and
+event-driven resumption passed. Hindsight retain/semantic recall/model reflection
+also passed in the production sandbox. Full acceptance is not complete: the
+two-host work/independent-verification objective is waiting for build capacity
+occupied by an existing user session. Actual browser/mobile delivery and multihost
+restart/revocation checks still require live validation. No paid API fallback, cloud memory,
 third-party account connection or meeting recording is enabled by this plugin.
 
 `stage-worker-isolation.sh` stages a separate `hermes-manager` identity and a
@@ -129,7 +139,9 @@ affects other users. The production manager unit requires this guard. It is
 enabled on the worker and the boundary check also passed against local SSH.
 These checks do not prove an unbreakable sandbox. Private-profile custody,
 the dedicated memory database role and service-only IPC are now installed and
-tested as described below; a scoped manager grant has not been issued yet.
+tested as described below. The active service grant covers only the approved
+execution hosts and canonical project scopes; the owner credential stays on the
+controller, and existing user Runs are not adopted.
 
 ### Private native runtime and transport
 
@@ -174,7 +186,8 @@ components in a private recovery directory, restores into a new disposable datab
 checks native session-database integrity, and never activates the recovered login or
 overwrites production. The encrypted round-trip restored 15 memory units and five
 native sessions on the worker. Recovery copies remain protected until custody
-migration succeeds; this is not a completed manager launch.
+migration and full acceptance succeed; passing the recovery check alone does not
+prove a completed manager deployment.
 
 `verify-native-decision-contract.sh` overlays candidate code only in disposable
 services derived from the reviewed production unit. It runs the decision/CLI

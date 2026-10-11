@@ -21,7 +21,7 @@ if [[ ! -d /opt/hermes-manager/plugins/hindsight ]]; then
   chmod -R a+rX,go-w /opt/hermes-manager/plugins/hindsight
 fi
 install -d -m 0755 -o root -g root /opt/hermes-manager/plugins/orca-manager
-for file in __init__.py manager_adapter.py manager_state.py manager_tools.py orca_client.py objective_decisions.py \
+for file in __init__.py manager_adapter.py manager_state.py manager_tools.py orca_client.py orca_failure.py objective_decisions.py \
     decision_runner.py private_secret.py memory_llm.py memory_tool_format.py prepare_memory.py \
     smoke_memory_api.py smoke_memory_llm.py plugin.yaml; do
   install -m 0644 -o root -g root "$directory/$file" "/opt/hermes-manager/plugins/orca-manager/$file"

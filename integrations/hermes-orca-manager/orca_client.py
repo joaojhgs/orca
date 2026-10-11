@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import subprocess
+from .orca_failure import classified_failure
 
 READ_OPERATIONS = {
     "placements": (set(), {"offset", "limit"}),
@@ -96,6 +97,9 @@ class OrcaClient:
                              check=False, shell=False)
         if result.returncode != 0:
             # Never echo transport stderr: it can contain credential paths or host data.
+            failure = classified_failure(result.stdout, operation, MAX_RESULT)
+            if failure:
+                raise failure
             raise RuntimeError("Orca manager operation unavailable; reconcile before retrying")
         if len(result.stdout.encode("utf-8")) > MAX_RESULT:
             raise RuntimeError("Orca response exceeds manager read budget")

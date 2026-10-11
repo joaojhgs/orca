@@ -23,7 +23,7 @@ properties+=(-p "BindReadOnlyPaths=$directory:/opt/hermes-manager/plugins/orca-m
 systemd-run --unit="hermes-manager-decision-tests-$(date +%s)" --collect --wait --pipe \
   "${properties[@]}" /opt/hermes-manager/payload-66605471e9f0/venv/bin/python -m unittest discover \
   -s /opt/hermes-manager/plugins/orca-manager -p 'test_*.py' \
-  -k AdapterTests -k ToolTests -k ObjectiveDecisionTests -k NativeDecisionTests -k ClientTests
+  -k AdapterTests -k ToolTests -k ObjectiveDecisionTests -k NativeDecisionTests -k ClientTests -k FailureTests
 systemd-run --unit="hermes-manager-native-plugin-check-$(date +%s)" --collect --wait --pipe \
   "${properties[@]}" /opt/hermes-manager/payload-66605471e9f0/bin/hermes \
   -p orca-manager orca-manager --help

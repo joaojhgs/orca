@@ -17,6 +17,7 @@ package.__path__ = [str(Path(__file__).parent)]
 sys.modules[package.__name__] = package
 tools = importlib.import_module(package.__name__ + ".manager_tools")
 state_module = importlib.import_module(package.__name__ + ".manager_state")
+failure_module = importlib.import_module(package.__name__ + ".orca_failure")
 
 
 class ToolTests(unittest.TestCase):
@@ -69,6 +70,28 @@ class ToolTests(unittest.TestCase):
         state.db.close()
         self.assertFalse(self.invoke()["ok"])
         self.client.act.assert_not_called()
+
+    def test_capacity_wait_is_visible_without_accepted_receipt_or_step_advance(self):
+        self.client.act.side_effect = failure_module.OrcaOperationError(
+            "manager_forbidden", "capacity_wait", "host_account_capacity")
+        result = self.invoke("worker-start", {
+            "run": "owned", "task": "task", "workspace-id": "workspace", "agent": "codex"})
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["category"], "capacity_wait")
+        self.assertEqual(result["reason"], "host_account_capacity")
+        self.assertNotIn("unconfirmed", result["error"])
+        state = self.open_state()
+        self.assertEqual(state.get("active_decision")["step"], 0)
+        self.assertIsNone(state.step_result("decision", 0))
+        state.db.close()
+
+    def test_transport_loss_stays_unconfirmed_and_does_not_expose_details(self):
+        self.client.act.side_effect = RuntimeError("token and private credential file")
+        result = self.invoke()
+        self.assertFalse(result["ok"])
+        self.assertIn("unconfirmed", result["error"])
+        self.assertNotIn("token", json.dumps(result))
+        self.assertNotIn("category", result)
 
     def test_successful_step_replays_known_receipt_after_native_restart(self):
         self.assertEqual(self.invoke(), {"ok": True, "result": {"accepted": True}, "replayed": False})
