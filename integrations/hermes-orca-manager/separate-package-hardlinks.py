@@ -6,21 +6,45 @@ from pathlib import Path
 import pwd
 import shutil
 import stat
-import tempfile
+import secrets
 
 
 def separate_inode(path, uid, gid):
-    if path.is_symlink() or not stat.S_ISREG(path.lstat().st_mode):
-        raise ValueError('Only a regular package file may be rematerialized')
-    fd, temporary = tempfile.mkstemp(prefix='.ownership-', dir=path.parent)
-    os.close(fd)
+    path = Path(path).absolute()
+    directory = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
+    temporary = '.ownership-' + secrets.token_hex(12)
+    source = destination = None
     try:
-        shutil.copy2(path, temporary)
-        os.chown(temporary, uid, gid)
-        os.replace(temporary, path)
+        # Anchor every ancestor. Active agents cannot redirect a root operation through a symlink.
+        for part in path.parent.parts[1:]:
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+            os.close(directory)
+            directory = child
+        try:
+            source = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory)
+        except OSError as error:
+            raise ValueError('Only a regular package file may be rematerialized') from error
+        info = os.fstat(source)
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError('Only a regular package file may be rematerialized')
+        destination = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                              0o600, dir_fd=directory)
+        with os.fdopen(os.dup(source), 'rb') as reader, os.fdopen(os.dup(destination), 'wb') as writer:
+            shutil.copyfileobj(reader, writer)
+        os.fchmod(destination, stat.S_IMODE(info.st_mode))
+        os.fchown(destination, uid, gid)
+        os.utime(destination, ns=(info.st_atime_ns, info.st_mtime_ns))
+        os.fsync(destination)
+        os.replace(temporary, path.name, src_dir_fd=directory, dst_dir_fd=directory)
     finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+        for descriptor in (source, destination):
+            if descriptor is not None:
+                os.close(descriptor)
+        try:
+            os.unlink(temporary, dir_fd=directory)
+        except FileNotFoundError:
+            pass
+        os.close(directory)
 
 
 def main(mode):

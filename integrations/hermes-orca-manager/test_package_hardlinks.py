@@ -33,6 +33,20 @@ class PackageHardlinkTests(unittest.TestCase):
                 ownership.separate_inode(link, os.getuid(), os.getgid())
             self.assertTrue(link.is_symlink())
 
+    def test_parent_symlink_cannot_redirect_an_operator_write(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            actual = root / 'actual'
+            actual.mkdir()
+            file = actual / 'file'
+            file.write_bytes(b'unchanged-fixture')
+            original = file.stat().st_ino
+            (root / 'redirect').symlink_to(actual, target_is_directory=True)
+            with self.assertRaises(OSError):
+                ownership.separate_inode(root / 'redirect/file', os.getuid(), os.getgid())
+            self.assertEqual(file.stat().st_ino, original)
+            self.assertEqual(file.read_bytes(), b'unchanged-fixture')
+
 
 if __name__ == '__main__':
     unittest.main()
