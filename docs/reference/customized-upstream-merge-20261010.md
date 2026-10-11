@@ -25,6 +25,14 @@ Source-only checkpoint. The persistent manager is still inactive and neither
 Orca service has been restarted. Placement/usage/resource decision gates, final
 production deployment and the full live multi-host/device acceptance remain.
 
+Child-Task follow-up: freezing now happens in canonical Task creation, including
+ordinary orchestration child Tasks in a service-owned Run. User-owned Runs keep
+their original specifications; no user session is adopted. The shared creation
+transaction saves requirements, injected launch instructions and the Task together.
+Nested tasks can now be independently verified through the same completion path.
+Validation: 77 tests in five Task/manager/attempt/depth suites, production backend
+typecheck and all seven changed-source checks passed. No deployment occurred.
+
 ## Durable human digest checkpoint — 2026-10-11 01:21 UTC
 
 Notification rules now expose one-minute digests alongside inherited, immediate

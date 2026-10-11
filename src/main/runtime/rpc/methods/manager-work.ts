@@ -10,11 +10,6 @@ import { ManagerAuthorityError } from '../../manager/manager-authority-error'
 import { requireManagerPrincipal } from '../../manager/manager-runtime-authority'
 import { resolveManagerWorkspaceScope } from '../../manager/manager-workspace-authority'
 import { managerMutationReceipt } from '../../manager/manager-mutation-receipt'
-import {
-  requireOpenManagerObjective,
-  saveManagerTaskRequirements,
-  managerTaskCompletionInstructions
-} from '../../manager/manager-completion-evidence'
 
 const runReceipt = z.strictObject({ runId: z.string() })
 const taskReceipt = z.strictObject({ taskId: z.string() })
@@ -96,17 +91,7 @@ export const MANAGER_WORK_METHODS = [
           'manager.taskCreate',
           input,
           (value) => taskReceipt.parse(value),
-          () => {
-            requireOpenManagerObjective(db, params.runId)
-            const task = db.createTask({
-              ...input,
-              spec:
-                input.spec +
-                managerTaskCompletionInstructions(db, params.runId, params.completionRequirements)
-            })
-            saveManagerTaskRequirements(db, task.id, params.completionRequirements)
-            return { taskId: task.id }
-          }
+          () => ({ taskId: db.createTask(input).id })
         )
         const task = db.getTask(receipt.taskId)
         if (!task || task.run_id !== params.runId) {

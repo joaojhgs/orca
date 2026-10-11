@@ -61,6 +61,9 @@ an authenticated successful work report, a new verification Task addresses that
 exact Task/Dispatch/report; it must run/check the requested results independently
 and send the typed JSON evidence described in its server-generated launch spec.
 The manager cannot use the implementation worker as its own verifier.
+Ordinary orchestration child-Task creation in a manager-owned Run also freezes
+work requirements and requires separate verification. User-owned Runs keep their
+original specifications and behavior; they are not adopted into this policy.
 
 `conversation-post --completion-evidence <json>` lists every canonical Task,
 current Dispatch and accepted report exactly once. It refuses missing reports,

@@ -3,7 +3,10 @@ import { z } from 'zod'
 import { fixture, grant, runResult, cleanupManagerFixtures } from './manager-work.test-support'
 import { createRootDispatch } from '../../orchestration/db/root-dispatch-test-fixture'
 import { workerReportObservation } from '../../orchestration/worker-report-observation'
-import { managerCompletionMessage } from '../../manager/manager-completion-evidence'
+import {
+  managerCompletionMessage,
+  readManagerTaskRequirements
+} from '../../manager/manager-completion-evidence'
 import { appendManagerConversation } from '../../manager/manager-conversation-messages'
 import { deliverPendingManagerQuestions } from '../../manager/manager-question-notifications'
 import { confirmNotificationDigestRelevance } from '../../../notifications/notification-digest-relevance'
@@ -358,5 +361,42 @@ describe('manager objective completion evidence', () => {
     f.db.resetAll()
     expect(f.db.db.prepare('SELECT * FROM manager_task_requirements').all()).toEqual([])
     expect(f.db.db.prepare('SELECT * FROM manager_objective_completions').all()).toEqual([])
+  })
+
+  it('freezes ordinary child Tasks in owned Runs without requiring the manager-specific RPC', async () => {
+    const f = await setup()
+    const child = f.db.createTask({
+      runId: f.runId,
+      parentId: f.work.taskId,
+      spec: 'Delegated child task'
+    })
+    expect(readManagerTaskRequirements(f.db, child.id)).toEqual({ role: 'work', tests: [] })
+    expect(child.spec).toContain('Frozen completion requirements')
+    const report = f.report(child.id, 'Child work result')
+    const verificationId = await f.task({ role: 'verification', verifiesTaskId: child.id })
+    const verification = f.report(
+      verificationId,
+      JSON.stringify({
+        version: 1,
+        verifiedTaskId: child.id,
+        verifiedDispatchId: report.dispatchId,
+        verifiedReportId: report.reportId,
+        summary: 'Independently checked child work',
+        tests: []
+      })
+    )
+    const parentVerifier = await f.verify()
+    expect((await f.post([f.work, report, verification, parentVerifier])).ok).toBe(true)
+    expect(() => f.db.createTask({ runId: f.runId, spec: 'Late delegated work' })).toThrow(
+      'complete'
+    )
+    const userRun = f.db.createRun({
+      objective: 'Existing user work',
+      coordinatorHandle: 'user',
+      coordinatorPaneKey: 'user-pane'
+    })
+    const untouched = f.db.createTask({ runId: userRun.id, spec: 'Original user spec' })
+    expect(untouched.spec).toBe('Original user spec')
+    expect(readManagerTaskRequirements(f.db, untouched.id)).toBeNull()
   })
 })

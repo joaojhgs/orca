@@ -6,24 +6,32 @@ import type { TaskRuntimeLineageRow } from '../run-list-page'
 import type { OrchestrationDb } from '../orchestration-db'
 import { transitionLifecycleWithDb } from '../lifecycle-transition'
 import { selectColumns, TASK_COLUMNS } from '../row-column-lists'
+import type { ManagerTaskRequirements } from '../../../../../shared/manager-completion-contract'
+import { createManagerTaskWithRequirements } from '../../../manager/manager-task-creation'
 
 // ── Tasks ──
 
-export function createTask(
-  this: OrchestrationDb,
-  task: {
-    spec: string
-    taskTitle?: string
-    displayName?: string
-    deps?: string[]
-    parentId?: string
-    createdByTerminalHandle?: string
-    createdByPaneKey?: string
-    createdByProcessIncarnation?: string
-    createdByRunGeneration?: number
-    runId?: string
-  }
-): TaskRow {
+type TaskCreateInput = {
+  spec: string
+  taskTitle?: string
+  displayName?: string
+  deps?: string[]
+  parentId?: string
+  createdByTerminalHandle?: string
+  createdByPaneKey?: string
+  createdByProcessIncarnation?: string
+  createdByRunGeneration?: number
+  runId?: string
+  completionRequirements?: ManagerTaskRequirements
+}
+
+export function createTask(this: OrchestrationDb, task: TaskCreateInput): TaskRow {
+  return createManagerTaskWithRequirements(this, task, (spec) =>
+    createTaskRow.call(this, { ...task, spec })
+  )
+}
+
+function createTaskRow(this: OrchestrationDb, task: TaskCreateInput): TaskRow {
   const runId = task.runId
   if (!runId) {
     throw new Error('Run is required')

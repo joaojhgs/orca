@@ -104,7 +104,14 @@ describe('scoped manager task inventory', () => {
       runId,
       taskId: ids[0]
     })
-    expect(shown).toMatchObject({ ok: true, result: { task: { spec: 'PRIVATE_TASK_SPEC' } } })
+    expect(shown).toMatchObject({
+      ok: true,
+      result: {
+        task: { spec: f.db.getTask(ids[0])?.spec },
+        completionRequirements: { role: 'work', tests: [] }
+      }
+    })
+    expect(f.db.getTask(ids[0])?.spec.startsWith('PRIVATE_TASK_SPEC\n\n')).toBe(true)
     const wrong = await f.call('manager.taskShow', {
       serviceToken: f.credential.token,
       runId,
