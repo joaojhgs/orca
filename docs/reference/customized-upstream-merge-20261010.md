@@ -29,6 +29,16 @@ The installer now includes `objective_decisions.py`. Active plugin/CLI, OAuth,
 grants and service selection are unchanged. Memory API/bridge remain active,
 NRestarts=0; manager consumer remains inactive and uninstalled.
 
+A bounded native Hermes chat also passed on the worker inside the reviewed
+production-unit-derived sandbox: one confirmed successful result, exact expected
+reply and confirmed native session. No Orca grant, worker-launch authority or
+shell toolset was supplied. The existing private profile/login was used; no
+credential was printed, copied or reauthenticated. This is a real provider/runtime
+acceptance check, not an activated persistent manager or a completed orchestration
+journey. The test wrapper omits native diagnostics/private prompt context from
+service logs. It created only its own native setup session and did not touch a
+user-owned Orca Run.
+
 Resource observations still show intermittent contention despite available RAM:
 332 MiB available, about 591 MiB host swap, 54–56% CPU steal and active paging,
 with HTTPS 200 taking 3.2 seconds. A post-staging sample had zero Orca memory
