@@ -61,7 +61,8 @@ def migrate(candidate):
         raise ValueError('Refusing an existing destination/login or unexpected source')
     if not candidate.is_dir() or not str(candidate).startswith('/opt/hermes-manager/candidates/'):
         raise ValueError('A staged immutable integration candidate is required')
-    for name in ('event_tools.py', 'private-orca-cli.py', '__init__.py', 'plugin.yaml'):
+    for name in ('event_tools.py', 'private-orca-cli.py', '__init__.py', 'plugin.yaml',
+                 'separate-package-hardlinks.py'):
         info = (candidate / 'plugin' / name).lstat()
         if info.st_uid != 0 or info.st_mode & 0o022:
             raise ValueError('Candidate must be operator-owned and not writable by agents')
@@ -69,6 +70,7 @@ def migrate(candidate):
     if not tui.is_file() or not (PAYLOAD / 'bin/hermes').is_file():
         raise ValueError('Native Hermes and its existing TUI must be installed before migration')
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    subprocess.run(['/usr/bin/python3', str(candidate / 'plugin/separate-package-hardlinks.py'), 'cache'], check=True)
     backup = Path(tempfile.mkdtemp(prefix='hermes-interactive-' + stamp + '-', dir='/var/backups'))
     os.chmod(backup, 0o700)
     # Stop only the custom adapter and auth-using bridge. Hindsight and all user workers stay up.

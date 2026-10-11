@@ -18,6 +18,11 @@ restore an old OAuth snapshot or copy refresh grants into additional profiles.
 Rollback must move the **current** credential back with its custody, not reactivate
 the archived credential. Archive copies are offline recovery material only.
 
+The operator migration also rematerializes root-owned files in the developer's
+package cache without modifying shared payload inodes. Future payload staging
+detaches hardlinks before applying root ownership. Plugin dependencies are
+admitted through native Hermes PM; do not disable its lock/currency checks.
+
 `hermes --tui` starts a normal session; `hermes -p orca-manager --tui` selects the
 preserved history/profile. Additional profiles can use native `hermes profile
 create <name> --clone --no-skills`, followed by `hermes -p <name> --tui`. Profile

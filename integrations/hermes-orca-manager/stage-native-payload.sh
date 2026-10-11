@@ -20,6 +20,8 @@ assert len(json.loads((root / "enabled-features.json").read_text())["extras"]) =
 assert (root / "bin/hermes").is_file()
 PY
   mv -T "$source_payload" "$native_payload"
+  # Why: PM's environment can share wheel-cache inodes; chown must not change the developer cache.
+  /usr/bin/python3 "$(dirname "$(readlink -f "$0")")/separate-package-hardlinks.py" payload
   chown -R root:root "$native_payload"
   chmod -R a+rX,go-w "$native_payload"
 fi
