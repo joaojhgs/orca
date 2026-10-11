@@ -99,6 +99,7 @@ export const MANAGER_HANDLERS: Record<string, CommandHandler> = {
       model: flags.has('model') ? text(flags, 'model') : undefined,
       effort: flags.has('effort') ? text(flags, 'effort') : undefined,
       retryOf: flags.has('retry-of') ? text(flags, 'retry-of') : undefined,
+      workClass: flags.has('work-class') ? text(flags, 'work-class') : undefined,
       timeoutMs: number(flags, 'timeout-ms', 60_000)
     }),
     120_000

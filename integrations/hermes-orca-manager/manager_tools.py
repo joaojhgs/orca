@@ -9,7 +9,7 @@ from .orca_client import OrcaClient, READ_OPERATIONS, WRITE_OPERATIONS, validate
 
 TEXT_KEYS = {"run", "task", "dispatch", "workspace-id", "objective", "spec", "title", "deps",
              "parent", "agent", "model", "effort", "retry-of", "body", "message", "kind", "reply-to",
-             "requirements", "completion-evidence"}
+             "requirements", "completion-evidence", "work-class"}
 MUTATION_LOCK = Lock()
 MODEL_READ_OPERATIONS = {key: value for key, value in READ_OPERATIONS.items() if key != "run-list"}
 MODEL_WRITE_OPERATIONS = {key: value for key, value in WRITE_OPERATIONS.items() if key != "run-create"}

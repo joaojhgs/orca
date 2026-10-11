@@ -47,7 +47,7 @@ export const MANAGER_COMMAND_SPECS: CommandSpec[] = [
     path: ['manager', 'worker-start'],
     summary: 'Start one worker in an exact approved workspace with durable request replay',
     usage:
-      'orca manager worker-start --lease <json> --request-id <id> --run <id> --task <id> --workspace-id <id> --agent <agent> [--model <id>] [--effort <level>] [--retry-of <id>] [--timeout-ms <n>] [--json]',
+      'orca manager worker-start --lease <json> --request-id <id> --run <id> --task <id> --workspace-id <id> --agent <agent> [--model <id>] [--effort <level>] [--retry-of <id>] [--work-class <edit|build>] [--timeout-ms <n>] [--json]',
     allowedFlags: [
       ...GLOBAL_FLAGS,
       'lease',
@@ -59,11 +59,13 @@ export const MANAGER_COMMAND_SPECS: CommandSpec[] = [
       'model',
       'effort',
       'retry-of',
+      'work-class',
       'timeout-ms'
     ],
     notes: [
       ...notes,
-      'Only fresh known-agent launches are permitted. Reuse the request ID after a timeout; unknown outcomes require reconciliation, never an automatic retry.'
+      'Only fresh known-agent launches are permitted. Reuse the request ID after a timeout; unknown outcomes require reconciliation, never an automatic retry.',
+      'Build capacity is the default. Requested test commands require build capacity. Unknown/error quotas and ambiguous account/model selection refuse dispatch; healthy collector retryAt is not an exhausted quota.'
     ]
   },
   {

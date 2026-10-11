@@ -1,20 +1,15 @@
-import type { z } from 'zod'
+import { z } from 'zod'
 import type { ManagerWorkerStartParams } from '../../../shared/rpc-contract/manager-params'
 import type { OrcaRuntimeService } from '../orca-runtime'
-import {
-  getConnectionExecutionHostId,
-  parseExecutionHostId,
-  toSshExecutionHostId
-} from '../../../shared/execution-host'
+import { getConnectionExecutionHostId, toSshExecutionHostId } from '../../../shared/execution-host'
 import { parseWorkerTerminalHostScope } from '../../../shared/worker-terminal-host-scope'
 import { managerMayObserve } from '../../../shared/manager-event-contract'
 import { managerWorkspaceScope } from './manager-hook-scope'
 import { requireManagerPrincipal } from './manager-runtime-authority'
 import { ManagerAuthorityError } from './manager-authority-error'
-import { assertManagerWorkspaceCapacity } from './manager-workspace-capacity'
-import { assertManagerAgentWorkspaceCapacity } from './manager-agent-workspace-capacity'
-import { agentHookServer } from '../../agent-hooks/server'
-import { getRegisteredSshState } from '../../ssh/ssh-target-registry'
+import type { ManagerResourceSample } from './manager-dispatch-resource-sample'
+import { checkManagerWorkerCapacity } from './manager-worker-capacity-check'
+import { clearManagerTaskDispatchWaits } from './manager-dispatch-wait-store'
 
 type StartParams = z.infer<typeof ManagerWorkerStartParams>
 
@@ -25,6 +20,7 @@ export function managerWorkerStartAuthority(
 ) {
   const db = runtime.getOrchestrationDb()
   const principal = requireManagerPrincipal(db, params.serviceToken, params.lease)
+  let resourceSample: ManagerResourceSample | null = null
   const assertAuthority = () =>
     db.managerPrincipals.withLease(params.lease, 'worker:start', () => {
       const current = db.managerPrincipals.authorize(principal.id, 'worker:start')
@@ -54,6 +50,10 @@ export function managerWorkerStartAuthority(
   assertAuthority()
   return {
     principal,
+    prepareCapacity: (sample: ManagerResourceSample) => {
+      assertAuthority()
+      resourceSample = sample
+    },
     assertAuthority,
     assertPlacement: (dispatchId: string) => {
       assertAuthority()
@@ -80,52 +80,34 @@ export function managerWorkerStartAuthority(
     acceptDispatch: (operation: () => ReturnType<typeof db.createStartingWorkerDispatch>) =>
       db.managerPrincipals.withLease(params.lease, 'worker:start', () => {
         const current = assertAuthority().principal
-        const count = readWorkerCount(
-          db.db
-            .prepare(`SELECT COUNT(*) AS count FROM worker_dispatches w
-          JOIN dispatch_contexts d ON d.id = w.dispatch_id
-          JOIN manager_run_ownership o ON o.run_id = d.run_id
-          WHERE o.principal_id = ? AND w.state IN
-          ('starting', 'ready', 'start_unknown', 'stopping', 'stop_unknown')`)
-            .get(current.id)
-        )
-        if (count >= (current.grant.maxActiveWorkers ?? 2)) {
+        if (!resourceSample || resourceSample.executionHostId !== executionHostId) {
           throw new ManagerAuthorityError(
             'manager_forbidden',
-            'Manager active-worker capacity reached; reconcile before launching'
+            'Worker capacity was not sampled before acceptance'
           )
         }
-        assertManagerAgentWorkspaceCapacity(
-          agentHookServer.getEnrichedStatusSnapshot(),
-          executionHostId,
-          params.workspaceId,
-          managerExecutionContact(executionHostId)
+        const { reservation } = checkManagerWorkerCapacity(
+          runtime,
+          current.id,
+          params,
+          resourceSample
         )
-        assertManagerWorkspaceCapacity(db, executionHostId, params.workspaceId)
-        return operation()
+        const accepted = operation()
+        const worker = db.getWorkerDispatch(accepted.dispatch.id)
+        if (!worker) {
+          throw new Error('Accepted worker reservation disappeared')
+        }
+        const options = z.record(z.string(), z.unknown()).parse(JSON.parse(worker.start_options))
+        db.db
+          .prepare('UPDATE worker_dispatches SET start_options = ? WHERE dispatch_id = ?')
+          .run(
+            JSON.stringify({ ...options, managerDispatchReservation: reservation }),
+            accepted.dispatch.id
+          )
+        clearManagerTaskDispatchWaits(db, principal.id, params.taskId)
+        return accepted
       })
   }
-}
-
-function managerExecutionContact(executionHostId: string): 'connected' | 'unverifiable' {
-  const host = parseExecutionHostId(executionHostId)
-  return host?.kind === 'local' ||
-    (host?.kind === 'ssh' && getRegisteredSshState(host.targetId)?.status === 'connected')
-    ? 'connected'
-    : 'unverifiable'
-}
-
-function readWorkerCount(value: unknown): number {
-  if (
-    !value ||
-    typeof value !== 'object' ||
-    !('count' in value) ||
-    typeof value.count !== 'number' ||
-    !Number.isSafeInteger(value.count)
-  ) {
-    throw new Error('Worker capacity is unconfirmed')
-  }
-  return value.count
 }
 
 export async function resolveManagerWorkerPlacement(

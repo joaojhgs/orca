@@ -87,6 +87,25 @@ The native provider is activated separately with `memory.provider: hindsight`.
 Service templates are specific to the current coding worker and need operator
 review before reuse on another machine.
 
+Dispatch admission uses the existing deduplicated execution-account collector and
+samples only the selected execution host. An exact, reachable account with fresh
+non-exhausted quota is required; OpenCode needs an explicit provider/model prefix.
+Healthy future `retryAt` means next collector refresh, not exhausted capacity.
+Owner-issued grants set account/host concurrency and conservative memory budgets;
+the default reserves 2 GiB for build/test work, 512 MiB for edit-only work and
+512 MiB of host headroom. Build/test work defaults to one concurrent build per host.
+These are admission reservations, not OS-enforced memory limits. Unknown starts,
+stops, placement or contact keep their capacity held. Existing user sessions count
+toward shared-account concurrency and are never stopped to make capacity.
+
+Capacity refusals persist a bounded, credential-free wait. A 30-second daemon
+observation checks only waiting placements, reuses cached usage, and emits one
+durable recovery event when eligible. It never launches a worker or calls a model.
+Acceptance rechecks the same rules under the fenced transaction and clears the
+Task's waits atomically. Revocation, coordinator replacement and an already
+dispatched Task retire the wait. Lost accepted responses still replay the original
+receipt without a second launch, even if current usage/resources become unavailable.
+
 This is not a completed manager deployment. Source-level tests pass, and local
 Hindsight retain/recall/reflect passed on the worker, but the manager still needs
 live server activation, device validation and

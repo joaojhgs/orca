@@ -9,17 +9,23 @@ import {
 import type { startLocalWorker } from './orchestration/worker/local-worker-start'
 import { buildDispatchPreamble } from '../../orchestration/preamble'
 import { agentHookServer } from '../../../agent-hooks/server'
+import {
+  installDispatchReadings,
+  cleanupDispatchReadings
+} from '../../manager/manager-dispatch.test-fixture'
 
 const launch = vi.hoisted(() => ({ start: vi.fn() }))
 vi.mock('./orchestration/worker/local-worker-start', () => ({ startLocalWorker: launch.start }))
 afterEach(() => {
   cleanupManagerFixtures()
+  cleanupDispatchReadings()
   vi.resetAllMocks()
 })
 
 async function startFixture(maxActiveWorkers = 1) {
   vi.spyOn(agentHookServer, 'getEnrichedStatusSnapshot').mockReturnValue([])
   const f = fixture({ ...grant, actions: [...grant.actions, 'worker:start'], maxActiveWorkers })
+  const readings = installDispatchReadings(f.runtime)
   const created = await f.runCreate()
   if (!created.ok) {
     throw new Error('Run creation failed')
@@ -35,7 +41,8 @@ async function startFixture(maxActiveWorkers = 1) {
     workspaceId,
     agent: 'codex',
     model: 'gpt-6.1-sol',
-    effort: 'high'
+    effort: 'high',
+    workClass: 'edit'
   }
   launch.start.mockImplementation(async (args: Parameters<typeof startLocalWorker>[0]) => {
     if (!args.serviceOrigin) {
@@ -55,7 +62,7 @@ async function startFixture(maxActiveWorkers = 1) {
     )
     return { runId, taskId: started.task.id, dispatchId: started.dispatch.id, state: 'ready' }
   })
-  return { ...f, params }
+  return { ...f, params, readings }
 }
 
 describe('scoped manager worker start', () => {
@@ -245,6 +252,50 @@ describe('scoped manager worker start', () => {
       error: { code: 'manager_unauthorized' }
     })
     expect(launch.start).not.toHaveBeenCalled()
+  })
+
+  it('persists a refused quota attempt, then clears its wait only with atomic worker acceptance', async () => {
+    const f = await startFixture()
+    f.readings.account.checkedAt = Date.now() - 300_001
+    expect(await f.call('manager.workerStart', f.params)).toMatchObject({
+      ok: false,
+      error: { code: 'manager_forbidden' }
+    })
+    expect(f.db.db.prepare('SELECT * FROM manager_dispatch_waits').all()).toHaveLength(1)
+    expect(f.db.db.prepare('SELECT * FROM worker_dispatches').all()).toHaveLength(0)
+    f.readings.account.checkedAt = Date.now()
+    expect(await f.call('manager.workerStart', f.params)).toMatchObject({
+      ok: true,
+      result: { state: 'ready' }
+    })
+    expect(f.db.db.prepare('SELECT * FROM manager_dispatch_waits').all()).toHaveLength(0)
+    f.readings.account.checkedAt = 0
+    f.readings.collect.mockRejectedValue(new Error('Host disconnected'))
+    const calls = f.readings.collect.mock.calls.length
+    expect(await f.call('manager.workerStart', f.params)).toMatchObject({
+      ok: true,
+      result: { state: 'ready' }
+    })
+    expect(f.readings.collect.mock.calls).toHaveLength(calls)
+    expect(f.db.db.prepare('SELECT * FROM worker_dispatches').all()).toHaveLength(1)
+  })
+
+  it('does not queue a permanent edit-class attempt to bypass requested test capacity', async () => {
+    const f = await startFixture()
+    const task = f.db.createTask({
+      runId: f.params.runId,
+      spec: 'Test changes',
+      completionRequirements: { role: 'work', tests: ['pnpm test'] }
+    })
+    expect(await f.call('manager.workerStart', { ...f.params, taskId: task.id })).toMatchObject({
+      ok: false,
+      error: {
+        code: 'manager_forbidden',
+        message: expect.stringContaining('reserve build capacity')
+      }
+    })
+    expect(f.db.db.prepare('SELECT * FROM manager_dispatch_waits').all()).toHaveLength(0)
+    expect(f.db.db.prepare('SELECT * FROM worker_dispatches').all()).toHaveLength(0)
   })
 
   it('names the Run mailbox honestly in worker instructions', () => {

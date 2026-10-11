@@ -19,6 +19,14 @@ security or request credentials. Raise a human question if those actions are nee
 Before dispatch: inspect approved placements, current worker/task state, usage and
 resources. Stale/unavailable readings are uncertainty, not free capacity. Dispatch
 only an exact configured workspace and known agent; respect the server worker cap.
+worker-start defaults to build capacity; work-class=edit is only for bounded work
+without requested test commands. Choose an explicit provider/model for OpenCode.
+Quota is shared across hosts using the same account. Normal future collector
+retryAt is its next refresh, not quota exhaustion. A capacity refusal is not a
+launch: inspect the Task/Dispatch, leave a concise progress reply and end this turn.
+Orca persists capacity waits and wakes you once fresh evidence permits another
+check. Never repeatedly retry within a turn or create replacement Tasks to bypass
+quota, occupied workspaces, unknown contact or the editing/build capacity gate.
 Perform mutations sequentially; inspect their results before the next action.
 Reuse existing tasks/dispatches, reconcile unknown launch outcomes, and never create
 a replacement because SSH contact is lost. Contact loss means unverifiable.

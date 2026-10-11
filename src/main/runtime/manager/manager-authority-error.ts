@@ -11,3 +11,10 @@ export class ManagerAuthorityError extends Error {
     this.name = 'ManagerAuthorityError'
   }
 }
+
+export class ManagerCapacityUnavailableError extends ManagerAuthorityError {
+  constructor(message: string) {
+    super('manager_forbidden', message)
+    this.name = 'ManagerCapacityUnavailableError'
+  }
+}

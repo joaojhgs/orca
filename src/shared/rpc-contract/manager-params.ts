@@ -107,6 +107,7 @@ export const ManagerWorkerStartParams = z.strictObject({
   model: z.string().trim().min(1).max(512).optional(),
   effort: z.string().trim().min(1).max(512).optional(),
   retryOf: z.string().min(1).max(512).optional(),
+  workClass: z.enum(['edit', 'build']).default('build'),
   timeoutMs: z.number().int().min(1000).max(60_000).default(60_000)
 })
 export const ManagerMailboxCheckParams = z.strictObject({

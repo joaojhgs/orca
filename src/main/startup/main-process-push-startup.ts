@@ -5,6 +5,7 @@ import type { OrcaRuntimeRpcServer } from '../runtime/runtime-rpc'
 import { mainProcessState as state } from './main-process-state'
 import { app } from 'electron'
 import { startManagerQuestionNotificationRecovery } from '../runtime/manager/manager-question-notifications'
+import { startManagerDispatchWaitRecovery } from '../runtime/manager/manager-dispatch-wait-recovery'
 
 // Why: deliberately not gated on cloud sign-in like the relay is — the push gateway
 // authenticates with the host keypair, so an accountless host registers phones on
@@ -34,4 +35,5 @@ export function startDesktopPushService(runtimeRpc: OrcaRuntimeRpcServer): void 
   }
   const stopQuestionRecovery = startManagerQuestionNotificationRecovery(runtime)
   app.once('will-quit', stopQuestionRecovery)
+  app.once('will-quit', startManagerDispatchWaitRecovery(runtime))
 }

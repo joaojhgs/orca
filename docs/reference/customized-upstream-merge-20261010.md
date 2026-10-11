@@ -465,3 +465,33 @@ delivery. Verified final-result eligibility, desktop/browser conversation links,
 silent/digest controls, placement/approval gates, real manager grant/model/dispatch
 acceptance and deployment remain unfinished. No production service or user session
 was stopped or restarted; Hermes and its private memory stay on the coding worker.
+
+### Dispatch capacity and controller observation — 2026-10-11 02:00 UTC
+
+Manager dispatch now requires a fresh, reachable, uniquely bound execution account
+with measured quota, plus a resource sample from the selected host. Owner grants
+bound per-host editing/build budgets, build concurrency and cross-host shared-account
+concurrency. Existing supervised and user sessions retain capacity when unknown.
+Task test requirements cannot claim edit-only admission. Acceptance and reservations
+commit together; accepted request replay bypasses new availability checks and cannot
+launch a replacement after an ambiguous response.
+
+A bounded credential-free wait persists failed capacity admission. The Electron
+startup observer samples waiting hosts only, uses the existing account cache, and
+emits one durable readiness event without launching work or calling a model. It
+rechecks Run/principal ownership and retires revoked, replaced or dispatched waits.
+The native manager instructions end a blocked decision instead of polling the model.
+
+Validation: 69 tests across six dispatch/usage/capacity/recovery/completion/work
+suites and 64 Python integration tests passed. Backend/CLI production typechecks
+and all seven changed-source quality gates passed. Full production JavaScript
+build passed, including the CLI closure, Electron/preload, browser and mobile web.
+These are source/build checks, not live manager or actual device acceptance.
+
+Read-only live observations: coding worker reachable with five-day uptime and
+approximately 8.3 GiB available; private memory services active, manager not started.
+All seven listed Orca remote terminals are connected. Controller Orca restart and
+OOM counters remain zero, but an eight-second sample showed up to 56% CPU steal,
+19% I/O wait and roughly 10 MiB/s swap-out. Available RAM alone does not establish
+low pressure. No service restart, limit change, process kill or live release switch
+was performed; persistent manager launch and full deployment acceptance remain.
