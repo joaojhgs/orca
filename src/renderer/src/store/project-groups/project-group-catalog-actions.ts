@@ -11,6 +11,9 @@ import {
   mergeFetchedProjectGroupCatalog
 } from './project-group-catalog'
 import { listRuntimeEnvironmentsForAllHostLoad } from '../runtime-catalog-hosts'
+import { isWebClientLocation } from '../../lib/web-client-location'
+import { parseExecutionHostId } from '../../../../shared/execution-host'
+import { getProjectGroupHostId } from '../slices/project-group-owner-routing'
 
 export function createProjectGroupCatalogActions(
   set: Parameters<StateCreator<AppState>>[0],
@@ -49,6 +52,10 @@ export function createProjectGroupCatalogActions(
     },
 
     fetchProjectGroupsForAllHosts: async (options) => {
+      const webClient = isWebClientLocation()
+      const initialTarget = webClient
+        ? getActiveRuntimeTarget(get().settings)
+        : { kind: 'local' as const }
       // Why: startup renders an all-host sidebar; replacing groups with only the active host leaves other hosts' repos visible but ungrouped.
       const applyCatalog = (catalog: FetchedProjectGroupCatalog, fence: HostCatalogFence): void => {
         if (!isHostCatalogFenceCurrent(get, fence)) {
@@ -58,7 +65,13 @@ export function createProjectGroupCatalogActions(
           if (!isHostCatalogFenceCurrent(get, fence)) {
             return s
           }
-          const { projectGroups } = mergeFetchedProjectGroupCatalog(catalog, s.projectGroups)
+          // Browsers have no local catalog; discard aliases left by the former IPC adoption path.
+          const previous = webClient
+            ? s.projectGroups.filter(
+                (group) => parseExecutionHostId(getProjectGroupHostId(group))?.kind === 'runtime'
+              )
+            : s.projectGroups
+          const { projectGroups } = mergeFetchedProjectGroupCatalog(catalog, previous)
           if (arrayElementsUnchanged(projectGroups, s.projectGroups)) {
             return s
           }
@@ -70,7 +83,7 @@ export function createProjectGroupCatalogActions(
       }
 
       try {
-        const target = { kind: 'local' as const }
+        const target = initialTarget
         const fence = claimHostCatalogFence(get, 'project-groups', target)
         applyCatalog(await fetchProjectGroupCatalogForTarget(target), fence)
       } catch (err) {
@@ -82,18 +95,23 @@ export function createProjectGroupCatalogActions(
 
       const environments = await listRuntimeEnvironmentsForAllHostLoad()
       await Promise.all(
-        environments.map(async (environment) => {
-          const target = {
-            kind: 'environment' as const,
-            environmentId: environment.id
-          }
-          const fence = claimHostCatalogFence(get, 'project-groups', target)
-          try {
-            applyCatalog(await fetchProjectGroupCatalogForTarget(target), fence)
-          } catch (err) {
-            console.warn(`Skipped project groups for runtime environment ${environment.id}:`, err)
-          }
-        })
+        environments
+          .filter(
+            (environment) =>
+              initialTarget.kind !== 'environment' || environment.id !== initialTarget.environmentId
+          )
+          .map(async (environment) => {
+            const target = {
+              kind: 'environment' as const,
+              environmentId: environment.id
+            }
+            const fence = claimHostCatalogFence(get, 'project-groups', target)
+            try {
+              applyCatalog(await fetchProjectGroupCatalogForTarget(target), fence)
+            } catch (err) {
+              console.warn(`Skipped project groups for runtime environment ${environment.id}:`, err)
+            }
+          })
       )
     }
   }

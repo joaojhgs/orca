@@ -164,6 +164,27 @@ beforeEach(() => {
 })
 
 describe('all-host folder workspace startup catalogs', () => {
+  it('does not adopt the paired browser catalog as a second local catalog on refresh', async () => {
+    vi.stubGlobal('window', { ...window, __ORCA_WEB_CLIENT__: true })
+    projectGroupsList.mockResolvedValue([
+      { ...remoteProjectGroup, executionHostId: 'runtime:env-1' }
+    ])
+    const store = createTestStore()
+    store.setState({
+      settings: { activeRuntimeEnvironmentId: 'env-1' } as never,
+      projectGroups: [{ ...remoteProjectGroup, executionHostId: 'local' }]
+    })
+
+    for (let refresh = 0; refresh < 3; refresh += 1) {
+      await store.getState().fetchProjectGroupsForAllHosts()
+      await store.getState().fetchProjectGroups()
+      expect(store.getState().projectGroups).toEqual([
+        { ...remoteProjectGroup, executionHostId: 'runtime:env-1' }
+      ])
+    }
+    expect(projectGroupsList).not.toHaveBeenCalled()
+  })
+
   it('loads project groups and folder workspaces for every host', async () => {
     const store = createTestStore()
     store.setState({ settings: { activeRuntimeEnvironmentId: 'env-1' } as never })
