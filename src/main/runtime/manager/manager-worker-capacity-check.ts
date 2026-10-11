@@ -12,6 +12,7 @@ import { selectManagerDispatchAccount } from './manager-dispatch-usage'
 import { assertManagerDispatchCapacity } from './manager-dispatch-capacity'
 import { readManagerTaskRequirements } from './manager-completion-evidence'
 import type { ManagerResourceSample } from './manager-dispatch-resource-sample'
+import { isWorkerDispatchTaskStartable } from '../orchestration/worker-dispatch-task-eligibility'
 
 export type ManagerCapacityTarget = {
   runId: string
@@ -20,6 +21,7 @@ export type ManagerCapacityTarget = {
   agent: string
   model?: string
   workClass: 'edit' | 'build'
+  retryOf?: string
 }
 
 /** Shared admission/readiness check; only the worker-start authority can actually launch. */
@@ -47,7 +49,7 @@ export function checkManagerWorkerCapacity(
   if (
     !task ||
     task.run_id !== target.runId ||
-    task.status !== 'ready' ||
+    !isWorkerDispatchTaskStartable(db, task, target.retryOf) ||
     !scope ||
     !managerMayObserve(principal.grant.scope, scope)
   ) {

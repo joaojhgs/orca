@@ -135,6 +135,7 @@ export const MANAGER_WORKER_START_METHODS = [
               workspaceId: params.workspaceId,
               agent: params.agent,
               model: params.model,
+              retryOf: params.retryOf,
               workClass: params.workClass
             }
           )

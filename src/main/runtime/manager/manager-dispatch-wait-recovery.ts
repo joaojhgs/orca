@@ -6,6 +6,7 @@ import {
   type ManagerResourceSample
 } from './manager-dispatch-resource-sample'
 import { checkManagerWorkerCapacity } from './manager-worker-capacity-check'
+import { isWorkerDispatchTaskStartable } from '../orchestration/worker-dispatch-task-eligibility'
 import {
   clearManagerDispatchWait,
   dispatchWaitRow,
@@ -45,8 +46,10 @@ export async function recoverManagerDispatchWaits(
         const target = readManagerDispatchWaitTarget(row)
         const principal = db.managerPrincipals.authorize(row.principal_id, 'worker:start')
         db.managerRuns.requireOwnedRun(principal.id, db.getRun(target.runId), principal.grant.scope)
+        const task = db.getTask(target.taskId)
         if (
-          db.getTask(target.taskId)?.status !== 'ready' ||
+          !task ||
+          !isWorkerDispatchTaskStartable(db, task, target.retryOf) ||
           db.getMutationReceipt(`manager:${principal.id}`, row.request_id)
         ) {
           clearManagerDispatchWait(db, principal.id, row.request_id)

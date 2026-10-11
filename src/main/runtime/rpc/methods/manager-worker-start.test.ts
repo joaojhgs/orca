@@ -45,19 +45,21 @@ async function startFixture(maxActiveWorkers = 1) {
     workClass: 'edit'
   }
   launch.start.mockImplementation(async (args: Parameters<typeof startLocalWorker>[0]) => {
-    if (!args.serviceOrigin) {
+    const origin = args.serviceOrigin
+    if (!origin) {
       throw new Error('Missing service origin')
     }
-    const started = args.serviceOrigin.acceptDispatch(() =>
+    const started = origin.acceptDispatch(() =>
       args.db.createStartingWorkerDispatch({
         creator: { kind: 'system' },
         maxDepth: 2,
         taskId: args.existingTask?.id,
         startOptions: {
-          resolvedWorktreeId: args.serviceOrigin.workspaceId,
-          managerScope: args.serviceOrigin.scope
+          resolvedWorktreeId: origin.workspaceId,
+          managerScope: origin.scope
         },
-        mutationReceipt: args.orchestrationMutation
+        mutationReceipt: args.orchestrationMutation,
+        retryOf: args.params.retryOf
       })
     )
     return { runId, taskId: started.task.id, dispatchId: started.dispatch.id, state: 'ready' }
@@ -66,6 +68,93 @@ async function startFixture(maxActiveWorkers = 1) {
 }
 
 describe('scoped manager worker start', () => {
+  it('retries a settled failed attempt on the same Task, including receipt replay', async () => {
+    const f = await startFixture()
+    const prior = f.db.createStartingWorkerDispatch({
+      creator: { kind: 'system' },
+      maxDepth: 2,
+      taskId: f.params.taskId,
+      startOptions: {}
+    })
+    f.db.failWorkerStart(prior.dispatch.id, 'agent_readiness', 'Update menu')
+    const params = { ...f.params, retryOf: prior.dispatch.id }
+    const result = await f.call('manager.workerStart', params)
+    expect(result).toMatchObject({ ok: true, result: { taskId: f.params.taskId, state: 'ready' } })
+    expect(f.db.getDispatchContext(f.params.taskId)?.retry_of_dispatch_id).toBe(prior.dispatch.id)
+    expect(f.db.listTasks({ runId: f.params.runId })).toHaveLength(1)
+    expect(await f.call('manager.workerStart', params)).toEqual(result)
+    expect(launch.start).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['unknown', 'wrong-task', 'superseded'] as const)(
+    'refuses a retry of an %s attempt without accepting another Dispatch',
+    async (mode) => {
+      const f = await startFixture()
+      const prior = f.db.createStartingWorkerDispatch({
+        creator: { kind: 'system' },
+        maxDepth: 2,
+        taskId: f.params.taskId,
+        startOptions: {}
+      })
+      if (mode === 'unknown') {
+        f.db.markWorkerStartUnknown(prior.dispatch.id, 'input', 'Contact lost')
+      } else {
+        f.db.failWorkerStart(prior.dispatch.id, 'agent_readiness', 'Update menu')
+      }
+      let retryOf = prior.dispatch.id
+      if (mode === 'wrong-task') {
+        const otherTask = f.db.createTask({ runId: f.params.runId, spec: 'Other' })
+        const other = f.db.createStartingWorkerDispatch({
+          creator: { kind: 'system' },
+          maxDepth: 2,
+          taskId: otherTask.id,
+          startOptions: {}
+        })
+        f.db.failWorkerStart(other.dispatch.id, 'agent_readiness', 'Other failure')
+        retryOf = other.dispatch.id
+      }
+      if (mode === 'superseded') {
+        const newer = f.db.createStartingWorkerDispatch({
+          creator: { kind: 'system' },
+          maxDepth: 2,
+          taskId: f.params.taskId,
+          startOptions: {},
+          retryOf
+        })
+        f.db.failWorkerStart(newer.dispatch.id, 'agent_readiness', 'Newer failure')
+      }
+      const count = f.db.db.prepare('SELECT dispatch_id FROM worker_dispatches').all().length
+      expect(await f.call('manager.workerStart', { ...f.params, retryOf })).toMatchObject({
+        ok: false,
+        error: { code: 'manager_forbidden' }
+      })
+      expect(f.db.db.prepare('SELECT dispatch_id FROM worker_dispatches').all()).toHaveLength(count)
+      expect(
+        f.db.getMutationReceipt(`manager:${f.credential.principal.id}`, f.params.requestId)
+      ).toBeUndefined()
+    }
+  )
+
+  it('keeps a failed-Task retry waiting for capacity with its prior attempt identity intact', async () => {
+    const f = await startFixture()
+    const prior = f.db.createStartingWorkerDispatch({
+      creator: { kind: 'system' },
+      maxDepth: 2,
+      taskId: f.params.taskId,
+      startOptions: {}
+    })
+    f.db.failWorkerStart(prior.dispatch.id, 'agent_readiness', 'Update menu')
+    const params = { ...f.params, retryOf: prior.dispatch.id }
+    f.readings.account.checkedAt = Date.now() - 300_001
+    expect(await f.call('manager.workerStart', params)).toMatchObject({ ok: false })
+    const row = f.db.db.prepare('SELECT target_json FROM manager_dispatch_waits').get()
+    expect(row).toMatchObject({ target_json: expect.stringContaining(prior.dispatch.id) })
+    expect(f.db.getTask(f.params.taskId)?.status).toBe('failed')
+    f.readings.account.checkedAt = Date.now()
+    expect(await f.call('manager.workerStart', params)).toMatchObject({ ok: true })
+    expect(f.db.db.prepare('SELECT * FROM manager_dispatch_waits').all()).toHaveLength(0)
+  })
+
   it('reuses worker launch without borrowing a terminal, and replays one durable request', async () => {
     const f = await startFixture()
     const result = await f.call('manager.workerStart', f.params)

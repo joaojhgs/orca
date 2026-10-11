@@ -40,15 +40,11 @@ async function waitingFixture() {
     agent: 'codex',
     workClass: 'build' as const
   }
-  const enqueue = () =>
-    queueManagerDispatchWait(
-      f.db,
-      f.credential.principal.id,
-      'request',
-      'hash',
-      'ssh:worker',
-      target
-    )
+  const enqueue = (retryOf?: string) =>
+    queueManagerDispatchWait(f.db, f.credential.principal.id, 'request', 'hash', 'ssh:worker', {
+      ...target,
+      ...(retryOf ? { retryOf } : {})
+    })
   enqueue()
   const sample = vi.fn(async () => ({
     executionHostId: 'ssh:worker',
@@ -64,6 +60,65 @@ async function waitingFixture() {
 }
 
 describe('durable capacity recovery wakes', () => {
+  it('retains a settled retry through capacity recovery, without changing the Task or launching', async () => {
+    const f = await waitingFixture()
+    const prior = f.db.createStartingWorkerDispatch({
+      creator: { kind: 'system' },
+      maxDepth: 2,
+      taskId: f.target.taskId,
+      startOptions: {}
+    })
+    f.db.failWorkerStart(prior.dispatch.id, 'agent_readiness', 'Update menu')
+    f.db.db.prepare('DELETE FROM manager_dispatch_waits').run()
+    f.enqueue(prior.dispatch.id)
+    f.sample.mockResolvedValueOnce({
+      executionHostId: 'ssh:worker',
+      observedAt: Date.now(),
+      host: { ...dispatchHost, availableMemory: 0 }
+    })
+    await recoverManagerDispatchWaits(f.runtime, f.sample)
+    expect(f.rows()).toMatchObject([{ state: 'waiting' }])
+    await recoverManagerDispatchWaits(f.runtime, f.sample)
+    expect(f.rows()).toMatchObject([{ state: 'notified' }])
+    expect(f.events().filter((event) => event.source === 'manager-capacity')).toHaveLength(1)
+    expect(f.db.getTask(f.target.taskId)?.status).toBe('failed')
+    expect(f.db.db.prepare('SELECT dispatch_id FROM worker_dispatches').all()).toHaveLength(1)
+    await recoverManagerDispatchWaits(f.runtime, f.sample)
+    expect(f.events().filter((event) => event.source === 'manager-capacity')).toHaveLength(1)
+  })
+
+  it.each(['unknown', 'superseded'] as const)(
+    'retires an %s retry wait without releasing authority or issuing a wake',
+    async (mode) => {
+      const f = await waitingFixture()
+      const prior = f.db.createStartingWorkerDispatch({
+        creator: { kind: 'system' },
+        maxDepth: 2,
+        taskId: f.target.taskId,
+        startOptions: {}
+      })
+      if (mode === 'unknown') {
+        f.db.markWorkerStartUnknown(prior.dispatch.id, 'input', 'Lost contact')
+      } else {
+        f.db.failWorkerStart(prior.dispatch.id, 'agent_readiness', 'Update menu')
+        const newer = f.db.createStartingWorkerDispatch({
+          creator: { kind: 'system' },
+          maxDepth: 2,
+          taskId: f.target.taskId,
+          startOptions: {},
+          retryOf: prior.dispatch.id
+        })
+        f.db.failWorkerStart(newer.dispatch.id, 'agent_readiness', 'Newer failure')
+      }
+      f.db.db.prepare('DELETE FROM manager_dispatch_waits').run()
+      f.enqueue(prior.dispatch.id)
+      await recoverManagerDispatchWaits(f.runtime, f.sample)
+      expect(f.rows()).toHaveLength(0)
+      expect(f.events().filter((event) => event.source === 'manager-capacity')).toHaveLength(0)
+      expect(f.sample).not.toHaveBeenCalled()
+    }
+  )
+
   it('holds blocked capacity, emits one recovery event, and never launches a worker', async () => {
     const f = await waitingFixture()
     f.sample.mockResolvedValueOnce({

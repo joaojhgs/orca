@@ -9,6 +9,7 @@ import { recordedCreatorIdentity, type DispatchCreator } from '../dispatch-depth
 import { transitionLifecycleWithDb } from '../lifecycle-transition'
 import { taskNotFoundError, taskNotStartableError } from '../../task-dispatch-refusal'
 import { runLifecycleWriteTransaction } from '../lifecycle-write-transaction-runner'
+import { isWorkerDispatchTaskStartable } from '../../worker-dispatch-task-eligibility'
 
 export function createStartingWorkerDispatch(
   this: OrchestrationDb,
@@ -90,20 +91,7 @@ export function createStartingWorkerDispatch(
       throw taskNotFoundError(`Task ${taskId} was not found.`, { taskId })
     }
     if (params.retryOf) {
-      const prior = this.getDispatchContextById(params.retryOf)
-      const priorWorker = this.getWorkerDispatch(params.retryOf)
-      const latest = this.getDispatchContext(task.id)
-      // Why: a context-only Dispatch has no worker row, so its settled state lives on the Dispatch row.
-      const priorSettled = priorWorker
-        ? ['failed', 'stopped', 'abandoned'].includes(priorWorker.state)
-        : prior?.status === 'failed'
-      if (
-        !prior ||
-        prior.task_id !== task.id ||
-        latest?.id !== prior.id ||
-        !priorSettled ||
-        !['failed', 'blocked'].includes(task.status)
-      ) {
+      if (!isWorkerDispatchTaskStartable(this, task, params.retryOf)) {
         throw taskNotStartableError(
           this,
           `Task ${task.id} cannot retry from Dispatch ${params.retryOf}.`,
@@ -111,7 +99,7 @@ export function createStartingWorkerDispatch(
           params.retryOf
         )
       }
-    } else if (task.status !== 'ready') {
+    } else if (!isWorkerDispatchTaskStartable(this, task)) {
       throw taskNotStartableError(
         this,
         `Task ${task.id} is ${task.status}; only a ready Task can start.`,

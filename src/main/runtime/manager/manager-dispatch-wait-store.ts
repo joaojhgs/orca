@@ -10,6 +10,7 @@ const targetSchema = z.strictObject({
   workspaceId: z.string(),
   agent: z.string(),
   model: z.string().optional(),
+  retryOf: z.string().min(1).max(512).optional(),
   workClass: z.enum(['edit', 'build'])
 })
 export const dispatchWaitRow = z.object({

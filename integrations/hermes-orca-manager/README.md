@@ -106,6 +106,16 @@ Task's waits atomically. Revocation, coordinator replacement and an already
 dispatched Task retire the wait. Lost accepted responses still replay the original
 receipt without a second launch, even if current usage/resources become unavailable.
 
+Retries retain the original Task and name its latest settled Dispatch. Manager
+admission and capacity recovery use the same eligibility rules as normal worker
+starts. Uncertain or superseded attempts cannot be retried, and a capacity wake
+does not itself launch anything. Occupied workspaces still block a retry.
+
+Explicit unattended Codex workers disable the startup update menu using the
+[documented configuration setting](https://learn.chatgpt.com/docs/config-file/config-reference).
+Updates remain operator-managed. Manual launches, permission modes, sandbox and
+trust checks are unchanged; an explicit configured update-check override wins.
+
 The private CLI adapter preserves finite `capacity_wait` diagnostics for recognized
 worker-start refusals instead of calling every failure an unconfirmed launch. It
 never forwards arbitrary transport messages, stderr or error data to the model.
@@ -114,11 +124,13 @@ receipt, permission override or evidence of worker death. The original Task and
 request identity remain available for reconciliation without launching a replacement.
 
 The controller integration and restricted worker manager are deployed. The manager
-was launched through its Orca console; two native decisions, an operator reply and
+was launched through its Orca console; four native decisions, operator replies and
 event-driven resumption passed. Hindsight retain/semantic recall/model reflection
 also passed in the production sandbox. Full acceptance is not complete: the
-two-host work/independent-verification objective is waiting for build capacity
-occupied by an existing user session. Actual browser/mobile delivery and multihost
+desktop acceptance launch timed out at Codex's update menu, and the second host
+is waiting for build capacity occupied by an existing user session. The startup
+and retry fixes still need controller activation and live recovery verification.
+Actual browser/mobile delivery and multihost
 restart/revocation checks still require live validation. No paid API fallback, cloud memory,
 third-party account connection or meeting recording is enabled by this plugin.
 

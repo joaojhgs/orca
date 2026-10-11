@@ -45,17 +45,22 @@ export async function buildRuntimeAgentTerminalStartupOptions(
   if (opts.startupPrompt && !agentPromptRidesLaunchCommand(agent)) {
     throw new Error(`Agent ${agent} does not take a startup prompt on its launch command.`)
   }
+  const inputs = resolveAgentStartupPlanInputs({
+    agent,
+    settings,
+    platform,
+    isRemote,
+    ...(opts.agentArgs !== undefined ? { agentArgs: opts.agentArgs } : {}),
+    // A requested shell is the one this PTY will actually be, so it owns the quoting family.
+    windowsShellOverride: opts.shellOverride,
+    sessionOptions: sessionOptions
+  })
+  if (agent === 'codex' && opts.startupAgent === 'codex' && opts.launchSource === 'orchestration') {
+    // Unattended workers use operator-managed updates; explicit configured choices still win.
+    inputs.agentArgs = `-c check_for_update_on_startup=false ${inputs.agentArgs ?? ''}`.trim()
+  }
   const { plan: startupPlan, promptCarried } = await planExecutionHostStartupWithPromptCandidate({
-    inputs: resolveAgentStartupPlanInputs({
-      agent,
-      settings,
-      platform,
-      isRemote,
-      ...(opts.agentArgs !== undefined ? { agentArgs: opts.agentArgs } : {}),
-      // A requested shell is the one this PTY will actually be, so it owns the quoting family.
-      windowsShellOverride: opts.shellOverride,
-      sessionOptions: sessionOptions
-    }),
+    inputs,
     prompt: opts.startupPrompt ?? '',
     cwd: resolveTerminalStartupCwd(workspace.path, opts.cwd) ?? workspace.path,
     hostIdentity,
