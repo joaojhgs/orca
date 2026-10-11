@@ -8,6 +8,7 @@ import {
 } from './manager-work.test-support'
 import type { startLocalWorker } from './orchestration/worker/local-worker-start'
 import { buildDispatchPreamble } from '../../orchestration/preamble'
+import { agentHookServer } from '../../../agent-hooks/server'
 
 const launch = vi.hoisted(() => ({ start: vi.fn() }))
 vi.mock('./orchestration/worker/local-worker-start', () => ({ startLocalWorker: launch.start }))
@@ -16,8 +17,9 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
-async function startFixture() {
-  const f = fixture({ ...grant, actions: [...grant.actions, 'worker:start'], maxActiveWorkers: 1 })
+async function startFixture(maxActiveWorkers = 1) {
+  vi.spyOn(agentHookServer, 'getEnrichedStatusSnapshot').mockReturnValue([])
+  const f = fixture({ ...grant, actions: [...grant.actions, 'worker:start'], maxActiveWorkers })
   const created = await f.runCreate()
   if (!created.ok) {
     throw new Error('Run creation failed')
@@ -44,7 +46,10 @@ async function startFixture() {
         creator: { kind: 'system' },
         maxDepth: 2,
         taskId: args.existingTask?.id,
-        startOptions: { workspaceId },
+        startOptions: {
+          resolvedWorktreeId: args.serviceOrigin.workspaceId,
+          managerScope: args.serviceOrigin.scope
+        },
         mutationReceipt: args.orchestrationMutation
       })
     )
@@ -120,6 +125,75 @@ describe('scoped manager worker start', () => {
     })
     expect(f.db.getTask(another.id)?.status).toBe('ready')
     expect(f.db.getMutationReceipt(`manager:${f.credential.principal.id}`, 'two')).toBeUndefined()
+  })
+
+  it('refuses a second writer in the same workspace even while the principal has spare worker capacity', async () => {
+    const f = await startFixture(2)
+    expect((await f.call('manager.workerStart', f.params)).ok).toBe(true)
+    const task = f.db.createTask({ runId: f.params.runId, spec: 'Conflicting writer' })
+    expect(
+      await f.call('manager.workerStart', { ...f.params, taskId: task.id, requestId: 'conflict' })
+    ).toMatchObject({
+      ok: false,
+      error: {
+        code: 'manager_forbidden',
+        message: expect.stringContaining('occupied or unverifiable')
+      }
+    })
+    expect(f.db.getTask(task.id)?.status).toBe('ready')
+    expect(
+      f.db.getMutationReceipt(`manager:${f.credential.principal.id}`, 'conflict')
+    ).toBeUndefined()
+    expect(f.db.db.prepare('SELECT dispatch_id FROM worker_dispatches').all()).toHaveLength(1)
+  })
+
+  it('keeps separate workspaces eligible for parallel work within the principal cap', async () => {
+    const f = await startFixture(2)
+    expect((await f.call('manager.workerStart', f.params)).ok).toBe(true)
+    const target = 'repo::/repo/independent'
+    const task = f.db.createTask({ runId: f.params.runId, spec: 'Independent writer' })
+    vi.mocked(f.runtime.showTerminalWorkspaceLaunchScope).mockResolvedValueOnce({
+      id: target,
+      path: '/repo/independent',
+      connectionId: 'worker',
+      repo: null,
+      folderWorkspace: null
+    })
+    expect(
+      await f.call('manager.workerStart', {
+        ...f.params,
+        taskId: task.id,
+        workspaceId: target,
+        requestId: 'independent'
+      })
+    ).toMatchObject({
+      ok: true,
+      result: { state: 'ready' }
+    })
+    expect(f.db.db.prepare('SELECT dispatch_id FROM worker_dispatches').all()).toHaveLength(2)
+  })
+
+  it('refuses to launch beside a user agent that has no supervised Dispatch', async () => {
+    const f = await startFixture(2)
+    vi.mocked(agentHookServer.getEnrichedStatusSnapshot).mockReturnValue([
+      {
+        paneKey: 'existing-user-session',
+        connectionId: 'worker',
+        worktreeId: workspaceId,
+        receivedAt: 10,
+        stateStartedAt: 1,
+        payload: { state: 'working', prompt: 'Private user task' }
+      }
+    ])
+    expect(await f.call('manager.workerStart', f.params)).toMatchObject({
+      ok: false,
+      error: { code: 'manager_forbidden', message: expect.stringContaining('agent session') }
+    })
+    expect(f.db.db.prepare('SELECT dispatch_id FROM worker_dispatches').all()).toHaveLength(0)
+    expect(f.db.getTask(f.params.taskId)?.status).toBe('ready')
+    expect(
+      f.db.getMutationReceipt(`manager:${f.credential.principal.id}`, f.params.requestId)
+    ).toBeUndefined()
   })
 
   it('refuses user-owned tasks, host substitution, aliases and raw terminal claims', async () => {

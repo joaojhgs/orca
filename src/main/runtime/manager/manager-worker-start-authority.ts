@@ -1,12 +1,20 @@
 import type { z } from 'zod'
 import type { ManagerWorkerStartParams } from '../../../shared/rpc-contract/manager-params'
 import type { OrcaRuntimeService } from '../orca-runtime'
-import { getConnectionExecutionHostId, toSshExecutionHostId } from '../../../shared/execution-host'
+import {
+  getConnectionExecutionHostId,
+  parseExecutionHostId,
+  toSshExecutionHostId
+} from '../../../shared/execution-host'
 import { parseWorkerTerminalHostScope } from '../../../shared/worker-terminal-host-scope'
 import { managerMayObserve } from '../../../shared/manager-event-contract'
 import { managerWorkspaceScope } from './manager-hook-scope'
 import { requireManagerPrincipal } from './manager-runtime-authority'
 import { ManagerAuthorityError } from './manager-authority-error'
+import { assertManagerWorkspaceCapacity } from './manager-workspace-capacity'
+import { assertManagerAgentWorkspaceCapacity } from './manager-agent-workspace-capacity'
+import { agentHookServer } from '../../agent-hooks/server'
+import { getRegisteredSshState } from '../../ssh/ssh-target-registry'
 
 type StartParams = z.infer<typeof ManagerWorkerStartParams>
 
@@ -87,9 +95,24 @@ export function managerWorkerStartAuthority(
             'Manager active-worker capacity reached; reconcile before launching'
           )
         }
+        assertManagerAgentWorkspaceCapacity(
+          agentHookServer.getEnrichedStatusSnapshot(),
+          executionHostId,
+          params.workspaceId,
+          managerExecutionContact(executionHostId)
+        )
+        assertManagerWorkspaceCapacity(db, executionHostId, params.workspaceId)
         return operation()
       })
   }
+}
+
+function managerExecutionContact(executionHostId: string): 'connected' | 'unverifiable' {
+  const host = parseExecutionHostId(executionHostId)
+  return host?.kind === 'local' ||
+    (host?.kind === 'ssh' && getRegisteredSshState(host.targetId)?.status === 'connected')
+    ? 'connected'
+    : 'unverifiable'
 }
 
 function readWorkerCount(value: unknown): number {
