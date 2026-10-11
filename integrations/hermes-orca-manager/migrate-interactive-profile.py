@@ -76,7 +76,8 @@ def migrate(candidate):
     with tarfile.open(backup / 'custody-before.tar.gz', 'w:gz') as archive:
         for target in [SOURCE, ROOT / 'config.yaml', ROOT / 'auth.json', ROOT / 'hindsight',
                        Path('/home/developer/.local/bin/hermes'), Path('/usr/local/libexec/hermes-orca-cli'),
-                       Path('/usr/local/bin/hermes-manager-console'), Path('/etc/sudoers.d/hermes-manager-console')]:
+                       Path('/usr/local/bin/hermes-manager-console'), Path('/etc/sudoers.d/hermes-manager-console'),
+                       Path('/etc/tmpfiles.d/hermes-manager-transport.conf')]:
             if target.exists() or target.is_symlink():
                 archive.add(target, arcname=str(target).lstrip('/'), recursive=True)
     private_config = yaml.safe_load((SOURCE / 'config.yaml').read_text())
@@ -120,14 +121,19 @@ def migrate(candidate):
     os.chmod(routing, 0o644)
     shutil.copyfile(candidate / 'plugin/private-orca-cli.py', '/usr/local/libexec/hermes-orca-cli')
     os.chmod('/usr/local/libexec/hermes-orca-cli', 0o755)
-    subprocess.run(['usermod', '-a', '-G', 'hermes-manager', 'developer'], check=True)
+    # Existing relay PTYs already have the developer group; no reconnect or broad group grant.
+    transport_config = Path('/etc/tmpfiles.d/hermes-manager-transport.conf')
+    write_private(transport_config, 'd /run/hermes-manager-transport 2750 hermes-transport developer -\n', 0, 0)
+    subprocess.run(['systemd-tmpfiles', '--create', str(transport_config)], check=True)
+    for name in ('orca.sock', 'metadata.sock'):
+        os.chown(Path('/run/hermes-manager-transport') / name, -1, account.pw_gid)
     launcher = ('#!/bin/sh\nexport HERMES_TUI_DIR=/home/developer/.hermes/hermes-agent/ui-tui\n'
                 f'export HERMES_NODE={PAYLOAD}/tools/node-26.7.0-linux-arm64/bin/node\n'
                 f'exec {PAYLOAD}/bin/hermes "$@"\n')
     write_private(Path('/home/developer/.local/bin/hermes'), launcher, account.pw_uid, account.pw_gid)
     os.chmod('/home/developer/.local/bin/hermes', 0o755)
     override = Path('/etc/systemd/system/hermes-memory-private-bridge.service.d/interactive.conf')
-    write_private(override, ('[Service]\nUser=developer\nGroup=developer\nSupplementaryGroups=hermes-manager\n'
+    write_private(override, ('[Service]\nUser=developer\nGroup=developer\n'
                             'WorkingDirectory=/home/developer\nEnvironment=HOME=/home/developer\n'
                             'Environment=HERMES_HOME=/home/developer/.hermes\n'
                             'Environment=XDG_CACHE_HOME=/home/developer/.cache\nProtectHome=read-only\n'
