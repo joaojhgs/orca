@@ -86,6 +86,32 @@ it('delivers a live SSH completion without a renderer, with sequence-ready mobil
     })
   )
 })
+it('keeps silent Hermes internal completions out of push without muting later milestones', () => {
+  const f = fixture()
+  f.status(f.event('working', { payload: { state: 'working', prompt: '', agentType: 'hermes' } }))
+  f.advance()
+  f.status(
+    f.event('done', {
+      payload: { state: 'done', prompt: '', agentType: 'hermes', lastAssistantMessage: 'NO_REPLY' }
+    })
+  )
+  f.settle()
+  expect(f.dispatch).not.toHaveBeenCalled()
+  f.status(f.event('working', { payload: { state: 'working', prompt: '', agentType: 'hermes' } }))
+  f.advance()
+  f.status(
+    f.event('done', {
+      payload: {
+        state: 'done',
+        prompt: '',
+        agentType: 'hermes',
+        lastAssistantMessage: 'Feature ready for review.'
+      }
+    })
+  )
+  f.settle()
+  expect(f.dispatch).toHaveBeenCalledTimes(1)
+})
 it('ignores replay, hydrated state, session boundaries, and canceled turns', () => {
   const f = fixture()
   f.status(f.event('working'))

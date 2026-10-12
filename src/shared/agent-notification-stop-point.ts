@@ -21,6 +21,17 @@ export function agentNotificationStopPoint(event: AgentHookEventPayload) {
   if (state === 'waiting' || state === 'blocked') {
     return state
   }
+  // Hermes machinery turns retain completion evidence but intentionally have no user reply.
+  if (
+    state === 'done' &&
+    event.payload.agentType === 'hermes' &&
+    verdict !== 'failure' &&
+    /^(?:NO_REPLY|NO REPLY|SILENT|\[SILENT\])$/i.test(
+      (event.payload.lastAssistantMessage ?? '').trim()
+    )
+  ) {
+    return null
+  }
   // Transcript/child-roster refreshes can drain the pane without a new root stop.
   if (
     state === 'done' &&
