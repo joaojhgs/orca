@@ -46,8 +46,12 @@ def schema(name, description, operations):
             properties[key] = {"anyOf": [{"type": "string", "minLength": 1, "maxLength": 2048}, {"type": "integer", "minimum": 0}]}
     return {"name": name, "description": description, "parameters": {
         "type": "object", "additionalProperties": False,
-        "properties": {"operation": {"type": "string", "enum": sorted(operations)},
-                       "arguments": {"type": "object", "additionalProperties": False, "properties": properties}},
+        "properties": {"operation": {"type": "string", "enum": sorted(operations),
+            "description": "Exact per-operation fields: " + "; ".join(
+                f"{op}: required {','.join(sorted(required)) or 'none'}; optional {','.join(sorted(optional)) or 'none'}"
+                for op, (required, optional) in sorted(operations.items()))},
+                       "arguments": {"type": "object", "additionalProperties": False, "properties": properties,
+            "description": "Pass only fields allowed for the chosen operation. session-read/session-guide use terminal and incarnationId from session-list as terminal/incarnation-id, never hook snapshot sessionId/sessionGeneration. Preserve returned opaque cursors."}},
         "required": ["operation", "arguments"],
     }}
 

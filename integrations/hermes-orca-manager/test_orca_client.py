@@ -48,6 +48,15 @@ class ClientTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.client.inspect("worker-read", {"run": "r", "dispatch": "d", "cursor": cursor})
 
+    def test_invalid_arguments_explain_fields_without_echoing_values(self):
+        with self.assertRaises(ValueError) as caught:
+            self.client.inspect('task-show', {'task':'task-id','token':'secret-value'})
+        message=str(caught.exception)
+        self.assertIn("missing=['run']",message)
+        self.assertIn("unsupported=['token']",message)
+        self.assertNotIn('secret-value',message)
+        self.assertFalse(self.calls)
+
     def test_model_cannot_claim_lease_token_request_id_or_terminal(self):
         for key in ["lease", "request-id", "token", "terminal", "on"]:
             with self.assertRaises(ValueError):

@@ -58,7 +58,13 @@ def prompt_for(batch):
         'Notify ONLY for a BIG validated feature/merge-ready durable-goal batch, a genuine '
         'unresolved blocker/question, or a consolidated digest after over 24h of active '
         'work without an owner update. Worker stops, small milestones and subagent '
-        'completions are NOT notifications. If there is nothing useful to notify, '
+        'completions are NOT notifications. A verified final result of an explicit owner '
+        'request that is still awaiting its answer is a reply, not unsolicited progress: '
+        'return that concise result even for a small requested task. Check its original '
+        'request and completion evidence first; never treat a mere turn stop as completion. '
+        'Take live session/task reads first. Supplement with memory only when necessary; '
+        'do not repeat failed external memory lookups or delay an otherwise verified result '
+        'for optional memory maintenance. If there is nothing useful to notify, '
         'after acknowledgement your ENTIRE final reply must be exactly NO_REPLY; native '
         'Hermes suppresses this marker for internal wakeups while preserving the receipt. '
         'Do not send a routine triage-completed message. Finish by calling orca_supervision '
@@ -179,7 +185,8 @@ def queue_review(ctx, request_id):
             'instruction': 'Owner requests a check of ALL running sessions and returned delegated '
             'task results. Reconstruct existing supervision receipts and important outcomes. '
             'Do not invent a completion, restart a session, or initiate new implementation. '
-            'Only report significant evidenced outcomes or a real unresolved owner blocker.'}]}
+            'Return a verified result of any explicit owner request still awaiting its answer; '
+            'otherwise only report significant evidenced outcomes or a real unresolved owner blocker.'}]}
         identifier = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
         state.update(owner_review_request=request_id,
                      pending={'id': identifier, 'payload': payload, 'admission': 'pending'})

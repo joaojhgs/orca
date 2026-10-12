@@ -54,8 +54,12 @@ def validated_arguments(operation, values, allowed):
     if operation not in allowed or not isinstance(values, dict):
         raise ValueError("Unsupported Orca manager operation")
     required, optional = allowed[operation]
-    if not required <= set(values) or set(values) - required - optional:
-        raise ValueError("Missing or unsupported manager arguments")
+    missing = required - set(values)
+    unsupported = set(values) - required - optional
+    if missing or unsupported:
+        raise ValueError(f"Invalid {operation} arguments: missing={sorted(missing)}, "
+                         f"unsupported={sorted(unsupported)}; required={sorted(required)}, "
+                         f"optional={sorted(optional)}. Use exact IDs from this operation's live inventory.")
     result = []
     for key, value in sorted(values.items()):
         if key in {"lease", "cursor"}:
