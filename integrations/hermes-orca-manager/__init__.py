@@ -18,6 +18,9 @@ def register(ctx):
         subcommands.add_parser("prepare-memory", help="Prepare private local Hindsight settings without activating them")
         subcommands.add_parser("memory-test", help="Validate authenticated local retain, semantic recall and reflection")
         subcommands.add_parser("run", help="Consume durable scoped events and supervise owned Runs")
+        subcommands.add_parser("supervision-prompt", help="Preflight isolated event triage; idle never wakes a model")
+        review = subcommands.add_parser("supervision-review", help="Queue an operator-requested inventory review")
+        review.add_argument("--request-id", required=True)
         objective = subcommands.add_parser("objective", help="Queue one operator-authored objective idempotently")
         objective.add_argument("--request-id", required=True)
         objective.add_argument("--workspace-id", required=True)
@@ -35,6 +38,12 @@ def register(ctx):
         elif args.orca_manager_command == "run":
             from .manager_adapter import run_adapter
             run_adapter(ctx)
+        elif args.orca_manager_command == "supervision-prompt":
+            from .native_supervision import isolated_prompt
+            print(isolated_prompt(ctx))
+        elif args.orca_manager_command == "supervision-review":
+            from .native_supervision import queue_review
+            print(queue_review(ctx, args.request_id))
         elif args.orca_manager_command == "objective":
             from .manager_state import open_manager_state
             state = open_manager_state()

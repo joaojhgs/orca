@@ -11,6 +11,10 @@ provides_tools:
 requires_auth:
   - openai-codex
 config_schema:
+  native_isolated_events:
+    type: bool
+    default: false
+    description: Triage durable event batches in isolated native cron sessions instead of human chats
   enable_event_tools: {type: bool, default: false, description: Allow ordinary Hermes sessions to read scoped Orca events without adapter decisions}
   memory_port: {type: int, default: 8789, description: Loopback-only memory LLM port}
   memory_secret_file: {type: str, default: '', description: Private shared-secret file for the memory backend}

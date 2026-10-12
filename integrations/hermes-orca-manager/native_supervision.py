@@ -3,10 +3,12 @@ import fcntl
 import hashlib
 import json
 import logging
+import re
 import shlex
 import sys
 import threading
 import time
+from contextlib import contextmanager
 
 from .orca_client import OrcaClient, CONTROL_OPERATIONS, READ_OPERATIONS
 
@@ -22,11 +24,16 @@ def relevant(event, excluded):
             and scope.get('projectId') not in excluded)
 
 
-def batch_for(page, excluded):
-    events = [event for event in page.get('events', []) if relevant(event, excluded)]
+def batch_for(page, excluded, quiet_contacts=False):
+    events = [event for event in page.get('events', []) if relevant(event, excluded)
+              and not (quiet_contacts and event.get('kind') in {'contact-lost', 'contact-restored'})]
     if not events and not page.get('gap'):
         return None
-    payload = {'cursor': page['cursor'], 'gap': page.get('gap'), 'events': events}
+    cursor = page['cursor']
+    if len(events) > 40:
+        events = events[:40]
+        cursor = {**cursor, 'sequence': events[-1]['sequence']}
+    payload = {'cursor': cursor, 'gap': page.get('gap'), 'events': events}
     identifier = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     return {'id': identifier, 'payload': payload, 'admission': 'pending'}
 
@@ -57,15 +64,32 @@ def prompt_for(batch):
         'Do not send a routine triage-completed message. Finish by calling orca_supervision '
         f'with action=ack and batch_id={batch["id"]} AFTER triage. '
         'Acknowledgement is receipt handling, not task completion. If a journal gap is '
-        'reported reconcile live inventory before acknowledging.\n'
+        'reported reconcile live inventory before acknowledging. Use batch_id plus the exact '
+        'target incarnation to derive stable action request IDs; on retry read receipts before '
+        'sending any guidance again. Check live delegated task results, not just the event summary.\n'
         + json.dumps({'batch_id': batch['id'], 'gap': batch['payload']['gap'], 'events': events,
                       'signals': batch['payload'].get('signals', [])})
     )
 
 
+@contextmanager
+def receipt_lock(ctx):
+    ctx.state.data_dir.mkdir(parents=True, exist_ok=True)
+    with (ctx.state.data_dir / 'native-receipt.lock').open('a+') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+
 def process_page(ctx, page, excluded):
+    with receipt_lock(ctx):
+        return _process_page(ctx, page, excluded)
+
+
+def _process_page(ctx, page, excluded):
     state = ctx.state.get(KEY, {})
-    batch = batch_for(page, excluded)
+    if state.get('pending'):
+        return state['pending']
+    batch = batch_for(page, excluded, ctx.get_config('native_isolated_events', default=False) is True)
     if batch:
         state['pending'] = batch
     else:
@@ -76,6 +100,8 @@ def process_page(ctx, page, excluded):
 
 
 def admit_pending(ctx, origin):
+    if ctx.get_config('native_isolated_events', default=False) is True:
+        return False
     state = ctx.state.get(KEY, {})
     batch = state.get('pending')
     if not batch or batch['admission'] != 'pending':
@@ -92,6 +118,11 @@ def admit_pending(ctx, origin):
 
 
 def control(ctx, args):
+    with receipt_lock(ctx):
+        return _control(ctx, args)
+
+
+def _control(ctx, args):
     if ctx.get_config('enable_native_supervision', default=False) is not True:
         return json.dumps({'ok': False, 'error': 'Native supervision is not enabled'})
     state = ctx.state.get(KEY, {})
@@ -103,9 +134,57 @@ def control(ctx, args):
     batch = state.get('pending')
     if not batch or batch['id'] != args['batch_id']:
         return json.dumps({'ok': state.get('last_ack') == args['batch_id'], 'stale': True})
-    state.update(cursor=batch['payload']['cursor'], last_ack=batch['id'], pending=None)
+    state.update(cursor=batch['payload']['cursor'], last_ack=batch['id'],
+                 last_ack_at=int(time.time()), pending=None)
     ctx.state.set(KEY, state)
     return json.dumps({'ok': True, 'acknowledged': batch['id']})
+
+
+def isolated_prompt(ctx, now=None):
+    """Cron preflight: no pending batch means no model, delivery or chat-history turn."""
+    if (ctx.get_config('enable_native_supervision', default=False) is not True
+            or ctx.get_config('native_isolated_events', default=False) is not True):
+        raise ValueError('Isolated native supervision is not enabled')
+    now = int(time.time()) if now is None else now
+    with receipt_lock(ctx):
+        state = ctx.state.get(KEY, {})
+        batch = state.get('pending')
+        if not batch:
+            return json.dumps({'wakeAgent': False})
+        last_attempt = batch.get('isolated_attempt_at', batch.get('accepted_at', 0))
+        if now - last_attempt < 900:
+            return json.dumps({'wakeAgent': False})
+        batch['isolated_attempt_at'] = now
+        batch['isolated_attempts'] = batch.get('isolated_attempts', 0) + 1
+        state['pending'] = batch
+        ctx.state.set(KEY, state)
+        return prompt_for(batch)
+
+
+def queue_review(ctx, request_id):
+    """Operator-requested reconciliation, not a manufactured session-completion event."""
+    if (ctx.get_config('enable_native_supervision', default=False) is not True
+            or ctx.get_config('native_isolated_events', default=False) is not True
+            or not isinstance(request_id, str)
+            or not re.fullmatch(r'[A-Za-z0-9_.:-]{8,200}', request_id)):
+        raise ValueError('Explicit isolated supervision and a stable request ID are required')
+    with receipt_lock(ctx):
+        state = ctx.state.get(KEY, {})
+        if state.get('owner_review_request') == request_id:
+            return json.dumps({'ok': True, 'duplicate': True})
+        if state.get('pending') or 'cursor' not in state:
+            return json.dumps({'ok': False, 'error': 'Reconcile existing pending batch first'})
+        payload = {'cursor': state['cursor'], 'gap': None, 'events': [], 'signals': [{
+            'kind': 'owner-requested-review', 'requestId': request_id,
+            'instruction': 'Owner requests a check of ALL running sessions and returned delegated '
+            'task results. Reconstruct existing supervision receipts and important outcomes. '
+            'Do not invent a completion, restart a session, or initiate new implementation. '
+            'Only report significant evidenced outcomes or a real unresolved owner blocker.'}]}
+        identifier = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+        state.update(owner_review_request=request_id,
+                     pending={'id': identifier, 'payload': payload, 'admission': 'pending'})
+        ctx.state.set(KEY, state)
+        return json.dumps({'ok': True, 'batch_id': identifier})
 
 
 def acquire_lock(lock, stop):
@@ -165,7 +244,30 @@ def monitoring_signals(sessions, accounts, previous, now, excluded):
         last_daily = now
     if not active:
         last_daily = now
-    return signals, {'quota_levels': levels, 'last_daily_check_at': last_daily, 'last_sample_at': now}
+    contacts = {}
+    for session in sessions:
+        if (session.get('scope', {}).get('projectId') in excluded
+                or session.get('state') not in {'working', 'waiting', 'blocked'}):
+            continue
+        scope = session.get('scope', {})
+        identity = session.get('terminalId') or session.get('sessionId') or scope.get('sessionId')
+        key = json.dumps([scope.get('executionHostId'), identity]) if identity else None
+        if not key:
+            continue
+        old = previous.get('contacts', {}).get(key, {})
+        if session.get('executionContact') != 'connected':
+            first = old.get('first_lost_at', now)
+            alerted = old.get('alerted', False)
+            if not alerted and now - first >= 300:
+                signals.append({'kind': 'sustained-contact-loss', 'terminalId': key,
+                                'scope': session.get('scope', {}), 'verdict': 'unverifiable'})
+                alerted = True
+            contacts[key] = {'first_lost_at': first, 'alerted': alerted}
+        elif old.get('alerted'):
+            signals.append({'kind': 'contact-recovered', 'terminalId': key,
+                            'scope': session.get('scope', {})})
+    return signals, {'quota_levels': levels, 'contacts': contacts,
+                     'last_daily_check_at': last_daily, 'last_sample_at': now}
 
 
 def sample_monitoring(ctx, client, excluded):
@@ -186,13 +288,19 @@ def sample_monitoring(ctx, client, excluded):
     accounts = client.call('usage', {'limit': 100}, READ_OPERATIONS)
     if accounts.get('hasMore') or accounts.get('nextOffset') is not None:
         raise ValueError('Account inventory exceeds bounded supervisor scan')
-    signals, monitoring = monitoring_signals(sessions, accounts.get('items', []), previous, now, excluded)
-    state['monitoring'] = monitoring
-    if signals:
-        payload = {'cursor': state['cursor'], 'gap': None, 'events': [], 'signals': signals}
-        identifier = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
-        state['pending'] = {'id': identifier, 'payload': payload, 'admission': 'pending'}
-    ctx.state.set(KEY, state)
+    # Network reads must not block receipts; re-read before committing to preserve concurrent acks.
+    with receipt_lock(ctx):
+        state = ctx.state.get(KEY, {})
+        if state.get('pending'):
+            return
+        signals, monitoring = monitoring_signals(sessions, accounts.get('items', []),
+                                               state.get('monitoring', {}), now, excluded)
+        state['monitoring'] = monitoring
+        if signals:
+            payload = {'cursor': state['cursor'], 'gap': None, 'events': [], 'signals': signals}
+            identifier = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+            state['pending'] = {'id': identifier, 'payload': payload, 'admission': 'pending'}
+        ctx.state.set(KEY, state)
 
 
 def loop(ctx, stop, origin, excluded):
@@ -217,14 +325,15 @@ def loop(ctx, stop, origin, excluded):
                         return
                     state['cursor'] = page['cursor']
                     ctx.state.set(KEY, state)
-                startup = ctx.get_config('native_startup_message', default='')
+                isolated = ctx.get_config('native_isolated_events', default=False) is True
+                startup = '' if isolated else ctx.get_config('native_startup_message', default='')
                 if startup and not state.get('startup_admitted'):
                     if not ctx.inject_message(startup, origin=origin):
                         stop.wait(10)
                         continue
                     state['startup_admitted'] = True
                     ctx.state.set(KEY, state)
-                policy = ctx.get_config('native_policy_message', default='')
+                policy = '' if isolated else ctx.get_config('native_policy_message', default='')
                 revision = hashlib.sha256(policy.encode()).hexdigest() if policy else None
                 if revision and state.get('policy_revision_admitted') != revision:
                     if not ctx.inject_message(policy, origin=origin):

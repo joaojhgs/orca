@@ -57,3 +57,32 @@ ownership, queues without interrupts, refuses shells and uses the same request I
 for exact retries. Contact loss remains unverifiable; it never authorizes a new
 writer. The native gateway can reload the plugin without restarting agents; the
 tool-registry generation refreshes cached model tools on the next normal turn.
+
+## Quiet isolated supervision
+
+Opt in with `native_isolated_events: true`. The reader keeps durable pending batches,
+but does not inject event, startup or policy turns into the human Telegram chat.
+Run `hermes -p coding orca-manager supervision-prompt` as the script of a native
+agent cron job. When idle it returns `{"wakeAgent": false}`: no model or delivery.
+Set `attach_to_session: false`, `cron.mirror_delivery: false`, and an explicit
+`telegram:<chat>:<topic>` delivery target, not `bot-chat` or an origin route.
+Allow the existing `orca_events`/`orca_dispatch` tools and disable unrelated MCPs.
+The ordinary profile's SOUL and memory remain the supervision policy/continuity.
+
+Triage acknowledges the exact batch using `orca_supervision`. Interrupted batches
+remain pending and are retried at most every fifteen minutes; preserve stable
+action request IDs and reconcile receipts before repeating any side effect.
+Large event pages advance only past the forty events actually presented, so
+omitted events are reread rather than silently acknowledged. Brief contact flaps
+are ignored; the existing sampler detects sustained loss after five minutes,
+and contact loss never proves process exit. Quota crossings and overdue active-work
+digest checks still use the same sampler and grants.
+
+`supervision-review --request-id <stable-id>` queues an explicit operator-requested
+inventory/result review without inventing a completion event or new coding objective.
+It preserves existing pending batches and deduplicates the most recent request.
+
+Set `display.memory_notifications: off` to silence memory/skill-review summaries
+without disabling learning. Telegram platform display overrides can hide interim
+status/diagnostics while retaining normal answers, meaningful results and blockers.
+No gateway, Orca, relay or terminal restart is required: use native plugin reload.
