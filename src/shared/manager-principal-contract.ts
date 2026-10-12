@@ -8,6 +8,8 @@ export const MANAGER_ACTIONS = [
   'inventory:read',
   'usage:read',
   'worker:read',
+  'session:read',
+  'session:guide',
   'run:create',
   'task:write',
   'worker:start',

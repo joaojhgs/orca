@@ -30,6 +30,18 @@ afterEach(() => {
 })
 
 describe('manager service credentials', () => {
+  it('applies an explicit owner grant update without replacing the credential or losing leases', () => {
+    const f = fixture()
+    const lease = f.store.claim(f.principal.id, 'coding')
+    f.store.updateGrant(f.principal.id, {
+      ...grant,
+      actions: [...grant.actions, 'session:read', 'session:guide']
+    })
+    expect(f.store.authenticate(f.token)?.id).toBe(f.principal.id)
+    expect(f.store.withLease(lease, 'session:guide', () => true)).toBe(true)
+    f.store.updateGrant(f.principal.id, grant)
+    expect(() => f.store.withLease(lease, 'session:guide', () => true)).toThrow('not granted')
+  })
   it('refuses asynchronous work inside a lease transaction', () => {
     const { store, principal, db } = fixture()
     const lease = store.claim(principal.id, 'adapter')

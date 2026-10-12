@@ -14,6 +14,23 @@ export const ManagerIssueParams = z.strictObject({
   expiresAt: z.number().int().positive()
 })
 export const ManagerRevokeParams = z.strictObject({ principalId: z.string().min(1).max(512) })
+export const ManagerUpdateGrantParams = ManagerRevokeParams.extend({
+  grant: ManagerPrincipalGrantSchema
+})
+export const ManagerSessionParams = z.strictObject({
+  serviceToken,
+  terminal: z.string().min(1).max(512),
+  incarnationId: z.string().min(1).max(512)
+})
+export const ManagerSessionReadParams = ManagerSessionParams.extend({
+  cursor: z.number().int().nonnegative().optional(),
+  limit: z.number().int().min(1).max(200).default(100)
+})
+export const ManagerSessionGuideParams = ManagerSessionParams.extend({
+  lease: ManagerConsumerLeaseSchema,
+  requestId: z.string().min(1).max(512),
+  body: z.string().trim().min(1).max(32_000)
+})
 export const ManagerEventsReadParams = z.strictObject({
   serviceToken,
   cursor: ManagerEventCursorSchema.optional(),

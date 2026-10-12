@@ -1,5 +1,7 @@
 import type { CommandHandler } from './dispatch'
 import { BROWSER_HANDLER_GROUPS } from './browser-handler-groups'
+import { MANAGER_HANDLER_GROUP } from './manager-handler-group'
+import { BASIC_HANDLER_GROUPS } from './basic-handler-groups'
 
 export type HandlerGroup = {
   name: string
@@ -12,49 +14,8 @@ export type HandlerGroup = {
 // Why: `keys` mirrors each group's exported record and is verified against the
 // real exports by handler-group-manifest.test.ts, so drift fails CI, not dispatch.
 export const HANDLER_GROUPS: readonly HandlerGroup[] = [
-  {
-    name: 'manager',
-    keys: [
-      'manager run-create',
-      'manager run-list',
-      'manager run-show',
-      'manager conversation-read',
-      'manager conversation-post',
-      'manager task-create',
-      'manager task-list',
-      'manager task-show',
-      'manager worker-show',
-      'manager worker-read',
-      'manager worker-start',
-      'manager check',
-      'manager ack',
-      'manager worker-guide',
-      'manager question-answer',
-      'manager snapshot',
-      'manager placements',
-      'manager usage',
-      'manager resources',
-      'manager read',
-      'manager wait',
-      'manager claim',
-      'manager renew',
-      'manager release',
-      'manager checkpoint',
-      'manager authorize',
-      'manager revoke'
-    ],
-    load: async () => (await import('./handlers/manager.js')).MANAGER_HANDLERS
-  },
-  {
-    name: 'reference',
-    keys: ['reference list', 'reference add', 'reference remove', 'reference find'],
-    load: async () => (await import('./handlers/reference.js')).REFERENCE_HANDLERS
-  },
-  {
-    name: 'core',
-    keys: ['claude-teams', 'open', 'serve', 'status'],
-    load: async () => (await import('./handlers/core.js')).CORE_HANDLERS
-  },
+  MANAGER_HANDLER_GROUP,
+  ...BASIC_HANDLER_GROUPS,
   {
     name: 'account',
     keys: ['account add', 'account list', 'account select', 'account rm', 'account usage'],

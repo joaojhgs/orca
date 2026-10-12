@@ -5,6 +5,32 @@ const notes = [
   'Uses ORCA_MANAGER_TOKEN or a private ORCA_MANAGER_CREDENTIAL_FILE; never put a token in arguments.'
 ]
 export const MANAGER_COMMAND_SPECS: CommandSpec[] = [
+  {
+    path: ['manager', 'session-list'],
+    summary: 'List all registered sessions in granted projects, regardless of launch ownership',
+    usage: 'orca manager session-list [--offset <n>] [--limit <n>] [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'offset', 'limit'],
+    notes
+  },
+  {
+    path: ['manager', 'session-read'],
+    summary: 'Read an existing project session with exact incarnation fencing',
+    usage:
+      'orca manager session-read --terminal <handle> --incarnation-id <id> [--cursor <n>] [--limit <n>] [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'terminal', 'incarnation-id', 'cursor', 'limit'],
+    notes
+  },
+  {
+    path: ['manager', 'session-guide'],
+    summary: 'Guide an existing agent without claiming its lifecycle or interrupting it',
+    usage:
+      'orca manager session-guide --terminal <handle> --incarnation-id <id> --lease <json> --request-id <id> --body <text> [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'terminal', 'incarnation-id', 'lease', 'request-id', 'body'],
+    notes: [
+      ...notes,
+      'Input acceptance does not prove a completed agent turn. Never replay an unknown result as a new request.'
+    ]
+  },
   ...MANAGER_CONVERSATION_COMMAND_SPECS,
   ...['placements', 'usage', 'resources'].map((name): CommandSpec => ({
     path: ['manager', name],

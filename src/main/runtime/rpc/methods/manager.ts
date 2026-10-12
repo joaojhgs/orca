@@ -1,6 +1,7 @@
 import { defineMethod } from '../core'
 import { requireManagerPrincipal as requirePrincipal } from '../../manager/manager-runtime-authority'
 import { MANAGER_OBSERVATION_METHODS } from './manager-observation'
+import { MANAGER_SESSION_METHODS } from './manager-sessions'
 import { MANAGER_WORK_METHODS } from './manager-work'
 import { MANAGER_TASK_INVENTORY_METHODS } from './manager-task-inventory'
 import { MANAGER_WORKER_OBSERVATION_METHODS } from './manager-worker-observation'
@@ -18,11 +19,13 @@ import {
   ManagerIssueParams,
   ManagerRenewParams,
   ManagerReleaseParams,
-  ManagerRevokeParams
+  ManagerRevokeParams,
+  ManagerUpdateGrantParams
 } from '../../../../shared/rpc-contract/manager-params'
 
 export const MANAGER_METHODS = [
   ...MANAGER_OBSERVATION_METHODS,
+  ...MANAGER_SESSION_METHODS,
   ...MANAGER_WORK_METHODS,
   ...MANAGER_TASK_INVENTORY_METHODS,
   ...MANAGER_WORKER_OBSERVATION_METHODS,
@@ -39,6 +42,16 @@ export const MANAGER_METHODS = [
       runtime
         .getOrchestrationDb()
         .managerPrincipals.issue(params.label, params.grant, params.expiresAt)
+  }),
+  defineMethod({
+    name: 'manager.updateGrant',
+    permission: 'host-admin',
+    params: ManagerUpdateGrantParams,
+    handler: (params, { runtime }) => ({
+      principal: runtime
+        .getOrchestrationDb()
+        .managerPrincipals.updateGrant(params.principalId, params.grant)
+    })
   }),
   defineMethod({
     name: 'manager.revoke',

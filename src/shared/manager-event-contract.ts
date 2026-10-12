@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
 export const MANAGER_EVENTS_RUNTIME_CAPABILITY = 'manager.durable-events.v1' as const
+export const MANAGER_SESSIONS_RUNTIME_CAPABILITY = 'manager.project-sessions.v1' as const
+export const MANAGER_RUNTIME_CAPABILITIES = [
+  MANAGER_EVENTS_RUNTIME_CAPABILITY,
+  MANAGER_SESSIONS_RUNTIME_CAPABILITY
+] as const
 
 const stableId = z.string().min(1).max(512)
 
@@ -50,7 +55,9 @@ export const ManagerScopeGrantSchema = z.strictObject({
   executionHostIds: z.array(stableId).min(1).max(100),
   projectIds: z.array(stableId).max(100),
   projectGroupIds: z.array(stableId).max(100).optional(),
-  runIds: z.array(stableId).max(1000)
+  runIds: z.array(stableId).max(1000),
+  includeProjectRuns: z.boolean().optional(),
+  allRegisteredProjects: z.boolean().optional()
 })
 
 export type ManagerEventInput = z.infer<typeof ManagerEventInputSchema>
@@ -68,11 +75,17 @@ export type ManagerEventPage = {
 export function managerMayObserve(grant: ManagerScopeGrant, scope: ManagerEventScope): boolean {
   const groupGranted =
     scope.projectGroupId !== undefined &&
-    grant.projectGroupIds?.includes(scope.projectGroupId) === true
+    (grant.projectGroupIds?.includes(scope.projectGroupId) === true ||
+      grant.allRegisteredProjects === true)
+  const projectGranted =
+    scope.projectId !== undefined &&
+    (grant.projectIds.includes(scope.projectId) || grant.allRegisteredProjects === true)
   return (
     grant.executionHostIds.includes(scope.executionHostId) &&
-    (scope.projectId === undefined || grant.projectIds.includes(scope.projectId) || groupGranted) &&
-    (scope.runId === undefined || grant.runIds.includes(scope.runId)) &&
+    (scope.projectId === undefined || projectGranted || groupGranted) &&
+    (scope.runId === undefined ||
+      grant.runIds.includes(scope.runId) ||
+      (grant.includeProjectRuns === true && (projectGranted || groupGranted))) &&
     (scope.projectId !== undefined ||
       scope.runId !== undefined ||
       groupGranted ||

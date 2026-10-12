@@ -6,7 +6,8 @@ import { printResult } from '../format'
 import { RuntimeClientError } from '../runtime-client'
 import {
   ManagerEventCursorSchema,
-  MANAGER_EVENTS_RUNTIME_CAPABILITY
+  MANAGER_EVENTS_RUNTIME_CAPABILITY,
+  MANAGER_SESSIONS_RUNTIME_CAPABILITY
 } from '../../shared/manager-event-contract'
 import type { RuntimeStatus } from '../../shared/runtime-types'
 import { readManagerCredential } from '../manager-credential'
@@ -43,6 +44,15 @@ function operation(
         'This Orca server does not support durable manager events'
       )
     }
+    if (
+      method.startsWith('manager.session') &&
+      !status.result.capabilities?.includes(MANAGER_SESSIONS_RUNTIME_CAPABILITY)
+    ) {
+      throw new RuntimeClientError(
+        'incompatible_runtime',
+        'This Orca server does not support project-wide session supervision'
+      )
+    }
     const result = await client.call(
       method,
       { ...params(flags), serviceToken: readManagerCredential() },
@@ -53,6 +63,35 @@ function operation(
 }
 
 export const MANAGER_HANDLERS: Record<string, CommandHandler> = {
+  'manager session-list': operation(
+    'manager.sessionList',
+    (flags) => ({
+      offset: number(flags, 'offset', 0),
+      limit: number(flags, 'limit', 100)
+    }),
+    120_000
+  ),
+  'manager session-read': operation(
+    'manager.sessionRead',
+    (flags) => ({
+      terminal: text(flags, 'terminal'),
+      incarnationId: text(flags, 'incarnation-id'),
+      cursor: flags.has('cursor') ? number(flags, 'cursor', 0) : undefined,
+      limit: number(flags, 'limit', 100)
+    }),
+    120_000
+  ),
+  'manager session-guide': operation(
+    'manager.sessionGuide',
+    (flags) => ({
+      terminal: text(flags, 'terminal'),
+      incarnationId: text(flags, 'incarnation-id'),
+      lease: ManagerConsumerLeaseSchema.parse(optionalJson(flags, 'lease')),
+      requestId: text(flags, 'request-id'),
+      body: text(flags, 'body')
+    }),
+    120_000
+  ),
   ...managerConversationHandlers(operation, text),
   ...Object.fromEntries(
     ['placements', 'usage', 'resources'].map((name) => [

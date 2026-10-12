@@ -27,7 +27,7 @@ export {
   AGENT_SESSION_ATTENTION_ACK_RUNTIME_CAPABILITY
 } from './agent-session-attention-capabilities'
 import { ORCHESTRATION_RUNTIME_CAPABILITIES } from './orchestration-runtime-capabilities'
-import { MANAGER_EVENTS_RUNTIME_CAPABILITY } from './manager-event-contract'
+import { MANAGER_RUNTIME_CAPABILITIES } from './manager-event-contract'
 export { MANAGER_EVENTS_RUNTIME_CAPABILITY } from './manager-event-contract'
 import { AGENT_SESSION_RESUME_RUNTIME_CAPABILITIES } from './agent-session-resume-runtime-capabilities'
 import { QODER_OWNED_TERMINAL_CREATE_CAPABILITY } from './qoder-terminal-create-capability'
@@ -355,7 +355,7 @@ export const ANTIGRAVITY_CONFIGURED_MODEL_RUNTIME_CAPABILITY =
   'git.antigravity-configured-model.v1' as const
 
 export const RUNTIME_CAPABILITIES = [
-  MANAGER_EVENTS_RUNTIME_CAPABILITY,
+  ...MANAGER_RUNTIME_CAPABILITIES,
   ...ORCAD_RUNTIME_CAPABILITIES,
   ...PREVIEW_RUNTIME_CAPABILITIES,
   'pairing.administration.v1',

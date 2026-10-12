@@ -98,6 +98,7 @@ export class ManagerPrincipalStore {
         createdAt: row.created_at,
         expiresAt: row.expires_at,
         actions: publicPrincipal(row).grant.actions,
+        grant: publicPrincipal(row).grant,
         state:
           row.revoked_at !== null
             ? ('revoked' as const)
@@ -129,6 +130,18 @@ export class ManagerPrincipalStore {
           .run(this.now(), id).changes
       ) > 0
     )
+  }
+
+  /** Owner-only RPC updates authority without moving sessions or replacing the identity. */
+  updateGrant(id: string, grant: ManagerPrincipalGrant): ManagerPrincipal {
+    const parsed = ManagerPrincipalGrantSchema.parse(grant)
+    return runLifecycleWriteTransaction(this.db, 'manager_grant_update', () => {
+      this.requireActive(id)
+      this.db
+        .prepare('UPDATE manager_principals SET grant_json = ? WHERE id = ?')
+        .run(JSON.stringify(parsed), id)
+      return publicPrincipal(this.requireActive(id))
+    })
   }
 
   claim(id: string, consumerId: string, durationMs = 60_000): ManagerConsumerLease {
