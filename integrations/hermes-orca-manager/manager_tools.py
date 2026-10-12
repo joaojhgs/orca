@@ -10,7 +10,7 @@ from .orca_failure import OrcaOperationError
 
 TEXT_KEYS = {"run", "task", "dispatch", "workspace-id", "objective", "spec", "title", "deps",
              "parent", "agent", "model", "effort", "retry-of", "body", "message", "kind", "reply-to",
-             "requirements", "completion-evidence", "work-class"}
+             "requirements", "completion-evidence", "work-class", "terminal", "incarnation-id"}
 MUTATION_LOCK = Lock()
 MODEL_READ_OPERATIONS = {key: value for key, value in READ_OPERATIONS.items() if key != "run-list"}
 MODEL_WRITE_OPERATIONS = {key: value for key, value in WRITE_OPERATIONS.items() if key != "run-create"}

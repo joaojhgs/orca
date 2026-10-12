@@ -8,6 +8,8 @@ import subprocess
 from .orca_failure import classified_failure
 
 READ_OPERATIONS = {
+    "session-list": (set(), {"offset", "limit"}),
+    "session-read": ({"terminal", "incarnation-id"}, {"cursor", "limit"}),
     "placements": (set(), {"offset", "limit"}),
     "usage": (set(), {"offset", "limit"}),
     "resources": (set(), {"offset", "limit"}),
@@ -20,6 +22,7 @@ READ_OPERATIONS = {
     "conversation-read": ({"run"}, {"after-sequence", "limit"}),
 }
 WRITE_OPERATIONS = {
+    "session-guide": ({"terminal", "incarnation-id", "body"}, set()),
     "run-create": ({"workspace-id", "objective"}, set()),
     "task-create": ({"run", "spec"}, {"title", "deps", "parent", "requirements"}),
     "worker-start": ({"run", "task", "workspace-id", "agent"}, {"model", "effort", "retry-of", "work-class"}),
@@ -56,7 +59,7 @@ def validated_arguments(operation, values, allowed):
     result = []
     for key, value in sorted(values.items()):
         if key in {"lease", "cursor"}:
-            worker_cursor = operation == "worker-read" and key == "cursor"
+            worker_cursor = operation in {"worker-read", "session-read"} and key == "cursor"
             if worker_cursor and (isinstance(value, bool) or not isinstance(value, (str, int)) or
                                   isinstance(value, int) and value < 0 or isinstance(value, str) and not 1 <= len(value) <= 2048):
                 raise ValueError("Invalid incarnation-fenced worker cursor")
@@ -109,7 +112,8 @@ class OrcaClient:
         return response["result"]
 
     def inspect(self, operation, values):
-        return self.call(operation, values, READ_OPERATIONS)
+        return self.call(operation, values, READ_OPERATIONS,
+                         timeout=130 if operation in {"session-list", "session-read"} else 45)
 
     def act(self, operation, values, *, lease, decision_id, step=None):
         identity = [decision_id, "step", step] if step is not None else [decision_id, operation, values]

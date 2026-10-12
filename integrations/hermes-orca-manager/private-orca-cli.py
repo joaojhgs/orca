@@ -15,6 +15,7 @@ PROFILE = Path('/var/lib/hermes-manager/.hermes/profiles/orca-manager')
 OPERATOR_CONFIG = Path('/etc/hermes-manager/interactive.json')
 TRANSPORT = Path('/run/hermes-manager-transport')
 OPERATIONS = frozenset({
+    'session-list', 'session-read', 'session-guide',
     'placements', 'usage', 'resources', 'run-list', 'run-show', 'task-list', 'task-show',
     'worker-show', 'worker-read', 'run-create', 'task-create', 'worker-start', 'worker-guide',
     'question-answer', 'read', 'wait', 'snapshot', 'claim', 'renew', 'release', 'checkpoint',
@@ -58,15 +59,28 @@ def configured_identity():
         return pwd.getpwnam('hermes-manager').pw_uid, PROFILE
     info = OPERATOR_CONFIG.lstat()
     if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022 or info.st_size > 4096:
-        raise ValueError('Interactive routing must be a root-owned operator configuration')
+        raise ValueError('Routing must be a root-owned operator configuration')
     settings = json.loads(OPERATOR_CONFIG.read_text())
-    if set(settings) != {'user', 'profile'} or settings['user'] != 'developer':
+    if settings.get('user') != 'developer' or set(settings) != {'user', 'profiles'}:
         raise ValueError('Unexpected interactive identity')
     account = pwd.getpwnam(settings['user'])
-    profile = Path(account.pw_dir) / '.hermes/profiles/orca-manager'
-    if settings['profile'] != str(profile):
-        raise ValueError('Unexpected interactive profile')
-    return account.pw_uid, profile
+    root = Path(account.pw_dir) / '.hermes/profiles'
+    allowed = settings['profiles']
+    if not isinstance(allowed, list) or not set(allowed) <= {'personal', 'coding', 'work', 'coordinator', 'orca-manager'}:
+        raise ValueError('Unexpected allowed profile set')
+    requested = os.environ.get('ORCA_MANAGER_CREDENTIAL_FILE')
+    if requested:
+        matches = [name for name in allowed if requested == str(root / name / 'orca-manager.credential')]
+        if len(matches) != 1:
+            raise ValueError('Credential path is not operator-approved')
+        selected = matches[0]
+    else:
+        active = os.environ.get('HERMES_HOME', '')
+        matches = [name for name in allowed if active == str(root / name)]
+        selected = matches[0] if matches else 'orca-manager'
+    if selected not in allowed:
+        raise ValueError('Profile is not operator-approved')
+    return account.pw_uid, root / selected
 
 
 def main(arguments):

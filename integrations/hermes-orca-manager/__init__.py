@@ -7,6 +7,10 @@ def register(ctx):
     register_manager_tools(ctx)
     from .event_tools import register_event_tools
     register_event_tools(ctx)
+    from .native_supervision import register_native_supervision
+    register_native_supervision(ctx)
+    from .interactive_tools import register_interactive_tools
+    register_interactive_tools(ctx)
 
     def setup(parser):
         subcommands = parser.add_subparsers(dest="orca_manager_command", required=True)

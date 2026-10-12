@@ -42,3 +42,18 @@ adapter invocation. Moving to interactive Hermes does not widen the Orca grant,
 enroll the worker in the tailnet or grant it direct access to desktop host SSH.
 Hermes's desktop Bot Mode and messaging gateways still require their own native
 setup; the Orca terminal is not a substitute for Hermes's desktop bot roster.
+# Existing-session supervision
+
+On servers advertising `manager.project-sessions.v1`, the native profile tools
+support `session-list`, incarnation-fenced `session-read`, and durable
+`session-guide`. These cover registered sessions started by the owner or other
+agents without adopting a Run/Task/Dispatch. Grants must explicitly include
+`session:read`/`session:guide`; project-wide observation still pins approved hosts.
+
+Enable `enable_interactive_tools` in the profile's plugin settings. Company
+projects must be listed in `work_project_ids`: raw company output stays with
+company Claude, and guidance must target notebook Work Claude. Guidance preserves
+ownership, queues without interrupts, refuses shells and uses the same request ID
+for exact retries. Contact loss remains unverifiable; it never authorizes a new
+writer. The native gateway can reload the plugin without restarting agents; the
+tool-registry generation refreshes cached model tools on the next normal turn.

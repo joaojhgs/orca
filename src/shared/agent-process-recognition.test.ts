@@ -12,6 +12,30 @@ import {
 
 describe('agent process recognition', () => {
   it.each([
+    '/home/developer/.local/share/claude/versions/2.1.296',
+    '/Users/dev/.local/share/claude/versions/2.1.296-beta.1',
+    'C:\\Users\\dev\\.local\\share\\claude\\versions\\2.1.296.exe'
+  ])('recognizes Claude native foreground executables at %s', (path) => {
+    expect(recognizeAgentProcess(path)).toEqual({ agent: 'claude', processName: 'claude' })
+    expect(isExpectedAgentProcess(path, 'claude')).toBe(true)
+    expect(
+      recognizeAgentProcessFromCommandLine(`"${path}" --dangerously-skip-permissions`)?.agent
+    ).toBe('claude')
+    expect(recognizeAgentProcessFromCommandLine(`"${path}" -p "one shot"`)).toBeNull()
+  })
+
+  it.each([
+    '2.1.296',
+    '/tmp/2.1.296',
+    '.local/share/claude/versions/2.1.296',
+    '/home/developer/.local/share/claude/versions/bash',
+    '/home/developer/.local/share/claude/versions/2.1.296/other'
+  ])('does not treat unrelated version names or shells as Claude: %s', (path) => {
+    expect(recognizeAgentProcess(path)).toBeNull()
+    expect(isExpectedAgentProcess(path, 'claude')).toBe(false)
+  })
+
+  it.each([
     '/usr/local/bin/dsb',
     '/usr/bin/deepseek-build',
     'C:\\Users\\dev\\bin\\dsb.cmd',
