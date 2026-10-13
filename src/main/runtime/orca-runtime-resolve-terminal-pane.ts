@@ -6,7 +6,7 @@ import type {
   RuntimeTerminalShow
 } from '../../shared/runtime-types'
 import type { RuntimeProviderSnapshotReadOptions } from './runtime-terminal-contracts'
-import { parsePaneKey } from '../../shared/stable-pane-id'
+import { makePaneKey, parsePaneKey } from '../../shared/stable-pane-id'
 import {
   buildVisibleSnapshotReadFallback,
   labelTerminalReadSource,
@@ -16,6 +16,29 @@ import { getTerminalState } from './terminal-wait-results'
 import { readStructuredWorkerTerminal } from './structured-worker-terminal-read'
 
 export class OrcaRuntimeWithResolveTerminalPane extends OrcaRuntimeWithGetTerminalInteractiveWait {
+  /** A live relay PTY retains its authority even when no renderer owns its pane. */
+  resolveTerminalSessionAuthority(handle: string): RuntimeTerminalResolvePane | null {
+    try {
+      const live = this.getLivePtyForHandle(handle)
+      if (live) {
+        return {
+          handle,
+          tabId: live.record.tabId,
+          leafId: live.record.leafId,
+          ptyId: live.pty.ptyId,
+          worktreeId: live.pty.worktreeId,
+          connected: live.pty.connected === true,
+          ...this.getPtyExecutionHostMetadata(live.pty.ptyId)
+        }
+      }
+      const { record } = this.getLiveLeafForHandle(handle)
+      const terminal = this.resolveTerminalPane(makePaneKey(record.tabId, record.leafId))
+      return terminal.handle === handle ? terminal : null
+    } catch {
+      return null
+    }
+  }
+
   resolveTerminalPane(paneKey: string, expectedWorktreeId?: string): RuntimeTerminalResolvePane {
     // Why: the renderer context menu only knows the stable pane key; main owns
     // the runtime terminal handle that agents and CLI commands can address.

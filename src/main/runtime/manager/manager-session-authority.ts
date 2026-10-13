@@ -14,11 +14,10 @@ export function requireManagerSession(
   const db = runtime.getOrchestrationDb()
   const principal = requireManagerPrincipal(db, params.serviceToken)
   const grant = db.managerPrincipals.authorize(principal.id, action).grant.scope
-  const pane = runtime.getPaneKeyForTerminalHandle(params.terminal)
-  if (!pane) {
+  const terminal = runtime.resolveTerminalSessionAuthority(params.terminal)
+  if (!terminal) {
     throw new ManagerAuthorityError('manager_forbidden', 'Session identity is unverifiable')
   }
-  const terminal = runtime.resolveTerminalPane(pane)
   if (
     terminal.handle !== params.terminal ||
     !terminal.worktreeId ||

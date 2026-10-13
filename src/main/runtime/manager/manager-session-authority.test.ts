@@ -16,8 +16,7 @@ const principal = {
 function fixture() {
   const runtime = {
     getOrchestrationDb: () => ({ managerPrincipals: { authorize: vi.fn(() => principal) } }),
-    getPaneKeyForTerminalHandle: () => 'pane',
-    resolveTerminalPane: vi.fn(() => ({
+    resolveTerminalSessionAuthority: vi.fn(() => ({
       handle: 'manual',
       worktreeId: 'repo::/repo',
       executionHostId: 'ssh:worker',
@@ -39,7 +38,10 @@ function fixture() {
     listFolderWorkspaces: () => []
   }
   // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: requireManagerSession only calls the mocked runtime surface above.
-  return { runtime: runtime as unknown as OrcaRuntimeService, resolve: runtime.resolveTerminalPane }
+  return {
+    runtime: runtime as unknown as OrcaRuntimeService,
+    resolve: runtime.resolveTerminalSessionAuthority
+  }
 }
 beforeEach(() => vi.mocked(requireManagerPrincipal).mockReturnValue(principal))
 const params = { serviceToken: 'secret', terminal: 'manual', incarnationId: 'incarnation' }
