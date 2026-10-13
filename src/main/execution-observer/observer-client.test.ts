@@ -7,7 +7,14 @@ const mocks = vi.hoisted(() => ({
   sessions: new Map(),
   exec: vi.fn(),
   readFile: vi.fn(),
-  runProcess: vi.fn()
+  runProcess: vi.fn(),
+  invalidate: vi.fn()
+}))
+vi.mock('./observer-remote-cache', () => ({
+  ensureRemoteObserver: vi.fn(async () => ({ file: '/fixture/cache.cjs', digest: 'a'.repeat(64) })),
+  cachedObserverInput: (_file: string, _digest: string, encoded: string) =>
+    `process.env.ORCA_OBSERVER_REQUEST = "${encoded}";`,
+  invalidateRemoteObserver: mocks.invalidate
 }))
 vi.mock('node:fs/promises', () => ({ readFile: mocks.readFile }))
 vi.mock('../ipc/ssh-active-relay-sessions', () => ({ activeSessions: mocks.sessions }))
@@ -18,8 +25,12 @@ const { ExecutionObserverClient } = await import('./observer-client')
 
 function connection(id: string) {
   const state = { status: 'connected', connectionGeneration: 1 }
-  const stub = { getState: () => state, getTarget: () => ({ id }) }
-  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: Observer only reads these two methods from the fixture.
+  const stub = {
+    getState: () => state,
+    getTarget: () => ({ id }),
+    getConnectGeneration: () => state.connectionGeneration
+  }
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: Fixture implements the observer's state, generation, and target readers.
   return { connection: stub as SshConnection, state }
 }
 
@@ -45,6 +56,16 @@ beforeEach(() => {
 })
 
 describe('execution-host observer launch', () => {
+  it('invalidates a failed cached launch without replaying the operation', async () => {
+    const fixture = connection('personal')
+    session('personal', '/usr/bin/node')
+    mocks.exec.mockRejectedValueOnce(new Error('cached file missing'))
+    await expect(
+      new ExecutionObserverClient('/fixture').discover(fixture.connection)
+    ).rejects.toThrow('cached file missing')
+    expect(mocks.exec).toHaveBeenCalledTimes(1)
+    expect(mocks.invalidate).toHaveBeenCalledWith(fixture.connection, 'a'.repeat(64), 1)
+  })
   it('uses each host’s resolved Node, independent of PATH, without changing the discovery payload', async () => {
     const client = new ExecutionObserverClient('/fixture/observer.cjs')
     for (const [id, node] of [

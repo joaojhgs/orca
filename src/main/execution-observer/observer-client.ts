@@ -17,6 +17,11 @@ import { activeSessions } from '../ipc/ssh-active-relay-sessions'
 import { shellEscape } from '../ssh/ssh-connection-utils'
 import { isWindowsRemoteHost } from '../ssh/ssh-remote-platform'
 import { powerShellCommand, powerShellLiteral } from '../ssh/ssh-remote-powershell'
+import {
+  cachedObserverInput,
+  ensureRemoteObserver,
+  invalidateRemoteObserver
+} from './observer-remote-cache'
 
 export class ExecutionObserverClient {
   private bundle: Promise<string> | null = null
@@ -28,15 +33,16 @@ export class ExecutionObserverClient {
       throw error
     })
     const encoded = Buffer.from(JSON.stringify(request)).toString('base64')
-    const input = `process.env.ORCA_OBSERVER_REQUEST = ${JSON.stringify(encoded)};\n${await this.bundle}`
+    const bundle = await this.bundle
+    const input = `process.env.ORCA_OBSERVER_REQUEST = ${JSON.stringify(encoded)};\n${bundle}`
     let output: string
     const maxOutputBytes = request.operation === 'android-preview' ? 9 * 1024 * 1024 : 1024 * 1024
     if (connection) {
-      const generation = connection.getState().connectionGeneration
+      const generation = connection.getConnectGeneration()
       const assertOwner = () => {
         if (
           connection.getState().status !== 'connected' ||
-          connection.getState().connectionGeneration !== generation
+          connection.getConnectGeneration() !== generation
         ) {
           throw new Error('SSH observation is unverifiable while disconnected or reconnected')
         }
@@ -53,12 +59,19 @@ export class ExecutionObserverClient {
       const command = windows
         ? powerShellCommand(`& ${powerShellLiteral(nodePath)} -; exit $LASTEXITCODE`)
         : `${shellEscape(nodePath)} -`
-      output = await execCommand(connection, command, {
-        input,
-        timeoutMs: 70000,
-        maxOutputChars: maxOutputBytes,
-        ...(windows ? { wrapCommand: false } : {})
-      })
+      const cached = await ensureRemoteObserver(connection, command, bundle, !windows)
+      assertOwner()
+      try {
+        output = await execCommand(connection, command, {
+          input: cachedObserverInput(cached.file, cached.digest, encoded),
+          timeoutMs: 70000,
+          maxOutputChars: maxOutputBytes,
+          ...(windows ? { wrapCommand: false } : {})
+        })
+      } catch (error) {
+        invalidateRemoteObserver(connection, cached.digest, generation)
+        throw error
+      }
       if (activeSessions.get(connection.getTarget().id) !== session) {
         throw new Error('SSH observation became unverifiable')
       }
