@@ -29,6 +29,7 @@ import {
 import { attachHeldPtyThroughPreviousRelay } from '../providers/ssh-pty-legacy-relay-delegation'
 import { createSshLegacyRelayRouter } from './ssh-legacy-relay-routing'
 import { SshChannelMultiplexer } from './ssh-channel-multiplexer'
+import { retireSshRelayControlSocket } from './ssh-relay-control-socket-retirement'
 import { SshPtyProvider } from '../providers/ssh-pty-provider'
 import type { SshPtyAttachResult } from '../providers/ssh-pty-session-reattach'
 import type { SshPtyDataCallback, SshPtyExitCallback } from '../providers/ssh-pty-provider-contract'
@@ -1118,6 +1119,7 @@ export class SshRelaySession {
     this.releaseRelayLossWatcher()
     this.muxDisposeCleanup = mux.onDispose((reason) => {
       if (reason === 'connection_lost' && this.mux === mux && !this.isDisposed()) {
+        retireSshRelayControlSocket(this.currentConnection)
         console.warn(
           `[ssh-relay-session] Relay channel lost for ${this.targetId}, triggering reconnect`
         )

@@ -16,6 +16,11 @@ const { muxRequestMock, openConsumerSessionMock, registeredPtyProvider } = vi.ho
   registeredPtyProvider: { dispose: vi.fn(), attachForReconnect: vi.fn() }
 }))
 
+const retireControlSocket = vi.hoisted(() => vi.fn())
+vi.mock('./ssh-relay-control-socket-retirement', () => ({
+  retireSshRelayControlSocket: retireControlSocket
+}))
+
 vi.mock('./ssh-relay-deploy', () => ({ deployAndLaunchRelay: vi.fn() }))
 vi.mock('./ssh-pty-consumer-session', () => ({
   openSshPtyConsumerSession: openConsumerSessionMock
@@ -302,5 +307,27 @@ describe('SshRelaySession relay loss during setup', () => {
     expect(onReady).not.toHaveBeenCalled()
     expect(onRelayLost).toHaveBeenCalledTimes(1)
     expect(unregisterSshFilesystemProvider).toHaveBeenCalledWith('target-1')
+  })
+
+  it('retires the failed channel’s reusable SSH socket before reconnecting', async () => {
+    const { session, onRelayLost } = createSession()
+    retireControlSocket.mockClear()
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: The mocked deployment never executes this connection.
+    const conn = {} as SshConnection
+    await session.establish(conn)
+    const mux = session.getMux()
+    mux?.dispose('connection_lost')
+    expect(retireControlSocket).toHaveBeenCalledExactlyOnceWith(conn)
+    expect(onRelayLost).toHaveBeenCalledExactlyOnceWith('target-1')
+  })
+
+  it('does not retire reusable SSH sockets during an intentional detach', async () => {
+    const { session, onRelayLost } = createSession()
+    retireControlSocket.mockClear()
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: The mocked deployment never executes this connection.
+    await session.establish({} as SshConnection)
+    session.detach()
+    expect(retireControlSocket).not.toHaveBeenCalled()
+    expect(onRelayLost).not.toHaveBeenCalled()
   })
 })
