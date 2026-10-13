@@ -144,6 +144,24 @@ describe('deployAndLaunchRelay honours the incumbent verdict', () => {
     expect(launchedDaemon(conn)).toBe(false)
   })
 
+  it('reconnects the existing daemon over a dedicated transport without relaunching it', async () => {
+    const conn = makeMockConnection()
+    queueAliveSocketThenProbe()
+    vi.mocked(waitForSentinel).mockResolvedValueOnce({
+      write: vi.fn(),
+      onData: vi.fn(),
+      onClose: vi.fn()
+    })
+
+    await deployAndLaunchRelay(conn)
+
+    expect(conn.exec).toHaveBeenCalledWith(
+      expect.stringContaining('relay.js --connect'),
+      expect.objectContaining({ disableControlMaster: true, signal: expect.any(AbortSignal) })
+    )
+    expect(launchedDaemon(conn)).toBe(false)
+  })
+
   it('does not launch over a live relay that refused the credential; the error is terminal', async () => {
     const conn = makeMockConnection()
     vi.mocked(waitForSentinel).mockRejectedValueOnce(new RelayCredentialMismatchError(''))
@@ -185,6 +203,10 @@ describe('deployAndLaunchRelay honours the incumbent verdict', () => {
 
     await deployAndLaunchRelay(conn)
     expect(launchedDaemon(conn)).toBe(true)
+    expect(conn.exec).toHaveBeenCalledWith(
+      expect.stringContaining('relay.js --connect'),
+      expect.objectContaining({ disableControlMaster: true })
+    )
   })
   it.each([
     { error: new Error('completed sweep read failure'), expectedGcCalls: 1 },

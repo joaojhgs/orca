@@ -79,6 +79,26 @@ describe('SshConnection', () => {
     expect(conn.canRunConcurrentExecCommands()).toBe(true)
   })
 
+  it('dedicates only the long-lived command to an unmultiplexed connection', async () => {
+    getOrcaControlSocketPathMock.mockReturnValue('/tmp/orca-ssh-501/live-socket')
+    vi.mocked(resolveWithSshG).mockResolvedValueOnce(createResolvedConfig())
+    const conn = new SshConnection(createTarget({ configHost: 'fdpass-host' }), createCallbacks())
+    await conn.connect()
+    const controller = new AbortController()
+
+    await conn.exec('relay --connect', { disableControlMaster: true, signal: controller.signal })
+    await conn.exec('short setup command')
+
+    expect(spawnSystemSshCommandMock).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      'relay --connect',
+      expect.objectContaining({ disableControlMaster: true, signal: controller.signal })
+    )
+    expect(spawnSystemSshCommandMock.mock.calls[2]?.[2]).not.toHaveProperty('disableControlMaster')
+    expect(conn.canRunConcurrentExecCommands()).toBe(true)
+  })
+
   it('keeps concurrent exec commands disabled for system SSH without a reusable socket', async () => {
     getOrcaControlSocketPathMock.mockReturnValue(null)
     vi.mocked(resolveWithSshG).mockResolvedValueOnce(createResolvedConfig())

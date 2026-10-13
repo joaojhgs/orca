@@ -217,6 +217,7 @@ describe('deployAndLaunchRelay on Windows remotes', () => {
       windowsLaunchCalls.every(([, , options]) => options?.signal instanceof AbortSignal)
     ).toBe(true)
     expect(vi.mocked(conn.exec).mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal)
+    expect(vi.mocked(conn.exec).mock.calls[0]?.[1]?.disableControlMaster).toBe(true)
     expect(vi.mocked(waitForSentinel).mock.calls[0]?.[1]).toBeInstanceOf(AbortSignal)
   })
 

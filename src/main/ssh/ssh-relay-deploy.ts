@@ -2121,9 +2121,10 @@ async function launchRelay(
     if (probeOutput.trim() === 'ALIVE') {
       console.log('[ssh-relay] Existing relay socket found, attempting reconnect...')
       try {
+        // Keep heartbeat/PTY traffic separate from short-lived ControlMaster commands.
         const channel = await conn.exec(
           `cd ${escapedDir} && ${escapedNode} relay.js --connect --sock-path ${shellEscape(sockFile)} --credential-file ${shellEscape(credentialFile)}`,
-          { signal }
+          { signal, disableControlMaster: true }
         )
         const transport = await waitForSentinel(channel, signal)
         console.log('[ssh-relay] Reconnected to existing relay via socket')
@@ -2221,7 +2222,7 @@ async function launchRelay(
   // Why: backgrounded relay's stdout goes to a log file, not the exec channel; --connect bridges this channel to its Unix socket.
   const channel = await conn.exec(
     `cd ${escapedDir} && ${escapedNode} relay.js --connect --sock-path ${shellEscape(sockFile)} --credential-file ${shellEscape(credentialFile)}`,
-    { signal }
+    { signal, disableControlMaster: true }
   )
   return {
     transport: await waitForSentinel(channel, signal),
@@ -2515,7 +2516,7 @@ async function connectWindowsRelay(
       opts.sockPath,
       opts.credentialFile
     ),
-    { wrapCommand: false, signal }
+    { wrapCommand: false, signal, disableControlMaster: true }
   )
   return waitForSentinel(channel, signal)
 }

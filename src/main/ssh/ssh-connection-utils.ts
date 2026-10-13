@@ -171,6 +171,7 @@ export function wrapRemoteCommandForPosixShell(command: string): string {
 export type SshExecOptions = {
   wrapCommand?: boolean
   signal?: AbortSignal
+  disableControlMaster?: boolean
 }
 
 export function createSshOperationAbortError(): Error & { name: string } {
