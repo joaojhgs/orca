@@ -17,6 +17,7 @@ import {
   assertManagerDispatchWaitInput
 } from './manager-dispatch-wait-store'
 import { recoverManagerDispatchWaits } from './manager-dispatch-wait-recovery'
+import { EXECUTION_USAGE_MAX_AGE_MS } from '../../../shared/execution-usage-freshness'
 
 afterEach(() => {
   cleanupDispatchReadings()
@@ -146,7 +147,7 @@ describe('durable capacity recovery wakes', () => {
 
   it('keeps stale/shared-account quota pending and re-arms only after a fresh refused attempt', async () => {
     const f = await waitingFixture()
-    f.readings.account.checkedAt = Date.now() - 300_001
+    f.readings.account.checkedAt = Date.now() - EXECUTION_USAGE_MAX_AGE_MS - 1
     await recoverManagerDispatchWaits(f.runtime, f.sample)
     expect(f.events()).toHaveLength(0)
     f.readings.account.checkedAt = Date.now()

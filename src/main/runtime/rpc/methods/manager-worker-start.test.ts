@@ -9,6 +9,7 @@ import {
 import type { startLocalWorker } from './orchestration/worker/local-worker-start'
 import { buildDispatchPreamble } from '../../orchestration/preamble'
 import { agentHookServer } from '../../../agent-hooks/server'
+import { EXECUTION_USAGE_MAX_AGE_MS } from '../../../../shared/execution-usage-freshness'
 import {
   installDispatchReadings,
   cleanupDispatchReadings
@@ -145,7 +146,7 @@ describe('scoped manager worker start', () => {
     })
     f.db.failWorkerStart(prior.dispatch.id, 'agent_readiness', 'Update menu')
     const params = { ...f.params, retryOf: prior.dispatch.id }
-    f.readings.account.checkedAt = Date.now() - 300_001
+    f.readings.account.checkedAt = Date.now() - EXECUTION_USAGE_MAX_AGE_MS - 1
     expect(await f.call('manager.workerStart', params)).toMatchObject({ ok: false })
     const row = f.db.db.prepare('SELECT target_json FROM manager_dispatch_waits').get()
     expect(row).toMatchObject({ target_json: expect.stringContaining(prior.dispatch.id) })
@@ -369,7 +370,7 @@ describe('scoped manager worker start', () => {
 
   it('persists a refused quota attempt, then clears its wait only with atomic worker acceptance', async () => {
     const f = await startFixture()
-    f.readings.account.checkedAt = Date.now() - 300_001
+    f.readings.account.checkedAt = Date.now() - EXECUTION_USAGE_MAX_AGE_MS - 1
     expect(await f.call('manager.workerStart', f.params)).toMatchObject({
       ok: false,
       error: { code: 'manager_forbidden' }

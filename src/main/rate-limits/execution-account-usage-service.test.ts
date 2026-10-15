@@ -32,6 +32,40 @@ function host(id: string, credentials: ExecutionCredential[] = [account]): Usage
 }
 
 describe('ExecutionAccountUsageService', () => {
+  it('publishes a refreshed account before an unrelated slow provider finishes', async () => {
+    let now = 1_000_000
+    const owner = host('ssh:work', [account, { ...account, provider: 'claude' }])
+    owner.collect = vi.fn().mockImplementation(async (credential: ExecutionCredential) => ({
+      ...quota,
+      provider: credential.provider,
+      updatedAt: now
+    }))
+    const changed = vi.fn()
+    const service = new ExecutionAccountUsageService(
+      () => [owner],
+      changed,
+      () => now
+    )
+    await service.refresh()
+    now += 330_000
+    let finish: (value: ProviderRateLimits) => void = () => {}
+    owner.collect = vi.fn().mockImplementation((credential: ExecutionCredential) =>
+      credential.provider === 'claude'
+        ? new Promise<ProviderRateLimits>((resolve) => {
+            finish = resolve
+          })
+        : Promise.resolve({ ...quota, updatedAt: now })
+    )
+    changed.mockClear()
+    const refresh = service.refresh()
+    await vi.waitFor(() => expect(owner.collect).toHaveBeenCalledTimes(2))
+    expect(service.getState().find((row) => row.provider === 'codex')?.checkedAt).toBe(now)
+    expect(changed).toHaveBeenCalled()
+    finish({ ...quota, provider: 'claude', updatedAt: now })
+    await refresh
+    expect(service.getState().every((row) => row.checkedAt === now)).toBe(true)
+  })
+
   it('deduplicates matching accounts across hosts and collects quota once', async () => {
     const local = host('local', [{ ...account, credentialRevision: '1'.repeat(64) }]),
       ssh = host('ssh:personal', [{ ...account, credentialRevision: '2'.repeat(64) }])

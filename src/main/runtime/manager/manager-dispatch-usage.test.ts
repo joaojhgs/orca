@@ -2,12 +2,21 @@ import { describe, expect, it } from 'vitest'
 import { ManagerDispatchPolicySchema } from '../../../shared/manager-dispatch-capacity-contract'
 import { selectManagerDispatchAccount } from './manager-dispatch-usage'
 import { dispatchAccount } from './manager-dispatch.test-fixture'
+import { EXECUTION_USAGE_MAX_AGE_MS } from '../../../shared/execution-usage-freshness'
 
 const now = 1000_000,
   policy = ManagerDispatchPolicySchema.parse({})
 const target = { executionHostId: 'ssh:worker', agent: 'codex' }
 
 describe('manager fresh account dispatch gate', () => {
+  it('allows the scheduled collector to finish without declaring a low Work quota unavailable', () => {
+    const account = dispatchAccount(now - 330_000)
+    account.provider = 'claude'
+    expect(
+      selectManagerDispatchAccount([account], { ...target, agent: 'claude' }, policy, now).id
+    ).toBe(account.id)
+  })
+
   it('uses a shared deduplicated identity and does not mistake normal future refresh scheduling for exhaustion', () => {
     const account = dispatchAccount(now)
     expect(selectManagerDispatchAccount([account], target, policy, now).id).toBe(account.id)
@@ -49,7 +58,7 @@ describe('manager fresh account dispatch gate', () => {
       account.sources[0].reachable = false
     }
     if (mode === 'stale') {
-      limits.updatedAt = now - 300_001
+      limits.updatedAt = now - EXECUTION_USAGE_MAX_AGE_MS - 1
     }
     if (mode === 'future') {
       account.checkedAt = now + 5001

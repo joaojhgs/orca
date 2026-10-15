@@ -135,7 +135,7 @@ describe('scoped manager placement inventory', () => {
   })
 
   it('keeps deduplicated identities but strips ungranted sources, auth metadata and stale optimism', () => {
-    const result = managerUsageInventory([account()], grant.scope, 400_000)
+    const result = managerUsageInventory([account()], grant.scope, 500_000)
     expect(result).toMatchObject([
       {
         id: 'same-account',
@@ -154,6 +154,15 @@ describe('scoped manager placement inventory', () => {
     expect(
       managerUsageInventory([{ ...account(), rateLimits: null }], grant.scope, 1)
     ).toMatchObject([{ stale: true, status: 'unavailable', quotas: null }])
+  })
+
+  it('reports the same bounded refresh grace as dispatch and requires both observation timestamps', () => {
+    const row = account()
+    expect(managerUsageInventory([row], grant.scope, 330_000)).toMatchObject([{ stale: false }])
+    row.checkedAt = 0
+    expect(managerUsageInventory([row], grant.scope, 330_000)).toMatchObject([{ stale: true }])
+    row.checkedAt = 330_001
+    expect(managerUsageInventory([row], grant.scope, 500_000)).toMatchObject([{ stale: true }])
   })
 
   it('requires usage authority even when project inventory is permitted', async () => {

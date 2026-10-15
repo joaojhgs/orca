@@ -1,8 +1,7 @@
 import type { ExecutionAccountUsage } from '../../../shared/execution-observer'
 import type { ManagerDispatchPolicy } from '../../../shared/manager-dispatch-capacity-contract'
 import { ManagerCapacityUnavailableError } from './manager-authority-error'
-
-const maximumAge = 5 * 60_000
+import { executionUsageTimestampIsFresh } from '../../../shared/execution-usage-freshness'
 
 /** No refresh, credentials or paid overage: only the current deduplicated collector reading. */
 export function selectManagerDispatchAccount(
@@ -38,12 +37,8 @@ export function selectManagerDispatchAccount(
     limits.status !== 'ok' ||
     limits.error ||
     account.error ||
-    !Number.isFinite(limits.updatedAt) ||
-    limits.updatedAt > now + 5000 ||
-    now - limits.updatedAt > maximumAge ||
-    !Number.isFinite(account.checkedAt) ||
-    account.checkedAt > now + 5000 ||
-    now - account.checkedAt > maximumAge ||
+    !executionUsageTimestampIsFresh(limits.updatedAt, now) ||
+    !executionUsageTimestampIsFresh(account.checkedAt, now) ||
     (limits.usageMetadata?.retryAtMs ?? 0) > now ||
     !windows.length ||
     windows.some(

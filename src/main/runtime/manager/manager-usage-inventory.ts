@@ -1,5 +1,6 @@
 import type { ExecutionAccountUsage } from '../../../shared/execution-observer'
 import type { ManagerScopeGrant } from '../../../shared/manager-event-contract'
+import { executionUsageTimestampIsFresh } from '../../../shared/execution-usage-freshness'
 
 export function managerUsageInventory(
   accounts: readonly ExecutionAccountUsage[],
@@ -28,7 +29,10 @@ export function managerUsageInventory(
         checkedAt: account.checkedAt,
         updatedAt: limits?.updatedAt ?? null,
         retryAt: account.retryAt,
-        stale: !limits || now - limits.updatedAt > 5 * 60_000,
+        stale:
+          !limits ||
+          !executionUsageTimestampIsFresh(limits.updatedAt, now) ||
+          !executionUsageTimestampIsFresh(account.checkedAt, now),
         status: limits?.status ?? 'unavailable',
         hasError: Boolean(account.error || limits?.error),
         quotas: limits

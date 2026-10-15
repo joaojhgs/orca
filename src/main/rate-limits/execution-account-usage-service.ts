@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { ExecutionCredential, ExecutionAccountUsage } from '../../shared/execution-observer'
 import type { ProviderRateLimits } from '../../shared/rate-limit-types'
+import { EXECUTION_USAGE_POLL_MS } from '../../shared/execution-usage-freshness'
 
 export type UsageExecutionHost = {
   id: string
@@ -11,7 +12,6 @@ export type UsageExecutionHost = {
   collect: (credential: ExecutionCredential) => Promise<ProviderRateLimits>
 }
 type HostInventory = { generation: number; credentials: ExecutionCredential[]; reachable: boolean }
-const POLL_MS = 5 * 60_000
 
 export function executionAccountUsageId(
   host: Pick<UsageExecutionHost, 'id' | 'generation'>,
@@ -190,6 +190,14 @@ export class ExecutionAccountUsageService {
       } else if (!row.rateLimits) {
         row.error = previous?.error
       }
+      if (this.stopped) {
+        return
+      }
+      // A slow unrelated provider must not hide a completed refresh from dispatch admission.
+      if (previous) {
+        this.rows = this.rows.map((current) => (current.id === id ? row : current))
+        this.onChanged()
+      }
       next.push(row)
     }
     if (this.stopped) {
@@ -208,7 +216,7 @@ export class ExecutionAccountUsageService {
       if (this.stopped) {
         return
       }
-      row.retryAt = this.now() + POLL_MS
+      row.retryAt = this.now() + EXECUTION_USAGE_POLL_MS
       try {
         const credential = this.inventories
           .get(owner.id)
