@@ -74,6 +74,13 @@ class IsolatedTests(unittest.TestCase):
         self.assertIn('request that is still awaiting its answer',prompt)
         self.assertIn('never treat a mere turn stop as completion',prompt)
 
+    def test_shared_workspace_is_not_an_exclusive_session_lock(self):
+        prompt = ns.prompt_for(ns.batch_for(page(), []))
+        self.assertIn('sessions may share a workspace', prompt)
+        self.assertIn('never duplicate an existing Task', prompt)
+        self.assertIn('Respect host/account/resource limits', prompt)
+        self.assertNotIn('occupied workspace', prompt)
+
     def test_receipt_retry_is_bounded_and_ack_is_exact(self):
         batch = ns.process_page(self.ctx, page(), [])
         self.assertIn(batch['id'], ns.isolated_prompt(self.ctx, 1000))

@@ -1,13 +1,9 @@
 import type { OrcaRuntimeService } from '../orca-runtime'
-import { parseExecutionHostId } from '../../../shared/execution-host'
 import { managerMayObserve } from '../../../shared/manager-event-contract'
 import { ManagerDispatchPolicySchema } from '../../../shared/manager-dispatch-capacity-contract'
 import { agentHookServer } from '../../agent-hooks/server'
-import { getRegisteredSshState } from '../../ssh/ssh-target-registry'
 import { managerWorkspaceScope } from './manager-hook-scope'
 import { ManagerAuthorityError, ManagerCapacityUnavailableError } from './manager-authority-error'
-import { assertManagerAgentWorkspaceCapacity } from './manager-agent-workspace-capacity'
-import { assertManagerWorkspaceCapacity } from './manager-workspace-capacity'
 import { selectManagerDispatchAccount } from './manager-dispatch-usage'
 import { assertManagerDispatchCapacity } from './manager-dispatch-capacity'
 import { readManagerTaskRequirements } from './manager-completion-evidence'
@@ -98,27 +94,8 @@ export function checkManagerWorkerCapacity(
       'Manager active-worker capacity reached; reconcile before launching'
     )
   }
-  const host = parseExecutionHostId(sample.executionHostId)
-  const contact =
-    host?.kind === 'local' ||
-    (host?.kind === 'ssh' && getRegisteredSshState(host.targetId)?.status === 'connected')
-      ? 'connected'
-      : 'unverifiable'
+  // Workspaces may host multiple sessions; capacity belongs to hosts and accounts, not checkouts.
   const statuses = agentHookServer.getEnrichedStatusSnapshot()
-  try {
-    assertManagerAgentWorkspaceCapacity(
-      statuses,
-      sample.executionHostId,
-      target.workspaceId,
-      contact
-    )
-    assertManagerWorkspaceCapacity(db, sample.executionHostId, target.workspaceId)
-  } catch (error) {
-    if (error instanceof ManagerAuthorityError) {
-      throw new ManagerCapacityUnavailableError(error.message)
-    }
-    throw error
-  }
   assertManagerDispatchCapacity(db, reservation, account, sample, policy, statuses, Date.now())
   return { reservation, scope, run }
 }

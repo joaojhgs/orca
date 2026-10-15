@@ -26,7 +26,9 @@ retryAt is its next refresh, not quota exhaustion. A capacity refusal is not a
 launch: inspect the Task/Dispatch, leave a concise progress reply and end this turn.
 Orca persists capacity waits and wakes you once fresh evidence permits another
 check. Never repeatedly retry within a turn or create replacement Tasks to bypass
-quota, occupied workspaces, unknown contact or the editing/build capacity gate.
+quota, unknown contact or the editing/build capacity gate. Multiple sessions may
+share a workspace for distinct authorized Tasks: coordinate file ownership without
+duplicating a Task, adopting another owner or replacing an unverifiable attempt.
 Perform mutations sequentially; inspect their results before the next action.
 Reuse existing tasks/dispatches, reconcile unknown launch outcomes, and never create
 a replacement because SSH contact is lost. Contact loss means unverifiable.

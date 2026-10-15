@@ -223,23 +223,43 @@ describe('scoped manager worker start', () => {
     expect(f.db.getMutationReceipt(`manager:${f.credential.principal.id}`, 'two')).toBeUndefined()
   })
 
-  it('refuses a second writer in the same workspace even while the principal has spare worker capacity', async () => {
+  it('admits separate Tasks in the same workspace and replays each acceptance independently', async () => {
     const f = await startFixture(2)
     expect((await f.call('manager.workerStart', f.params)).ok).toBe(true)
-    const task = f.db.createTask({ runId: f.params.runId, spec: 'Conflicting writer' })
+    const task = f.db.createTask({ runId: f.params.runId, spec: 'Parallel task' })
+    const params = { ...f.params, taskId: task.id, requestId: 'parallel' }
+    const result = await f.call('manager.workerStart', params)
+    expect(result).toMatchObject({ ok: true, result: { taskId: task.id, state: 'ready' } })
+    expect(await f.call('manager.workerStart', params)).toEqual(result)
+    expect(f.db.getTask(task.id)?.status).toBe('dispatched')
+    expect(launch.start).toHaveBeenCalledTimes(2)
+    expect(f.db.db.prepare('SELECT dispatch_id FROM worker_dispatches').all()).toHaveLength(2)
+    expect(f.db.db.prepare('SELECT * FROM manager_dispatch_waits').all()).toHaveLength(0)
+  })
+
+  it('serializes concurrent same-workspace admissions against the principal cap, not a workspace lock', async () => {
+    const f = await startFixture(2)
+    const tasks = [0, 1, 2].map((i) =>
+      f.db.createTask({ runId: f.params.runId, spec: `Parallel task ${i}` })
+    )
+    const results = await Promise.all(
+      tasks.map((task, i) =>
+        f.call('manager.workerStart', { ...f.params, taskId: task.id, requestId: `parallel-${i}` })
+      )
+    )
+    expect(results.filter((result) => result.ok)).toHaveLength(2)
+    expect(results.filter((result) => !result.ok)).toMatchObject([
+      { error: { code: 'manager_forbidden', message: expect.stringContaining('active-worker') } }
+    ])
+    expect(f.db.db.prepare('SELECT dispatch_id FROM worker_dispatches').all()).toHaveLength(2)
+  })
+
+  it('still rejects a new attempt for the same already-dispatched Task', async () => {
+    const f = await startFixture(2)
+    expect((await f.call('manager.workerStart', f.params)).ok).toBe(true)
     expect(
-      await f.call('manager.workerStart', { ...f.params, taskId: task.id, requestId: 'conflict' })
-    ).toMatchObject({
-      ok: false,
-      error: {
-        code: 'manager_forbidden',
-        message: expect.stringContaining('occupied or unverifiable')
-      }
-    })
-    expect(f.db.getTask(task.id)?.status).toBe('ready')
-    expect(
-      f.db.getMutationReceipt(`manager:${f.credential.principal.id}`, 'conflict')
-    ).toBeUndefined()
+      await f.call('manager.workerStart', { ...f.params, requestId: 'duplicate-task' })
+    ).toMatchObject({ ok: false, error: { code: 'manager_forbidden' } })
     expect(f.db.db.prepare('SELECT dispatch_id FROM worker_dispatches').all()).toHaveLength(1)
   })
 
@@ -269,28 +289,32 @@ describe('scoped manager worker start', () => {
     expect(f.db.db.prepare('SELECT dispatch_id FROM worker_dispatches').all()).toHaveLength(2)
   })
 
-  it('refuses to launch beside a user agent that has no supervised Dispatch', async () => {
-    const f = await startFixture(2)
-    vi.mocked(agentHookServer.getEnrichedStatusSnapshot).mockReturnValue([
-      {
-        paneKey: 'existing-user-session',
-        connectionId: 'worker',
-        worktreeId: workspaceId,
-        receivedAt: 10,
-        stateStartedAt: 1,
-        payload: { state: 'working', prompt: 'Private user task' }
-      }
-    ])
-    expect(await f.call('manager.workerStart', f.params)).toMatchObject({
-      ok: false,
-      error: { code: 'manager_forbidden', message: expect.stringContaining('agent session') }
-    })
-    expect(f.db.db.prepare('SELECT dispatch_id FROM worker_dispatches').all()).toHaveLength(0)
-    expect(f.db.getTask(f.params.taskId)?.status).toBe('ready')
-    expect(
-      f.db.getMutationReceipt(`manager:${f.credential.principal.id}`, f.params.requestId)
-    ).toBeUndefined()
-  })
+  it.each([{}, { restoredUnconfirmed: true }, { retainedForLiveness: true }, { isReplay: true }])(
+    'admits beside an owner-started session without changing its custody: %j',
+    async (patch) => {
+      const f = await startFixture(2)
+      const statuses = [
+        {
+          paneKey: 'existing-user-session',
+          connectionId: 'worker',
+          worktreeId: workspaceId,
+          receivedAt: 10,
+          stateStartedAt: 1,
+          payload: { state: 'working' as const, prompt: 'Private user task' },
+          ...patch
+        }
+      ]
+      const before = JSON.stringify(statuses)
+      vi.mocked(agentHookServer.getEnrichedStatusSnapshot).mockReturnValue(statuses)
+      expect(await f.call('manager.workerStart', f.params)).toMatchObject({
+        ok: true,
+        result: { state: 'ready' }
+      })
+      expect(JSON.stringify(statuses)).toBe(before)
+      expect(f.db.db.prepare('SELECT dispatch_id FROM worker_dispatches').all()).toHaveLength(1)
+      expect(f.db.getTask(f.params.taskId)?.status).toBe('dispatched')
+    }
+  )
 
   it('refuses user-owned tasks, host substitution, aliases and raw terminal claims', async () => {
     const f = await startFixture()

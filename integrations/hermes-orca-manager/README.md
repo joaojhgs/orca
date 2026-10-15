@@ -97,6 +97,10 @@ the default reserves 2 GiB for build/test work, 512 MiB for edit-only work and
 These are admission reservations, not OS-enforced memory limits. Unknown starts,
 stops, placement or contact keep their capacity held. Existing user sessions count
 toward shared-account concurrency and are never stopped to make capacity.
+Multiple sessions, including owner-started sessions, may share a registered root,
+Git worktree or folder workspace. There is no exclusive workspace reservation.
+Coordinate edits between distinct Tasks; duplicate attempts for the same Task and
+host/account/memory capacity limits remain enforced in the acceptance transaction.
 
 Capacity refusals persist a bounded, credential-free wait. A 30-second daemon
 observation checks only waiting placements, reuses cached usage, and emits one
@@ -109,7 +113,8 @@ receipt without a second launch, even if current usage/resources become unavaila
 Retries retain the original Task and name its latest settled Dispatch. Manager
 admission and capacity recovery use the same eligibility rules as normal worker
 starts. Uncertain or superseded attempts cannot be retried, and a capacity wake
-does not itself launch anything. Occupied workspaces still block a retry.
+does not itself launch anything. Another session in the workspace is not itself
+a capacity refusal or evidence that an existing attempt exited.
 
 Explicit unattended Codex workers disable the startup update menu using the
 [documented configuration setting](https://learn.chatgpt.com/docs/config-file/config-reference).
