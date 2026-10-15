@@ -194,7 +194,7 @@ export class ExecutionAccountUsageService {
         return
       }
       // A slow unrelated provider must not hide a completed refresh from dispatch admission.
-      if (previous) {
+      if (previous && (row.checkedAt !== previous.checkedAt || row.error !== previous.error)) {
         this.rows = this.rows.map((current) => (current.id === id ? row : current))
         this.onChanged()
       }
