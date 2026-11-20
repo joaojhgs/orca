@@ -214,6 +214,11 @@ def due_followups(state, now):
     for record in state.get('followups', {}).values():
         if now < record['due_at']:
             continue
+        if record.get('execution_contact') not in (None, 'connected'):
+            # The metadata watcher will detect recovery. Rechecking an offline terminal
+            # with a model cannot make it writable; preserve the follow-up without a turn.
+            record['due_at'] = now + 1800
+            continue
         signals.append(dict(record, kind='scheduled-session-recheck'))
         count = record.get('attempts', 0) + 1
         record.update(attempts=count, due_at=now + min(1800, 120 * 2 ** min(count, 4)))
@@ -251,6 +256,7 @@ def isolated_prompt(ctx, now=None):
         cooldown = ctx.get_config('native_triage_retry_seconds', default=300)
         if isinstance(cooldown, bool) or not isinstance(cooldown, int) or not 120 <= cooldown <= 1800:
             raise ValueError('Triage retry must be between 120 and 1800 seconds')
+        cooldown = min(1800, cooldown * 2 ** min(max(batch.get('isolated_attempts', 0) - 1, 0), 4))
         if now - last_attempt < cooldown:
             return json.dumps({'wakeAgent': False})
         batch['isolated_attempt_at'] = now
@@ -415,6 +421,13 @@ def sample_monitoring(ctx, client, excluded):
         signals, monitoring = monitoring_signals(sessions, accounts.get('items', []),
                                                state.get('monitoring', {}), now, excluded, digest_seconds)
         state['monitoring'] = monitoring
+        targets = {s.get('terminalId') or s.get('terminal'): s for s in sessions}
+        for record in state.get('followups', {}).values():
+            target = targets.get(record['terminal'])
+            record['execution_contact'] = (
+                target.get('executionContact', 'unknown') if target else 'not-present'
+            )
+            record['contact_checked_at'] = now
         if signals:
             payload = {'cursor': state['cursor'], 'gap': None, 'events': [], 'signals': signals}
             identifier = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()

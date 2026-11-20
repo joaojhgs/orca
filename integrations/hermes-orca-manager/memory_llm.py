@@ -11,6 +11,7 @@ from .private_secret import read_private_secret
 
 MAX_BODY = 256 * 1024
 MAX_TOKENS = 4096
+MEMORY_MODEL = "gpt-6-luna"
 
 
 def complete_memory_request(ctx, payload, model_alias):
@@ -32,6 +33,7 @@ def complete_memory_request(ctx, payload, model_alias):
     if isinstance(requested_tokens, bool) or not isinstance(requested_tokens, int) or requested_tokens < 1:
         raise ValueError("Invalid output-token budget")
     options = {
+        "model": MEMORY_MODEL,
         "max_tokens": min(requested_tokens, MAX_TOKENS),
         "timeout": 90,
         "purpose": "orca-manager.memory-retain-recall-reflect",
@@ -75,7 +77,7 @@ def complete_memory_request(ctx, payload, model_alias):
         content = result.text
     else:
         raise ValueError("Unsupported response format")
-    # No provider, account, profile, credential or model overrides reach ctx.llm.
+    # Only the owner-approved memory model changes. Provider/auth/profile stay host-owned.
     return {
         "id": f"chatcmpl-{uuid.uuid4().hex}",
         "object": "chat.completion",
@@ -111,7 +113,7 @@ def memory_handler(ctx, secret, model_alias):
 
         def do_GET(self):
             self.reply(200 if self.path == "/healthz" else 404,
-                       {"status": "ready", "scope": "loopback-memory-only"})
+                       {"status": "ready", "scope": "loopback-memory-only", "model": MEMORY_MODEL})
 
         def do_POST(self):
             if self.path != "/v1/chat/completions":
@@ -140,6 +142,8 @@ def memory_handler(ctx, secret, model_alias):
 
 
 def serve_memory_llm(ctx):
+    from agent.auxiliary_client import scoped_runtime_main
+
     secret = read_private_secret(ctx.get_config("memory_secret_file", default=""))
     port = ctx.get_config("memory_port", default=8789)
     if isinstance(port, bool) or not isinstance(port, int) or not 1024 <= port <= 65535:
@@ -147,6 +151,10 @@ def serve_memory_llm(ctx):
     model_alias = ctx.get_config("memory_model_alias", default="hermes-memory")
     if not isinstance(model_alias, str) or not 1 <= len(model_alias) <= 200:
         raise ValueError("Invalid memory model alias")
-    # Serial HTTPServer keeps calls in the CLI-bound profile context and caps concurrency at one.
-    with HTTPServer(("127.0.0.1", port), memory_handler(ctx, secret, model_alias)) as server:
-        server.serve_forever()
+    # Bind the memory model for fallback resolution too: a Luna outage must not
+    # silently fall back to the profile's Sol model. Auth/provider bindings stay intact.
+    with scoped_runtime_main(None) as active_runtime:
+        with scoped_runtime_main({**active_runtime, "model": MEMORY_MODEL}), HTTPServer(
+            ("127.0.0.1", port), memory_handler(ctx, secret, model_alias)
+        ) as server:
+            server.serve_forever()

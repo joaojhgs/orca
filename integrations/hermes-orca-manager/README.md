@@ -251,3 +251,11 @@ unconfirmed saves require a fresh read rather than automatic replay. Unsupported
 servers show a refusal, not a local-policy fallback. Saved disconnected scopes and
 device overrides remain intact. The global native settings route needs an updated
 mobile app; deploying the server alone does not update an installed native shell.
+
+## Memory usage controls
+
+The memory-only bridge pins `gpt-6-luna`, including fallback model resolution. Normal profile turns continue to use their configured model. The bridge profile must allow only this model override; provider, account and profile overrides remain disabled.
+
+`runtime-overlays/` preserves the separately deployed Hindsight retention and Hermes cron-notepad changes. They skip silent background turns, bound the automatically injected notepad preview without deleting entries, and retain meaningful outcomes. These are overlays for the external Hermes installation, not Orca startup scripts; merging this repository does not install or activate them.
+
+Coding supervision uses metadata-only checks for unavailable targets, bounded retry backoff and a three-hour progress-digest interval. Shared Telegram bots should have one credential on the primary gateway and exact per-topic profile routes; satellite profiles keep their home-channel configuration without duplicate bot tokens. Credentials and user configuration stay outside this repository.

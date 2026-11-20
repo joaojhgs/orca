@@ -8,7 +8,7 @@ import threading
 import unittest
 import sys
 import types
-from unittest.mock import Mock
+from unittest.mock import Mock, patch, MagicMock
 from http.client import HTTPConnection
 from http.server import HTTPServer
 
@@ -21,13 +21,39 @@ spec.loader.exec_module(module)
 
 
 class MemoryBridgeTests(unittest.TestCase):
+    def test_service_pins_fallback_to_luna_and_restores_sol_outside_its_scope(self):
+        from agent.auxiliary_client import (
+            scoped_runtime_main, _read_main_model, _try_main_agent_model_fallback,
+        )
+        import agent.auxiliary_client as auxiliary
+
+        ctx = self.context()
+        ctx.get_config = lambda key, default=None: default
+        server = MagicMock()
+
+        def check_memory_scope():
+            self.assertEqual(_read_main_model(), "gpt-6-luna")
+            result = _try_main_agent_model_fallback(
+                "openai-codex", failed_model="gpt-6-luna"
+            )
+            self.assertEqual(result, (None, None, ""))
+
+        server.__enter__.return_value.serve_forever.side_effect = check_memory_scope
+        with scoped_runtime_main({"provider": "openai-codex", "model": "gpt-6.1-sol"}):
+            with patch.object(module, "read_private_secret", return_value="test-secret"), patch.object(
+                    module, "HTTPServer", return_value=server), patch.object(
+                    auxiliary, "resolve_provider_client") as resolve:
+                module.serve_memory_llm(ctx)
+                resolve.assert_not_called()
+            self.assertEqual(_read_main_model(), "gpt-6.1-sol")
+
     def context(self, text="Remember the operational rule"):
         usage = SimpleNamespace(input_tokens=1, output_tokens=2, total_tokens=3)
         result = SimpleNamespace(text=text, usage=usage, parsed=None)
         return SimpleNamespace(llm=SimpleNamespace(
             complete=Mock(return_value=result), complete_structured=Mock(return_value=result)))
 
-    def test_host_owned_bounded_completion_has_no_route_or_auth_overrides(self):
+    def test_memory_uses_luna_without_provider_or_auth_overrides(self):
         ctx = self.context()
         result = module.complete_memory_request(ctx, {
             "model": "hermes-memory", "messages": [{"role": "user", "content": "Recall"}],
@@ -37,7 +63,8 @@ class MemoryBridgeTests(unittest.TestCase):
         kwargs = ctx.llm.complete.call_args.kwargs
         self.assertEqual(kwargs["max_tokens"], 4096)
         self.assertEqual(kwargs["timeout"], 90)
-        self.assertFalse(set(kwargs) & {"provider", "model", "profile", "agent_id", "api_key", "task"})
+        self.assertEqual(kwargs["model"], "gpt-6-luna")
+        self.assertFalse(set(kwargs) & {"provider", "profile", "agent_id", "api_key", "task"})
 
     def test_structured_memory_uses_the_supported_json_lane(self):
         ctx = self.context('{"facts": ["Preserve live workers"]}')
@@ -49,6 +76,7 @@ class MemoryBridgeTests(unittest.TestCase):
                          ["Preserve live workers"])
         ctx.llm.complete.assert_not_called()
         self.assertTrue(ctx.llm.complete_structured.call_args.kwargs["json_mode"])
+        self.assertEqual(ctx.llm.complete_structured.call_args.kwargs["model"], "gpt-6-luna")
 
     def test_json_schema_is_passed_to_host_validation_without_selecting_another_model(self):
         ctx = self.context('{"facts": []}')
@@ -73,7 +101,8 @@ class MemoryBridgeTests(unittest.TestCase):
         self.assertEqual(json.loads(function["arguments"])["facts"], ["Preserve live workers"])
         self.assertEqual(result["choices"][0]["finish_reason"], "tool_calls")
         ctx.llm.complete.assert_not_called()
-        self.assertFalse(set(ctx.llm.complete_structured.call_args.kwargs) & {"tools", "provider", "model", "api_key"})
+        self.assertEqual(ctx.llm.complete_structured.call_args.kwargs["model"], "gpt-6-luna")
+        self.assertFalse(set(ctx.llm.complete_structured.call_args.kwargs) & {"tools", "provider", "api_key"})
 
     def test_memory_reflection_accepts_memory_history_and_can_finish_without_another_call(self):
         ctx = self.context('{"calls": [], "text": "Preserve active workers"}')

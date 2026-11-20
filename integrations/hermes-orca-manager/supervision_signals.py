@@ -42,7 +42,10 @@ def session_checks(sessions, previous, now, excluded):
             record.pop('retry_at', None)
             record.pop('retry_count', None)
         if connected and state in {'working', 'waiting', 'blocked'}:
-            if now - old.get('review_at', 0) >= 900:
+            # New evidence stays immediate. Unchanged healthy work needs the normal
+            # three-hour digest, not a fresh model turn every fifteen minutes.
+            interval = 10800 if state == 'working' else 3600
+            if changed or now - old.get('review_at', 0) >= interval:
                 signals.append({'kind': 'active-session-review', 'scope': scope,
                                 'summary': summary, 'state': state,
                                 'instruction': 'Check original objective, live terminal, monitor and '
