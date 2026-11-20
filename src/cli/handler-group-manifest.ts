@@ -14,6 +14,11 @@ export type HandlerGroup = {
 // Why: `keys` mirrors each group's exported record and is verified against the
 // real exports by handler-group-manifest.test.ts, so drift fails CI, not dispatch.
 export const HANDLER_GROUPS: readonly HandlerGroup[] = [
+  {
+    name: 'network',
+    keys: ['network routes', 'network ticket', 'network forward'],
+    load: async () => (await import('./handlers/network.js')).NETWORK_HANDLERS
+  },
   MANAGER_HANDLER_GROUP,
   ...BASIC_HANDLER_GROUPS,
   {
@@ -170,6 +175,8 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     keys: [
       'computer capabilities',
       'computer desktops',
+      'computer browsers',
+      'computer browser-connect',
       'computer desktop-screenshot',
       'computer desktop-input',
       'computer list-apps',

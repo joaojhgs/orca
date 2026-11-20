@@ -1,5 +1,16 @@
 # Hermes–Orca manager integration
 
+Normal interactive Coding supervision uses [PUBLIC_CLI.md](./PUBLIC_CLI.md) and
+[SUPERVISION.md](./SUPERVISION.md), not the legacy service-owned Run adapter below.
+Its isolated native watcher covers existing owner-started sessions as well.
+
+The current action/reporting contract is [supervision_policy.py](./supervision_policy.py),
+with the Coding profile template in [coding-profile.md](./coding-profile.md). Recoverable
+stalls require supported steering and verification, not alert forwarding. Significant
+milestones are event-driven; ongoing work gets a three-hour progress digest check.
+Editing SOUL.md alone does not refresh Hermes's frozen conversation prefix: apply an
+explicit once-only native policy revision as documented in SUPERVISION.md.
+
 Standalone Hermes plugin. It does not patch Hermes core or read any Codex/Hermes
 OAuth credential. The local memory LLM bridge calls the documented `ctx.llm`
 interface; Hermes remains the only OAuth refresh owner.

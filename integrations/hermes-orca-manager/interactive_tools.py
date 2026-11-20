@@ -94,6 +94,16 @@ def handle(ctx, args, mutate=False):
         operation, values = args['operation'], args['arguments']
         validated_arguments(operation, values, WRITE_OPERATIONS if mutate else READ_OPERATIONS)
         client = profile_client(ctx, args.get('profile'))
+        if ctx.get_config('use_standard_cli', default=False) is True:
+            from .public_cli import legacy_read
+            public = legacy_read(ctx, operation, values) if not mutate and args.get('profile') is None else None
+            if public is not None:
+                return json.dumps(public, ensure_ascii=False)
+            return json.dumps({'ok': False, 'error':
+                               'This profile uses the normal Orca CLI, not manager-owned authority. '
+                               'Use orca_cli with argv, or execute the configured public Orca CLI. '
+                               'Read skills get orca-cli for supported commands. '
+                               'Existing sessions and Runs do not need to be recreated or adopted.'})
         if not mutate:
             enforce_company_route(ctx, client, operation, values)
             result = client.inspect(operation, values)
@@ -126,7 +136,8 @@ def handle(ctx, args, mutate=False):
 
 def register_interactive_tools(ctx):
     def enabled():
-        return ctx.get_config('enable_interactive_tools', default=False) is True
+        return (ctx.get_config('enable_interactive_tools', default=False) is True
+                and ctx.get_config('use_standard_cli', default=False) is not True)
     for mutate, name, operations, description in [
         (False, 'orca_dispatch_read', READ_OPERATIONS,
          'Inspect ALL registered sessions in granted projects regardless of who started them: session-list and incarnation-fenced session-read. Also inspect placements, usage, resources and owned Runs/tasks/workers. Company raw output remains with company Claude; use session/event metadata. Keep returned identities/cursors; disconnection is not exit.'),

@@ -1,0 +1,13 @@
+--- a/agent/display.py
++++ b/agent/display.py
+@@ -1033,2 +1033,2 @@
+     if isinstance(data, dict):
+-        failed = data.get("success") is False
++        failed = data.get("success") is False or data.get("ok") is False
+@@ -1040,2 +1040,6 @@
+         if err and (failed or "error" in data):
+             return True, f" [{_trim_error(str(err))}]"
++        if failed:
++            return True, t("display.failure.generic")
++        if data.get("success") is True or data.get("ok") is True:
++            return False, ""

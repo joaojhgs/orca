@@ -1,4 +1,4 @@
-import { chmodSync, readFileSync } from 'node:fs'
+import { closeSync, fstatSync, openSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS } from '../shared/ssh-types'
 
@@ -89,14 +89,25 @@ export function readRelayEndpointCredential(
   if (!credentialFile) {
     return undefined
   }
-  const credential = readFileSync(credentialFile, 'utf8').trim()
-  if (!/^[A-Za-z0-9_-]{32,256}$/.test(credential)) {
-    throw new Error('Relay endpoint credential is missing or invalid')
+  const descriptor = openSync(credentialFile, 'r')
+  try {
+    const stat = fstatSync(descriptor)
+    if (
+      !stat.isFile() ||
+      (process.platform !== 'win32' &&
+        ((stat.mode & 0o077) !== 0 || stat.uid !== process.getuid?.()))
+    ) {
+      throw new Error('Relay endpoint credential must be an owner-only file owned by this user')
+    }
+    // The daemon publishes permissions; sandboxed clients must only read, never chmod.
+    const credential = readFileSync(descriptor, 'utf8').trim()
+    if (!/^[A-Za-z0-9_-]{32,256}$/.test(credential)) {
+      throw new Error('Relay endpoint credential is missing or invalid')
+    }
+    return credential
+  } finally {
+    closeSync(descriptor)
   }
-  if (process.platform !== 'win32') {
-    chmodSync(credentialFile, 0o600)
-  }
-  return credential
 }
 
 function parseNonNegativeIntEnv(name: string, fallback: number): number {

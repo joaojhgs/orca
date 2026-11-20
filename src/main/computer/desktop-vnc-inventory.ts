@@ -13,6 +13,7 @@ import {
   readSshDesktopPassword
 } from './ssh-desktop-vnc-route'
 import { mapWithConcurrency } from '../../shared/map-with-concurrency'
+import { approvedCdpBrowsers, cdpControl } from './cdp-browser-policy'
 
 function remoteTicketTarget(desktopId: string): DesktopVncTicketTarget {
   const target = resolveSshPreviewVncTarget(desktopId)
@@ -44,7 +45,18 @@ export async function listExecutionDesktopVncTargets() {
         id: target.desktopId,
         label: `${labels.get(target.targetId) ?? target.targetId} · ${target.label}`,
         viewOnly: target.viewOnly,
-        executionHostId: target.targetId
+        executionHostId: target.targetId,
+        ...(() => {
+          const browser = approvedCdpBrowsers().find(
+            (browser) => browser.desktopId === target.desktopId
+          )
+          return browser
+            ? {
+                browserId: browser.browserId,
+                humanControl: cdpControl(browser.browserId).humanControl
+              }
+            : {}
+        })()
       }
     } catch {
       unavailableHosts.add(target.targetId)

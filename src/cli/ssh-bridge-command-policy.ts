@@ -31,7 +31,12 @@ export function refuseOwnerOnlySshBridgeCommand(
     return
   }
   const command = commandPath.join(' ')
-  if (OWNER_MACHINE_COMMANDS.some((prefix) => prefix.every((part, i) => commandPath[i] === part))) {
+  // Usage reads the scoped runtime snapshot; unlike account management it touches no host credentials.
+  const runtimeAccountUsage = commandPath.length === 2 && command === 'account usage'
+  if (
+    !runtimeAccountUsage &&
+    OWNER_MACHINE_COMMANDS.some((prefix) => prefix.every((part, i) => commandPath[i] === part))
+  ) {
     throw new RuntimeClientError(
       'forbidden',
       `orca ${command} acts on the Orca host machine itself and cannot run from an SSH host. Run it on the Orca host.`

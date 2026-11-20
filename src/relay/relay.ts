@@ -12,6 +12,7 @@ import { runRelayRuntimeSelfTestCommand } from './relay-runtime-self-test'
 import { runWindowsBreakawayLaunchIfRequested } from '../shared/windows-breakaway-launcher'
 import { RELAY_WINDOWS_BREAKAWAY_CONTRACT } from '../shared/windows-breakaway-launch'
 import { RELAY_RUNTIME_SELF_TEST_FLAG } from '../shared/relay-runtime-self-test-report'
+import { runRelayNetworkForward } from './relay-network-forward'
 
 async function main(): Promise<void> {
   const selfTestFlag = process.argv.indexOf(RELAY_RUNTIME_SELF_TEST_FLAG)
@@ -29,6 +30,11 @@ async function main(): Promise<void> {
   }
   if (options.cliMode) {
     const marker = process.argv.indexOf('--orca-cli')
+    const argv = marker === -1 ? [] : process.argv.slice(marker + 1)
+    if (argv[0] === 'network' && argv[1] === 'forward' && !argv.includes('--help')) {
+      await runRelayNetworkForward(argv, [process.argv[1], ...process.argv.slice(2, marker + 1)])
+      return
+    }
     await runRelayOrcaCliChannel(
       options.sockPath,
       marker === -1 ? [] : process.argv.slice(marker + 1),

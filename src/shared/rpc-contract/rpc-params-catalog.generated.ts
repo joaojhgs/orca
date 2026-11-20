@@ -14,12 +14,14 @@ import {
   BrowserNetworkTunnelAttachParams
 } from '../browser-client-host-protocol'
 import { BrowserClientPageMetadataParams } from '../browser-client-page-metadata-protocol'
+import { CdpBrowserParams, CdpControlParams, CdpTargetsParams } from '../cdp-relay-contract'
 import { LocalSkillPublishParams, LocalSkillRevokeParams } from '../local-skill-sharing'
 import {
   PairingGetEndpointsParamsSchema,
   PairingProvisionRelayParamsSchema
 } from '../mobile-relay-credential-contract'
 import { MobileWebBundleChunkParamsSchema } from '../mobile-web-bundle/bundle-rpc-contract'
+import { NetworkForwardRoutesParams, NetworkForwardTicketParams } from '../network-forward-contract'
 import { OrcadMigrationSnapshotChunkRequestSchema } from '../orcad-migration-scrollback'
 import { OrcadTerminalCensusParamsSchema } from '../orcad-terminal-census'
 import { pluginConsentRequestSchema } from '../plugins/plugin-consent-request'
@@ -865,6 +867,9 @@ export const RPC_PARAMS_BY_METHOD = {
   'clipboard.commitImageUpload': CommitImageUpload,
   'clipboard.saveImageAsTempFile': SaveImageAsTempFile,
   'clipboard.startImageUpload': StartImageUpload,
+  'computer.browserControl': CdpControlParams,
+  'computer.browserTargets': CdpTargetsParams,
+  'computer.browserTicket': CdpBrowserParams,
   'computer.capabilities': ComputerCapabilitiesParams,
   'computer.click': Click,
   'computer.desktopAction': ComputerDesktopActionParams,
@@ -1180,6 +1185,8 @@ export const RPC_PARAMS_BY_METHOD = {
   'nativeChat.subscribe': NativeChatSession,
   'nativeChat.unsubscribe': NativeChatUnsubscribe,
   'network.browserTunnel': BrowserNetworkTunnelAttachParams,
+  'network.forwardRoutes': NetworkForwardRoutesParams,
+  'network.forwardTicket': NetworkForwardTicketParams,
   'notifications.getMissedSince': NotificationGetMissedSinceParams,
   'notifications.policyRead': null,
   'notifications.policyTargets': NotificationPolicyTargetsParams,

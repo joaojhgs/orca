@@ -1,7 +1,9 @@
+import { Fragment } from 'react'
 import { VirtualizedList } from '@/components/virtualized-list'
 import type { ArtifactListItem } from '../../../../shared/artifacts'
 import { ArtifactListRow } from './ArtifactListRow'
 import { ARTIFACTS_TABLE_ROW_HEIGHT_PX } from './artifacts-table-layout'
+import type { ArtifactProjectGroup } from './artifact-project-groups'
 
 /**
  * The artifacts table body, windowed inside the collection's scroller. Load more only appends, so
@@ -10,6 +12,7 @@ import { ARTIFACTS_TABLE_ROW_HEIGHT_PX } from './artifacts-table-layout'
  */
 export function ArtifactListRows({
   artifacts,
+  groups,
   deletingId,
   selectedSlug,
   scrollElement,
@@ -18,6 +21,7 @@ export function ArtifactListRows({
   deleteArtifact
 }: {
   artifacts: readonly ArtifactListItem[]
+  groups?: readonly ArtifactProjectGroup[]
   deletingId: string | null
   selectedSlug: string | null
   scrollElement: HTMLDivElement | null
@@ -31,6 +35,29 @@ export function ArtifactListRows({
   // unique per the server, so a slug identifies the last row without an index — which `renderRow`
   // does not supply.
   const lastSlug = artifacts.at(-1)?.artifact.slug
+  if (groups) {
+    return (
+      <>
+        {groups.map((group) => (
+          <Fragment key={group.id}>
+            <h2 className="flex items-center gap-2 bg-muted/50 px-3 py-2 text-xs font-semibold">
+              {group.name}
+              <span className="text-muted-foreground">({group.artifacts.length})</span>
+            </h2>
+            <ArtifactListRows
+              artifacts={group.artifacts}
+              deletingId={deletingId}
+              selectedSlug={selectedSlug}
+              scrollElement={scrollElement}
+              hasMore={hasMore}
+              selectArtifact={selectArtifact}
+              deleteArtifact={deleteArtifact}
+            />
+          </Fragment>
+        ))}
+      </>
+    )
+  }
 
   // Accepted: rows are transform-positioned, so an insert above the viewport slides the list with
   // no layout shift for scroll anchoring to correct.

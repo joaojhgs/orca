@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import {
   ChevronRight,
   CircleAlert,
@@ -28,6 +28,7 @@ import { CLOSE_ALL_CONTEXT_MENUS_EVENT } from '@/lib/close-all-context-menus'
 import type { RuntimeFileOperationArgs } from '@/runtime/runtime-file-client'
 import { createMultiSelectDragGhost } from './file-explorer-multi-drag-image'
 import { FileExplorerRowContextMenu } from './file-explorer-row-context-menu'
+import { FileExplorerArtifactShare } from './FileExplorerArtifactShare'
 
 // ─── File / Folder Row with Context Menu ─────────────────────────
 
@@ -125,6 +126,8 @@ export function FileExplorerRow({
   onNativeDragTargetChange,
   onNativeDragExpandDir
 }: FileExplorerRowProps): React.JSX.Element {
+  const [artifactShareOpen, setArtifactShareOpen] = useState(false)
+  const artifactShareAnchor = useRef<HTMLButtonElement>(null)
   const FileIcon = getFileTypeIcon(node.relativePath || node.name)
   const showLoadError = node.isDirectory && isExpanded && !isLoading && loadError !== null
   const rowDropDir = node.isDirectory ? node.path : targetDir
@@ -140,6 +143,13 @@ export function FileExplorerRow({
       onNativeDragExpandDir,
       onMoveDrop
     })
+  const setRowNode = useCallback(
+    (node: HTMLButtonElement | null) => {
+      artifactShareAnchor.current = node
+      setRowDragNode(node)
+    },
+    [setRowDragNode]
+  )
 
   return (
     <ContextMenu
@@ -162,7 +172,7 @@ export function FileExplorerRow({
             isFlashing && 'bg-amber-400/20 ring-1 ring-inset ring-amber-400/70'
           )}
           style={{ paddingLeft: `${(node.depth - displayDepthOffset) * 16 + 8}px` }}
-          ref={setRowDragNode}
+          ref={setRowNode}
           // Why: the explorer's OS-drop owner reads the target folder from this at drop time.
           data-file-explorer-drop-dir={rowDropDir}
           // Why: marks this draggable row so the wheel-capture handler can rescue
@@ -289,6 +299,7 @@ export function FileExplorerRow({
         </button>
       </ContextMenuTrigger>
       <FileExplorerRowContextMenu
+        onShareArtifact={() => setArtifactShareOpen(true)}
         node={node}
         isExpanded={isExpanded}
         deleteShortcutLabel={deleteShortcutLabel}
@@ -312,6 +323,16 @@ export function FileExplorerRow({
         onCollapseFolderSubtree={onCollapseFolderSubtree}
         onFindInFolder={onFindInFolder}
       />
+      {artifactShareOpen ? (
+        <FileExplorerArtifactShare
+          node={node}
+          connectionId={connectionId}
+          context={runtimeDownloadContext}
+          workspaceId={sourceWorkspaceId}
+          anchorRef={artifactShareAnchor}
+          onOpenChange={setArtifactShareOpen}
+        />
+      ) : null}
     </ContextMenu>
   )
 }

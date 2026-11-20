@@ -19,6 +19,7 @@ export function DesktopComputerPane({ active }: { active: boolean }) {
   const [targets, setTargets] = useState<DesktopTarget[]>([])
   const [targetsError, setTargetsError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const [changingControl, setChangingControl] = useState(false)
   const initialized = useRef(false)
   const desktop = targets.find((target) => target.id === desktopId) ?? null
   const { state, error } = useDesktopStream(targetRef, desktop, active, attempt)
@@ -103,6 +104,38 @@ export function DesktopComputerPane({ active }: { active: boolean }) {
               : 'Offline'}
         </span>
         <div className="flex-1" />
+        {desktop?.browserId ? (
+          <Button
+            size="xs"
+            variant={desktop.humanControl ? 'secondary' : 'outline'}
+            disabled={changingControl}
+            onClick={() => {
+              const browserId = desktop.browserId
+              if (!browserId) return
+              setChangingControl(true)
+              void callRuntimeRpc<{ humanControl: boolean }>(
+                { kind: 'local' },
+                'computer.browserControl',
+                { browserId, humanControl: !desktop.humanControl }
+              )
+                .then((result) =>
+                  setTargets((rows) =>
+                    rows.map((row) =>
+                      row.browserId === browserId
+                        ? { ...row, humanControl: result.humanControl }
+                        : row
+                    )
+                  )
+                )
+                .catch(() =>
+                  setTargetsError('Could not change browser control. Check the host connection.')
+                )
+                .finally(() => setChangingControl(false))
+            }}
+          >
+            {desktop.humanControl ? 'Return to agents' : 'Take browser control'}
+          </Button>
+        ) : null}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -117,6 +150,16 @@ export function DesktopComputerPane({ active }: { active: boolean }) {
           <TooltipContent>Reconnect desktop</TooltipContent>
         </Tooltip>
       </div>
+      {desktop?.browserId ? (
+        <div
+          className="border-b border-border px-3 py-1.5 text-xs text-muted-foreground"
+          role="status"
+        >
+          {desktop.humanControl
+            ? 'You control this browser. Agent CDP connections are paused.'
+            : 'CDP browser. Take control to pause agents before interacting.'}
+        </div>
+      ) : null}
       {desktop?.viewOnly ? (
         <div className="border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
           View only. Agent computer use stays on the main desktop.

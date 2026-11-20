@@ -381,6 +381,7 @@ export const RUNTIME_CAPABILITIES = [
   'terminal.binary-stream.v1',
   'terminal.multiplex.v1',
   'workspace-ports.v1',
+  'network.agentForward.v1',
   'mobile.tasks.v1',
   PROJECT_HOST_SETUP_RUNTIME_CAPABILITY,
   TASK_SOURCE_CONTEXT_RUNTIME_CAPABILITY,

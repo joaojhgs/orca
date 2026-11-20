@@ -4,8 +4,10 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+import threading
 from types import ModuleType
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).parent
 PACKAGE = 'supervision_fixture'
@@ -69,6 +71,31 @@ class IsolatedTests(unittest.TestCase):
         self.assertFalse(ns.admit_pending(self.ctx, {'profile': 'coding'}))
         self.assertEqual(self.ctx.injections, [])
 
+    def test_explicit_owner_policy_reaches_a_cached_conversation_once_not_each_event(self):
+        self.ctx.settings.update(native_policy_message='Owner policy revision; return NO_REPLY',
+                                 native_watch_events=False)
+        with patch.object(ns, 'OrcaClient', side_effect=AssertionError('Policy-only profile needs no Orca credential')):
+            ns.loop(self.ctx, threading.Event(), {'profile': 'coding'}, [])
+            ns.loop(self.ctx, threading.Event(), {'profile': 'coding'}, [])
+        self.assertEqual(len(self.ctx.injections), 1)
+        self.assertEqual(self.ctx.injections[0][0][0], 'Owner policy revision; return NO_REPLY')
+        ns.process_page(self.ctx, page(), [])
+        self.assertFalse(ns.admit_pending(self.ctx, {'profile': 'coding'}))
+        self.assertEqual(len(self.ctx.injections), 1)
+
+    def test_policy_admission_preserves_concurrent_event_ack(self):
+        self.ctx.settings.update(native_policy_message='Owner policy revision', native_watch_events=False)
+        def inject(*args, **kwargs):
+            self.ctx.state.set(ns.KEY, {'pending': None, 'last_ack': 'concurrent-ack',
+                                       'cursor': {'journalId': 'j', 'sequence': 42}})
+            return True
+        self.ctx.inject_message = inject
+        with patch.object(ns, 'OrcaClient'):
+            ns.loop(self.ctx, threading.Event(), {'profile': 'coding'}, [])
+        state = self.ctx.state.get(ns.KEY)
+        self.assertEqual(state['last_ack'], 'concurrent-ack')
+        self.assertEqual(state['cursor']['sequence'], 42)
+
     def test_requested_task_results_are_not_mistaken_for_progress_spam(self):
         prompt=ns.prompt_for(ns.batch_for(page(), []))
         self.assertIn('request that is still awaiting its answer',prompt)
@@ -97,9 +124,9 @@ class IsolatedTests(unittest.TestCase):
         self.assertEqual(ns.process_page(self.ctx, page(sequence=8), [])['id'], first['id'])
 
     def test_contact_flapping_is_silent_but_real_results_wake(self):
-        for kind in ('contact-lost', 'contact-restored'):
-            self.assertIsNone(ns.process_page(self.ctx, page(kind), []))
-        self.assertIsNotNone(ns.process_page(self.ctx, page('dispatch-settled'), []))
+        for sequence, kind in enumerate(('contact-lost', 'contact-restored'), 1):
+            self.assertIsNone(ns.process_page(self.ctx, page(kind, sequence), []))
+        self.assertIsNotNone(ns.process_page(self.ctx, page('dispatch-settled', 3), []))
 
     def test_gap_not_hidden_by_contact_filter(self):
         value = page('contact-lost'); value['gap'] = 'journal-replaced'

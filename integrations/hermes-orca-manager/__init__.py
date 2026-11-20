@@ -3,6 +3,8 @@ from .memory_llm import serve_memory_llm
 
 
 def register(ctx):
+    from .public_cli import register_public_cli
+    register_public_cli(ctx)
     from .manager_tools import register_manager_tools
     register_manager_tools(ctx)
     from .event_tools import register_event_tools

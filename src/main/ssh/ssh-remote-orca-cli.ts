@@ -40,6 +40,8 @@ export type { RemoteOrcaCliRequest, RemoteOrcaCliResult } from './ssh-remote-cli
 // caller's TTY (or a local tmux pane), which a buffered one-shot relay bridge
 // cannot host. Everything else routes through the full host CLI.
 const HOST_INTERACTIVE_COMMANDS: Record<string, string> = {
+  'network forward':
+    'This relay client needs the network-forward companion or a current relay CLI. The loopback listener must run on the calling SSH host, not the controller. No forward was started.',
   serve:
     'orca serve starts a foreground headless Orca server and cannot run through the SSH relay bridge. Run it directly on the machine that should host Orca.',
   'claude-teams':

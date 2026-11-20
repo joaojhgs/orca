@@ -2,7 +2,13 @@ import { useEffect, useState, type RefObject } from 'react'
 import { RFB, type VncClient } from '@/runtime/novnc-rfb'
 import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
 
-export type DesktopTarget = { id: string; label: string; viewOnly: boolean }
+export type DesktopTarget = {
+  id: string
+  label: string
+  viewOnly: boolean
+  browserId?: string
+  humanControl?: boolean
+}
 export const MAIN_DESKTOP: DesktopTarget = { id: 'main', label: 'Main desktop', viewOnly: false }
 type DesktopStreamTicket = {
   path: string

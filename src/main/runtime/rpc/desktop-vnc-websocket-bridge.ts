@@ -11,6 +11,8 @@ import {
   openDesktopVncRoute
 } from '../../computer/ssh-desktop-vnc-route'
 import { VncViewOnlyInput } from '../../computer/vnc-view-only-input'
+import { CdpWebSocketBridge } from './cdp-websocket-bridge'
+import { AgentForwardWebSocketBridge } from './agent-forward-websocket-bridge'
 
 const DESKTOP_VNC_PATH = '/desktop-vnc'
 const MAX_VNC_MESSAGE_BYTES = 16 * 1024 * 1024
@@ -31,11 +33,15 @@ export function attachDesktopVncWebSocketBridge(
 }
 
 export class DesktopVncWebSocketBridge {
+  private readonly agentForward = new AgentForwardWebSocketBridge()
+  private readonly cdp = new CdpWebSocketBridge()
   private readonly wss = new WebSocketServer({ noServer: true, maxPayload: MAX_VNC_MESSAGE_BYTES })
   private readonly connections = new Set<() => void>()
   private stopped = false
 
   tryUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer): boolean {
+    if (this.agentForward.tryUpgrade(request, socket, head)) return true
+    if (this.cdp.tryUpgrade(request, socket, head)) return true
     const url = new URL(request.url ?? '/', 'http://localhost')
     if (url.pathname !== DESKTOP_VNC_PATH) {
       return false
@@ -57,6 +63,8 @@ export class DesktopVncWebSocketBridge {
   }
 
   stop(): void {
+    this.agentForward.stop()
+    this.cdp.stop()
     this.stopped = true
     for (const close of this.connections) {
       close()

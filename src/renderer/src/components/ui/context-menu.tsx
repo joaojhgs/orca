@@ -9,6 +9,10 @@ function ContextMenu({ ...props }: React.ComponentProps<typeof ContextMenuPrimit
   return <ContextMenuPrimitive.Root data-slot="context-menu" modal={false} {...props} />
 }
 
+function ContextMenuGroup({ ...props }: React.ComponentProps<typeof ContextMenuPrimitive.Group>) {
+  return <ContextMenuPrimitive.Group data-slot="context-menu-group" {...props} />
+}
+
 function ContextMenuTrigger({
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Trigger>) {
@@ -190,6 +194,7 @@ function ContextMenuShortcut({ className, ...props }: React.ComponentProps<'span
 
 export {
   ContextMenu,
+  ContextMenuGroup,
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,

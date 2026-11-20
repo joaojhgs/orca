@@ -23,8 +23,10 @@ import { SEARCH_COMMAND_SPECS } from './search'
 import { PROFILE_STATE_COMMAND_SPECS } from './profile-state'
 import { REFERENCE_COMMAND_SPECS } from './reference'
 import { MANAGER_COMMAND_SPECS } from './manager'
+import { NETWORK_COMMAND_SPECS } from './network'
 
 export const COMMAND_SPECS: CommandSpec[] = [
+  ...NETWORK_COMMAND_SPECS,
   ...CORE_COMMAND_SPECS,
   ...REFERENCE_COMMAND_SPECS,
   ...MANAGER_COMMAND_SPECS,

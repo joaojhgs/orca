@@ -48,6 +48,26 @@ Check `sources[].reachable`, `checkedAt`, `retryAt`, `rateLimits.status`, and
 expired sign-in, disconnected source, or missing quota is **not** evidence of unused
 capacity. Credentials stay on their execution host and are never included in output.
 
+## Private cross-host TCP forwarding
+
+```text
+ORCA network routes --json
+ORCA network forward --route <approved-route-id> --local-port 18000 --json
+```
+
+Keep the forward process running on the host whose application needs the connection.
+Its receipt names a loopback-only endpoint on THAT host; connect the application to it.
+Traffic goes through the owning Orca runtime and the destination's connected SSH host;
+the two execution hosts need no direct route or VPN. HTTP, TLS and WebSockets pass
+through as TCP bytes. Stop only this forward with SIGINT/SIGTERM when finished.
+
+Destinations require explicit owner approval in the controller's
+`network-forward-policy.json`; agents select a route ID, never an arbitrary IP/port.
+Revocation, SSH disconnects or loss of controller connectivity close the streams.
+An old remote CLI that lacks the network-forward companion refuses the command
+instead of incorrectly opening the listener on the controller. Update that CLI client,
+not the running relay daemon or its PTYs. Never publish ticket URLs from `network ticket`.
+
 ## Full Handoffs
 
 A full handoff transfers ownership to another agent or worktree, then the original agent stops. Treat requests phrased as "hand off", "handoff", "handover", "give this to another agent", "give this to another worktree", "another agent", or "another worktree" as full handoffs unless the user explicitly asks to supervise, monitor, wait for results, track completion, coordinate a DAG, use decision gates, or manage ask/reply.

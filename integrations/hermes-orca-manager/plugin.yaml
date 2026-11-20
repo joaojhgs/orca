@@ -4,6 +4,9 @@ description: Scoped Orca supervision and host-owned LLM access for local memory.
 author: Orca fork
 license: MIT
 provides_tools:
+  - orca_cli
+  - orca_supervision
+  - orca_sessions_read
   - orca_manager_inspect
   - orca_manager_act
   - orca_events_read
@@ -11,6 +14,10 @@ provides_tools:
 requires_auth:
   - openai-codex
 config_schema:
+  use_standard_cli: {type: bool, default: false, description: Use the ordinary agent CLI without manager-owned Run restrictions}
+  orca_public_executable: {type: str, default: '', description: Absolute normal relay CLI executable}
+  native_triage_retry_seconds: {type: int, default: 300, description: Retry an unacknowledged triage after 120 to 1800 seconds}
+  native_progress_digest_seconds: {type: int, default: 10800, description: Check active-work progress digests every three hours; significant milestones remain event-driven}
   native_isolated_events:
     type: bool
     default: false

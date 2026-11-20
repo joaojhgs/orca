@@ -64,6 +64,56 @@ function rowFor(title: string): HTMLElement {
 }
 
 describe('ArtifactCollection', () => {
+  it('groups source projects and combines the project, type and search filters', async () => {
+    const a = {
+      ...artifact('aurora', 'Aurora report'),
+      sourceKey: JSON.stringify(['ssh', 'desktop', '/aurora/report.md'])
+    }
+    a.artifact.sourceContentType = 'text/markdown'
+    const b = {
+      ...artifact('other', 'Other report'),
+      sourceKey: JSON.stringify(['ssh', 'desktop', '/other/report.html'])
+    }
+    const user = userEvent.setup()
+    render(
+      <TooltipProvider>
+        <ArtifactCollection
+          artifacts={[a, b]}
+          projectRoots={[
+            {
+              projectId: 'aurora-project',
+              projectName: 'Aurora',
+              hostId: 'ssh:desktop',
+              path: '/aurora'
+            },
+            {
+              projectId: 'other-project',
+              projectName: 'Other',
+              hostId: 'ssh:desktop',
+              path: '/other'
+            }
+          ]}
+          deletingId={null}
+          selectedSlug={null}
+          selectArtifact={vi.fn()}
+          deleteArtifact={vi.fn()}
+          hasMore={false}
+          loadingMore={false}
+          loadMore={vi.fn()}
+          onRefresh={vi.fn()}
+          isRefreshing={false}
+        />
+      </TooltipProvider>
+    )
+    expect(screen.getByRole('heading', { name: 'Aurora (1)' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Other (1)' })).toBeInTheDocument()
+    await user.click(screen.getByRole('combobox', { name: 'Filter by project' }))
+    await user.click(screen.getByRole('option', { name: 'Aurora' }))
+    expect(screen.queryByText('Other report')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('combobox', { name: 'Filter by file type' }))
+    await user.click(screen.getByRole('option', { name: 'PDF' }))
+    expect(screen.getByText('No matches')).toBeInTheDocument()
+  })
   afterEach(cleanup)
   // Why: the viewport stub spies on HTMLElement.prototype, so an unrestored one fabricates
   // layout for every later test in the run.

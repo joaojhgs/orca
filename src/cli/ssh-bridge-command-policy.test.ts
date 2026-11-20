@@ -10,6 +10,9 @@ const BRIDGED = { [ORCA_SSH_BRIDGE_CREDENTIAL_ENV]: 'sshb_test' }
 describe('owner-only commands over the SSH bridge', () => {
   it.each([
     [['account', 'add']],
+    [['account', 'list']],
+    [['account', 'select']],
+    [['account', 'rm']],
     [['environment', 'add']],
     [['skills', 'install']],
     [['agent', 'hooks', 'on']],
@@ -37,12 +40,24 @@ describe('owner-only commands over the SSH bridge', () => {
 
   it('leaves runtime-routed commands to the scoped runtime socket', () => {
     expect(() =>
+      refuseOwnerOnlySshBridgeCommand(['account', 'usage'], new Map(), BRIDGED)
+    ).not.toThrow()
+    expect(() =>
       refuseOwnerOnlySshBridgeCommand(['terminal', 'list'], new Map(), BRIDGED)
     ).not.toThrow()
     expect(() =>
       refuseOwnerOnlySshBridgeCommand(['skills', 'list'], new Map(), BRIDGED)
     ).not.toThrow()
   })
+
+  it.each(['environment', 'pairing-code'])(
+    'usage cannot use --%s to bypass the SSH routing boundary',
+    (flag) => {
+      expect(() =>
+        refuseOwnerOnlySshBridgeCommand(['account', 'usage'], new Map([[flag, 'other']]), BRIDGED)
+      ).toThrow(/paired servers/)
+    }
+  )
 
   it('does nothing outside the bridge', () => {
     expect(() => refuseOwnerOnlySshBridgeCommand(['account', 'add'], new Map(), {})).not.toThrow()

@@ -7,6 +7,13 @@ import {
   resetComputerSidecarForTest
 } from '../../../computer/sidecar-client'
 import { defineMethod } from '../core'
+import {
+  CdpBrowserParams,
+  CdpControlParams,
+  CdpTargetsParams
+} from '../../../../shared/cdp-relay-contract'
+import { listCdpBrowserTargets, setCdpHumanControl } from '../../../computer/cdp-browser-policy'
+import { mintCdpBrowserTicket } from '../../../computer/cdp-browser-access'
 import { ComputerDesktopActionParams } from '../../../../shared/vnc-agent-contract'
 import { performVncAgentAction } from '../../../computer/vnc-agent-control'
 import { listDesktopVncTargets } from '../../../computer/desktop-vnc-targets'
@@ -41,6 +48,24 @@ export function resetComputerSessionsForTest(): void {
 }
 
 export const COMPUTER_METHODS = [
+  defineMethod({
+    name: 'computer.browserTargets',
+    permission: 'workspace',
+    params: CdpTargetsParams,
+    handler: async () => listCdpBrowserTargets()
+  }),
+  defineMethod({
+    name: 'computer.browserTicket',
+    permission: 'workspace',
+    params: CdpBrowserParams,
+    handler: async (params) => mintCdpBrowserTicket(params.browserId)
+  }),
+  defineMethod({
+    name: 'computer.browserControl',
+    permission: 'host-admin',
+    params: CdpControlParams,
+    handler: async (params) => setCdpHumanControl(params.browserId, params.humanControl)
+  }),
   defineMethod({
     name: 'computer.desktopAction',
     permission: 'workspace',

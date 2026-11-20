@@ -236,6 +236,10 @@ export function createRemoteCliInstallPlan(env: RemoteCliInstallEnv): RemoteCliI
           '  echo "Orca SSH CLI bridge cannot find the relay socket: $ORCA_RELAY_SOCKET_PATH" >&2',
           '  exit 1',
           'fi',
+          // Compatibility for a separately installed caller-side client, without restarting an old daemon.
+          `if [ "\${1:-}" = network ] && [ "\${2:-}" = forward ] && [ -r ${quoteSh(joinRemotePath(env.hostPlatform, env.binDir, 'network-forward.cjs'))} ]; then`,
+          `  exec "$ORCA_RELAY_NODE_PATH" ${quoteSh(joinRemotePath(env.hostPlatform, env.binDir, 'network-forward.cjs'))} "$ORCA_RELAY_DIR/relay.js" --sock-path "$ORCA_RELAY_SOCKET_PATH" --credential-file "$ORCA_RELAY_CREDENTIAL_FILE" --orca-cli "$@"`,
+          'fi',
           'exec "$ORCA_RELAY_NODE_PATH" "$ORCA_RELAY_DIR/relay.js" --sock-path "$ORCA_RELAY_SOCKET_PATH" --credential-file "$ORCA_RELAY_CREDENTIAL_FILE" --orca-cli "$@"',
           ''
         ].join('\n')

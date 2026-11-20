@@ -1,10 +1,11 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
 import { timingSafeEqual } from 'node:crypto'
 import { join } from 'node:path'
-import { marked } from 'marked'
 import { getOrcaProfileDirectory } from '../orca-profiles/profile-storage-paths'
 import { LocalArtifactStore } from './local-artifact-store'
 import { serveLocalSkillShare } from '../skills/local-skill-share-viewer'
+import { renderLocalMarkdownArtifactDocument } from './local-markdown-artifact-document'
+import { parseLocalArtifactPathname } from './local-artifact-url'
 
 export const LOCAL_ARTIFACT_DATABASE = 'local-artifacts.sqlite'
 
@@ -88,10 +89,8 @@ export class LocalArtifactViewer {
       return
     }
     const url = new URL(request.url ?? '/', 'http://localhost')
-    const match = /^\/a\/([A-Za-z0-9][A-Za-z0-9_-]{0,127})\/([a-f0-9-]{36})\/([a-f0-9]{64})$/.exec(
-      url.pathname
-    )
-    if (!match) {
+    const address = parseLocalArtifactPathname(url.pathname)
+    if (!address) {
       response.writeHead(404)
       response.end('Artifact not found')
       return
@@ -99,11 +98,19 @@ export class LocalArtifactViewer {
     let store: LocalArtifactStore | undefined
     try {
       store = new LocalArtifactStore(
-        join(getOrcaProfileDirectory(match[1]!, this.userDataPath), LOCAL_ARTIFACT_DATABASE),
+        join(
+          getOrcaProfileDirectory(address.profileId, this.userDataPath),
+          LOCAL_ARTIFACT_DATABASE
+        ),
         true
       )
-      const record = store.bySlug(match[2]!)
-      if (!record || !timingSafeEqual(Buffer.from(record.view_token), Buffer.from(match[3]!))) {
+      const record = address.slug
+        ? store.bySlug(address.slug)
+        : store.byViewToken(address.viewToken)
+      if (
+        !record ||
+        !timingSafeEqual(Buffer.from(record.view_token), Buffer.from(address.viewToken))
+      ) {
         response.writeHead(404)
         response.end('Artifact not found')
         return
@@ -128,7 +135,7 @@ export class LocalArtifactViewer {
       }
       const content =
         record.content_type === 'text/markdown'
-          ? `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:16px system-ui;max-width:72ch;margin:2rem auto;padding:0 1rem;line-height:1.6}pre{overflow:auto}img{max-width:100%}</style></head><body>${await marked.parse(record.content)}</body></html>`
+          ? await renderLocalMarkdownArtifactDocument(record.content, url, record.file_name)
           : record.content
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
       response.end(request.method === 'HEAD' ? undefined : content)

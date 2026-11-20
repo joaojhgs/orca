@@ -12,6 +12,20 @@ const COMPUTER_ACTION_FLAGS = [
 
 export const COMPUTER_COMMAND_SPECS: CommandSpec[] = [
   {
+    path: ['computer', 'browsers'],
+    summary: 'List approved SSH browser CDP endpoints and their desktop views',
+    usage: 'orca computer browsers [--json]',
+    allowedFlags: [...GLOBAL_FLAGS]
+  },
+  {
+    path: ['computer', 'browser-connect'],
+    summary:
+      'Serve a token-protected loopback CDP endpoint through Orca; keep this command running',
+    usage:
+      'orca computer browser-connect --browser <id> [--port <n>] [--token-file <private-file>] [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'browser', 'port', 'token-file']
+  },
+  {
     path: ['computer', 'desktops'],
     summary: 'Discover approved reachable VNC desktops across connected hosts',
     usage: 'orca computer desktops [--json]',

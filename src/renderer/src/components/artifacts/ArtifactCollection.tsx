@@ -9,6 +9,14 @@ import { ArtifactListRows } from './ArtifactListRows'
 import { ArtifactListTableHeader } from './ArtifactListTableHeader'
 import { ArtifactListToolbar } from './ArtifactListToolbar'
 import { LIST_TABLE_CONTAINER_CLASS } from '@/lib/list-table-layout'
+import {
+  artifactProject,
+  groupArtifactsByProject,
+  UNASSIGNED_ARTIFACT_PROJECT,
+  type ArtifactProjectRoot
+} from './artifact-project-groups'
+
+const NO_PROJECT_ROOTS: readonly ArtifactProjectRoot[] = []
 
 export function ArtifactCollection({
   artifacts,
@@ -20,7 +28,8 @@ export function ArtifactCollection({
   loadingMore,
   loadMore,
   onRefresh,
-  isRefreshing
+  isRefreshing,
+  projectRoots = NO_PROJECT_ROOTS
 }: {
   artifacts: readonly ArtifactListItem[]
   deletingId: string | null
@@ -32,11 +41,33 @@ export function ArtifactCollection({
   loadMore: () => void
   onRefresh: () => void
   isRefreshing: boolean
+  projectRoots?: readonly ArtifactProjectRoot[]
 }): React.JSX.Element {
   const [query, setQuery] = useState('')
+  const [projectFilter, setProjectFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all')
   // Why: clamp on the way in so a multi-MB paste never reaches state or filtering.
   const onQueryChange = (next: string): void => setQuery(clampArtifactListSearchQuery(next))
-  const matches = useMemo(() => filterArtifactsBySearchQuery(artifacts, query), [artifacts, query])
+  const unassignedName = translate('artifacts.projects.unassigned', 'Unassigned project')
+  const projects = useMemo(
+    () => groupArtifactsByProject(artifacts, projectRoots, unassignedName),
+    [artifacts, projectRoots, unassignedName]
+  )
+  const matches = useMemo(
+    () =>
+      filterArtifactsBySearchQuery(artifacts, query).filter(
+        (item) =>
+          (projectFilter === 'all' ||
+            (artifactProject(item, projectRoots)?.projectId ?? UNASSIGNED_ARTIFACT_PROJECT) ===
+              projectFilter) &&
+          (typeFilter === 'all' || item.artifact.sourceContentType === typeFilter)
+      ),
+    [artifacts, query, projectRoots, projectFilter, typeFilter]
+  )
+  const groups = useMemo(
+    () => groupArtifactsByProject(matches, projectRoots, unassignedName),
+    [matches, projectRoots, unassignedName]
+  )
   // Why: state, not a ref — the windowed rows need the scroller on their own mount pass.
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
 
@@ -48,6 +79,11 @@ export function ArtifactCollection({
           onQueryChange={onQueryChange}
           onRefresh={onRefresh}
           isRefreshing={isRefreshing}
+          projects={projects}
+          projectFilter={projectFilter}
+          onProjectFilterChange={setProjectFilter}
+          typeFilter={typeFilter}
+          onTypeFilterChange={setTypeFilter}
         />
         <div
           ref={setScrollElement}
@@ -59,6 +95,7 @@ export function ArtifactCollection({
           {matches.length > 0 ? (
             <ArtifactListRows
               artifacts={matches}
+              groups={artifacts.some((item) => item.sourceKey) ? groups : undefined}
               deletingId={deletingId}
               selectedSlug={selectedSlug}
               scrollElement={scrollElement}
@@ -73,6 +110,12 @@ export function ArtifactCollection({
           )}
           {hasMore ? (
             <div className="border-t border-border/50 p-2">
+              <p className="px-3 py-1 text-xs text-muted-foreground">
+                {translate(
+                  'artifacts.filters.loadedOnly',
+                  'Groups and filters include loaded artifacts. Load more to include older pages.'
+                )}
+              </p>
               <Button
                 type="button"
                 variant="ghost"

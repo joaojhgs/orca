@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { LocalArtifactService } from './local-artifact-service'
+import { LocalArtifactStore } from './local-artifact-store'
 
 const active = vi.hoisted(() => ({ id: 'local-default' }))
 vi.mock('../orca-profiles/profile-index-store', () => ({
@@ -29,6 +30,15 @@ const write = {
   content: '# Local report\n\nNo cloud required.',
   contentType: 'text/markdown' as const,
   fileName: 'report.md'
+}
+
+function wrongCapability(value: string): string {
+  const url = new URL(value)
+  const parts = url.pathname.split('/')
+  const token = parts[3]!
+  parts[3] = (token[0] === 'A' ? 'B' : 'A') + token.slice(1)
+  url.pathname = parts.join('/')
+  return url.href
 }
 afterEach(async () => {
   for (const { root, service } of fixtures.splice(0)) {
@@ -130,6 +140,11 @@ describe('server-local artifacts', () => {
     const response = await fetch(url)
     expect(response.status).toBe(200)
     expect(await response.text()).toContain('<h1>Local report</h1>')
+    const library = await service.list({})
+    expect(library).toMatchObject({
+      status: 'ok',
+      value: { artifacts: [{ sourceKey: write.sourceKey }] }
+    })
     expect(response.headers.get('content-security-policy')).toContain('sandbox allow-scripts;')
     expect(response.headers.get('content-security-policy')).not.toContain('allow-same-origin')
     expect(response.headers.get('cache-control')).toBe('no-store')
@@ -163,11 +178,34 @@ describe('server-local artifacts', () => {
       throw new Error('Share failed')
     }
     const url = result.value.shareUrl
-    expect((await fetch(url.replace(/[^/]+$/, '0'.repeat(64)))).status).toBe(404)
+    expect((await fetch(wrongCapability(url))).status).toBe(404)
     expect((await fetch(new URL('/a/../../etc/passwd', url))).status).toBe(404)
     expect((await fetch(url, { method: 'POST', body: 'overwrite' })).status).toBe(405)
     await service.delete(result.value.artifact.slug, {})
     expect((await fetch(url)).status).toBe(404)
+  })
+
+  it('changes Markdown layout without republishing or weakening link authorization', async () => {
+    const service = await fixture()
+    const result = await service.share(write)
+    if (result.status !== 'ok') {
+      throw new Error('Share failed')
+    }
+    const url = result.value.shareUrl
+    expect(await (await fetch(url)).text()).toContain('data-layout="full-width"')
+    expect(await (await fetch(`${url}?layout=a4`)).text()).toContain('data-layout="a4"')
+    expect(await (await fetch(`${url}?layout=unknown`)).text()).toContain(
+      'data-layout="full-width"'
+    )
+    expect((await fetch(`${wrongCapability(url)}?layout=a4`)).status).toBe(404)
+    const head = await fetch(`${url}?layout=a4`, { method: 'HEAD' })
+    expect(head.status).toBe(200)
+    expect(await head.text()).toBe('')
+    expect(head.headers.get('content-security-policy')).not.toContain('allow-same-origin')
+    expect(await service.getPublishedLink({ sourceKey: write.sourceKey })).toEqual({
+      status: 'ok',
+      value: { shareUrl: url }
+    })
   })
 
   it('keeps local profiles separate and allows revocation while publishing is disabled', async () => {
@@ -190,6 +228,47 @@ describe('server-local artifacts', () => {
       status: 'ok',
       value: undefined
     })
+  })
+
+  it('serves legacy links and earlier filename labels after updates and revokes every alias together', async () => {
+    const service = await fixture()
+    const result = await service.share(write)
+    const root = fixtures.find((item) => item.service === service)?.root
+    if (result.status !== 'ok' || !root) {
+      throw new Error('Artifact fixture unavailable')
+    }
+    const store = new LocalArtifactStore(
+      join(root, 'profiles', active.id, 'local-artifacts.sqlite')
+    )
+    const record = store.bySource(write.sourceKey)
+    store.close()
+    if (!record) {
+      throw new Error('Stored artifact missing')
+    }
+    const origin = new URL(result.value.shareUrl).origin
+    const legacy = `${origin}/a/${active.id}/${record.slug}/${record.view_token}`
+    const readable = result.value.shareUrl
+    expect(readable.endsWith('/report.md')).toBe(true)
+    expect((await fetch(legacy)).status).toBe(200)
+    const renamed = await service.publish({
+      ...write,
+      fileName: 'renamed report.md',
+      content: '# Updated report'
+    })
+    if (renamed.status !== 'ok') {
+      throw new Error('Artifact update failed')
+    }
+    expect(renamed.value.item.shareUrl.endsWith('/renamed-report.md')).toBe(true)
+    for (const link of [legacy, readable, renamed.value.item.shareUrl]) {
+      const response = await fetch(link)
+      expect(response.status).toBe(200)
+      expect(await response.text()).toContain('<h1>Updated report</h1>')
+    }
+    expect((await fetch(legacy.replace(record.view_token, '0'.repeat(64)))).status).toBe(404)
+    await service.unshare({ sourceKey: write.sourceKey })
+    for (const link of [legacy, readable, renamed.value.item.shareUrl]) {
+      expect((await fetch(link)).status).toBe(404)
+    }
   })
 
   it('paginates without duplicates and rejects unsupported or oversized content', async () => {

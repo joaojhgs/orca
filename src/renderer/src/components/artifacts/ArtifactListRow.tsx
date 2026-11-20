@@ -28,6 +28,7 @@ import {
   formatByteSize
 } from './artifact-display-labels'
 import { copyArtifactLink, openArtifactInBrowser } from './artifact-link-actions'
+import { artifactShareLayoutUrl } from './artifact-share-layout'
 import { ARTIFACTS_TABLE_GRID_CLASS } from './artifacts-table-layout'
 import {
   LIST_TABLE_ROW_CLASS,
@@ -64,6 +65,23 @@ function artifactRowActions(
       icon: ExternalLink,
       onSelect: () => openArtifactInBrowser(item.shareUrl)
     },
+    ...(item.artifact.sourceContentType === 'text/markdown'
+      ? [
+          {
+            key: 'copy-full-width',
+            label: translate('artifacts.share.copyFullWidth', 'Copy full-width link'),
+            icon: Copy,
+            onSelect: () =>
+              void copyArtifactLink(artifactShareLayoutUrl(item.shareUrl, 'full-width'))
+          },
+          {
+            key: 'copy-a4',
+            label: translate('artifacts.share.copyA4', 'Copy centered A4 link'),
+            icon: Copy,
+            onSelect: () => void copyArtifactLink(artifactShareLayoutUrl(item.shareUrl, 'a4'))
+          }
+        ]
+      : []),
     {
       key: 'delete',
       label: translate('auto.components.artifacts.ArtifactsPage.deleteArtifact', 'Delete artifact'),

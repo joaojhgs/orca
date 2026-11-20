@@ -16,13 +16,41 @@ const VncTarget = z
   .strict()
 const Policy = z
   .object({
+    cdpPublicOrigin: z
+      .string()
+      .url()
+      .refine((value) => {
+        const url = new URL(value)
+        return (
+          url.protocol === 'https:' &&
+          !url.username &&
+          !url.password &&
+          url.pathname === '/' &&
+          !url.search &&
+          !url.hash
+        )
+      })
+      .optional(),
     hosts: z
       .array(
         z
           .object({
             targetId: z.string().min(1).max(256),
             vnc: z.array(VncTarget).max(16),
-            adb: AndroidPreviewApproval.optional()
+            adb: AndroidPreviewApproval.optional(),
+            cdp: z
+              .array(
+                z
+                  .object({
+                    id: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/),
+                    label: z.string().trim().min(1).max(80),
+                    port: z.number().int().min(1024).max(65535),
+                    vncId: z.string().min(1).max(64)
+                  })
+                  .strict()
+              )
+              .max(8)
+              .optional()
           })
           .strict()
       )
@@ -67,6 +95,12 @@ export function readSshPreviewPolicy(userDataPath = getAppEnvironment().getPath(
     ids.add(host.targetId)
     if (new Set(host.vnc.map((target) => target.id)).size !== host.vnc.length) {
       throw new Error('Duplicate SSH preview desktop')
+    }
+    if (
+      new Set(host.cdp?.map((target) => target.id)).size !== (host.cdp?.length ?? 0) ||
+      host.cdp?.some((target) => !host.vnc.some((vnc) => vnc.id === target.vncId && !vnc.viewOnly))
+    ) {
+      throw new Error('CDP browsers require unique IDs and an approved interactive VNC view')
     }
   }
   return { ...result.data, fingerprint: createHash('sha256').update(bytes).digest('hex') }

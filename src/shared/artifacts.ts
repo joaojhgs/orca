@@ -32,6 +32,8 @@ export type ArtifactMetadata = {
 export type ArtifactListItem = {
   artifact: ArtifactMetadata
   shareUrl: string
+  /** Authenticated library provenance; never included in the public viewer document. */
+  sourceKey?: string
 }
 
 export type ArtifactListPage = {

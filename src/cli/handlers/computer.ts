@@ -17,6 +17,7 @@ import {
 } from '../format'
 import { getComputerCommandTarget } from '../selectors'
 import { VNC_AGENT_HANDLERS } from './vnc-agent'
+import { CDP_BROWSER_HANDLERS } from './cdp-browser'
 import {
   getComputerActionObserveFlags,
   getComputerObserveFlags,
@@ -32,6 +33,7 @@ import {
 
 export const COMPUTER_HANDLERS: Record<string, CommandHandler> = {
   ...VNC_AGENT_HANDLERS,
+  ...CDP_BROWSER_HANDLERS,
   'computer capabilities': async ({ client, json }) => {
     const result = await client.call<ComputerProviderCapabilities>('computer.capabilities', {})
     printResult(result, json, formatComputerCapabilities)

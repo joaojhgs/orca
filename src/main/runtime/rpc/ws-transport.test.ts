@@ -260,7 +260,7 @@ describe('WebSocketTransport', () => {
 
     const ws = await connectWs(transport)
 
-    // Why: ws maxPayload is 1MB — sending >1MB should trigger close.
+    // Why: unauthenticated messages retain the 1 MiB cap even when paired frames can be larger.
     const oversized = 'x'.repeat(1024 * 1024 + 100)
 
     await new Promise<void>((resolve) => {

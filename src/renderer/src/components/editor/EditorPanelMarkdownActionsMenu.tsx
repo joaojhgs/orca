@@ -1,5 +1,5 @@
 import type React from 'react'
-import { MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal, Share2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import { DropdownMenuGroup } from '@/components/ui/dropdown-menu'
 import { translate } from '@/i18n/i18n'
 
 type EditorPanelMarkdownActionsMenuProps = {
@@ -28,6 +29,7 @@ type EditorPanelMarkdownActionsMenuProps = {
   onToggleEditorWordWrap: () => void
   onToggleMarkdownFrontmatter: () => void
   onExportMarkdownToPdf: () => void
+  onShareArtifact?: () => void
 }
 
 export function EditorPanelMarkdownActionsMenu({
@@ -44,7 +46,8 @@ export function EditorPanelMarkdownActionsMenu({
   onToggleDiffWhitespace,
   onToggleEditorWordWrap,
   onToggleMarkdownFrontmatter,
-  onExportMarkdownToPdf
+  onExportMarkdownToPdf,
+  onShareArtifact
 }: EditorPanelMarkdownActionsMenuProps): React.JSX.Element | null {
   const hasMarkdownActions =
     isMarkdown && (shouldShowMarkdownExportAction || canShowMarkdownFrontmatterToggle)
@@ -71,6 +74,15 @@ export function EditorPanelMarkdownActionsMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={4}>
+        {onShareArtifact ? (
+          <DropdownMenuGroup>
+            <DropdownMenuItem onSelect={onShareArtifact}>
+              <Share2 />
+              {translate('artifacts.share.action', 'Share as artifact')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </DropdownMenuGroup>
+        ) : null}
         <DropdownMenuCheckboxItem checked={wordWrapChecked} onCheckedChange={onToggleWordWrap}>
           {translate(
             'auto.components.editor.EditorPanelMarkdownActionsMenu.1eef809708',

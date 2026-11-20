@@ -34,6 +34,7 @@ vi.mock('@/components/ui/context-menu', async () => {
     React_.createElement(React_.Fragment, null, children)
   return {
     ContextMenuContent: passthrough,
+    ContextMenuGroup: passthrough,
     ContextMenuItem: (props: ItemProps) => {
       items.list.push(props)
       return React_.createElement(React_.Fragment, null, props.children)
@@ -76,7 +77,7 @@ const fileNode: TreeNode = {
 
 function renderRevealItem(
   owner: Partial<
-    Pick<React.ComponentProps<typeof FileExplorerRowContextMenu>, 'connectionId' | 'node'>
+    Pick<React.ComponentProps<typeof FileExplorerRowContextMenu>, 'connectionId' | 'node' | 'onShareArtifact' | 'selectionSize'>
   > = {}
 ): ItemProps | undefined {
   renderToStaticMarkup(
@@ -113,6 +114,21 @@ function showsLocalOnlyHint(item: ItemProps | undefined): boolean {
 }
 
 describe('FileExplorerRowContextMenu host capabilities', () => {
+  it('offers sharing for one Markdown file and never for unresolved owners or multi-selection', () => {
+    const share = vi.fn()
+    const markdown = { ...fileNode, name: 'report.md', path: '/repo/report.md' }
+    renderRevealItem({ node: markdown, onShareArtifact: share })
+    const action = items.list.find((item) => React.Children.toArray(item.children).includes('Share as artifact'))
+    expect(action).toBeDefined()
+    action?.onSelect?.()
+    expect(share).toHaveBeenCalledOnce()
+    items.list = []
+    renderRevealItem({ node: markdown, onShareArtifact: share, selectionSize: 2 })
+    expect(items.list.some((item) => React.Children.toArray(item.children).includes('Share as artifact'))).toBe(false)
+    items.list = []
+    renderRevealItem({ node: { ...markdown, operationOwner: { kind: 'unresolved' } }, onShareArtifact: share })
+    expect(items.list.some((item) => React.Children.toArray(item.children).includes('Share as artifact'))).toBe(false)
+  })
   beforeEach(() => {
     items.list = []
     storeState.activeWorktreeId = 'wt-1'

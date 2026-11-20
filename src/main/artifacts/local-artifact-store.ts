@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { dirname } from 'node:path'
 import Database from '../sqlite/sync-database'
 import { z } from 'zod'
+import { localArtifactShareUrl } from './local-artifact-url'
 import {
   ARTIFACT_MAX_CONTENT_BYTES,
   artifactContentByteLength,
@@ -43,6 +44,9 @@ export class LocalArtifactStore {
         content TEXT NOT NULL, content_type TEXT NOT NULL, file_name TEXT NOT NULL, title TEXT,
         created_at TEXT NOT NULL, updated_at TEXT NOT NULL, byte_size INTEGER NOT NULL
       )`)
+      this.db.exec(
+        'CREATE UNIQUE INDEX IF NOT EXISTS artifacts_view_token_idx ON artifacts(view_token)'
+      )
     }
   }
 
@@ -69,6 +73,11 @@ export class LocalArtifactStore {
 
   bySlug(slug: string): LocalArtifactRecord | null {
     const row = this.db.prepare('SELECT * FROM artifacts WHERE slug = ?').get(slug)
+    return row ? RecordSchema.parse(row) : null
+  }
+
+  byViewToken(viewToken: string): LocalArtifactRecord | null {
+    const row = this.db.prepare('SELECT * FROM artifacts WHERE view_token = ?').get(viewToken)
     return row ? RecordSchema.parse(row) : null
   }
 
@@ -170,6 +179,7 @@ export function localArtifactItem(
   profileId: string
 ): ArtifactListItem {
   return {
+    sourceKey: record.source_key,
     artifact: {
       version: 1,
       slug: record.slug,
@@ -184,6 +194,6 @@ export function localArtifactItem(
       byteSize: record.byte_size,
       deletedAt: null
     },
-    shareUrl: `${origin}/a/${encodeURIComponent(profileId)}/${record.slug}/${record.view_token}`
+    shareUrl: localArtifactShareUrl(origin, profileId, record.view_token, record.file_name)
   }
 }

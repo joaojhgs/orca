@@ -11,6 +11,8 @@ import { ArtifactPublishedLinkPanel } from './ArtifactPublishedLinkPanel'
 import { getPublishedArtifactLink } from './artifact-published-link-client'
 import { publishArtifactFromSurface } from './artifact-publish-flow'
 import { artifactAccountIdentity } from './useArtifactPagination'
+import { ArtifactLayoutField } from './ArtifactLayoutField'
+import { artifactShareLayoutUrl, type ArtifactMarkdownLayout } from './artifact-share-layout'
 
 type PublishedLinkLookup = {
   key: string
@@ -23,6 +25,9 @@ export function ArtifactPublishButton({
   createRequest,
   className,
   disabled,
+  isMarkdown = false,
+  markdownLayout = 'full-width',
+  onMarkdownLayoutChange,
   anchorRef,
   open: controlledOpen,
   onOpenChange
@@ -31,6 +36,9 @@ export function ArtifactPublishButton({
   createRequest: () => Promise<ArtifactWriteRequest>
   className?: string
   disabled?: boolean
+  isMarkdown?: boolean
+  markdownLayout?: ArtifactMarkdownLayout
+  onMarkdownLayoutChange?: (layout: ArtifactMarkdownLayout) => void
 } & (
   | { anchorRef?: never; open?: never; onOpenChange?: never }
   | {
@@ -43,6 +51,8 @@ export function ArtifactPublishButton({
   const open = controlledOpen ?? ownOpen
   const setOpen = onOpenChange ?? setOwnOpen
   const [publishing, setPublishing] = useState(false)
+  const [ownLayout, setOwnLayout] = useState<ArtifactMarkdownLayout>('full-width')
+  const layout = onMarkdownLayoutChange ? markdownLayout : ownLayout
   const [lookupRevision, setLookupRevision] = useState(0)
   const [linkLookup, setLinkLookup] = useState<PublishedLinkLookup | null>(null)
   const lookupSequence = useRef(0)
@@ -181,7 +191,10 @@ export function ArtifactPublishButton({
           </p>
         </div>
 
-        <div className="space-y-3 p-4">
+        <div className="flex flex-col gap-3 p-4">
+          {isMarkdown ? (
+            <ArtifactLayoutField value={layout} onChange={onMarkdownLayoutChange ?? setOwnLayout} />
+          ) : null}
           {!signedIn ? (
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 space-y-0.5">
@@ -276,7 +289,7 @@ export function ArtifactPublishButton({
           ) : publishedLink ? (
             <ArtifactPublishedLinkPanel
               key={publishedLink}
-              shareUrl={publishedLink}
+              shareUrl={isMarkdown ? artifactShareLayoutUrl(publishedLink, layout) : publishedLink}
               publishing={publishing}
               sharingEnabled={sharingEnabled}
               onUpdate={() => void publish()}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ArtifactCloudOperation, ArtifactListItem } from '../../../../shared/artifacts'
 import { useConfirmationDialog } from '@/components/confirmation-dialog-context'
 import { persistConfirmationSkipPreference } from '@/components/confirmation-skip-preference'
@@ -14,6 +14,8 @@ import {
   ArtifactsPageErrorBanner
 } from './ArtifactsPageStates'
 import { artifactAccountIdentity, useArtifactPagination } from './useArtifactPagination'
+import { artifactProjectRoots } from './artifact-project-groups'
+import { getPairedWebClientEnvironmentId } from '@/lib/paired-web-client-host'
 
 const LOCAL_RUNTIME = { kind: 'local' } as const
 
@@ -25,6 +27,22 @@ export default function ArtifactsPage(): React.JSX.Element {
   const openSettingsPage = useAppStore((state) => state.openSettingsPage)
   const openSettingsTarget = useAppStore((state) => state.openSettingsTarget)
   const settings = useAppStore((state) => state.settings)
+  const repos = useAppStore((state) => state.repos)
+  const projects = useAppStore((state) => state.projects)
+  const setups = useAppStore((state) => state.projectHostSetups)
+  const worktreesByRepo = useAppStore((state) => state.worktreesByRepo)
+  const pairedEnvironmentId = useAppStore(getPairedWebClientEnvironmentId)
+  const projectRoots = useMemo(
+    () =>
+      artifactProjectRoots({
+        repos: repos ?? [],
+        projects: projects ?? [],
+        setups: setups ?? [],
+        worktrees: Object.values(worktreesByRepo ?? {}).flat(),
+        localHostId: pairedEnvironmentId ? `runtime:${pairedEnvironmentId}` : null
+      }),
+    [repos, projects, setups, worktreesByRepo, pairedEnvironmentId]
+  )
   const updateSettings = useAppStore((state) => state.updateSettings)
   const confirm = useConfirmationDialog()
   // Why: publishing is off by default, so "ask your agent to share" is a dead end until the
@@ -211,6 +229,7 @@ export default function ArtifactsPage(): React.JSX.Element {
         />
       ) : (
         <ArtifactCollection
+          projectRoots={projectRoots}
           artifacts={artifacts}
           deletingId={deletingId}
           selectedSlug={selectedSlug}
