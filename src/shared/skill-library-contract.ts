@@ -3,11 +3,13 @@ import { SkillInstallDestinationSchema, SkillPackageIdentitySchema } from './ski
 import { SkillPackageFileSchema } from './skill-package-schema'
 import { LocalSkillShareSchema, LOCAL_SKILL_SHARING_CAPABILITY } from './local-skill-sharing'
 import { SKILL_LIBRARY_LINK_CAPABILITY } from './skill-library-link-capability'
+import { SkillLibraryPluginSchema, SKILL_LIBRARY_PLUGIN_CAPABILITY } from './skill-library-plugin'
 
 export const SKILL_LIBRARY_CAPABILITY = 'skills.local-library.v1' as const
 export const SKILL_LIBRARY_RUNTIME_CAPABILITIES = [
   SKILL_LIBRARY_CAPABILITY,
   SKILL_LIBRARY_LINK_CAPABILITY,
+  SKILL_LIBRARY_PLUGIN_CAPABILITY,
   LOCAL_SKILL_SHARING_CAPABILITY
 ] as const
 export const SKILL_LIBRARY_RPC_METHODS = [
@@ -33,6 +35,7 @@ export const SkillLibraryCandidateSchema = z.object({
   description: z.string().max(4096).nullable(),
   sourceLabel: z.string().max(500),
   sourceKind: z.string().max(100),
+  plugin: SkillLibraryPluginSchema.optional(),
   providers: z.array(z.string().max(64)).max(64)
 })
 export type SkillLibraryCandidate = z.infer<typeof SkillLibraryCandidateSchema>
@@ -61,6 +64,8 @@ export const SkillLibraryVersionSchema = z.object({
         hostId: SkillLibraryHostSchema,
         candidateId: z.string().max(200),
         sourceLabel: z.string().max(500),
+        sourceKey: z.string().max(1500).optional(),
+        plugin: SkillLibraryPluginSchema.optional(),
         importedAt: z.iso.datetime({ offset: true })
       })
     )
@@ -127,6 +132,16 @@ export const SkillLibraryReconcileParams = z.object({
   assignmentId: SkillLibraryIdSchema.optional()
 })
 export const SkillLibrarySnapshotSchema = SkillLibraryCatalogSchema.extend({
+  projects: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(200),
+        label: z.string().max(500),
+        workspaceKeys: z.array(z.string()).max(8192)
+      })
+    )
+    .max(8192)
+    .optional(),
   hosts: z.array(
     z.object({ id: SkillLibraryHostSchema, label: z.string(), reachable: z.boolean() })
   ),

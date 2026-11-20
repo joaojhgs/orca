@@ -21,7 +21,14 @@ const candidate = {
   description: 'Disposable renderer fixture',
   providers: ['codex'],
   sourceLabel: 'Fixture home',
-  sourceKind: 'home'
+  sourceKind: 'plugin',
+  plugin: {
+    id: 'a'.repeat(64),
+    name: 'probe-toolkit',
+    source: 'https://github.com/example/probe-toolkit',
+    version: '1.0',
+    memberPath: 'skills/probe-skill'
+  }
 }
 const version: SkillLibraryVersion = {
   packageId: '00000000-0000-4000-8000-000000000001',
@@ -41,6 +48,7 @@ const version: SkillLibraryVersion = {
       hostId: 'local',
       candidateId: candidate.id,
       sourceLabel: candidate.sourceLabel,
+      plugin: candidate.plugin,
       importedAt: '2026-10-02T10:00:00Z'
     }
   ]
@@ -56,6 +64,9 @@ const snapshot: SkillLibrarySnapshot = {
   providers: [{ id: 'codex', displayName: 'Codex' }],
   workspaces: [
     { id: 'fixture-folder', kind: 'folder', label: '/disposable/folder', hostId: 'ssh:fixture' }
+  ],
+  projects: [
+    { id: 'probe-project', label: 'Probe project', workspaceKeys: ['folder:fixture-folder'] }
   ]
 }
 

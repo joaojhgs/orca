@@ -30,9 +30,19 @@ export const SKILL_LIBRARY_COMMAND_SPECS: CommandSpec[] = [
     summary: 'Import explicitly reviewed immutable skill snapshots',
     usage:
       'orca skills library import --skill <id-or-name> [--skill <id-or-name> ...] --reviewed [--expected-digest <sha256>] [--add-version] [--host <host>] [--json]',
-    allowedFlags: [...HOST_FLAGS, 'skill', 'reviewed', 'expected-digest', 'add-version'],
+    allowedFlags: [
+      ...HOST_FLAGS,
+      'skill',
+      'plugin',
+      'plugin-version',
+      'exclude-skill',
+      'reviewed',
+      'expected-digest',
+      'add-version'
+    ],
+    repeatableFlags: ['plugin', 'exclude-skill'],
     notes: [
-      'Review first with skills library preview. For a single skill, pass its preview packageDigest with --expected-digest to reject changes since review. Scripts and assets are included but never executed by import. Different content with an existing name needs explicit --add-version. Source folders are never modified.'
+      'Use --plugin <id-or-name> to select its grouped skills, optionally excluding --exclude-skill <id-or-name>. Only skills and supporting files are imported, never plugin hooks or MCP configuration. Review first with skills library preview. For a single skill, pass its preview packageDigest with --expected-digest to reject changes since review. Different content with an existing name needs explicit --add-version. Source folders are never modified.'
     ]
   },
   {
@@ -40,9 +50,36 @@ export const SKILL_LIBRARY_COMMAND_SPECS: CommandSpec[] = [
     summary: 'Provision a pinned skill version for chosen coding runtimes',
     usage:
       'orca skills library assign --version-id <uuid> --agent <codex,claude,...> [--host <host>] [--worktree-id <id> | --folder-id <id>] [--json]',
-    allowedFlags: [...HOST_FLAGS, 'version-id', 'agent', 'worktree-id', 'folder-id'],
+    allowedFlags: [
+      ...HOST_FLAGS,
+      'version-id',
+      'plugin',
+      'exclude-skill',
+      'agent',
+      'worktree-id',
+      'folder-id'
+    ],
+    repeatableFlags: ['exclude-skill'],
     notes: [
       'Uses the selected host globally unless a registered workspace is selected. Runtime aliases share .agents/skills; assignments are provisioning choices, not access-control restrictions. Existing sessions may load skills only at their next normal start. Local edits and unowned skills are preserved.'
+    ]
+  },
+  {
+    path: ['skills', 'library', 'share'],
+    summary: 'Share imported plugin skills through server-local artifact hosting',
+    usage:
+      'orca skills library share (--plugin <id-or-name> | --version-id <uuid>...) --bundle-name <name> --reviewed [--exclude-skill <name>] [--json]',
+    allowedFlags: [
+      ...GLOBAL_FLAGS,
+      'plugin',
+      'version-id',
+      'exclude-skill',
+      'bundle-name',
+      'reviewed'
+    ],
+    repeatableFlags: ['version-id', 'exclude-skill'],
+    notes: [
+      'Shares only imported snapshots. Plugin origins remain grouped, including partial selections. The server must have local publishing approved. No Cloud upload or plugin-hook installation occurs.'
     ]
   },
   {

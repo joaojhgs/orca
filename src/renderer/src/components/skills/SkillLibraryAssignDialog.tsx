@@ -32,6 +32,8 @@ import type {
 import { parseExecutionHostId } from '../../../../shared/execution-host'
 import type { SkillInstallDestination } from '../../../../shared/skill-install-contract'
 import { translate } from '@/i18n/i18n'
+import { SkillLibraryVersionSelection } from './SkillLibraryVersionSelection'
+import { SkillLibraryProjectSelect } from './SkillLibraryProjectSelect'
 
 type AssignDialogProps = {
   version: SkillLibraryVersion | null
@@ -42,7 +44,11 @@ type AssignDialogProps = {
   busy: boolean
   error: string | null
   onClose(): void
-  onAssign(destination: SkillInstallDestination, providers: string[]): void
+  onAssign(
+    destination: SkillInstallDestination | SkillInstallDestination[],
+    providers: string[],
+    versions?: SkillLibraryVersion[]
+  ): void
 }
 
 export function SkillLibraryAssignDialog(props: AssignDialogProps) {
@@ -60,22 +66,51 @@ export function SkillLibraryAssignDialog(props: AssignDialogProps) {
 
 function SkillLibraryAssignForm(props: AssignDialogProps) {
   const [hostId, setHostId] = useState('local')
-  const [scope, setScope] = useState<'global' | 'workspace'>('global')
+  const [scope, setScope] = useState<'global' | 'workspace' | 'project'>('global')
+  const [projectId, setProjectId] = useState('')
   const [workspace, setWorkspace] = useState('')
   const [providers, setProviders] = useState<Set<SkillInstallProviderId>>(new Set(['codex']))
   const [reviewed, setReviewed] = useState(false)
   const versions = props.versions ?? (props.version ? [props.version] : [])
+  const [included, setIncluded] = useState(new Set(versions.map((row) => row.versionId)))
+  const selectedVersions = versions.filter((row) => included.has(row.versionId))
   const bulk = props.versions !== undefined
   const locked = props.busy || Boolean(props.outcomes)
   const id = useId()
   const choices = props.snapshot.workspaces.filter((row) => row.hostId === hostId)
   const selected = choices.find((row) => `${row.kind}:${row.id}` === workspace)
   const host = parseExecutionHostId(hostId)
+  const project = props.snapshot.projects?.find((row) => row.id === projectId)
+  const projectWorkspaces = props.snapshot.workspaces.filter(
+    (row) =>
+      project?.workspaceKeys.includes(`${row.kind}:${row.id}`) &&
+      (hostId === 'all' || row.hostId === hostId)
+  )
   const validHost =
-    (host?.kind === 'local' || host?.kind === 'ssh') &&
-    props.snapshot.hosts.some((row) => row.id === hostId)
+    (scope === 'project' && hostId === 'all') ||
+    ((host?.kind === 'local' || host?.kind === 'ssh') &&
+      props.snapshot.hosts.some((row) => row.id === hostId))
   const submit = () => {
-    if (locked || !validHost || (bulk && !reviewed) || (scope === 'workspace' && !selected)) {
+    if (
+      locked ||
+      !validHost ||
+      !selectedVersions.length ||
+      selectedVersions.length > 50 ||
+      (bulk && !reviewed) ||
+      (scope === 'workspace' && !selected) ||
+      (scope === 'project' && !projectWorkspaces.length)
+    ) {
+      return
+    }
+    if (scope === 'project') {
+      props.onAssign(
+        projectWorkspaces.map((row) => ({
+          scope: 'workspace',
+          ...(row.kind === 'worktree' ? { worktreeId: row.id } : { folderWorkspaceId: row.id })
+        })),
+        [...providers],
+        selectedVersions
+      )
       return
     }
     const destination: SkillInstallDestination =
@@ -91,7 +126,7 @@ function SkillLibraryAssignForm(props: AssignDialogProps) {
             executionTarget:
               host?.kind === 'ssh' ? { kind: 'ssh', connectionId: host.targetId } : { kind: 'host' }
           }
-    props.onAssign(destination, [...providers])
+    props.onAssign(destination, [...providers], selectedVersions)
   }
   return (
     <Dialog
@@ -125,16 +160,15 @@ function SkillLibraryAssignForm(props: AssignDialogProps) {
             <section
               aria-label={translate('skills.library.assignmentReview', 'Pinned skills to assign')}
             >
-              <ul className="flex flex-col gap-2">
-                {versions.map((version) => (
-                  <li key={version.versionId} className="flex min-w-0 flex-col gap-1">
-                    <span className="text-sm font-medium">{version.name}</span>
-                    <span className="break-all font-mono text-xs text-muted-foreground">
-                      {version.versionId}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <SkillLibraryVersionSelection
+                versions={versions}
+                selected={included}
+                disabled={locked}
+                onChange={(value) => {
+                  setIncluded(value)
+                  setReviewed(false)
+                }}
+              />
             </section>
           ) : null}
           <fieldset className="flex flex-col gap-3" disabled={locked}>
@@ -158,6 +192,11 @@ function SkillLibraryAssignForm(props: AssignDialogProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
+                  {scope === 'project' ? (
+                    <SelectItem value="all">
+                      {translate('skills.library.allProjectHosts', 'All project hosts')}
+                    </SelectItem>
+                  ) : null}
                   {props.snapshot.hosts.map((host) => (
                     <SelectItem key={host.id} value={host.id}>
                       {host.label}
@@ -177,8 +216,14 @@ function SkillLibraryAssignForm(props: AssignDialogProps) {
               value={scope}
               disabled={locked}
               onValueChange={(value) => {
-                if (value === 'global' || value === 'workspace') {
+                if (value === 'global' || value === 'workspace' || value === 'project') {
                   setScope(value)
+                  if (value === 'project') {
+                    setHostId('all')
+                  }
+                  if (value !== 'project' && hostId === 'all') {
+                    setHostId('local')
+                  }
                   setReviewed(false)
                 }
               }}
@@ -194,6 +239,11 @@ function SkillLibraryAssignForm(props: AssignDialogProps) {
                   <SelectItem value="workspace">
                     {translate('skills.library.workspace', 'Registered workspace')}
                   </SelectItem>
+                  {props.snapshot.projects ? (
+                    <SelectItem value="project">
+                      {translate('skills.library.project', 'Project workspaces')}
+                    </SelectItem>
+                  ) : null}
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -211,8 +261,21 @@ function SkillLibraryAssignForm(props: AssignDialogProps) {
                 disabled={locked}
               />
             ) : null}
+            {scope === 'project' ? (
+              <SkillLibraryProjectSelect
+                id={`${id}-project`}
+                projectId={projectId}
+                projects={props.snapshot.projects}
+                total={projectWorkspaces.length}
+                disabled={locked}
+                onChange={(value) => {
+                  setProjectId(value)
+                  setReviewed(false)
+                }}
+              />
+            ) : null}
             <SkillInstallAgentPicker
-              scope={scope}
+              scope={scope === 'project' ? 'workspace' : scope}
               selected={providers}
               detectedAgents={null}
               busy={locked}
@@ -231,6 +294,10 @@ function SkillLibraryAssignForm(props: AssignDialogProps) {
           {bulk ? (
             <Label>
               <Checkbox
+                aria-label={translate(
+                  'skills.library.approveAssignment',
+                  'Approve skill assignment'
+                )}
                 checked={reviewed}
                 disabled={locked}
                 onCheckedChange={(value) => setReviewed(value === true)}
@@ -256,8 +323,9 @@ function SkillLibraryAssignForm(props: AssignDialogProps) {
               className="flex flex-col gap-2"
             >
               {props.outcomes.map((row) => (
-                <li key={row.versionId} className="text-xs">
+                <li key={`${row.versionId}-${row.destinationLabel ?? ''}`} className="text-xs">
                   {row.name}: {row.status}
+                  {row.destinationLabel ? ` · ${row.destinationLabel}` : ''}
                   {row.message ? ` — ${row.message}` : ''}
                 </li>
               ))}
@@ -279,7 +347,10 @@ function SkillLibraryAssignForm(props: AssignDialogProps) {
                 locked ||
                 !validHost ||
                 providers.size === 0 ||
+                !selectedVersions.length ||
+                selectedVersions.length > 50 ||
                 (scope === 'workspace' && !selected) ||
+                (scope === 'project' && !projectWorkspaces.length) ||
                 (bulk && !reviewed)
               }
               onClick={submit}
@@ -288,7 +359,7 @@ function SkillLibraryAssignForm(props: AssignDialogProps) {
                 ? translate('skills.library.provisioning', 'Provisioning…')
                 : bulk
                   ? translate('skills.library.assignBatchSubmit', 'Assign {{total}} skills', {
-                      total: versions.length
+                      total: selectedVersions.length
                     })
                   : translate('skills.library.assignPinned', 'Assign pinned version')}
             </Button>

@@ -13,6 +13,9 @@ import {
 } from './local-skill-library-sharing'
 import { previewLibraryVersion } from './skill-library-snapshot-preview'
 import { publishImportedSkillsFromAgent } from './local-agent-skill-sharing'
+import { discoverPublishedLibrarySkills } from './skill-library-published-source'
+import { resolveLinkSkillSource } from './skill-library-link-source'
+import { extractSkillBundleArchive } from './skill-bundle-extraction'
 
 const roots: string[] = []
 const viewers: LocalArtifactViewer[] = []
@@ -63,6 +66,44 @@ async function fixture() {
   return { root, library, sourceDirectory, version, publish }
 }
 describe('server-local imported skill sharing', () => {
+  it('preserves plugin identity in the downloadable artifact and when reimporting after deleting the library version', async () => {
+    const f = await fixture()
+    const plugin = {
+      id: 'a'.repeat(64),
+      name: 'toolkit',
+      source: 'https://github.com/example/toolkit',
+      memberPath: 'skills/sample-skill'
+    }
+    await f.library.store.transact(async (catalog) => {
+      catalog.versions[0].origins[0].plugin = plugin
+    })
+    const share = await f.publish()
+    expect(share.pluginOrigins).toEqual([{ skillId: f.version.versionId, plugin }])
+    const bundle = await extractSkillBundleArchive({
+      archivePath: join(f.library.store.root, 'published', `${share.id}.tar.gz`),
+      destinationDirectory: join(f.root, 'bundle-check'),
+      expectedArchiveSha256: share.archiveSha256
+    })
+    expect(bundle.pluginManifest.extensions?.['dev.orca.skill-library']).toEqual({
+      pluginOrigins: [{ skillId: f.version.versionId, plugin }]
+    })
+    await f.library.deleteVersion(f.version.versionId)
+    const url = localSkillShareUrl('https://orca.example', 'fixture-profile', share)
+    expect(await discoverPublishedLibrarySkills(f.library, url, 'https://other.example')).toBeNull()
+    const discovered = await discoverPublishedLibrarySkills(f.library, url, 'https://orca.example')
+    expect(discovered?.candidates[0].plugin).toEqual(plugin)
+    const imported = await f.library.importSelected(
+      { hostId: discovered!.hostId, candidateIds: [f.version.versionId], reviewed: true },
+      resolveLinkSkillSource(f.library, discovered!.hostId)
+    )
+    expect(imported.results[0].status).toBe('imported')
+    expect(imported.results[0].version?.packageDigest).toBe(f.version.packageDigest)
+    expect(imported.results[0].version?.origins[0].plugin).toEqual(plugin)
+    await revokeLibraryShare(f.library, share.id)
+    await expect(
+      discoverPublishedLibrarySkills(f.library, url, 'https://orca.example')
+    ).rejects.toThrow('unavailable or revoked')
+  })
   it('shares only reviewed imported versions and preserves executable metadata', async () => {
     const f = await fixture()
     await expect(

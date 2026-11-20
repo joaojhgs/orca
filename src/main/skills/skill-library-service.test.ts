@@ -107,6 +107,34 @@ describe('local skill library snapshots', () => {
     expect((await service.store.snapshot()).versions).toHaveLength(1)
   })
 
+  it('enriches an individual import with plugin provenance, deduplicating rescanned links but retaining different execution hosts', async () => {
+    const f = await fixture()
+    await f.importSkill()
+    const plugin = {
+      id: 'a'.repeat(64),
+      name: 'toolkit',
+      source: 'https://github.com/example/toolkit',
+      memberPath: 'skills/sample-skill'
+    }
+    const originalDiscover = f.source.discover
+    const source = (hostId: string): SkillLibrarySource => ({
+      ...f.source,
+      hostId,
+      discover: async () => (await originalDiscover()).map((row) => ({ ...row, plugin }))
+    })
+    for (const hostId of ['url:first', 'url:second', 'ssh:one', 'ssh:two']) {
+      const result = await f.service.importSelected(
+        { hostId, candidateIds: ['discovered-one'], reviewed: true },
+        source(hostId)
+      )
+      expect(result.results[0].status).toBe('unchanged')
+    }
+    const catalog = await f.service.store.snapshot()
+    expect(catalog.versions).toHaveLength(1)
+    expect(catalog.versions[0].origins).toHaveLength(4)
+    expect(catalog.versions[0].origins.filter((row) => row.plugin)).toHaveLength(3)
+  })
+
   it('requires explicit version creation for same-name different content', async () => {
     const { service, sourceDirectory, importSkill } = await fixture()
     const original = (await importSkill()).results[0].version!

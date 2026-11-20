@@ -116,3 +116,29 @@ it('bounds select all at 50 without scanning or importing automatically', async 
   expect(f.button('Review and import 50 skills').disabled).toBe(false)
   expect(rpc).not.toHaveBeenCalled()
 })
+
+it('selects a plugin in one click and permits a partial import without losing its grouping', async () => {
+  const plugin = {
+    id: 'a'.repeat(64),
+    name: 'toolkit',
+    source: 'https://github.com/example/toolkit',
+    memberPath: 'skills/first'
+  }
+  const first = { ...candidate('local'), id: 'first', name: 'first', plugin }
+  const second = {
+    ...candidate('local'),
+    id: 'second',
+    name: 'second',
+    plugin: { ...plugin, memberPath: 'skills/second' }
+  }
+  const f = await mount([first, second])
+  const group = document.querySelector('button[aria-label="Select plugin toolkit"]')!
+  await act(async () => fireEvent.click(group))
+  expect(f.button('Review and import 2 skills').disabled).toBe(false)
+  const individual = document.querySelector('button[aria-label="Select first on local"]')!
+  await act(async () => fireEvent.click(individual))
+  expect(group.getAttribute('aria-checked')).toBe('mixed')
+  expect(f.button('Review and import 1 skills').disabled).toBe(false)
+  expect(document.body.textContent).toContain('toolkit')
+  expect(rpc).not.toHaveBeenCalled()
+})

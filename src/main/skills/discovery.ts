@@ -269,12 +269,14 @@ export async function discoverSkills(args: {
   refresh?: boolean
   names?: string[]
   sourceKinds?: SkillSourceKind[]
+  extraRoots?: SkillScanRoot[]
 }): Promise<SkillDiscoveryResult> {
   const startedAt = Date.now()
   const homeDir = args.homeDir ?? homedir()
   const refresh = args.refresh === true
   const roots = [
     ...buildSkillDiscoverySources({ ...args, homeDir }),
+    ...(args.extraRoots ?? []),
     // Why: plugin discovery is native-chat data keyed to an explicit workspace.
     // Untargeted scans (Settings) keep their pre-picker inventory and cost.
     ...(args.cwd &&

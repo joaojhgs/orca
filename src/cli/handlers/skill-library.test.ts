@@ -46,6 +46,48 @@ function fixture(flags = new Map<string, string | boolean>()) {
 }
 
 describe('local library CLI host scope', () => {
+  it('imports a selected plugin subset without dropping its discovery source', async () => {
+    const f = fixture(
+      new Map<string, string | boolean>([
+        ['plugin', 'toolkit'],
+        ['exclude-skill', 'second'],
+        ['reviewed', true]
+      ])
+    )
+    const plugin = {
+      id: 'a'.repeat(64),
+      name: 'toolkit',
+      source: 'https://github.com/example/toolkit',
+      memberPath: 'skills/first'
+    }
+    f.call.mockResolvedValueOnce({
+      ...f.envelope,
+      result: {
+        candidates: [
+          { id: 'first', name: 'first', plugin },
+          { id: 'second', name: 'second', plugin }
+        ]
+      }
+    })
+    await SKILL_LIBRARY_HANDLERS['skills library import'](f.ctx)
+    expect(f.call).toHaveBeenLastCalledWith(
+      'skills.library.import',
+      { hostId: 'local', candidateIds: ['first'], reviewed: true, addVersion: false },
+      { timeoutMs: 600000 }
+    )
+  })
+  it('refuses unreviewed plugin sharing before issuing any request', async () => {
+    const f = fixture(
+      new Map([
+        ['plugin', 'toolkit'],
+        ['bundle-name', 'toolkit']
+      ])
+    )
+    await expect(SKILL_LIBRARY_HANDLERS['skills library share'](f.ctx)).rejects.toThrow(
+      '--reviewed'
+    )
+    expect(f.call).not.toHaveBeenCalled()
+  })
   it('defaults to native assignments and preserves the RPC envelope', async () => {
     vi.stubEnv(ORCHESTRATION_COMPATIBILITY_HOST_KIND_ENV, undefined)
     const f = fixture()

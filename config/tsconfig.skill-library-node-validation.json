@@ -7,7 +7,11 @@
     "../src/main/skills/local-skill-library-sharing.ts",
     "../src/main/skills/local-skill-share-viewer.ts",
     "../src/main/skills/local-agent-skill-sharing.ts",
-    "../src/main/skills/skill-library-snapshot-preview.ts"
+    "../src/main/skills/skill-library-snapshot-preview.ts",
+    "../src/main/skills/skill-library-source.ts",
+    "../src/main/skills/skill-library-link-source.ts",
+    "../src/main/skills/skill-library-published-source.ts",
+    "../src/main/skills/skill-library-project-targets.ts"
   ],
   "compilerOptions": {
     "composite": false,

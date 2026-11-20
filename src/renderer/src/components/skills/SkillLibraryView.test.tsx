@@ -184,6 +184,56 @@ async function fixture(remote = false) {
 }
 
 describe('browser local skill library', () => {
+  it.each(['assign', 'share'])(
+    'allows excluding one member from a grouped plugin %s without losing its origin',
+    async (operation) => {
+      const f = await fixture()
+      const plugin = {
+        id: 'a'.repeat(64),
+        name: 'toolkit',
+        source: 'https://github.com/example/toolkit',
+        memberPath: 'skills/fixture'
+      }
+      const first = { ...f.version, origins: [{ ...f.version.origins[0], plugin }] }
+      const second = {
+        ...f.version,
+        packageId: '00000000-0000-4000-8000-000000000003',
+        versionId: '00000000-0000-4000-8000-000000000004',
+        name: 'second',
+        origins: [{ ...f.version.origins[0], plugin: { ...plugin, memberPath: 'skills/second' } }]
+      }
+      f.snapshot.versions = [first, second]
+      await act(async () =>
+        fireEvent.click(document.querySelector('button[aria-label="Refresh"]')!)
+      )
+      await f.click(operation === 'assign' ? 'Assign plugin' : 'Share plugin')
+      await act(async () =>
+        fireEvent.click(
+          document.querySelector('[role="dialog"] button[aria-label="Include second"]')!
+        )
+      )
+      expect(
+        document
+          .querySelector('[role="dialog"] button[aria-label="Select plugin toolkit"]')
+          ?.getAttribute('aria-checked')
+      ).toBe('mixed')
+      await act(async () =>
+        fireEvent.click(
+          document.querySelector(
+            `[role="dialog"] button[aria-label="${operation === 'assign' ? 'Approve skill assignment' : 'Approve sharing selected skills'}"]`
+          )!
+        )
+      )
+      await f.click(operation === 'assign' ? 'Assign 1 skills' : 'Create local share link')
+      const requests = rpc.mock.calls.filter(
+        ([, method]) => method === `skills.library.${operation}`
+      )
+      expect(requests).toHaveLength(1)
+      expect(operation === 'assign' ? requests[0][2].versionId : requests[0][2].versionIds).toEqual(
+        operation === 'assign' ? first.versionId : [first.versionId]
+      )
+    }
+  )
   it('bulk assigns imported versions only after one review and preserves the separate sharing flow', async () => {
     const f = await fixture()
     f.snapshot.versions = [
@@ -202,7 +252,9 @@ describe('browser local skill library', () => {
     expect(f.button('Assign 2 skills').disabled).toBe(true)
     expect(rpc.mock.calls.some(([, method]) => method === 'skills.library.assign')).toBe(false)
     await act(async () =>
-      fireEvent.click(document.querySelector('[role="dialog"] button[role="checkbox"]')!)
+      fireEvent.click(
+        document.querySelector('[role="dialog"] button[aria-label="Approve skill assignment"]')!
+      )
     )
     await f.click('Assign 2 skills')
     expect(
@@ -286,7 +338,9 @@ describe('browser local skill library', () => {
     await act(async () => fireEvent.click(select))
     await f.click('Review share')
     expect(f.button('Create local share link').disabled).toBe(true)
-    const approval = document.querySelector('[role="dialog"] button[role="checkbox"]')
+    const approval = document.querySelector(
+      '[role="dialog"] button[aria-label="Approve sharing selected skills"]'
+    )
     if (!approval) {
       throw new Error('Missing share review')
     }

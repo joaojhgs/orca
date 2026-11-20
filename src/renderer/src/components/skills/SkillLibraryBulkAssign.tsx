@@ -5,12 +5,12 @@ import type {
 } from '../../../../shared/skill-library-contract'
 import type { SkillInstallDestination } from '../../../../shared/skill-install-contract'
 import { SkillLibraryAssignDialog } from './SkillLibraryAssignDialog'
-import {
-  assignSkillBatch,
-  type SkillAssignmentBatchProgress,
-  type SkillAssignmentBatchResult
+import type {
+  SkillAssignmentBatchProgress,
+  SkillAssignmentBatchResult
 } from './skill-library-batch-assign'
 import type { useSkillLibrary } from './use-skill-library'
+import { assignSkillDestinations } from './skill-library-batch-destinations'
 
 export function SkillLibraryBulkAssign(props: {
   versions: SkillLibraryVersion[]
@@ -29,18 +29,23 @@ export function SkillLibraryBulkAssign(props: {
       active.current = false
     }
   }, [])
-  const assign = async (destination: SkillInstallDestination, providers: string[]) => {
+  const assign = async (
+    destination: SkillInstallDestination | SkillInstallDestination[],
+    providers: string[],
+    versions = props.versions
+  ) => {
     if (submitting.current || outcomes) {
       return
     }
     submitting.current = true
     try {
+      const destinations = Array.isArray(destination) ? destination : [destination]
       const result = await props.library.run((target) =>
-        assignSkillBatch({
+        assignSkillDestinations({
           target,
-          versions: props.versions,
+          versions,
           snapshot: props.snapshot,
-          destination,
+          destinations,
           providers,
           isCurrent: () => active.current,
           onProgress: (value) => {
@@ -72,7 +77,7 @@ export function SkillLibraryBulkAssign(props: {
       progress={progress}
       outcomes={outcomes}
       onClose={props.onClose}
-      onAssign={(destination, providers) => void assign(destination, providers)}
+      onAssign={(destination, providers, versions) => void assign(destination, providers, versions)}
     />
   )
 }

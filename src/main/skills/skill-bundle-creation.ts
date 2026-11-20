@@ -27,6 +27,7 @@ import {
 } from './skill-package-identity'
 import { writeSkillTarGzip, type SkillTarWriteEntry } from './skill-package-tar'
 import { startSkillPhaseOperation } from './skill-operation-observability'
+import type { SkillLibraryPlugin } from '../../shared/skill-library-plugin'
 
 export type SkillBundleSource = {
   id?: string
@@ -120,6 +121,7 @@ async function createSkillBundleArchiveUnobserved(
     bundleName: string
     description?: string
     createdAt?: string
+    pluginOrigins?: { skillId: string; plugin: SkillLibraryPlugin }[]
   },
   dependencies: SkillBundleCreationDependencies = {}
 ): Promise<CreatedSkillBundle> {
@@ -197,7 +199,10 @@ async function createSkillBundleArchiveUnobserved(
       $schema: AGENT_PLUGIN_SCHEMA_V1,
       name: manifest.bundleName,
       version: manifest.versionId,
-      description: manifest.description
+      description: manifest.description,
+      ...(input.pluginOrigins?.length
+        ? { extensions: { 'dev.orca.skill-library': { pluginOrigins: input.pluginOrigins } } }
+        : {})
     })
     const pluginBytes = Buffer.from(JSON.stringify(pluginManifest), 'utf8')
     const manifestBytes = Buffer.from(JSON.stringify(manifest), 'utf8')
@@ -250,6 +255,7 @@ export async function createSkillBundleArchive(
     bundleName: string
     description?: string
     createdAt?: string
+    pluginOrigins?: { skillId: string; plugin: SkillLibraryPlugin }[]
   },
   dependencies: SkillBundleCreationDependencies = {}
 ): Promise<CreatedSkillBundle> {

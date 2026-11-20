@@ -165,17 +165,29 @@ export class SkillLibraryService {
           hostId: source.hostId,
           candidateId: candidate.id,
           sourceLabel: candidate.sourceLabel,
+          ...(candidate.plugin
+            ? {
+                plugin: candidate.plugin,
+                sourceKey: `${candidate.plugin.id}:${candidate.plugin.memberPath}`
+              }
+            : {}),
           importedAt: new Date().toISOString()
         }
         const same = existing.find(
           (version) => version.packageDigest === verified.manifest.packageDigest
         )
         if (same) {
-          if (
-            !same.origins.some(
-              (entry) => entry.hostId === origin.hostId && entry.candidateId === origin.candidateId
-            )
-          ) {
+          const previous = same.origins.find(
+            (entry) =>
+              (origin.sourceKey &&
+                entry.sourceKey === origin.sourceKey &&
+                (entry.hostId === origin.hostId ||
+                  (entry.hostId.startsWith('url:') && origin.hostId.startsWith('url:')))) ||
+              (entry.hostId === origin.hostId && entry.candidateId === origin.candidateId)
+          )
+          if (previous) {
+            Object.assign(previous, origin)
+          } else {
             if (same.origins.length >= 128) {
               throw new Error('skill-library-origin-limit')
             }

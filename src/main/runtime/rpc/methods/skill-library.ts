@@ -31,14 +31,22 @@ import {
 import { previewLibraryVersion } from '../../../skills/skill-library-snapshot-preview'
 import { basename } from 'node:path'
 import { ArtifactSharingDisabledError } from '../../../../shared/artifact-sharing-gate'
+import { skillLibraryProjectTargets } from '../../../skills/skill-library-project-targets'
+import { discoverPublishedLibrarySkills } from '../../../skills/skill-library-published-source'
 
 export const SKILL_LIBRARY_METHODS = [
   defineMethod({
     name: 'skills.library.discoverUrl',
     permission: 'workspace',
     params: SkillLibraryLinkParams,
-    handler: (params, { runtime }) =>
-      discoverLinkedSkills(runtime.getLocalSkillLibrary().library, params.url)
+    handler: async (params, { runtime }) => {
+      const library = runtime.getLocalSkillLibrary().library
+      const hosting = await runtime.getArtifactHostingStatus()
+      return (
+        (await discoverPublishedLibrarySkills(library, params.url, hosting.viewerOrigin ?? null)) ??
+        discoverLinkedSkills(library, params.url)
+      )
+    }
   }),
   defineMethod({
     name: 'skills.library.previewVersion',
@@ -112,12 +120,20 @@ export const SKILL_LIBRARY_METHODS = [
     name: 'skills.library.list',
     permission: 'workspace',
     params: null,
-    handler: async (_params, { runtime }) => ({
-      ...(await runtime.getLocalSkillLibrary().library.store.snapshot()),
-      hosts: skillLibraryHosts(),
-      providers: skillLibraryProviders(),
-      workspaces: await runtime.listSkillLibraryWorkspaces()
-    })
+    handler: async (_params, { runtime }) => {
+      const workspaces = await runtime.listSkillLibraryWorkspaces()
+      return {
+        ...(await runtime.getLocalSkillLibrary().library.store.snapshot()),
+        hosts: skillLibraryHosts(),
+        providers: skillLibraryProviders(),
+        workspaces,
+        projects: skillLibraryProjectTargets(
+          runtime.listProjects(),
+          runtime.listRepos(),
+          workspaces
+        )
+      }
+    }
   }),
   defineMethod({
     name: 'skills.library.discover',

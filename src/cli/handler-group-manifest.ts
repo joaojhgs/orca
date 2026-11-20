@@ -291,6 +291,7 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
       'skills library preview',
       'skills library import',
       'skills library assign',
+      'skills library share',
       'skills library unassign',
       'skills library reconcile',
       'skills library delete'

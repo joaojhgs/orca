@@ -17,6 +17,8 @@ import {
 import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
 import { SkillLibraryPreviewSchema } from '../../../../shared/skill-library-contract'
 import { translate } from '@/i18n/i18n'
+import { groupLibrarySkills, toggleLibrarySelection } from '../../../../shared/skill-library-plugin'
+import { SkillLibraryPluginGroup } from './SkillLibraryPluginGroup'
 import type { HostedSkillCandidate } from './skill-library-host-discovery'
 import type { useSkillLibrary } from './use-skill-library'
 import {
@@ -91,6 +93,45 @@ export function SkillLibraryBulkImport(props: {
     await props.library.refresh()
   }
   const current = reviews[active]
+  const groups = groupLibrarySkills(
+    props.candidates,
+    (row) => (row.plugin ? [row.plugin] : []),
+    true
+  )
+  const candidateRow = (row: HostedSkillCandidate) => (
+    <div key={candidateSelectionKey(row)} className="flex items-start justify-between gap-3">
+      <Label className="min-w-0 items-start">
+        <Checkbox
+          aria-label={translate('skills.library.selectSkill', 'Select {{name}} on {{host}}', {
+            name: row.name,
+            host: row.hostLabel
+          })}
+          checked={selected.has(candidateSelectionKey(row))}
+          disabled={
+            props.library.busy || (!selected.has(candidateSelectionKey(row)) && selected.size >= 50)
+          }
+          onCheckedChange={(value) => choose(candidateSelectionKey(row), value === true)}
+        />
+        <span className="min-w-0 flex flex-col gap-1">
+          <span>{row.name}</span>
+          <span className="text-xs text-muted-foreground">
+            {row.hostLabel} · {row.sourceLabel}
+          </span>
+          {row.description ? (
+            <span className="text-xs text-muted-foreground">{row.description}</span>
+          ) : null}
+        </span>
+      </Label>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={props.library.busy}
+        onClick={() => props.onPreview(row)}
+      >
+        {translate('skills.library.reviewImport', 'Review import')}
+      </Button>
+    </div>
+  )
   const file = async (filePath: string) => {
     if (!current) {
       return
@@ -153,38 +194,35 @@ export function SkillLibraryBulkImport(props: {
         <legend className="sr-only">
           {translate('skills.library.batchSelection', 'Skills to import')}
         </legend>
-        {props.candidates.map((row) => (
-          <div key={candidateSelectionKey(row)} className="flex items-start justify-between gap-3">
-            <Label className="min-w-0 items-start">
-              <Checkbox
-                aria-label={translate('skills.library.selectSkill', 'Select {{name}} on {{host}}', {
-                  name: row.name,
-                  host: row.hostLabel
-                })}
-                checked={selected.has(candidateSelectionKey(row))}
-                disabled={!selected.has(candidateSelectionKey(row)) && selected.size >= 50}
-                onCheckedChange={(value) => choose(candidateSelectionKey(row), value === true)}
-              />
-              <span className="min-w-0 flex flex-col gap-1">
-                <span>{row.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {row.hostLabel} · {row.sourceLabel}
-                </span>
-                {row.description ? (
-                  <span className="text-xs text-muted-foreground">{row.description}</span>
-                ) : null}
-              </span>
-            </Label>
-            <Button
-              variant="outline"
-              size="sm"
+        {groups.map((group) =>
+          group.plugin ? (
+            <SkillLibraryPluginGroup
+              key={group.id}
+              plugin={group.plugin}
+              total={group.rows.length}
+              selected={group.rows.filter((row) => selected.has(candidateSelectionKey(row))).length}
               disabled={props.library.busy}
-              onClick={() => props.onPreview(row)}
+              selecting
+              onSelect={(checked) => {
+                const keys = group.rows.map(candidateSelectionKey)
+                if (checked && new Set([...selected, ...keys]).size > 50) {
+                  setNotice(
+                    translate(
+                      'skills.library.pluginSelectionLimit',
+                      'This selection exceeds 50 skills. Select a smaller plugin subset.'
+                    )
+                  )
+                  return
+                }
+                setSelected((value) => toggleLibrarySelection(value, keys, checked))
+              }}
             >
-              {translate('skills.library.reviewImport', 'Review import')}
-            </Button>
-          </div>
-        ))}
+              {group.rows.map(candidateRow)}
+            </SkillLibraryPluginGroup>
+          ) : (
+            group.rows.map(candidateRow)
+          )
+        )}
       </fieldset>
       {notice ? (
         <p role="status" className="text-xs text-muted-foreground">

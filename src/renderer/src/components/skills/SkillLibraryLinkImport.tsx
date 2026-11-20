@@ -58,7 +58,7 @@ export function SkillLibraryLinkImport(props: {
       <p className="text-xs text-muted-foreground">
         {translate(
           'skills.library.linkHelp',
-          'Public GitHub repositories, plugin/marketplace repositories, skill folder links, and skills.sh links. Imports skills only—not plugins, hooks, or installation scripts. Review before importing.'
+          'GitHub plugin/marketplace repositories, skill folders, skills.sh, and local share links from this Orca profile. Plugin grouping and supporting files are retained; hooks, MCP servers, commands and agent definitions are not installed. Review before importing.'
         )}
       </p>
       <Button

@@ -10,6 +10,7 @@ import { toSshExecutionHostId } from '../../../../shared/execution-host'
 import { matchesSkillAssignmentDestination } from './skill-library-assignment-destination'
 
 export type SkillAssignmentBatchResult = {
+  destinationLabel?: string
   versionId: string
   name: string
   status:

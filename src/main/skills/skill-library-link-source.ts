@@ -13,6 +13,7 @@ import {
   type GithubSkillTree
 } from './skill-library-github-api'
 import type { SkillLibrarySource, SkillLibraryService } from './skill-library-service'
+import { linkedSkillPlugins } from './skill-library-link-plugins'
 
 const SOURCE_LEASE_MS = 30 * 60 * 1000
 type CandidateSource = {
@@ -23,6 +24,35 @@ type CandidateSource = {
 }
 type SourceLease = { source: SkillLibrarySource; dispose(): Promise<void> }
 const sources = new WeakMap<SkillLibraryService, Map<string, SourceLease>>()
+
+export async function retainLibraryLinkSource(
+  library: SkillLibraryService,
+  source: SkillLibrarySource,
+  cleanup: () => Promise<void>
+) {
+  let leases = sources.get(library)
+  if (!leases) {
+    leases = new Map()
+    sources.set(library, leases)
+  }
+  if (leases.size >= 4) {
+    await leases.values().next().value?.dispose()
+  }
+  const owner = leases
+  const timer = setTimeout(() => {
+    void lease.dispose()
+  }, SOURCE_LEASE_MS)
+  timer.unref()
+  const lease: SourceLease = {
+    source,
+    dispose: async () => {
+      clearTimeout(timer)
+      owner.delete(source.hostId)
+      await cleanup()
+    }
+  }
+  leases.set(source.hostId, lease)
+}
 
 export function resolveLinkSkillSource(
   library: SkillLibraryService,
@@ -116,6 +146,7 @@ export async function discoverLinkedSkills(
   }
   const found: CandidateSource[] = []
   for (const { location, tree } of locations) {
+    const pluginFor = await linkedSkillPlugins(location.repo, tree, api)
     for (const entry of tree.tree.filter(
       (row) => row.type === 'blob' && (row.path === 'SKILL.md' || row.path.endsWith('/SKILL.md'))
     )) {
@@ -145,6 +176,7 @@ export async function discoverLinkedSkills(
         throw new Error(`Skill at ${location.repo}/${folder} has no name`)
       }
       const id = createHash('sha256').update(`${location.repo}:${tree.sha}:${folder}`).digest('hex')
+      const plugin = pluginFor(folder)
       found.push({
         candidate: {
           id,
@@ -152,6 +184,7 @@ export async function discoverLinkedSkills(
           description: summary.description ?? null,
           sourceLabel: `${location.repo}/${folder} @ ${tree.sha.slice(0, 12)}`.slice(0, 500),
           sourceKind: 'link',
+          ...(plugin ? { plugin } : {}),
           providers: []
         },
         repo: location.repo,
@@ -235,29 +268,9 @@ export async function discoverLinkedSkills(
       return createSkillPackageArchive({ ...input, sourceDirectory: await pending })
     }
   }
-  let leases = sources.get(library)
-  if (!leases) {
-    leases = new Map()
-    sources.set(library, leases)
-  }
-  // Bound scratch storage and reject expired reviews instead of substituting a new source.
-  if (leases.size >= 4) {
-    await leases.values().next().value?.dispose()
-  }
-  const owner = leases
-  const timer = setTimeout(() => {
-    void lease.dispose()
-  }, SOURCE_LEASE_MS)
-  timer.unref()
-  const lease: SourceLease = {
-    source,
-    dispose: async () => {
-      clearTimeout(timer)
-      owner.delete(hostId)
-      await Promise.allSettled(downloaded.values())
-      await rm(directory, { recursive: true, force: true })
-    }
-  }
-  leases.set(hostId, lease)
+  await retainLibraryLinkSource(library, source, async () => {
+    await Promise.allSettled(downloaded.values())
+    await rm(directory, { recursive: true, force: true })
+  })
   return { hostId, label: 'Linked source', candidates: await source.discover() }
 }

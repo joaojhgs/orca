@@ -74,14 +74,23 @@ export async function serveLocalSkillShare(
           : JSON.stringify({
               manifest: share.manifest,
               archiveSha256: share.archiveSha256,
-              compressedBytes: share.compressedBytes
+              compressedBytes: share.compressedBytes,
+              ...(share.pluginOrigins?.length ? { pluginOrigins: share.pluginOrigins } : {})
             })
       )
     } else {
       const skills = share.manifest.skills
         .map(
           (skill) =>
-            `<section><h2>${escape(skill.name)}</h2><p>${escape(skill.description)}</p><details><summary>${skill.files.length} files</summary><ul>${skill.files.map((file) => `<li>${escape(file.path)} (${file.size} bytes${file.executable ? ', executable' : ''})</li>`).join('')}</ul></details></section>`
+            `<section><h2>${escape(skill.name)}</h2>${
+              share.pluginOrigins
+                ?.filter((row) => row.skillId === skill.id)
+                .map(
+                  (row) =>
+                    `<p>Plugin: ${escape(row.plugin.name)} · ${escape(row.plugin.source)}</p>`
+                )
+                .join('') ?? ''
+            }<p>${escape(skill.description)}</p><details><summary>${skill.files.length} files</summary><ul>${skill.files.map((file) => `<li>${escape(file.path)} (${file.size} bytes${file.executable ? ', executable' : ''})</li>`).join('')}</ul></details></section>`
         )
         .join('')
       const content = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(share.manifest.bundleName)}</title><style>body{font:16px system-ui;max-width:72ch;margin:2rem auto;padding:0 1rem;line-height:1.6;overflow-wrap:anywhere}</style></head><body><h1>${escape(share.manifest.bundleName)}</h1><p>Server-local skill snapshots. Review instructions and scripts before installing; downloading does not execute them.</p><p><a href="${url.pathname}/archive" download>Download skill bundle</a> · <a href="${url.pathname}/manifest">View verified manifest</a></p>${skills}</body></html>`

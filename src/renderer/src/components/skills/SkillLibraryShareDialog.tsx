@@ -14,13 +14,18 @@ import { Input } from '@/components/ui/input'
 import { translate } from '@/i18n/i18n'
 import type { SkillLibraryVersion } from '../../../../shared/skill-library-contract'
 import { SkillSharePublishedLink } from './SkillShareReviewContent'
+import { SkillLibraryVersionSelection } from './SkillLibraryVersionSelection'
+import { libraryVersionPlugins } from '../../../../shared/skill-library-plugin'
 
 type SkillLibraryShareProps = {
   versions: SkillLibraryVersion[]
   busy: boolean
   error: string | null
   onClose(): void
-  onPublish(bundleName: string): Promise<{ url: string; packageDigest: string } | null>
+  onPublish(
+    bundleName: string,
+    versions?: SkillLibraryVersion[]
+  ): Promise<{ url: string; packageDigest: string } | null>
   onManageLinks(): void
 }
 export function SkillLibraryShareDialog(props: SkillLibraryShareProps) {
@@ -33,8 +38,15 @@ export function SkillLibraryShareDialog(props: SkillLibraryShareProps) {
 }
 function SkillLibraryShareForm(props: SkillLibraryShareProps) {
   const [reviewed, setReviewed] = useState(false)
+  const [selected, setSelected] = useState(new Set(props.versions.map((row) => row.versionId)))
+  const versions = props.versions.filter((row) => selected.has(row.versionId))
+  const plugin = props.versions[0] && libraryVersionPlugins(props.versions[0])[0]
   const [bundleName, setBundleName] = useState(
-    props.versions.length === 1 ? props.versions[0].name : 'shared-skills'
+    plugin && /^[a-z0-9][a-z0-9-]{0,63}$/.test(plugin.name)
+      ? plugin.name
+      : props.versions.length === 1
+        ? props.versions[0].name
+        : 'shared-skills'
   )
   const [share, setShare] = useState<{ url: string; packageDigest: string } | null>(null)
   const validName = /^[a-z0-9][a-z0-9-]{0,63}$/.test(bundleName)
@@ -76,21 +88,22 @@ function SkillLibraryShareForm(props: SkillLibraryShareProps) {
                 aria-invalid={!validName}
               />
             </div>
-            <ul className="flex flex-col gap-2">
-              {props.versions.map((version) => (
-                <li key={version.versionId}>
-                  <p className="text-sm font-medium">{version.name}</p>
-                  <p className="break-all text-xs text-muted-foreground">
-                    {version.files.length} files ·{' '}
-                    {version.files.filter((file) => file.executable).length} executable ·{' '}
-                    {version.versionId}
-                  </p>
-                </li>
-              ))}
-            </ul>
+            <SkillLibraryVersionSelection
+              versions={props.versions}
+              selected={selected}
+              disabled={props.busy}
+              onChange={(value) => {
+                setSelected(value)
+                setReviewed(false)
+              }}
+            />
             <div className="flex items-start gap-2">
               <Checkbox
                 id="library-share-reviewed"
+                aria-label={translate(
+                  'skills.library.approveShare',
+                  'Approve sharing selected skills'
+                )}
                 checked={reviewed}
                 onCheckedChange={(value) => setReviewed(value === true)}
                 disabled={props.busy}
@@ -117,9 +130,11 @@ function SkillLibraryShareForm(props: SkillLibraryShareProps) {
           </Button>
           {!share ? (
             <Button
-              disabled={!reviewed || !validName || props.busy}
+              disabled={
+                !reviewed || !validName || props.busy || !versions.length || versions.length > 50
+              }
               onClick={() =>
-                void props.onPublish(bundleName).then((value) => value && setShare(value))
+                void props.onPublish(bundleName, versions).then((value) => value && setShare(value))
               }
             >
               {props.busy

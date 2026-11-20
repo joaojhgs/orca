@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { extractSkillPackageArchive } from './skill-package-extraction'
 import type { SkillLibraryService } from './skill-library-service'
 import type { SkillLibraryPreview, SkillLibraryVersion } from '../../shared/skill-library-contract'
+import { libraryVersionPlugins } from '../../shared/skill-library-plugin'
 
 export async function extractLibraryVersion(
   library: SkillLibraryService,
@@ -44,7 +45,10 @@ export async function previewLibraryVersion(
           description: version.description,
           providers: [],
           sourceLabel: 'Imported snapshot',
-          sourceKind: 'library'
+          sourceKind: 'library',
+          ...(libraryVersionPlugins(version)[0]
+            ? { plugin: libraryVersionPlugins(version)[0] }
+            : {})
         },
         packageDigest: version.packageDigest,
         files: version.files,

@@ -4,6 +4,8 @@ import type { SkillLibrarySource } from './skill-library-service'
 import type { DiscoveredSkill, SkillDiscoveryResult } from '../../shared/skills'
 import type { SkillLibraryCandidate } from '../../shared/skill-library-contract'
 import { resolveEnvironmentSkillProviderRoots } from './skill-provider-runtime-roots'
+import { relative, sep } from 'node:path'
+import { discoverLibraryPluginRoots } from './skill-library-plugin-discovery'
 
 export function skillLibraryCandidate(skill: DiscoveredSkill): SkillLibraryCandidate {
   return {
@@ -23,21 +25,44 @@ export function skillLibraryCandidates(result: SkillDiscoveryResult): SkillLibra
   return result.skills.map(skillLibraryCandidate)
 }
 
-export function nativeSkillLibrarySource(): SkillLibrarySource {
-  const discover = () =>
-    discoverSkills({
+export function nativeSkillLibrarySource(options: { homeDir?: string } = {}): SkillLibrarySource {
+  const discover = async () => {
+    const plugins = await discoverLibraryPluginRoots(options.homeDir)
+    const result = await discoverSkills({
       repos: [],
+      homeDir: options.homeDir,
       includeCwd: false,
       refresh: true,
-      providerRootOverrides: resolveEnvironmentSkillProviderRoots()
+      providerRootOverrides: options.homeDir ? {} : resolveEnvironmentSkillProviderRoots(),
+      extraRoots: plugins.map((row) => row.root)
     })
+    const candidates = skillLibraryCandidates(result).map((candidate, index) => {
+      const skill = result.skills[index]
+      const owner = plugins.find(({ root }) =>
+        (skill.rootPaths ?? [skill.rootPath]).includes(root.path)
+      )
+      if (!owner) {
+        return candidate
+      }
+      return {
+        ...candidate,
+        plugin: {
+          ...owner.plugin,
+          memberPath: [
+            'skills',
+            relative(owner.root.path, skill.directoryPath).split(sep).join('/')
+          ].join('/')
+        }
+      }
+    })
+    return { result, candidates }
+  }
   return {
     hostId: 'local',
-    discover: async () => skillLibraryCandidates(await discover()),
+    discover: async () => (await discover()).candidates,
     package: async (candidateId, input) => {
       const discovered = await discover()
-      skillLibraryCandidates(discovered)
-      const skill = discovered.skills.find((row) => row.id === candidateId)
+      const skill = discovered.result.skills.find((row) => row.id === candidateId)
       if (!skill) {
         throw new Error('skill-library-candidate-not-found')
       }

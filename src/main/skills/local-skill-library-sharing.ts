@@ -9,6 +9,7 @@ import {
 import type { SkillLibraryService } from './skill-library-service'
 import { extractLibraryVersion } from './skill-library-snapshot-preview'
 import { createSkillBundleArchive, type SkillBundleSource } from './skill-bundle-creation'
+import { libraryVersionPlugins } from '../../shared/skill-library-plugin'
 
 export function localSkillShareUrl(origin: string, profileId: string, share: LocalSkillShare) {
   return `${origin}/skills/share/${encodeURIComponent(profileId)}/${share.id}/${share.token}`
@@ -61,12 +62,16 @@ export async function publishLibrarySkills(library: SkillLibraryService, input: 
         })
       }
       const id = randomUUID()
+      const pluginOrigins = versions.flatMap((version) =>
+        libraryVersionPlugins(version).map((plugin) => ({ skillId: version.versionId, plugin }))
+      )
       const created = await createSkillBundleArchive({
         sources,
         archivePath: join(staging, 'bundle.tar.gz'),
         packageId: randomUUID(),
         versionId: randomUUID(),
-        bundleName: request.bundleName
+        bundleName: request.bundleName,
+        pluginOrigins
       })
       if (bytes + created.compressedBytes > 256 * 1024 * 1024) {
         throw new Error('Published skill storage limit reached')
@@ -78,7 +83,8 @@ export async function publishLibrarySkills(library: SkillLibraryService, input: 
         createdAt: new Date().toISOString(),
         manifest: created.manifest,
         archiveSha256: created.archiveSha256,
-        compressedBytes: created.compressedBytes
+        compressedBytes: created.compressedBytes,
+        ...(pluginOrigins.length ? { pluginOrigins } : {})
       }
       await rename(created.archivePath, join(published, `${id}.tar.gz`))
       catalog.shares ??= []

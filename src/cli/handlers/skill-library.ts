@@ -10,6 +10,8 @@ import type {
   SkillLibrarySnapshot
 } from '../../shared/skill-library-contract'
 import type { SkillInstallDestination } from '../../shared/skill-install-contract'
+import { selectImportedPluginVersions } from './skill-library-plugin-selection'
+import { skillLibraryDestinationKey } from '../../shared/skill-library-destination-key'
 
 async function callerHost(ctx: HandlerContext): Promise<string> {
   const selected = await resolveHostFlagTarget(ctx.flags, ctx.client)
@@ -28,10 +30,11 @@ async function selectedCandidates(ctx: HandlerContext) {
     { timeoutMs: 120000 }
   )
   const selectors = getRepeatedStringFlag(ctx.flags, 'skill')
-  if (!selectors.length) {
+  const plugins = getRepeatedStringFlag(ctx.flags, 'plugin')
+  if (!selectors.length && !plugins.length) {
     throw new RuntimeClientError(
       'invalid_argument',
-      'Select at least one --skill from skills library discover.'
+      'Select --skill or --plugin from skills library discover.'
     )
   }
   const candidates = selectors.map((selector) => {
@@ -47,7 +50,39 @@ async function selectedCandidates(ctx: HandlerContext) {
     }
     return matches[0]
   })
-  return { hostId, candidates: [...new Map(candidates.map((row) => [row.id, row])).values()] }
+  for (const selector of plugins) {
+    const requestedVersion = getOptionalStringFlag(ctx.flags, 'plugin-version')
+    const matches = response.result.candidates.filter(
+      (row) =>
+        row.plugin &&
+        (row.plugin.id === selector || row.plugin.name === selector) &&
+        (!requestedVersion || row.plugin.version === requestedVersion)
+    )
+    if (!matches.length || new Set(matches.map((row) => row.plugin!.id)).size !== 1) {
+      throw new RuntimeClientError(
+        'invalid_argument',
+        `Plugin is missing or ambiguous: ${selector}. Use its exact plugin ID.`
+      )
+    }
+    if (new Set(matches.map((row) => row.plugin?.version ?? 'unknown')).size > 1) {
+      throw new RuntimeClientError(
+        'invalid_argument',
+        'Multiple cached plugin versions were found. Choose --plugin-version explicitly.'
+      )
+    }
+    candidates.push(...matches)
+  }
+  const excluded = getRepeatedStringFlag(ctx.flags, 'exclude-skill')
+  const selection = [...new Map(candidates.map((row) => [row.id, row])).values()].filter(
+    (row) => !excluded.includes(row.id) && !excluded.includes(row.name)
+  )
+  if (!selection.length || selection.length > 50) {
+    throw new RuntimeClientError(
+      'invalid_argument',
+      'Select between one and 50 skills; use --exclude-skill to narrow a plugin.'
+    )
+  }
+  return { hostId, candidates: selection }
 }
 
 async function printCall(ctx: HandlerContext, method: string, params?: unknown) {
@@ -173,10 +208,74 @@ export const SKILL_LIBRARY_HANDLERS: Record<string, CommandHandler> = {
       .split(',')
       .map((value) => value.trim())
       .filter(Boolean)
-    await printCall(ctx, 'skills.library.assign', {
-      versionId: getRequiredStringFlag(ctx.flags, 'version-id'),
-      destination,
-      providers
+    const pluginSelector = getOptionalStringFlag(ctx.flags, 'plugin')
+    const versionId = getOptionalStringFlag(ctx.flags, 'version-id')
+    if (Boolean(pluginSelector) === Boolean(versionId)) {
+      throw new RuntimeClientError('invalid_argument', 'Choose either --version-id or --plugin.')
+    }
+    if (!pluginSelector) {
+      await printCall(ctx, 'skills.library.assign', { versionId, destination, providers })
+      return
+    }
+    const catalog = await ctx.client.call<SkillLibrarySnapshot>('skills.library.list')
+    const versions = selectImportedPluginVersions(
+      catalog.result.versions,
+      pluginSelector,
+      getRepeatedStringFlag(ctx.flags, 'exclude-skill')
+    )
+    const assignments: unknown[] = []
+    for (const version of versions) {
+      const existing = catalog.result.assignments.find(
+        (row) =>
+          row.packageId === version.packageId &&
+          row.executionHostId === hostId &&
+          row.status !== 'removed' &&
+          skillLibraryDestinationKey({
+            ...row.destination,
+            ...(row.destination.scope === 'global' ? { environmentId: undefined } : {})
+          }) === skillLibraryDestinationKey(destination)
+      )
+      const response = await ctx.client.call(
+        'skills.library.assign',
+        {
+          versionId: version.versionId,
+          destination,
+          providers: [...new Set([...providers, ...(existing?.providers ?? [])])]
+        },
+        { timeoutMs: 600000 }
+      )
+      assignments.push(response.result)
+    }
+    printResult({ ...catalog, result: { assignments } }, ctx.json, (result) =>
+      JSON.stringify(result, null, 2)
+    )
+  },
+  'skills library share': async (ctx) => {
+    if (!ctx.flags.has('reviewed')) {
+      throw new RuntimeClientError(
+        'invalid_argument',
+        'Review imported snapshots and acknowledge with --reviewed before sharing.'
+      )
+    }
+    const plugin = getOptionalStringFlag(ctx.flags, 'plugin')
+    const ids = getRepeatedStringFlag(ctx.flags, 'version-id')
+    if (Boolean(plugin) === Boolean(ids.length)) {
+      throw new RuntimeClientError('invalid_argument', 'Choose either --plugin or --version-id.')
+    }
+    if (plugin) {
+      const catalog = await ctx.client.call<SkillLibrarySnapshot>('skills.library.list')
+      ids.push(
+        ...selectImportedPluginVersions(
+          catalog.result.versions,
+          plugin,
+          getRepeatedStringFlag(ctx.flags, 'exclude-skill')
+        ).map((row) => row.versionId)
+      )
+    }
+    await printCall(ctx, 'skills.library.share', {
+      versionIds: ids,
+      bundleName: getRequiredStringFlag(ctx.flags, 'bundle-name'),
+      reviewed: true
     })
   },
   'skills library unassign': async (ctx) => {

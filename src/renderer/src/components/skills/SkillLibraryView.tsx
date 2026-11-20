@@ -11,6 +11,8 @@ import { SkillLibraryPageHeader } from './SkillLibraryPageHeader'
 import { SkillLibraryBulkAssign } from './SkillLibraryBulkAssign'
 import { SkillSharedLinksView } from './SkillSharedLinksView'
 import { useSkillLibraryPage, type SkillLibraryPageProps } from './use-skill-library-page'
+import { toggleLibrarySelection } from '../../../../shared/skill-library-plugin'
+import { assignSkillDestinations } from './skill-library-batch-destinations'
 
 export function SkillLibraryView(props: SkillLibraryPageProps) {
   const page = useSkillLibraryPage(props)
@@ -92,6 +94,32 @@ export function SkillLibraryView(props: SkillLibraryPageProps) {
                   selecting={selecting}
                   selected={selected}
                   onSelected={page.select}
+                  onSelectedMany={(versions, checked) => {
+                    const ids = versions.map((row) => row.versionId)
+                    const names = new Set(versions.map((row) => row.name))
+                    const retained = new Set(
+                      [...selected].filter(
+                        (id) =>
+                          !checked ||
+                          !snapshot.versions.some(
+                            (row) => row.versionId === id && names.has(row.name)
+                          )
+                      )
+                    )
+                    if (checked && new Set([...retained, ...ids]).size > 50) {
+                      setNotice(
+                        translate(
+                          'skills.library.pluginSelectionLimit',
+                          'This selection exceeds 50 skills. Select a smaller plugin subset.'
+                        )
+                      )
+                      return
+                    }
+                    setSelecting(true)
+                    setSelected(toggleLibrarySelection(retained, ids, checked))
+                  }}
+                  onAssignMany={setBulkAssignVersions}
+                  onShareMany={setShareVersions}
                   onReview={(version) => void page.preview(version)}
                   onAssign={setAssignVersion}
                   onShare={(version) => setShareVersions([version])}
@@ -134,6 +162,34 @@ export function SkillLibraryView(props: SkillLibraryPageProps) {
                 onClose={() => setAssignVersion(null)}
                 onAssign={(destination, providers) => {
                   if (assignVersion) {
+                    if (Array.isArray(destination)) {
+                      void library
+                        .run((target) =>
+                          assignSkillDestinations({
+                            target,
+                            versions: [assignVersion],
+                            snapshot,
+                            destinations: destination,
+                            providers,
+                            isCurrent: () => true,
+                            onProgress: () => {}
+                          })
+                        )
+                        .then(async (results) => {
+                          if (results) {
+                            setNotice(
+                              results
+                                .map(
+                                  (row) => `${row.name}: ${row.status} · ${row.destinationLabel}`
+                                )
+                                .join(' · ')
+                            )
+                            setAssignVersion(null)
+                            await library.refresh()
+                          }
+                        })
+                      return
+                    }
                     void library
                       .mutate('skills.library.assign', {
                         versionId: assignVersion.versionId,

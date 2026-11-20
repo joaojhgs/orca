@@ -215,14 +215,14 @@ export function useSkillLibraryPage(props: SkillLibraryPageProps) {
       }
       return next
     })
-  const publish = async (bundleName: string) => {
+  const publish = async (bundleName: string, versions = shareVersions) => {
     const result = await library.run(async (target) =>
       z.object({ url: z.url(), packageDigest: z.string().regex(/^[a-f0-9]{64}$/) }).parse(
         await callRuntimeRpc(
           target,
           'skills.library.share',
           {
-            versionIds: shareVersions.map((version) => version.versionId),
+            versionIds: versions.map((version) => version.versionId),
             bundleName,
             reviewed: true
           },

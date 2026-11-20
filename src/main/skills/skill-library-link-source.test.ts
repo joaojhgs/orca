@@ -54,7 +54,7 @@ async function fixture() {
       return data
     }
   }
-  return { library, tree, api }
+  return { library, tree, api, blobs }
 }
 it.each([
   ['https://github.com/example/skills', { repo: 'example/skills', prefix: '' }],
@@ -127,4 +127,45 @@ it('rejects a symlink and unsafe paths before creating an imported snapshot', as
   const source = resolveLinkSkillSource(f.library, result.hostId)
   await expect(f.library.preview(source, result.candidates[0]!.id)).rejects.toThrow('Symlinks')
   expect((await f.library.store.snapshot()).versions).toHaveLength(0)
+})
+
+it('retains plugin origin when importing one member and deduplicates across independent link scans', async () => {
+  const f = await fixture()
+  const metadata = Buffer.from(
+    JSON.stringify({
+      name: 'toolkit',
+      version: '2.0',
+      repository: 'https://github.com/example/toolkit'
+    })
+  )
+  const sha = gitBlobSha(metadata).toString('hex')
+  f.blobs.set(sha, metadata)
+  f.tree.tree.push({
+    path: '.claude-plugin/plugin.json',
+    mode: '100644',
+    type: 'blob',
+    sha,
+    size: metadata.length
+  })
+  for (let index = 0; index < 2; index++) {
+    const discovered = await discoverLinkedSkills(
+      f.library,
+      'https://github.com/example/toolkit',
+      f.api
+    )
+    expect(discovered.candidates[0].plugin).toMatchObject({
+      name: 'toolkit',
+      version: '2.0',
+      memberPath: 'skills/safe-fixture'
+    })
+    const result = await f.library.importSelected(
+      { hostId: discovered.hostId, candidateIds: [discovered.candidates[0].id], reviewed: true },
+      resolveLinkSkillSource(f.library, discovered.hostId)
+    )
+    expect(result.results[0].status).toBe(index ? 'unchanged' : 'imported')
+  }
+  const catalog = await f.library.store.snapshot()
+  expect(catalog.versions).toHaveLength(1)
+  expect(catalog.versions[0].origins).toHaveLength(1)
+  expect(catalog.versions[0].origins[0].plugin?.name).toBe('toolkit')
 })

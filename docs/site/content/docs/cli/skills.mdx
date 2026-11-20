@@ -90,6 +90,30 @@ To remove a scanned skill, open its actions menu and choose **Delete…**. For s
 
 ## Share private skills between hosts
 
+### Server-local library and plugin groups
+
+The local Skills library imports reviewed snapshots from connected execution hosts or supported GitHub plugin/marketplace links. Skills in a plugin are grouped by their stable source identity. A plugin checkbox selects its members; clear individual checkboxes to import, assign, or share a subset without losing the plugin origin. Cached versions remain separate during discovery. Individual imports from the same plugin keep that origin too.
+
+Reimporting identical content does not create another copy. It records the additional host/plugin origin. To attach plugin grouping to older imports, scan and reimport their plugin source; unchanged snapshots retain their existing versions and assignments. Different content under an existing skill name still requires explicit review and permission to add a version.
+
+**Assign plugin** opens a grouped review with selectable skills and agent runtimes. Choose a host globally, one registered workspace, or a project’s currently registered workspaces on one or all of its hosts. Project assignment is a snapshot of those destinations, not an automatic rule for future workspaces. Offline assignments are queued. Files are provisioned into native skill directories, so ordinary agents on that host/workspace can discover them on their next normal load; this is not restricted to agents launched by Orca. Runtime choices are not a filesystem isolation boundary.
+
+Only skill directories and their contained supporting files are copied. Plugin hooks, MCP servers, commands, agent definitions, and plugin-root dependencies outside those directories are not installed or activated. Import and sharing do not execute scripts; an agent may later execute scripts from an assigned skill.
+
+**Share plugin** or **Share skills** publishes selected imported snapshots through approved server-local artifact hosting, without an Orca Cloud account. The downloadable bundle retains plugin origins in its plugin manifest, including partial selections. A local share URL can be scanned back into its owning Orca profile; revoked links cannot be newly resolved. Other servers can download the standard bundle, but arbitrary cross-server share URLs are not fetched by this importer. Links are bearer credentials, and revoking one cannot recall an already downloaded copy.
+
+```bash
+orca skills library discover --host ssh:personal --json
+orca skills library preview --host ssh:personal --skill <candidate-id> --json
+orca skills library import --host ssh:personal --plugin <plugin-id> --exclude-skill unwanted --reviewed --json
+orca skills library assign --plugin <plugin-id> --agent codex,claude --host ssh:worker --json
+orca skills library share --plugin <plugin-id> --bundle-name team-toolkit --reviewed --json
+```
+
+When several cached versions are present, use `--plugin-version` on import. Assignment and sharing choose the latest imported version of each selected skill; review their pinned IDs first. Existing package-size limits and the 50-skill operation limit still apply.
+
+### Optional cloud-backed sharing
+
 Open **Skills → Share skills** to publish one skill or a bundle behind one unlisted, revocable link. Publishing requires your Orca account. Review the included files, scripts, executables, digest, and optional release notes before you publish; each published version is immutable, so later local edits do not silently change what recipients install.
 
 Anyone with an active link can inspect and install the shared skills without signing in, so treat the link like a credential. A recipient reviews the exact version, chooses all or a subset of its skills, then selects global or workspace scope on this computer, a paired Orca runtime, WSL, or an SSH host. Existing modified skills default to **Keep local**. Use **Skills → Manage installs** to update, roll back, or remove copies Orca installed, and **Settings → Share Skills** to copy or revoke your active links. Revoking a link blocks future access but does not remove copies already installed.
