@@ -3,6 +3,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { useEmulatorFrameStream } from './use-emulator-frame-stream'
 import { useEmulatorVideoStream } from './use-emulator-video-stream'
 import { scrcpyDeviceIdFromStreamUrl } from './emulator-scrcpy-stream-url'
+import { isWebClientLocation } from '@/app-shell/platform/web-client-location'
 import { useTranslate } from '@/i18n/use-translate'
 import type { VisualStreamGeometry } from '../frame/emulator-device-frame-layout'
 
@@ -12,6 +13,7 @@ type StreamSize = {
 }
 
 type EmulatorScreenStreamContentProps = {
+  worktreeId?: string
   deviceId?: string
   loading: boolean
   onStreamError: () => void
@@ -25,6 +27,7 @@ type EmulatorScreenStreamContentProps = {
 }
 
 export function EmulatorScreenStreamContent({
+  worktreeId,
   deviceId,
   loading,
   onStreamError,
@@ -37,9 +40,12 @@ export function EmulatorScreenStreamContent({
   streamRotation = 0
 }: EmulatorScreenStreamContentProps) {
   const t = useTranslate()
-  const androidDeviceId = scrcpyDeviceIdFromStreamUrl(previewUrl)
+  const nativeVideo = !isWebClientLocation() && !previewUrl?.startsWith('remote-adb://')
+  const androidDeviceId = nativeVideo ? scrcpyDeviceIdFromStreamUrl(previewUrl) : null
   const iosVideoSession =
-    !androidDeviceId && deviceId && previewUrl ? `${deviceId}\n${previewUrl}\n${streamKey}` : null
+    nativeVideo && !androidDeviceId && deviceId && previewUrl
+      ? `${deviceId}\n${previewUrl}\n${streamKey}`
+      : null
   const [failedIosVideoSession, setFailedIosVideoSession] = useState<string | null>(null)
   const iosVideo = iosVideoSession !== null && iosVideoSession !== failedIosVideoSession
   const videoDeviceId = androidDeviceId ?? (iosVideo ? deviceId : undefined)
@@ -56,7 +62,9 @@ export function EmulatorScreenStreamContent({
   const frameStream = useEmulatorFrameStream(
     jpeg ? previewUrl : undefined,
     streamKey,
-    showStream && Boolean(previewUrl) && jpeg
+    showStream && Boolean(previewUrl) && jpeg,
+    deviceId,
+    worktreeId
   )
   const mediaError = frameStream.error ?? (androidDeviceId ? videoError : null)
 

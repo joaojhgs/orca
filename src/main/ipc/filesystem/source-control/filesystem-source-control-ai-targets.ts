@@ -10,6 +10,11 @@ import { resolve } from 'node:path'
 import { listRepoWorktreeGraph } from '../../../workspaces/catalog/repo-worktrees'
 import { resolveAuthorizedPath } from '../access/filesystem-auth'
 import { resolveRegisteredWorktreePath } from '../../worktrees/removal/registered-worktree-roots-cache'
+import {
+  getRepoExecutionHostId,
+  toSshExecutionHostId
+} from '../../../../shared/execution-host/execution-host'
+import { readAllWorktreeMetaForHost } from '../../../persistence/host-qualified-worktree-meta'
 import { splitWorktreeId } from '../../../../shared/worktree/id'
 
 function comparableLocalPath(value: string): string {
@@ -44,14 +49,15 @@ function comparableRemotePath(value: string): string {
 
 function hasRegisteredRemoteWorktreeMetaForRepo(
   store: Store,
-  repoId: string,
+  repo: Repo,
   worktreePath: string
 ): boolean {
   const comparableWorktreePath = comparableRemotePath(worktreePath)
-  for (const worktreeId of Object.keys(store.getAllWorktreeMeta())) {
+  const metadata = readAllWorktreeMetaForHost(store, getRepoExecutionHostId(repo))
+  for (const worktreeId of Object.keys(metadata)) {
     const parsed = splitWorktreeId(worktreeId)
     if (
-      parsed?.repoId === repoId &&
+      parsed?.repoId === repo.id &&
       comparableRemotePath(parsed.worktreePath) === comparableWorktreePath
     ) {
       return true
@@ -93,7 +99,7 @@ async function localRepoOwnsWorktree(
 function remoteRepoOwnsWorktree(store: Store, repo: Repo, worktreePath: string): boolean {
   return (
     comparableRemotePath(repo.path) === comparableRemotePath(worktreePath) ||
-    hasRegisteredRemoteWorktreeMetaForRepo(store, repo.id, worktreePath)
+    hasRegisteredRemoteWorktreeMetaForRepo(store, repo, worktreePath)
   )
 }
 
@@ -104,7 +110,10 @@ export async function getRepoForSourceControlAi(
   if (!args.repoId) {
     return null
   }
-  const repo = store.getRepo(args.repoId)
+  const repo = args.connectionId
+    ? (store.getRepoForHost?.(args.repoId, toSshExecutionHostId(args.connectionId)) ??
+      store.getRepo(args.repoId))
+    : store.getRepo(args.repoId)
   if (!repo) {
     return null
   }

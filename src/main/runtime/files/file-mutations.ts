@@ -64,11 +64,18 @@ export class RuntimeFileMutations {
       expectedSshTargetId,
       expectedSshConnectionGeneration
     )
-    return requireRuntimeFileProvider(target, this.host).writeFileWithDiskPrecondition(
-      target.path,
-      content,
-      diskPrecondition
-    )
+    const provider = requireRuntimeFileProvider(target, this.host)
+    if ('writeFileWithDiskPrecondition' in provider) {
+      return provider.writeFileWithDiskPrecondition(target.path, content, diskPrecondition)
+    }
+    if (diskPrecondition) {
+      if (!provider.writeFileIfUnchanged) {
+        throw new Error('This host cannot compare a file before saving')
+      }
+      return provider.writeFileIfUnchanged(target.path, content, diskPrecondition)
+    }
+    await provider.writeFile(target.path, content)
+    return { ok: true }
   }
 
   async writeFileExplorerFileBase64(

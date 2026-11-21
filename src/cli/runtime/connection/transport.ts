@@ -1,3 +1,5 @@
+import { readSshBridgeCredential } from '../../../shared/ssh-bridge-credential-env'
+import { readOptionalManagerCredential } from '../../manager/manager-credential'
 import { createConnection } from 'node:net'
 import { randomUUID } from 'node:crypto'
 import {
@@ -47,6 +49,8 @@ export async function sendRequest<TResult>(
       `Runtime request timeout must be an integer between 0 and ${MAX_TIMER_DELAY_MS}ms.`
     )
   }
+  const authToken =
+    readOptionalManagerCredential() ?? readSshBridgeCredential() ?? metadata.authToken
   return await new Promise((resolve, reject) => {
     const transport = findTransport(metadata, 'unix', 'named-pipe')
     if (!transport) {
@@ -236,7 +240,7 @@ export async function sendRequest<TResult>(
       try {
         const serialized = `${JSON.stringify({
           id,
-          authToken: metadata.authToken,
+          authToken,
           method: requestedMethod,
           params: requestedParams,
           orchestrationCapability: envelope?.orchestrationCapability,

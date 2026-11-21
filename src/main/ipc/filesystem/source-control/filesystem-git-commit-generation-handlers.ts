@@ -13,7 +13,11 @@ import {
 import type { GenerateCommitMessageResult } from '../../../text-generation/source-control-text-generation-types'
 import { getCommitMessageModelDiscoveryHostKey } from '../../../../shared/source-control/ai/generation/commit-message-host-key'
 import { getStagedCommitContext } from '../../../git/source-control/mutations/staged-commit-context'
-import { SSH_HOST_NOT_SERVED_MESSAGE } from '../../../providers/ssh-host-not-served-error'
+import {
+  getSshGitProvider,
+  SSH_GIT_PROVIDER_UNAVAILABLE_MESSAGE
+} from '../../../providers/ssh-git-dispatch'
+import { getSshTextGenerationTarget } from './ssh-source-control-generation-target'
 import { resolveRegisteredWorktreePath } from '../../worktrees/removal/registered-worktree-roots-cache'
 import { getLocalGitOptionsForRegisteredWorktree } from '../../worktrees/local-worktree-runtime-options'
 import { withLinkedIssueDraftContext } from '../../../../shared/source-control/ai/recipes/source-control-ai-action-variables'
@@ -74,7 +78,35 @@ export function registerFilesystemGitCommitGenerationHandlers(
         }
       }
       if (args.connectionId) {
-        return { success: false, error: SSH_HOST_NOT_SERVED_MESSAGE }
+        const provider = getSshGitProvider(args.connectionId)
+        if (!provider) {
+          return {
+            success: false,
+            error: SSH_GIT_PROVIDER_UNAVAILABLE_MESSAGE
+          }
+        }
+        let context
+        try {
+          context = await provider.getStagedCommitContext(args.worktreePath)
+        } catch (error) {
+          console.error('[filesystem] Failed to read remote staged commit context:', error)
+          return {
+            success: false,
+            ...textGenerationFailure('stagedChangesReadFailed')
+          }
+        }
+        if (!context) {
+          return { success: false, ...textGenerationFailure('noStagedChanges') }
+        }
+        context = withLinkedIssueDraftContext(
+          context,
+          resolveSourceControlAiLinkedIssue(store, args)
+        )
+        return generateCommitMessageFromContext(
+          context,
+          resolvedSettings.params,
+          getSshTextGenerationTarget(provider, args.worktreePath)
+        )
       }
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
       const gitOptions = getLocalGitOptionsForRegisteredWorktree(
@@ -131,6 +163,10 @@ export function registerFilesystemGitCommitGenerationHandlers(
     'git:cancelGenerateCommitMessage',
     async (_event, args: { worktreePath: string; connectionId?: string }): Promise<void> => {
       if (args.connectionId) {
+        await getSshGitProvider(args.connectionId)?.cancelGenerateCommitMessage(
+          args.worktreePath,
+          'commit-message'
+        )
         return
       }
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)

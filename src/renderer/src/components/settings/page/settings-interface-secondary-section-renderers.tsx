@@ -2,6 +2,7 @@ import { StatsPane } from '../../stats/StatsPane'
 import { AppearancePane } from '../appearance/AppearancePane'
 import { ChatSettingsSection } from '../chat/ChatSettingsSection'
 import { InputPane } from '../input/InputPane'
+import { NotificationScopeRules } from '../NotificationScopeRules'
 import { NotificationsPane } from '../notifications/NotificationsPane'
 import { ServerNotificationsPane } from '../notifications/ServerNotificationsPane'
 import { ShortcutsPane } from '../shortcuts/ShortcutsPane'
@@ -135,10 +136,18 @@ export function renderNotificationsSettingsSection(
     >
       {!view.isSectionMounted('notifications') ? null : !model.settingsHostScope.available ? (
         <SettingsHostScopeUnavailableNotice />
-      ) : model.settingsHostScope.target.kind === 'environment' ? (
-        <ServerNotificationsPane environmentId={model.settingsHostScope.target.environmentId} />
       ) : (
-        <NotificationsPane settings={model.settings} updateSettings={model.updateSettings} />
+        <div className="space-y-8">
+          {target.kind === 'environment' ? (
+            <ServerNotificationsPane environmentId={target.environmentId} />
+          ) : (
+            <NotificationsPane settings={model.settings} updateSettings={model.updateSettings} />
+          )}
+          <NotificationScopeRules
+            key={target.kind === 'environment' ? target.environmentId : 'local'}
+            owner={target}
+          />
+        </div>
       )}
     </SettingsSection>
   ) : null

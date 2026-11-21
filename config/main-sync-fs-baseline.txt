@@ -26,6 +26,7 @@
 3 src/main/antigravity/native-file-credentials.ts
 3 src/main/artifacts/artifact-create-intent-store.ts
 2 src/main/artifacts/artifact-share-record-store.ts
+2 src/main/artifacts/local-artifact-store.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 1 src/main/automations/external-managers/external-manager-discovery.ts
 2 src/main/bots/bot-access-request-watch.ts
 1 src/main/bots/bot-look-around-store.ts
@@ -163,8 +164,10 @@
 1 src/main/codex/trust/toml/config-toml-project-trust.ts
 4 src/main/composio/composio-cleanup.ts
 5 src/main/composio/composio-events-ingress.ts
+5 src/main/computer/desktop-vnc-targets.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 3 src/main/computer/macos-native/macos-native-provider-paths.ts
 1 src/main/computer/sidecar-transport/sidecar-client.ts
+4 src/main/computer/ssh-preview-policy.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 1 src/main/connector-cloud/connector-turn-outbox-file.ts
 1 src/main/copilot/hook-service.ts
 4 src/main/crash-reporting/capture/appimage-crashpad-handler-exit.ts
@@ -233,6 +236,9 @@
 2 src/main/emulator/serve-sim-detached-session.ts
 7 src/main/emulator/serve-sim-execution.ts
 17 src/main/emulator/serve-sim-runtime-materializer.ts
+1 src/main/execution-observer/agent-notification-worker.ts # retained published fork 6685509715; imports/types only, frozen existing debt
+1 src/main/execution-observer/antigravity-usage.ts # retained published fork 6685509715; imports/types only, frozen existing debt
+2 src/main/execution-observer/credential-discovery.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 12 src/main/external-editors/external-editor-launch.ts
 13 src/main/filesystem/atomic-file-publication.ts
 9 src/main/filesystem/durable-file-write.ts
@@ -302,6 +308,7 @@
 2 src/main/node-runtime/managed-runtime-release-install.ts
 7 src/main/node-runtime/managed-runtime-release.ts
 11 src/main/notebook/python-environments.ts
+2 src/main/notifications/notification-digest-queue.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 1 src/main/observability/bounded-log-file-writer.ts
 2 src/main/observability/bundle.ts
 6 src/main/observability/local-file-sink.ts
@@ -412,6 +419,7 @@
 3 src/main/plugins/storage/plugin-storage-store.ts
 1 src/main/plugins/testing/plugin-editor-static-check.ts
 1 src/main/plugins/workers/parent-process/plugin-host-process.ts
+3 src/main/ports/agent-forward-access.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 1 src/main/ports/port-scan-command-client.ts
 2 src/main/provider-process/provider-executable-missing.ts
 3 src/main/provider-process/provider-ownership-journal.ts
@@ -490,6 +498,11 @@
 5 src/main/ssh/config/ssh-config-include-expander.ts
 1 src/main/ssh/config/ssh-config-parser.ts
 1 src/main/ssh/config/ssh-g-config-resolution.ts
+1 src/main/ssh/orcad-deployment-target.ts # retained published fork 6685509715; imports/types only, frozen existing debt
+2 src/main/ssh/ssh-relay-native-deps-cache-install.ts # retained published fork 6685509715; imports/types only, frozen existing debt
+1 src/main/ssh/ssh-relay-ripgrep-install.ts # retained published fork 6685509715; imports/types only, frozen existing debt
+2 src/main/ssh/ssh-relay-versioned-install.ts # retained published fork 6685509715; imports/types only, frozen existing debt
+1 src/main/ssh/ssh-windows-host-cells.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 3 src/main/ssh/system-transport/file-transfer/system-ssh-sftp-transfer.ts
 3 src/main/ssh/system-transport/ssh-control-socket.ts
 3 src/main/ssh/system-transport/system-ssh-binary.ts
@@ -498,6 +511,7 @@
 1 src/main/startup/diagnostics/startup-diagnostics.ts
 4 src/main/startup/gpu-recovery/gpu-fallback-marker.ts
 6 src/main/startup/linux-display/x-display-artifacts.ts
+10 src/main/startup/linux-headless-accessibility.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 1 src/main/startup/linux-runtime/linux-dev-shm-policy.ts
 4 src/main/startup/linux-runtime/linux-realtime-scheduling-guard.ts
 1 src/main/startup/linux-runtime/linux-rttime-limit.ts
@@ -595,3 +609,6 @@
 1 src/shared/terminal/pty/native-process/pty-process-ceiling-state.ts
 2 src/shared/web-client/bundled-web-client-manifest.ts
 3 src/shared/web-client/bundled-web-client-root.ts
+1 src/main/ipc/filesystem/downloads/local-downloaded-folder-promotion.ts # retained published fork 6685509715; src/main/local-downloaded-folder-promotion.ts:218
+2 src/main/ssh/ssh-relay-deploy.ts # retained published fork 6685509715; src/main/ssh/ssh-relay-deploy.ts:991,2033
+2 src/main/ssh/ssh-remote-cli-host-passthrough.ts # retained published fork 6685509715; src/main/ssh/ssh-remote-cli-host-passthrough.ts:221

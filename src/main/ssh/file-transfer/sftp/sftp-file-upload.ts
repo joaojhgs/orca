@@ -40,12 +40,13 @@ export async function uploadFileWithWindow(
   let readStream: ReadStream | undefined
   let writeStream: ReturnType<SFTPWrapper['createWriteStream']> | undefined
   let writeStreamErrors: SftpStreamErrorLatch | undefined
-  const sessionClosed = watchSessionClose(sftp)
+  let sessionClosed: ReturnType<typeof watchSessionClose> | undefined
   const closeHandle = (): Promise<void> => {
     handleClose ??= handle.close()
     return handleClose
   }
   try {
+    sessionClosed = watchSessionClose(sftp)
     options?.signal?.throwIfAborted()
     const statResult = await lstat(localPath)
     if (statResult.isSymbolicLink() || !statResult.isFile()) {
@@ -109,7 +110,7 @@ export async function uploadFileWithWindow(
       options?.signal?.removeEventListener('abort', abortTransfer)
     }
   } finally {
-    sessionClosed.release()
+    sessionClosed?.release()
     writeStreamErrors?.markTransferSettled()
     readStream?.destroy()
     writeStream?.destroy()

@@ -108,6 +108,7 @@ export function useRemoteBrowserPageAnnotate({
     markup,
     pickerAvailable: toolsAvailable,
     annotateTools,
+    grabIdle: annotate.grab.state === 'idle',
     annotateBanner: <BrowserGuestGrabBanner tools={annotate} worktreeId={worktreeId} />,
     annotateOverlays: (
       <BrowserGuestAnnotateOverlays

@@ -24,6 +24,7 @@ export const runtimeApi = {
   call: (args: {
     method: string
     params?: unknown
+    timeoutMs?: number
     orchestration?: { contractVersion: number; requestId: string }
   }): Promise<RuntimeRpcResponse<unknown>> => ipcRenderer.invoke('runtime:call', args),
   subscribe: async (

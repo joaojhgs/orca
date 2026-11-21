@@ -5,6 +5,10 @@ import { WebSocketServer, type WebSocket } from 'ws'
 import type { RpcTransport } from '../../transport'
 import { answerWithoutWebClient, createStaticWebClientHandler } from './static-web-client-handler'
 import {
+  attachDesktopVncWebSocketBridge,
+  type DesktopVncWebSocketBridge
+} from '../../desktop-vnc-websocket-bridge'
+import {
   attachNodeWebSocketLifecycle,
   clearNodeWebSocketPreAuthTimer,
   rejectNodeWebSocketOverCapacity,
@@ -14,7 +18,7 @@ import {
 } from './node-websocket-lifecycle'
 import { RemoteRuntimeServerHeartbeat } from './remote-runtime-server-heartbeat'
 import { assertPortNotShadowingListener } from './shadowed-port-probe'
-import { REMOTE_RUNTIME_MAX_INBOUND_FRAME_BYTES } from '../../../../../shared/remote-runtime/remote-runtime-memory-limits'
+import { REMOTE_RUNTIME_MAX_WEBSOCKET_FRAME_BYTES } from '../../../../../shared/remote-runtime/remote-runtime-memory-limits'
 import {
   classifyNetworkSource,
   type NetworkSourceClass
@@ -23,7 +27,7 @@ import { UnauthenticatedSourceCap } from './source-admission/ws-unauthenticated-
 import type { WebSocketSourceGuard } from './source-admission/ws-network-source-guard'
 import { reserveBrowserTunnelOrcaListenerPort } from '../../../../browser/network/tunnels/browser-network-tunnel-destination-policy'
 
-export const WEBSOCKET_TRANSPORT_MAX_MESSAGE_BYTES = REMOTE_RUNTIME_MAX_INBOUND_FRAME_BYTES
+export const WEBSOCKET_TRANSPORT_MAX_MESSAGE_BYTES = REMOTE_RUNTIME_MAX_WEBSOCKET_FRAME_BYTES
 // Allow many remote-desktop streams so stale ones cannot starve control RPCs.
 const WEBSOCKET_TRANSPORT_MAX_CONNECTIONS = 128
 // Bound pre-upgrade descriptors independently above the WS cap.
@@ -71,6 +75,7 @@ export class WebSocketTransport implements RpcTransport {
   private persistedFallbackBindFailed = false
   private httpServer: HttpServer | null = null
   private wss: WebSocketServer | null = null
+  private vncBridge: DesktopVncWebSocketBridge | null = null
   private releaseTunnelReservation = (): void => {}
   private messageHandler: WebSocketMessageHandler | null = null
   private connectionCloseHandler: WebSocketConnectionCloseHandler | null = null
@@ -246,9 +251,10 @@ export class WebSocketTransport implements RpcTransport {
     })
 
     const wss = new WebSocketServer({
-      server: httpServer,
+      noServer: true,
       maxPayload: WEBSOCKET_TRANSPORT_MAX_MESSAGE_BYTES
     })
+    const vncBridge = attachDesktopVncWebSocketBridge(httpServer, wss)
 
     wss.on('connection', (ws, request) => {
       this.peers.set(ws, {
@@ -264,14 +270,18 @@ export class WebSocketTransport implements RpcTransport {
 
     this.httpServer = httpServer
     this.wss = wss
+    this.vncBridge = vncBridge
     this.releaseTunnelReservation = reserveBrowserTunnelOrcaListenerPort(this.resolvedPort)
   }
 
   async stop(): Promise<void> {
     const wss = this.wss
     const httpServer = this.httpServer
+    const vncBridge = this.vncBridge
     this.wss = null
     this.httpServer = null
+    this.vncBridge = null
+    vncBridge?.stop()
     const releaseTunnelReservation = this.releaseTunnelReservation
     this.releaseTunnelReservation = () => {}
     try {

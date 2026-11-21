@@ -1,6 +1,6 @@
 import { ImeInput } from '@/lib/text-input/ime/ime-text-field'
 import { useEffect, useRef, useState } from 'react'
-import { Eye, Pencil } from 'lucide-react'
+import { Eye, Pencil, Share2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +9,13 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import {
+  DropdownMenuGroup,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent
+} from '@/components/ui/dropdown-menu'
+import type { ArtifactMarkdownLayout } from '@/components/artifacts/artifact-share-layout'
 import { useShortcutLabel } from '@/lib/keyboard/useShortcutLabel'
 import { isImeCompositionKeyDown } from '@/lib/text-input/ime/ime-composition-keyboard-event'
 import { useTranslate } from '@/i18n/use-translate'
@@ -26,6 +33,8 @@ type EditorPanelHeaderPathProps = {
   canShowMarkdownPreview: boolean
   onCopyPath: () => void
   onOpenMarkdownPreview: () => void
+  onShareArtifact?: (layout?: ArtifactMarkdownLayout) => void
+  isMarkdown?: boolean
 }
 
 export function EditorPanelHeaderPath({
@@ -33,12 +42,18 @@ export function EditorPanelHeaderPath({
   copiedPathVisible,
   canShowMarkdownPreview,
   onCopyPath,
-  onOpenMarkdownPreview
+  onOpenMarkdownPreview,
+  onShareArtifact,
+  isMarkdown
 }: EditorPanelHeaderPathProps): React.JSX.Element {
   const t = useTranslate()
   const [pathMenuOpen, setPathMenuOpen] = useState(false)
   const [pathMenuPoint, setPathMenuPoint] = useState({ x: 0, y: 0 })
   const skipMenuFocusRestoreRef = useRef(false)
+  const selectShareLayout = (layout?: ArtifactMarkdownLayout): void => {
+    skipMenuFocusRestoreRef.current = true
+    onShareArtifact?.(layout)
+  }
   const headerCopyState = getEditorHeaderCopyState(activeFile, t)
   const displayPath = splitPathForDisplay(headerCopyState.pathLabel)
   const canCopyHeaderPath = headerCopyState.copyText !== null
@@ -149,6 +164,34 @@ export function EditorPanelHeaderPath({
             event.preventDefault()
           }}
         >
+          {onShareArtifact ? (
+            <DropdownMenuGroup>
+              {isMarkdown ? (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Share2 />
+                    {t('artifacts.share.action', 'Share as artifact')}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem onSelect={() => selectShareLayout('full-width')}>
+                        {t('artifacts.share.fullWidth', 'Full width')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => selectShareLayout('a4')}>
+                        {t('artifacts.share.a4', 'Centered A4')}
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              ) : (
+                <DropdownMenuItem onSelect={() => selectShareLayout()}>
+                  <Share2 />
+                  {t('artifacts.share.action', 'Share as artifact')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+            </DropdownMenuGroup>
+          ) : null}
           <DropdownMenuItem
             disabled={!canRename}
             onSelect={() => {

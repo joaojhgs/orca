@@ -1,12 +1,5 @@
-import type { FolderWorkspace } from '../folder-workspaces/folder-workspace-types'
-import type { ProjectGroup } from '../project/groups/project-group-types'
-import type { Repo } from '../repository/repo-types'
-import type { ProjectOrderBy } from '../ui-chrome/ui-chrome-types'
-import type { WorktreeLineage } from '../worktree/lineage-types'
-import type { SidebarLineageParentIdentities } from './lineage/worktree-lineage-projection'
-import type { WorkspaceStatusDefinition, Worktree } from '../worktree/types'
-import type { ExecutionHostId } from '../execution-host/execution-host'
-import type { HiddenProjects } from '../project/catalog/hidden-projects'
+import type { Worktree } from '../worktree/types'
+import { getWorktreeExecutionHostId } from '../execution-host/execution-host'
 import { ALL_GROUP_KEY, PINNED_GROUP_KEY } from './sections/group-keys'
 import { appendOrderedGroups, type SectionAppendContext } from './sections/group-sections'
 
@@ -18,8 +11,7 @@ import {
 } from './hosts/host-labels'
 import {
   buildProjectGroupingIndex,
-  getProjectGroupingForRepo,
-  type ProjectSectionModel
+  getProjectGroupingForRepo
 } from './sections/project-section-grouping'
 import {
   buildWorktreeOccurrencePlan,
@@ -35,69 +27,30 @@ import {
 import { getSidebarLineageChildren } from './lineage/pinned-section-worktrees'
 import { emitPinnedGroup } from './sections/pinned-group-rows'
 import { appendWorktreeRows, buildPendingCreationRow } from './sections/row-builders'
+import { createSidebarProjectGroupIndex } from './sections/project-group-owner-index'
 import { getRenderableFolderWorkspaces } from './folders/folder-workspace-lanes'
 import {
   getFolderLaneSections,
   getSidebarFolderOccurrences,
   isFolderLaneSectionKey
 } from './folders/folder-workspace-occurrences'
-import type {
-  ImportedWorktreesCardCandidate,
-  NewExternalWorktreesInboxCandidate,
-  PendingCreationRef,
-  PinnedWorktreeDisplayPolicy,
-  RepoOfWorktree,
-  Row,
-  SidebarPRGroupReader,
-  WorktreeGroupBy
-} from './row-types'
+import type { PendingCreationRef, Row } from './row-types'
 import { orderMainWorktreeFirst } from './sections/section-order'
 import { appendImportedWorktreeLines } from './sections/imported-worktree-lines'
 import { withRepoSectionDisplayLabels } from './sections/project-section-order'
 import { buildOrderedGroups } from './sections/worktree-grouping'
-import type { WorkspaceSortBy } from '../workspace-view/workspace-row-sort'
+import type { SidebarRowPlanInputs } from './sidebar-row-plan-inputs'
+
+export type { SidebarRowPlanInputs } from './sidebar-row-plan-inputs'
 
 type SidebarOccurrenceSection = WorktreeOccurrenceSection<Worktree> & { group: WorktreeGroupEntry }
-
-/** Everything the row builder reads. Pure data: no store, clock or client-specific state. */
-export type SidebarRowPlanInputs = {
-  groupBy: WorktreeGroupBy
-  sortBy: WorkspaceSortBy
-  /** Visible worktrees in the frozen sort order. */
-  worktrees: Worktree[]
-  repoMap: Map<string, Repo>
-  /** Defaults to repoMap's registration for the row's repo id. */
-  repoOfWorktree?: RepoOfWorktree
-  prGroupOf: SidebarPRGroupReader
-  repoOrder?: Map<string, number>
-  workspaceStatuses: readonly WorkspaceStatusDefinition[]
-  projectOrderBy: ProjectOrderBy
-  lineageById: Record<string, WorktreeLineage>
-  /** Parents resolved once over every visible store's complete rows; nesting reuses them. */
-  lineageParentIdentities?: SidebarLineageParentIdentities
-  worktreeMap: Map<string, Worktree>
-  nestLineage: boolean
-  projectGroups: readonly ProjectGroup[]
-  placeholderRepoIds: ReadonlySet<string>
-  importedWorktreesByRepo: ReadonlyMap<string, ImportedWorktreesCardCandidate>
-  newExternalWorktreesInboxByRepo: ReadonlyMap<string, NewExternalWorktreesInboxCandidate>
-  pendingCreations: readonly PendingCreationRef[]
-  projectGrouping?: ProjectSectionModel
-  folderWorkspaces: readonly FolderWorkspace[]
-  hostLabelById?: ReadonlyMap<string, string>
-  defaultHostId: ExecutionHostId
-  pinnedDisplayPolicy: PinnedWorktreeDisplayPolicy
-  filterRepoIds: readonly string[]
-  /** A hidden project's rows reach the plan only under a folder workspace; they never make its section. */
-  hiddenProjects?: HiddenProjects
-}
 
 /** Plans the sidebar's sections once; `render` emits rows for a collapse state. */
 export function planSidebarRows(inputs: SidebarRowPlanInputs) {
   const {
     groupBy,
     sortBy,
-    worktrees,
+    worktrees: sourceWorktrees,
     repoMap,
     repoOfWorktree,
     prGroupOf,
@@ -120,10 +73,18 @@ export function planSidebarRows(inputs: SidebarRowPlanInputs) {
     pinnedDisplayPolicy,
     filterRepoIds
   } = inputs
+  const worktrees = [
+    ...new Map(sourceWorktrees.map((row) => [getWorktreeHostIdentity(row), row])).values()
+  ]
+  const projectGroupIndex = createSidebarProjectGroupIndex(projectGroups, defaultHostId)
   const projectIndex = buildProjectGroupingIndex(projectGrouping)
   const repoOf = repoOfWorktree ?? ((worktree: Worktree) => repoMap.get(worktree.repoId))
   // Resolve folder membership before groupBy; every mode renders the same set (#15362).
-  const renderableFolderWorkspaces = getRenderableFolderWorkspaces(folderWorkspaces, projectGroups)
+  const renderableFolderWorkspaces = getRenderableFolderWorkspaces(
+    folderWorkspaces,
+    projectGroups,
+    defaultHostId
+  )
   const pendingByRepo = new Map<string, PendingCreationRef[]>()
   for (const creation of pendingCreations) {
     const list = pendingByRepo.get(creation.repoId) ?? []
@@ -131,9 +92,13 @@ export function planSidebarRows(inputs: SidebarRowPlanInputs) {
     pendingByRepo.set(creation.repoId, list)
   }
 
-  const projectGroupPaths = getProjectGroupOccurrencePaths(projectGroups)
+  const projectGroupPaths = getProjectGroupOccurrencePaths(projectGroupIndex)
   // Folder rows are occurrences too, so a folder parent nests its children like any other row.
-  const folders = getSidebarFolderOccurrences(renderableFolderWorkspaces, inputs.hiddenProjects)
+  const folders = getSidebarFolderOccurrences(
+    renderableFolderWorkspaces,
+    inputs.hiddenProjects,
+    projectGroupIndex.sectionId
+  )
   const lineageChildren = nestLineage
     ? getSidebarLineageChildren(
         worktrees,
@@ -183,10 +148,16 @@ export function planSidebarRows(inputs: SidebarRowPlanInputs) {
         groups.unshift([PINNED_GROUP_KEY, { label: '', items: pinned, repoIds: new Set() }])
       }
       const sections = groups.map(([key, group]): SidebarOccurrenceSection => {
-        const revealPath =
+        const projectGroup =
           groupBy === 'repo' && key !== PINNED_GROUP_KEY && group.repo?.projectGroupId
-            ? projectGroupPaths.get(group.repo.projectGroupId)
+            ? projectGroupIndex.resolve(
+                group.repo.projectGroupId,
+                getWorktreeExecutionHostId({}, group.repo, defaultHostId)
+              )
             : undefined
+        const revealPath = projectGroup
+          ? projectGroupPaths.get(projectGroupIndex.sectionId(projectGroup))
+          : undefined
         const items = (
           groupBy === 'repo' && key !== PINNED_GROUP_KEY
             ? orderMainWorktreeFirst(group.items, sortBy)

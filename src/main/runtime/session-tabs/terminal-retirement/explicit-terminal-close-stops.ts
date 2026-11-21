@@ -11,7 +11,6 @@ import {
   NO_STOP,
   OrcaRuntimeWithExplicitCloseTabPtyStops
 } from './explicit-terminal-close-pty-stops'
-import { closePairedHostLeafFirst } from './paired-host-terminal-close'
 
 export abstract class OrcaRuntimeWithStopExplicitlyClosedTabPtys extends OrcaRuntimeWithExplicitCloseTabPtyStops {
   protected abstract getResolvedWorktreeMap(): Promise<Map<string, ResolvedWorktree>>
@@ -40,22 +39,17 @@ export abstract class OrcaRuntimeWithStopExplicitlyClosedTabPtys extends OrcaRun
     terminalHandlesByPtyId: Readonly<Record<string, readonly string[]>>
   }): void
 
-  /** null when this machine owns the PTY; see `closePairedHostLeafFirst` otherwise. */
-  private closeOnOwningPairedHost(
+  async closeTerminal(
     handle: string,
-    leaf: { worktreeId: string; tabId: string; leafId: string; ptyId: string | null },
-    method: 'terminal.close' | 'terminal.closeTab',
-    closesTab: boolean
-  ): ReturnType<typeof closePairedHostLeafFirst> {
-    return closePairedHostLeafFirst(leaf, method, {
-      call: (environmentId, hostMethod, params, timeoutMs) =>
-        this.callOrchestrationWorkerServer(environmentId, hostMethod, params, timeoutMs),
-      isTabPinned: () => closesTab && this.isTabPinnedInAnySession(leaf.worktreeId, leaf.tabId),
-      readBoundLeaf: () => this.getLiveLeafForHandle(handle).leaf
-    })
-  }
-
-  async closeTerminal(handle: string): Promise<RuntimeTerminalClose> {
+    expectedIncarnationId?: string
+  ): Promise<RuntimeTerminalClose> {
+    if (expectedIncarnationId) {
+      const ptyId =
+        this.getLivePtyForHandle(handle)?.pty.ptyId ?? this.resolveLiveLeafForHandle(handle)?.ptyId
+      if (!ptyId || this.ptysById.get(ptyId)?.incarnationId !== expectedIncarnationId) {
+        throw new Error('terminal_incarnation_mismatch')
+      }
+    }
     if (ORCA_LAYOUT_OWNER_IS_MAIN) {
       const mainClose = await closeMainOwnedPaneByHandle(
         {

@@ -47,6 +47,7 @@ export type OrcaRuntimeRpcServerOptions = {
   // `orca serve` only: refuse public source addresses unless allowed (desktop listeners never filter).
   serveNetworkSources?: ServeNetworkSourceOptions
   webClientRoot?: string
+  advertisedPairingAddress?: string
   // Test-only timing overrides; production keeps design §3.1 defaults.
   keepaliveIntervalMs?: number
   longPollCap?: number

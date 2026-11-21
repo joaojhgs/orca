@@ -10,7 +10,8 @@ import type {
   SshTarget,
   SshTargetAddResult,
   SshTargetCreateInput,
-  SshTargetUpdateInput
+  SshTargetUpdateInput,
+  SshTerminateSessionsResult
 } from '../../../shared/remote-runtime/ssh/ssh-types'
 import type { FilesystemPathFlavor } from '../../../shared/file-access/filesystem-path-flavor'
 
@@ -27,6 +28,14 @@ export type SshApi = {
   /** `automatic`: a connect no user asked for; it never lifts a cancelled sign-in. */
   connect: (args: { targetId: string; automatic?: boolean }) => Promise<SshConnectionState | null>
   disconnect: (args: { targetId: string }) => Promise<void>
+  terminateSessions?: (args: {
+    targetId: string
+    forRemoval?: boolean
+  }) => Promise<SshTerminateSessionsResult>
+  resetRelay?: (args: { targetId: string }) => Promise<void>
+  moveToManagedServer?: (args: {
+    targetId: string
+  }) => Promise<{ outcome: 'moved'; environmentId: string } | { outcome: 'stayed' }>
   getState: (args: { targetId: string }) => Promise<SshConnectionState | null>
   needsPassphrasePrompt: (args: { targetId: string }) => Promise<boolean>
   testConnection: (args: {

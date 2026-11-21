@@ -8,6 +8,7 @@ import {
 } from '../../execution-host/execution-host'
 import type { FolderWorkspace } from '../../folder-workspaces/folder-workspace-types'
 import type { ProjectGroup } from '../../project/groups/project-group-types'
+import { createSidebarProjectGroupIndex } from '../sections/project-group-owner-index'
 import type { Repo } from '../../repository/repo-types'
 
 /** null means "no host filter" — every host is visible. */
@@ -56,16 +57,20 @@ export function filterFolderWorkspacesForVisibleHosts(
   if (!visibleHostIdSet) {
     return folderWorkspaces
   }
-  const projectGroupById = new Map(projectGroups.map((group) => [group.id, group]))
-  return folderWorkspaces.filter((folderWorkspace) =>
-    visibleHostIdSet.has(
-      getFolderWorkspaceExecutionHostIdForRows({
-        folderWorkspace,
-        projectGroup: projectGroupById.get(folderWorkspace.projectGroupId),
-        defaultHostId
-      })
-    )
-  )
+  const groups = createSidebarProjectGroupIndex(projectGroups, defaultHostId)
+  return folderWorkspaces.filter((folderWorkspace) => {
+    const hostId = getFolderWorkspaceExecutionHostIdForRows({
+      folderWorkspace,
+      projectGroup: undefined,
+      defaultHostId
+    })
+    const group = groups.resolve(folderWorkspace.projectGroupId, hostId)
+    const owner =
+      !folderWorkspace.executionHostId && !folderWorkspace.connectionId && group
+        ? groups.owner(group)
+        : hostId
+    return visibleHostIdSet.has(owner)
+  })
 }
 
 export function getProjectGroupExecutionHostIdForRows(

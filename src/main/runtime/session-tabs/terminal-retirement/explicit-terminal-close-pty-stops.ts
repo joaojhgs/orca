@@ -6,7 +6,10 @@ import { errorMessage } from '../../../../shared/errors/error-message'
 import type { PtyIncarnationId } from '../../../../shared/terminal/pty/lifecycle/pty-incarnation'
 import type { RuntimeTerminalClose } from '../../../../shared/terminal/runtime/runtime-terminal-contracts'
 import { describeMobileSessionTabCloseRefusal } from '../../session-lifecycle/close/mobile-session-tab-close-refusal-message'
-import { isTerminalTabPinnedInSession } from './paired-host-terminal-close'
+import {
+  closePairedHostLeafFirst,
+  isTerminalTabPinnedInSession
+} from './paired-host-terminal-close'
 
 // Include immediate-kill and follow-up inventory budgets; agent exit hooks can delay verification.
 const EXPLICIT_TERMINAL_CLOSE_STOP_TIMEOUT_MS = IMMEDIATE_KILL_REPLY_BUDGET_MS + 2_000
@@ -28,6 +31,21 @@ function isSuccessor(
 }
 
 export abstract class OrcaRuntimeWithExplicitCloseTabPtyStops extends OrcaRuntimeWithFocusTerminal {
+  /** null when this machine owns the PTY; see `closePairedHostLeafFirst` otherwise. */
+  protected closeOnOwningPairedHost(
+    handle: string,
+    leaf: { worktreeId: string; tabId: string; leafId: string; ptyId: string | null },
+    method: 'terminal.close' | 'terminal.closeTab',
+    closesTab: boolean
+  ): ReturnType<typeof closePairedHostLeafFirst> {
+    return closePairedHostLeafFirst(leaf, method, {
+      call: (environmentId, hostMethod, params, timeoutMs) =>
+        this.callOrchestrationWorkerServer(environmentId, hostMethod, params, timeoutMs),
+      isTabPinned: () => closesTab && this.isTabPinnedInAnySession(leaf.worktreeId, leaf.tabId),
+      readBoundLeaf: () => this.getLiveLeafForHandle(handle).leaf
+    })
+  }
+
   /** Captured before asking the window, so a failed close never stops a successor reusing a PTY id. */
   protected captureOwedPtyStops(ptyIds: Iterable<string>): OwedPtyIncarnations {
     return new Map([...ptyIds].map((ptyId) => [ptyId, this.ptysById.get(ptyId)?.incarnationId]))

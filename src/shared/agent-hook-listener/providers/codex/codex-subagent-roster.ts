@@ -21,6 +21,7 @@ import {
 } from '../../../agent-status/child-work/agent-status-child-work-liveness'
 
 const CODEX_SUBAGENT_ID_MAX_LENGTH = 64
+const MAX_RETAINED_CODEX_SUBAGENTS = 32
 
 export type CodexSubagentRoster = Map<string, TrackedCodexSubagent>
 
@@ -28,8 +29,9 @@ export type TrackedCodexSubagent = {
   agentType?: string
   description?: string
   model?: string
-  state: 'working' | 'waiting'
+  state: 'working' | 'waiting' | 'idle'
   startedAt: number
+  transcriptPath?: string
   identityTranscriptPath?: string
   /** The path whose first line holds no identity, or `path:size` while that line is unwritten; retried only on change. */
   identityMissKey?: string
@@ -47,7 +49,8 @@ export function upsertCodexSubagent(
     agentType?: string
     description?: string
     model?: string
-    state: 'working' | 'waiting'
+    state: 'working' | 'waiting' | 'idle'
+    transcriptPath?: string
   },
   now: number
 ): void {
@@ -64,19 +67,42 @@ export function upsertCodexSubagent(
     existing.description = description ?? existing.description
     existing.model = model ?? existing.model
     existing.state = fields.state
+    existing.transcriptPath = fields.transcriptPath ?? existing.transcriptPath
     return
+  }
+  if (roster.size >= MAX_RETAINED_CODEX_SUBAGENTS) {
+    const completed = [...roster].find(([, child]) => child.state === 'idle')
+    if (completed) {
+      roster.delete(completed[0])
+    }
   }
   roster.set(normalizedId, {
     agentType,
     description,
     model,
     state: fields.state,
-    startedAt: now
+    startedAt: now,
+    transcriptPath: fields.transcriptPath
   })
 }
 
-export function finishCodexSubagent(roster: CodexSubagentRoster, id: string): void {
-  roster.delete(id.trim())
+export function finishCodexSubagent(
+  roster: CodexSubagentRoster,
+  id: string,
+  fields?: { transcriptPath?: string }
+): void {
+  const key = id.trim()
+  const child = roster.get(key)
+  if (!child) {
+    return
+  }
+  if (!fields) {
+    roster.delete(key)
+    return
+  }
+  child.state = 'idle'
+  child.transcriptPath = fields.transcriptPath ?? child.transcriptPath
+  child.identityPendingPath = undefined
 }
 
 const IDENTITY_IO_RETRY_MS = 5_000
@@ -231,7 +257,7 @@ export function seedCodexSubagentRoster(
   reportedBy?: string
 ): void {
   for (const snapshot of snapshots) {
-    if (snapshot.state !== 'working' && snapshot.state !== 'waiting') {
+    if (snapshot.state !== 'working' && snapshot.state !== 'waiting' && snapshot.state !== 'idle') {
       continue
     }
     upsertCodexSubagent(

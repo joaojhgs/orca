@@ -1,13 +1,13 @@
+import { StringDecoder } from 'node:string_decoder'
 import type { Readable } from 'node:stream'
-import type {
-  RemoteCommandChannel,
-  RemoteInstallTransport
-} from '../../managed-server/install/remote-install-transport'
+import type { RemoteCommandChannel } from '../../managed-server/install/remote-install-transport'
 import { createSshOperationAbortError, type SshExecOptions } from '../connection/ssh-exec-options'
 import {
-  REMOTE_COMMAND_DECODER_UNAVAILABLE,
-  REMOTE_COMMAND_DECODER_UNAVAILABLE_EXIT
-} from './ssh-posix-command-wrapper'
+  isCommandDecoderUnavailable,
+  lacksCommandDecoder,
+  rememberLacksCommandDecoder,
+  type ExecTransport
+} from './remote-exec-command-decoder'
 import {
   redactRelayInstallMarkerError,
   redactRelayInstallMarkerTokens
@@ -15,110 +15,33 @@ import {
 import type { SystemSshCommandChannel } from '../system-transport/system-ssh-command'
 import { buildPosixStdoutFence } from '../../../shared/shell/launch/posix-stdout-fence'
 
+import {
+  SSH_EXEC_TIMEOUT_CODE,
+  sshCommandExitError,
+  type SshCommandTerminationError
+} from './remote-exec-errors'
+
+export {
+  SSH_EXEC_TIMEOUT_CODE,
+  isSshExecTimeout,
+  isUnconfirmedSshCommandTermination,
+  isSshCommandExitError,
+  sshCommandExitError
+} from './remote-exec-errors'
+
 const EXEC_TIMEOUT_MS = 30_000
 const COMMAND_CLOSE_GRACE_MS = 5_000
 const MAX_EXEC_OUTPUT_CHARS = 1024 * 1024
 
 type ExecCommandOptions = SshExecOptions & {
   timeoutMs?: number
+  /** Script/input delivered over the channel, never interpolated into the shell command. */
+  input?: string | Buffer
+  maxOutputChars?: number
   // Log stderr separately: zero-exit probes can need diagnostics, but mixing them into stdout could match probe tokens or OpenSSH noise.
   onStderr?: (stderr: string) => void
   /** Streamed into the command's stdin, then EOF. A read error terminates the command. */
   stdin?: Readable
-}
-
-type SshCommandTerminationError = Error & {
-  sshChannelCloseConfirmed: boolean
-}
-
-// Use typed timeout identity so unanswered probes cannot be mistaken for host refusal.
-export const SSH_EXEC_TIMEOUT_CODE = 'SSH_EXEC_TIMEOUT'
-
-export function isSshExecTimeout(error: unknown): boolean {
-  return (
-    error instanceof Error && (error as Partial<{ code: string }>).code === SSH_EXEC_TIMEOUT_CODE
-  )
-}
-
-export function isUnconfirmedSshCommandTermination(
-  error: unknown
-): error is SshCommandTerminationError {
-  return (
-    error instanceof Error &&
-    (error as Partial<SshCommandTerminationError>).sshChannelCloseConfirmed === false
-  )
-}
-
-/** stdout excludes quoted command text so classifiers see host output only. */
-type SshCommandExitError = Error & { exitCode: number; stdout: string }
-
-export function isSshCommandExitError(error: unknown): error is SshCommandExitError {
-  return (
-    error instanceof Error &&
-    'exitCode' in error &&
-    typeof error.exitCode === 'number' &&
-    'stdout' in error &&
-    typeof error.stdout === 'string'
-  )
-}
-
-export function sshCommandExitError(
-  command: string,
-  code: number,
-  stdout: string,
-  output = stdout.trim()
-): SshCommandExitError {
-  const message = `Command "${redactRelayInstallMarkerTokens(command)}" failed (exit ${code}): ${redactRelayInstallMarkerTokens(output)}`
-  return Object.assign(new Error(message), {
-    exitCode: code,
-    stdout: redactRelayInstallMarkerTokens(stdout)
-  })
-}
-
-type ExecTransport = Pick<
-  RemoteInstallTransport,
-  'exec' | 'execWithClosedStdin' | 'usesSystemSshTransport'
->
-
-// Remember missing decoders across reconnect by target id; transports without ids use object identity.
-const targetsWithoutCommandDecoder = new Set<string>()
-const transportsWithoutCommandDecoder = new WeakSet<ExecTransport>()
-
-function commandDecoderTargetId(conn: ExecTransport): string | null {
-  if (!('getTarget' in conn) || typeof conn.getTarget !== 'function') {
-    return null
-  }
-  const target: unknown = conn.getTarget()
-  return typeof target === 'object' &&
-    target !== null &&
-    'id' in target &&
-    typeof target.id === 'string'
-    ? target.id
-    : null
-}
-
-function lacksCommandDecoder(conn: ExecTransport): boolean {
-  const id = commandDecoderTargetId(conn)
-  return id === null
-    ? transportsWithoutCommandDecoder.has(conn)
-    : targetsWithoutCommandDecoder.has(id)
-}
-
-function rememberLacksCommandDecoder(conn: ExecTransport): void {
-  const id = commandDecoderTargetId(conn)
-  if (id === null) {
-    transportsWithoutCommandDecoder.add(conn)
-  } else {
-    targetsWithoutCommandDecoder.add(id)
-  }
-}
-
-function isCommandDecoderUnavailable(error: unknown): boolean {
-  return (
-    isSshCommandExitError(error) &&
-    error.exitCode === REMOTE_COMMAND_DECODER_UNAVAILABLE_EXIT &&
-    error.message.includes(REMOTE_COMMAND_DECODER_UNAVAILABLE)
-  )
 }
 
 export async function execCommand(
@@ -154,7 +77,24 @@ async function execCommandOnce(
   command: string,
   options?: ExecCommandOptions
 ): Promise<string> {
-  const { timeoutMs = EXEC_TIMEOUT_MS, onStderr, stdin, ...execOptions } = options ?? {}
+  const {
+    timeoutMs = EXEC_TIMEOUT_MS,
+    maxOutputChars = MAX_EXEC_OUTPUT_CHARS,
+    onStderr,
+    stdin,
+    input,
+    ...execOptions
+  } = options ?? {}
+  if (
+    !Number.isSafeInteger(maxOutputChars) ||
+    maxOutputChars < 1 ||
+    maxOutputChars > 16 * 1024 * 1024
+  ) {
+    throw new Error('Invalid SSH command output limit')
+  }
+  if (stdin && input !== undefined) {
+    throw new Error('Specify either SSH command stdin or input, not both')
+  }
   const signal = options?.signal
   if (signal?.aborted) {
     throw createSshOperationAbortError()
@@ -163,12 +103,11 @@ async function execCommandOnce(
   const openedWithSystemSsh = conn.usesSystemSshTransport?.() === true
   // Fence login-shell startup stdout so banners/title escapes cannot become probe answers.
   const fence = execOptions.wrapCommand === false ? null : buildPosixStdoutFence(command, 'SSH')
-  const readPayload = (stdout: string): string => fence?.readStdout(stdout) ?? stdout
   let channel: RemoteCommandChannel
   try {
     // Use closed stdin only when no input will be piped.
     channel =
-      !stdin && conn.execWithClosedStdin
+      !stdin && input === undefined && conn.execWithClosedStdin
         ? await conn.execWithClosedStdin(fence?.command ?? command, execOptions)
         : await conn.exec(fence?.command ?? command, execOptions)
   } catch (error) {
@@ -178,6 +117,41 @@ async function execCommandOnce(
   }
   return new Promise((resolve, reject) => {
     let stdout = ''
+    let outputFenceSeen = false
+    let outputFenceClosed = false
+    let pendingStdout = ''
+    const decoder = new StringDecoder('utf8')
+    const recordStdout = (chunk: string): void => {
+      if (!fence) {
+        stdout = appendExecOutputTail(stdout, chunk, maxOutputChars)
+        return
+      }
+      pendingStdout += chunk
+      if (!outputFenceSeen) {
+        const begin = pendingStdout.indexOf(fence.beginMarker)
+        if (begin === -1) {
+          // Keep the unfenced tail too: an early shell refusal can precede the begin marker.
+          pendingStdout = pendingStdout.slice(-Math.max(maxOutputChars, fence.beginMarker.length))
+          return
+        }
+        outputFenceSeen = true
+        pendingStdout = pendingStdout.slice(begin + fence.beginMarker.length)
+      }
+      if (outputFenceClosed) {
+        pendingStdout = ''
+        return
+      }
+      const end = pendingStdout.indexOf(fence.endMarker)
+      if (end !== -1) {
+        stdout = appendExecOutputTail(stdout, pendingStdout.slice(0, end), maxOutputChars)
+        outputFenceClosed = true
+        pendingStdout = ''
+        return
+      }
+      const safeLength = Math.max(0, pendingStdout.length - fence.endMarker.length + 1)
+      stdout = appendExecOutputTail(stdout, pendingStdout.slice(0, safeLength), maxOutputChars)
+      pendingStdout = pendingStdout.slice(safeLength)
+    }
     let stderr = ''
     let settled = false
     let terminationError: SshCommandTerminationError | null = null
@@ -190,6 +164,7 @@ async function execCommandOnce(
       }
       signal?.removeEventListener('abort', onAbort)
       channel.off('error', fail)
+      channel.off('error', onInputError)
       channel.stderr.off('error', fail)
       channel.off('data', onStdoutData)
       channel.stderr.off('data', onStderrData)
@@ -241,13 +216,16 @@ async function execCommandOnce(
       requestTermination(err)
     }
     const onAbort = (): void => requestTermination(createSshOperationAbortError())
+    const onInputError = (): void => fail(new Error('SSH command input could not be delivered'))
     const onStdoutData = (data: Buffer): void => {
-      stdout = appendExecOutputTail(stdout, data.toString('utf-8'))
+      recordStdout(decoder.write(data))
     }
     const onStderrData = (data: Buffer): void => {
       stderr = appendExecOutputTail(stderr, data.toString('utf-8'))
     }
     const onClose = (code: number): void => {
+      recordStdout(decoder.end())
+      const payload = appendExecOutputTail(stdout, pendingStdout, maxOutputChars)
       if (
         !terminationError &&
         openedWithSystemSsh &&
@@ -265,14 +243,13 @@ async function execCommandOnce(
         settle(reject, terminationError)
       } else if (code !== 0) {
         // System SSH stderr is local client noise; prefer the remote command's merged stdout.
-        const payload = readPayload(stdout)
         const output = [stderr.trim(), payload.trim()].filter(Boolean).join('\n')
         settle(reject, sshCommandExitError(command, code, payload, output))
       } else {
         if (stderr && onStderr) {
           onStderr(redactRelayInstallMarkerTokens(stderr))
         }
-        settle(resolve, readPayload(stdout))
+        settle(resolve, payload)
       }
     }
     const timeout = setTimeout(() => {
@@ -302,11 +279,18 @@ async function execCommandOnce(
     }
     if (signal?.aborted) {
       onAbort()
+    } else if (input !== undefined) {
+      channel.once('error', onInputError)
+      channel.stdin.end(input)
     }
   })
 }
 
-function appendExecOutputTail(existing: string, chunk: string): string {
+function appendExecOutputTail(
+  existing: string,
+  chunk: string,
+  limit = MAX_EXEC_OUTPUT_CHARS
+): string {
   const combined = existing + chunk
-  return combined.length > MAX_EXEC_OUTPUT_CHARS ? combined.slice(-MAX_EXEC_OUTPUT_CHARS) : combined
+  return combined.length > limit ? combined.slice(-limit) : combined
 }

@@ -1,3 +1,7 @@
+import type { SshRelaySession } from '../../ssh/ssh-relay-session'
+import { activeSessions } from './ssh-active-relay-sessions'
+import { clearRelayLostBackoff } from './ssh-relay-lost-backoff'
+import { broadcastSshTargetRemoved, clearRelayStateOverride } from './ssh-renderer-broadcast'
 import type { DirectSshAuthority } from '../../../shared/remote-runtime/ssh/ssh-types'
 import { getSshTargetRegistryStore } from '../../ssh/targets/ssh-target-registry'
 import { clearSshHostServerStatus } from '../../ssh/host-server/ssh-host-server-status'
@@ -9,7 +13,6 @@ import {
   isCurrentConnectAttempt
 } from './ssh-connect-attempt-registry'
 import { connectionManager, persistedStore, portForwardManager } from './ssh-ipc-context'
-import { broadcastSshTargetRemoved } from './ssh-renderer-broadcast'
 import { sshDesktopHost } from '../../ssh/application/ssh-desktop-host'
 import { clearHostSettingOverride } from '../../../shared/execution-host/host-setting-overrides'
 import { toSshExecutionHostId } from '../../../shared/execution-host/execution-host'
@@ -36,7 +39,7 @@ export async function removeRegisteredSshTarget(targetId: string): Promise<void>
   clearSshHostServerStatus(targetId)
   await runTargetLifecycle(targetId, async () => {
     try {
-      await teardownSshTargetTransport(targetId)
+      await teardownSshTargetTransport(targetId, (session) => session.disposeAndPersist())
     } catch (err) {
       // Failed disconnect must not leave removed targets and their leases registered.
       console.warn(`[ssh] Failed to disconnect removed target ${targetId}: ${errorMessage(err)}`)
@@ -71,7 +74,37 @@ function dropRemovedSshTargetDisplayLabel(targetId: string): void {
   }
 }
 
-export async function teardownSshTargetTransport(targetId: string): Promise<void> {
+export async function teardownActiveSshSession(
+  targetId: string,
+  teardown: (session: SshRelaySession) => Promise<void>,
+  removeForwards = true
+): Promise<void> {
+  const session = activeSessions.get(targetId)
+  if (!session) {
+    return
+  }
+  const forwardResult = await Promise.allSettled([
+    removeForwards ? portForwardManager?.removeAllForwards(targetId) : undefined
+  ])
+  try {
+    await teardown(session)
+  } finally {
+    // Keep the session registered until its detach write has settled.
+    if (activeSessions.get(targetId) === session) {
+      activeSessions.delete(targetId)
+      clearRelayLostBackoff(targetId)
+      clearRelayStateOverride(targetId)
+    }
+  }
+  if (forwardResult[0].status === 'rejected') {
+    throw forwardResult[0].reason
+  }
+}
+
+export async function teardownSshTargetTransport(
+  targetId: string,
+  teardown: (session: SshRelaySession) => Promise<void> = (session) => session.detachAndPersist()
+): Promise<void> {
   // COMPAT(legacy-relay-bridge): hangs up only this client; the relays keep their terminals.
   stopLegacyRelayBridge(targetId)
   forgetPortForwardRestoreState(targetId)
@@ -82,7 +115,13 @@ export async function teardownSshTargetTransport(targetId: string): Promise<void
     import('../../managed-server/lifecycle/orcad-managed-tunnel').then((tunnels) =>
       tunnels.closeOrcadManagedTunnelsForTarget(targetId)
     ),
-    (async () => connectionManager?.disconnect(targetId))()
+    teardownActiveSshSession(targetId, teardown, false).then(
+      () => connectionManager?.disconnect(targetId),
+      async (error: unknown) => {
+        await connectionManager?.disconnect(targetId)
+        throw error
+      }
+    )
   ])
   if (forwards.status === 'rejected') {
     throw forwards.reason

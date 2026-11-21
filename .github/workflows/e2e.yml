@@ -622,7 +622,7 @@ jobs:
           persist-credentials: false
       # COMPAT(legacy-relay-bridge): the bridge spec builds 1.4.224's relay from its tagged sources.
       - name: Fetch the 1.4.224 relay sources
-        run: git fetch --no-tags --depth=1 origin +refs/tags/v1.4.224:refs/tags/v1.4.224
+        run: git fetch --no-tags --depth=1 https://github.com/stablyai/orca.git +refs/tags/v1.4.224:refs/tags/v1.4.224
       - name: Install headless tools
         run: *install_headless_tools
       - uses: ./.github/actions/install-node-dependencies

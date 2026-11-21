@@ -5,6 +5,8 @@ import { Alert, BackHandler, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { HOST_MANAGER_ROUTE } from '../navigation/host-stack-navigation'
+import { useOpenHostStackRoute } from '../navigation/use-open-host-stack-route'
 import { useOpenMobileAccounts } from '../accounts/use-open-mobile-accounts'
 import { ActionSheetModal } from '../components/sheets/ActionSheetModal'
 import { ConfirmModal } from '../components/sheets/ConfirmModal'
@@ -56,6 +58,7 @@ export function MobileHomeScreen() {
   const openMobileTasks = useOpenMobileTasks()
   const openMobileAutomations = useOpenMobileAutomations()
   const openMobileAccounts = useOpenMobileAccounts()
+  const openHostStackRoute = useOpenHostStackRoute()
   const disconnectHostClient = useDisconnectHostClient()
   const forgetHostClient = useForgetHostClient()
   const queryClient = useQueryClient()
@@ -324,6 +327,11 @@ export function MobileHomeScreen() {
             onDiagnostics: (hostId) =>
               data.router.push({ pathname: '/connection-log', params: { hostId } }),
             onEdit: openMobileHostEdit,
+            onManager: (hostId) =>
+              openHostStackRoute(hostId, {
+                name: HOST_MANAGER_ROUTE,
+                params: { hostId, runId: '' }
+              }),
             onRemove: (host) => setConfirmRemove(host)
           })}
           onClose={() => setActionTarget(null)}

@@ -33,6 +33,37 @@ Camera and sensor injection are not wrapped; Android virtual-scene is out of sco
 drive the SDK and devices on the host that runs the Orca runtime, including a headless
 `orca serve` or SSH host.
 
+## Approved Android devices across SSH hosts
+
+`ORCA emulator devices --json` includes approved devices on connected SSH hosts.
+Use the full `ssh-adb:` id from that inventory, not a bare serial; identical serials
+on different hosts are separate targets. `--local-only` preserves native discovery.
+
+```text
+ORCA emulator devices --json
+ORCA emulator screenshot --device <ssh-adb-id> --json
+ORCA emulator tap 0.5 0.8 --device <ssh-adb-id> --json
+ORCA emulator ax --device <ssh-adb-id> --json
+ORCA emulator logcat --lines 200 --device <ssh-adb-id> --json
+ORCA emulator launch com.example.app --device <ssh-adb-id> --json
+```
+
+The controller routes screenshots, taps, gestures, typing, buttons, rotation,
+accessibility, launch, permission grant/revoke, and bounded logcat to the device's
+owning environment. Screenshot JSON returns `result.pngBase64`, source `width`/
+`height`, and PNG `imageWidth`/`imageHeight`; decode it locally for the agent's image
+viewer. Images are downscaled to fit the unchanged SSH relay. Convert PNG pixel
+positions to Android's normalized coordinates with `x / imageWidth` and
+`y / imageHeight`. `attach` can set a workspace's default device, but
+explicit device ids avoid changing another session's default. Shared-device
+`kill`/`shutdown` detach the preview only and never power off the device.
+
+The SSH proxy does not expose raw `exec`, global permission reset, APK install,
+ADB connect/pair, or arbitrary ports. Only approved attached devices are visible;
+unapproved Wi-Fi devices stay excluded. Disconnected/revoked hosts fail closed,
+never fall back to local ADB. Do not replay input after an ambiguous error; inspect
+a new screenshot first. Local-backend commands below retain their original behavior.
+
 ## Prerequisites
 
 - `adb` from the Android SDK (`ANDROID_HOME`, `ANDROID_SDK_ROOT`, or the per-OS default

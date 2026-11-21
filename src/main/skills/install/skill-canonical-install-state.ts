@@ -22,6 +22,7 @@ export async function inspectSkillCanonicalState(input: {
   manifest: SkillPackageManifestV1
   receipt: SkillInstallReceiptV1 | null
   filesystem?: SkillInstallFilesystem
+  requirePackageOwnership?: boolean
 }): Promise<SkillCanonicalState> {
   const filesystem = input.filesystem ?? nativeSkillInstallFilesystem
   const requestedName = basename(input.canonicalPath)
@@ -44,6 +45,9 @@ export async function inspectSkillCanonicalState(input: {
   }
   if (!destinationStat.isDirectory()) {
     return { kind: 'name-collision' }
+  }
+  if (input.requirePackageOwnership && input.receipt?.packageId !== input.manifest.packageId) {
+    return { kind: 'unowned' }
   }
   const observe = async (files?: readonly SkillInstalledFileMode[]): Promise<string | undefined> =>
     filesystem

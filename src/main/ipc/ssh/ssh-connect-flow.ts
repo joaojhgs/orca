@@ -1,3 +1,5 @@
+import { keepCustomizedRelayOnConnect } from '../../ssh/ssh-host-managed-policy'
+import { connectDirectRelay, republishLiveDirectRelay } from './ssh-direct-relay-connect'
 import { awaitSshStartupReady } from './ssh-startup-ready'
 import { appendFileSync } from 'node:fs'
 import type { SshConnectionState } from '../../../shared/remote-runtime/ssh/ssh-types'
@@ -32,7 +34,7 @@ import {
   isCurrentConnectAttempt
 } from './ssh-connect-attempt-registry'
 import { connectionManager } from './ssh-ipc-context'
-import { abandonDecisionTransport } from './ssh-session-teardown'
+import { abandonDecisionTransport, teardownActiveSshSession } from './ssh-session-teardown'
 import { awaitTargetLifecycle } from './ssh-target-lifecycle-queue'
 import { startLegacyRelayBridge } from '../../ssh/legacy-relay/bridge/legacy-relay-bridge-registry'
 import {
@@ -57,7 +59,7 @@ import {
  */
 export async function connectTarget(
   targetId: string,
-  options: { automatic?: boolean; quiet?: boolean } = {}
+  options: { automatic?: boolean; quiet?: boolean; moveToManagedServer?: boolean } = {}
 ): Promise<SshConnectionState> {
   await awaitSshStartupReady()
   const e2eProbePath = process.env.ORCA_E2E_FORBID_LOCAL_SSH_CONNECT_PROBE
@@ -83,7 +85,7 @@ export async function connectTarget(
   }
   const liftedEnvironments = await liftSshHostUserDisconnect(targetId)
   try {
-    return await admitConnect(targetId)
+    return await admitConnect(targetId, false, false, options.moveToManagedServer === true)
   } finally {
     await resumeRuntimeEnvironmentStatus(liftedEnvironments)
   }
@@ -92,7 +94,8 @@ export async function connectTarget(
 async function admitConnect(
   targetId: string,
   automatic = false,
-  quiet = false
+  quiet = false,
+  moveToManagedServer = false
 ): Promise<SshConnectionState> {
   // Fence requests that entered before disconnect/reset but resume after its cleanup.
   const admissionAuthority = getSshProviderAuthority(targetId)
@@ -106,6 +109,13 @@ async function admitConnect(
       // A user's connect joining a quiet retry makes it an ordinary connect (#29626).
       if (!quiet && existing.quiet) {
         existing.quiet.active = false
+      }
+      if (moveToManagedServer && !existing.moveToManagedServer) {
+        await existing.promise.catch(() => undefined)
+        if (!isCurrentConnectAttempt(targetId, existing.authority)) {
+          throw createCancelledConnectAttemptError()
+        }
+        return admitConnect(targetId, false, false, true)
       }
       return existing.promise
     }
@@ -139,11 +149,12 @@ async function admitConnect(
     : undefined
   const promise = quietMode
     ? doQuietConnect(targetId, replacePendingTransport, quietMode)
-    : doConnect(targetId, replacePendingTransport, automatic)
+    : doConnect(targetId, replacePendingTransport, automatic, undefined, moveToManagedServer)
   const attempt: ConnectAttempt = {
     authority: getSshProviderAuthority(targetId),
     promise,
-    ...(quietMode ? { quiet: quietMode } : {})
+    ...(quietMode ? { quiet: quietMode } : {}),
+    ...(moveToManagedServer ? { moveToManagedServer: true } : {})
   }
   registered = attempt
   connectInFlight.set(targetId, attempt)
@@ -177,7 +188,8 @@ async function doConnect(
   targetId: string,
   replacePendingTransport = false,
   automatic = false,
-  quiet?: QuietConnect
+  quiet?: QuietConnect,
+  moveToManagedServer = false
 ): Promise<SshConnectionState> {
   const target = getSshTargetRegistryStore()!.getTarget(targetId)
   if (!target) {
@@ -188,6 +200,14 @@ async function doConnect(
     throw createSshUserDisconnectedError(target.label)
   }
 
+  const directRelay = !moveToManagedServer && keepCustomizedRelayOnConnect(target)
+  if (directRelay && !quiet && !replacePendingTransport) {
+    const state = republishLiveDirectRelay(targetId)
+    if (state) {
+      return state
+    }
+  }
+
   // A quiet retry rotates only once its move succeeds; a refusal must not cancel provider requests.
   let authority = quiet ? getSshProviderAuthority(targetId) : rotateSshProviderAuthority(targetId)
   if (replacePendingTransport) {
@@ -195,6 +215,18 @@ async function doConnect(
     if (!isCurrentConnectAttempt(targetId, authority)) {
       throw createCancelledConnectAttemptError()
     }
+  }
+
+  if (directRelay) {
+    if (quiet) {
+      throw createCancelledConnectAttemptError()
+    }
+    return connectDirectRelay(target, authority)
+  }
+
+  await teardownActiveSshSession(targetId, (session) => session.detachAndPersist())
+  if (!isCurrentConnectAttempt(targetId, authority)) {
+    throw createCancelledConnectAttemptError()
   }
 
   // Attribute decision-created transports so cancellation closes only those not adopted by a newer owner.

@@ -10,6 +10,7 @@ import {
 } from '../../../../../shared/work-items/task-providers'
 import { JiraIcon } from '@/components/icons/JiraIcon'
 import { LinearIcon } from '@/components/icons/LinearIcon'
+import { MulticaIcon } from '@/components/task-page/task-page-localized-options'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store/index'
 import { SearchableSetting } from '../section-layout/SearchableSetting'
@@ -92,6 +93,14 @@ const PROVIDER_META: Record<
       )
     },
     Icon: ({ className }) => <JiraIcon className={className} />
+  },
+  multica: {
+    label: translate('auto.components.settings.tasks.TasksPane.75cedb3f84', 'Multica'),
+    description: translate(
+      'auto.components.settings.tasks.TasksPane.1dc4c67613',
+      'Browse Multica projects and issues through the configured Multica CLI.'
+    ),
+    Icon: ({ className }) => <MulticaIcon className={className} />
   }
 }
 

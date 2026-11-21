@@ -194,6 +194,57 @@
       "download": "Download for this phone",
       "downloadSize": "About {{size}} MB",
       "phoneChecking": "Checking…"
+    },
+    "serverNotifications": {
+      "serverNotificationRules": "Server notification rules",
+      "chooseTheOrcaServer": "Choose the Orca server whose projects and manager events you want to configure.",
+      "pairAnOrcaServer": "Pair an Orca server to edit its notification rules.",
+      "orcaServer": "Orca server",
+      "chooseServer": "Choose server",
+      "connectingToSelectedServer": "Connecting to selected server… Reconnect that server if it remains unavailable.",
+      "savingServerRules": "Saving server rules…",
+      "loadingServerRules": "Loading server rules…",
+      "refreshNotificationRules": "Refresh notification rules",
+      "refreshRulesAndScopes": "Refresh rules and scopes",
+      "devices": {
+        "deviceNotificationOverrides": "Device notification overrides",
+        "pairedDeviceOverrides": "Paired-device overrides",
+        "deviceMutesAffectHuman": "Device mutes affect human alerts, not manager wake-ups.",
+        "muteThisDevice": "Mute this device",
+        "muteDevice": "Mute {{value0}}",
+        "silentDelivery": "Silent delivery",
+        "silentDeliveryFor": "Silent delivery for {{value0}}",
+        "muteEvent": "Mute",
+        "muteEventForDevice": "Mute {{value0}} for {{value1}}"
+      },
+      "rules": {
+        "anyAgent": "Any agent",
+        "mainAgent": "Main agent",
+        "subagent": "Subagent",
+        "hermesManager": "Hermes manager",
+        "desktopAndMobile": "Desktop and mobile",
+        "desktop": "Desktop",
+        "mobile": "Mobile",
+        "findNotificationScope": "Find notification scope",
+        "findAProjectWorkspace": "Find a project, workspace or session",
+        "notificationScope": "Notification scope",
+        "scope": "Scope",
+        "chooseScope": "Choose scope",
+        "agent": "Agent",
+        "humanDestination": "Human destination",
+        "humanAlertsAndManager": "Human alerts and manager wake-ups are independent. These rules cannot turn a running YOLO approval or subagent completion into a main-agent stop alert.",
+        "inherit": "Inherit",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "humanAlerts": "Human alerts",
+        "delivery": "Delivery",
+        "wakeManager": "Wake manager",
+        "saveNotificationRule": "Save notification rule",
+        "saving": "Saving…",
+        "saveRule": "Save rule",
+        "removeNotificationOverride": "Remove notification override",
+        "removeOverride": "Remove override"
+      }
     }
   },
   "common": {
@@ -982,7 +1033,8 @@
       "changes": "Changes",
       "pullRequest": "Pull Request",
       "workspace": "Workspace",
-      "automations": "Automations"
+      "automations": "Automations",
+      "manager": "Manager"
     }
   },
   "notifications": {
@@ -6479,6 +6531,69 @@
     "activity": {
       "needsWindow": "Couldn’t update. Open Orca on {{desktop}}.",
       "failed": "Couldn’t update the agent list."
+    }
+  },
+  "manager": {
+    "screen": {
+      "backToController": "Back to controller",
+      "manager": "Manager",
+      "controller": "Controller:",
+      "notSelected": "Not selected",
+      "connectThisPairedController": "Connect this paired controller to read manager conversations. Saved requests remain on this device.",
+      "refresh": "Refresh",
+      "loadingManagerData": "Loading manager data",
+      "requestRecoveryIsNot": "Request recovery is not ready. Sending is blocked; browsing remains available.",
+      "aRequestIsUnconfirmed": "A request is unconfirmed. Retry the saved request before sending another; do not duplicate it.",
+      "retrySavedRequest": "Retry saved request",
+      "allObjectives": "All objectives",
+      "recordedObjectives": "Recorded objectives",
+      "openObjective": "Open objective: {{value0}}",
+      "noRecordedObjectivesOn": "No recorded objectives on this controller.",
+      "moreObjectives": "More objectives"
+    },
+    "conversation": {
+      "loadingTheRecordedConversation": "Loading the recorded conversation…",
+      "manager": "Manager",
+      "unconfirmed": "unconfirmed",
+      "consumerConnected": "Consumer connected",
+      "consumerNotConfirmedConnected": "Consumer not confirmed connected",
+      "historyIsReadOnly": "History is read-only. This manager cannot receive new instructions.",
+      "you": "You",
+      "answerQuestion": "Answer question {{value0}}",
+      "answerThisQuestion": "Answer this question",
+      "loadMoreMessages": "Load more messages",
+      "answeringTheSelectedRecorded": "Answering the selected recorded question. This does not change the manager’s safety grant.",
+      "cancelAnswer": "Cancel answer",
+      "answerManagerQuestion": "Answer manager question",
+      "messageManager": "Message manager",
+      "yourDecision": "Your decision",
+      "followUpInstructions": "Follow-up instructions",
+      "sendAnswer": "Send answer",
+      "sendMessage": "Send message"
+    },
+    "objective": {
+      "newObjective": "New objective",
+      "chooseAManagerAnd": "Choose a manager and an exact workspace on this controller. The server enforces its grant.",
+      "noActiveManagerCan": "No active manager can create objectives. Configure a scoped manager on this controller.",
+      "loadWorkspaces": "Load workspaces",
+      "findManagerWorkspace": "Find manager workspace",
+      "findWorkspaceOrSsh": "Find workspace or SSH host",
+      "workspace": "Workspace:",
+      "selectALoadedWorkspace": "Select a loaded workspace. No path or ID is guessed.",
+      "managerObjective": "Manager objective",
+      "whatShouldTheManager": "What should the manager achieve?",
+      "sendObjective": "Send objective"
+    }
+  },
+  "usage": {
+    "unsupported": {
+      "label": "Usage tracking unavailable"
+    },
+    "execution": {
+      "expired": {
+        "label": "Sign-in expired on source host",
+        "message": "Refresh sign-in on the listed execution host. Orca does not rotate that host’s credentials."
+      }
     }
   }
 }

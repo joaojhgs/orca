@@ -130,7 +130,8 @@ export const AttachParams = z.object({
   userInitiated: z.boolean().optional(),
   device: z.string().optional(),
   worktree: z.string().optional(),
-  focus: z.boolean().optional()
+  focus: z.boolean().optional(),
+  previewStream: z.string().max(256).optional()
 })
 
 export const KillParams = z.object({
@@ -149,7 +150,9 @@ export const EmulatorUnregisterActiveParams = z
   .object({ worktree: z.string().optional() })
   .partial()
 
-export const EmulatorListDevicesParams = z.object({ worktree: z.string().optional() }).partial()
+export const EmulatorListDevicesParams = z
+  .object({ worktree: z.string().optional(), executionHosts: z.boolean().optional() })
+  .partial()
 
 export const EmulatorAvailabilityParams = z.object({ worktree: z.string().optional() }).partial()
 

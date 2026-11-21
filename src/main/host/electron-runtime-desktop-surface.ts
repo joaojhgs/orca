@@ -4,13 +4,19 @@ import { readDesktopAwayState } from '../notifications/desktop-away-state'
 import { showDesktopNotification } from '../notifications/desktop-notification'
 import type { RuntimeDesktopSurface } from '../runtime/construction/runtime-desktop-surface'
 import { electronRendererWindows } from './electron-renderer-windows'
+import { mainProcessState } from '../startup/main-process-state'
 import { translateMain } from '../i18n/main-i18n'
 import { encodeRepoIconPng } from './electron-repo-icon-png'
 import { fetchWithElectronManualRedirects } from './electron-manual-redirect-fetch'
 
 export const electronRuntimeDesktopSurface: RuntimeDesktopSurface = {
   translateNotification: translateMain,
-  isAwayForMobileNotifications: () => readDesktopAwayState(powerMonitor),
+  isAwayForMobileNotifications: () =>
+    readDesktopAwayState(
+      powerMonitor,
+      mainProcessState.isServeMode &&
+        (!mainProcessState.mainWindow || mainProcessState.mainWindow.isDestroyed())
+    ),
   showNotification: ({ title, body }) => {
     if (!Notification.isSupported()) {
       return false

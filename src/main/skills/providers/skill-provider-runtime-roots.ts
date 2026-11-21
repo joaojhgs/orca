@@ -20,7 +20,7 @@ const PROVIDER_HOME_ENVS = SKILL_INSTALL_PROVIDERS.flatMap((provider) =>
 )
 // Why $HOME first: unusable homes are judged against the guest's own home.
 const WSL_PROVIDER_HOMES_PROBE = buildWslCapturedLoginShellCommand(
-  `printf '%s\\0' "$HOME" ${PROVIDER_HOME_ENVS.map(({ name }) => `"\${${name}:-}"`).join(' ')}`
+  `printf '%s\\0' "$HOME" ${PROVIDER_HOME_ENVS.map(({ name }) => `"\${${name}:-}"`).join(' ')} "\${XDG_CONFIG_HOME:-}"`
 )
 
 type HomePathApi = Pick<typeof posix, 'dirname' | 'isAbsolute' | 'relative' | 'sep'>
@@ -61,6 +61,10 @@ export function resolveEnvironmentSkillProviderRoots(
     if (home && isUsableProviderHome(home, resolve(userHome), path)) {
       roots[provider.id] = join(home, 'skills')
     }
+  }
+  const xdgConfig = normalizedRoot(env.XDG_CONFIG_HOME)
+  if (xdgConfig && isUsableProviderHome(xdgConfig, resolve(userHome), path)) {
+    roots.opencode = join(xdgConfig, 'opencode', 'skills')
   }
   return roots
 }
@@ -128,7 +132,7 @@ export async function resolveWslSkillProviderRoots(
   try {
     // `$HOME` then each value, all NUL-terminated; any other shape is a broken probe.
     const fields = (await probe(distro))?.split('\0') ?? []
-    if (fields.length !== PROVIDER_HOME_ENVS.length + 2) {
+    if (fields.length !== PROVIDER_HOME_ENVS.length + 3) {
       return {}
     }
     const [rawUserHome, ...values] = fields
@@ -144,6 +148,10 @@ export async function resolveWslSkillProviderRoots(
         roots[id] = toWindowsWslPath(`${home}/skills`, distro)
       }
     })
+    const xdgConfig = cleanWslPath(values[PROVIDER_HOME_ENVS.length])
+    if (xdgConfig && isUsableProviderHome(xdgConfig, userHome, posix)) {
+      roots.opencode = toWindowsWslPath(`${xdgConfig}/opencode/skills`, distro)
+    }
     return roots
   } catch {
     return {}

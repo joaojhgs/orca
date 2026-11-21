@@ -225,6 +225,7 @@ export async function discoverSkills(args: {
   refresh?: boolean
   names?: string[]
   sourceKinds?: SkillSourceKind[]
+  extraRoots?: SkillScanRoot[]
   /**
    * A user act (Share) may read stopped WSL distros' folders: 'all', those on named distros, or only
    * the roots holding these skill directories. Every other stopped root is reported unavailable, so
@@ -253,6 +254,7 @@ export async function discoverSkills(args: {
     (await isOnStoppedWslDistro(pluginCwd))
   const candidateRoots = [
     ...buildSkillDiscoverySources({ ...args, homeDir }),
+    ...(args.extraRoots ?? []),
     ...(pluginCwd && !pluginCwdStopped
       ? await waitForPromiseWithSignal(
           discoverClaudePluginSkillInstalls({ homeDir, cwd: pluginCwd, signal: args.signal }).then(

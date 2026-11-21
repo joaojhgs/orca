@@ -1,4 +1,4 @@
-import * as pdfjsLib from 'pdfjs-dist'
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { buildPdfJsDocumentOptions } from './pdf-js-document-options'
 import { createOrcaMediaRangeTransport } from './pdf-orca-media-range-transport'
 import { translate } from '@/i18n/i18n'

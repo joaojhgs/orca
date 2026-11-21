@@ -6,7 +6,6 @@ import type { TerminalOutputCadence } from '../../../../../../shared/terminal/st
 import { e2eDisableRemoteTerminalStallRecovery } from '@/app-shell/startup/e2e-config'
 import { recordRendererCrashBreadcrumb } from '@/diagnostics/crash-reporting/crash-breadcrumb-recorder'
 import { RemoteRuntimeTerminalBinaryController } from '../frames/remote-runtime-terminal-binary-controller'
-import { CONTROL_STREAM_ID } from '../frames/remote-terminal-multiplex-event'
 import { disposeRemoteTerminalStreamState } from '../remote-terminal-stream-disposal'
 import type {
   RemoteRuntimeMultiplexedTerminal,
@@ -34,6 +33,11 @@ export class RemoteRuntimeTerminalMultiplexer extends RemoteRuntimeTerminalBinar
     const state: RemoteRuntimeMultiplexedTerminalState = {
       streamId,
       terminal: args.terminal,
+      client: args.client,
+      viewport: args.viewport,
+      inputSessionId: args.inputSessionId,
+      reportsPaneVisibility: args.reportsPaneVisibility === true,
+      reportsOutputCadence: args.outputCadence !== undefined,
       callbacks: args.callbacks,
       subscriptionRequested: false,
       acknowledgeOutput: true,
@@ -100,17 +104,22 @@ export class RemoteRuntimeTerminalMultiplexer extends RemoteRuntimeTerminalBinar
         this.isRegisteredStream(state) && this.sendInput(state, text, inputSeq),
       acknowledgesInput: () => this.isRegisteredStream(state) && state.supportsInputAck,
       inputLedgerId: () => (this.isRegisteredStream(state) ? state.inputLedgerId : null),
-      resize: (cols, rows) =>
-        this.isRegisteredStream(state) &&
-        this.sendFrame(
-          streamId,
-          TerminalStreamOpcode.Resize,
-          encodeTerminalStreamJson({ cols, rows })
-        ),
+      resize: (cols, rows) => {
+        state.viewport = { cols, rows }
+        return (
+          this.isRegisteredStream(state) &&
+          this.sendFrame(
+            streamId,
+            TerminalStreamOpcode.Resize,
+            encodeTerminalStreamJson({ cols, rows })
+          )
+        )
+      },
       claimViewport: (cols, rows) => {
         if (!this.isRegisteredStream(state)) {
           return false
         }
+        state.viewport = { cols, rows }
         const claimed = this.sendFrame(
           streamId,
           TerminalStreamOpcode.ClaimViewport,
@@ -149,31 +158,7 @@ export class RemoteRuntimeTerminalMultiplexer extends RemoteRuntimeTerminalBinar
       if (this.streams.get(streamId) !== state) {
         return stream
       }
-      const sent = this.sendFrame(
-        CONTROL_STREAM_ID,
-        TerminalStreamOpcode.Subscribe,
-        encodeTerminalStreamJson({
-          streamId,
-          terminal: args.terminal,
-          client: args.client,
-          viewport: args.viewport,
-          capabilities: {
-            ackOutput: 1,
-            ackOutputSourceRanges: 1,
-            outputPause: 1,
-            outputPauseDropNotice: 1,
-            ...(args.reportsPaneVisibility ? { paneVisibility: 1 } : {}),
-            writeUnavailable: 1,
-            ...(args.client.type === 'desktop'
-              ? { desktopViewportClaims: 1, endpointLossNotice: 1 }
-              : {}),
-            ...(args.inputSessionId ? { inputAck: 1 } : {}),
-            ...(args.outputCadence ? { outputCadence: 1 } : {})
-          },
-          ...(args.inputSessionId ? { inputSessionId: args.inputSessionId } : {}),
-          ...(outputCadence !== 'focused' ? { outputCadence } : {})
-        })
-      )
+      const sent = this.sendStreamSubscription(state)
       if (!sent) {
         throw new Error('Remote terminal stream is not connected.')
       }

@@ -1,3 +1,7 @@
+import { useState } from 'react'
+import { Monitor, Smartphone } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { DesktopComputerPane } from './desktop-computer-pane'
 import { emulatorOpeningMessage } from './session/emulator-opening-message'
 import type { Tab } from '../../../../shared/workspace-layout/tab-groups/tab-types'
 import { EmulatorPaneToolbar } from './devices/emulator-pane-toolbar'
@@ -17,6 +21,7 @@ type EmulatorPaneProps = {
 }
 
 export default function EmulatorPane({ tab, worktreeId, isActive = true }: EmulatorPaneProps) {
+  const [surface, setSurface] = useState<'mobile' | 'desktop'>('mobile')
   const t = useTranslate()
   useUiLanguageRevision()
   const {
@@ -43,7 +48,7 @@ export default function EmulatorPane({ tab, worktreeId, isActive = true }: Emula
   } = useEmulatorPaneSession({
     worktreeId,
     tabId: tab?.id,
-    autoAttachOnMount: isActive
+    autoAttachOnMount: isActive && surface === 'mobile'
   })
   const { inputError, checkOnInteraction } = useEmulatorInputCheck(
     worktreeId,
@@ -57,63 +62,91 @@ export default function EmulatorPane({ tab, worktreeId, isActive = true }: Emula
       data-emulator-pane
       className="flex h-full min-h-0 flex-col bg-background text-sm text-foreground"
     >
-      <EmulatorPaneToolbar
-        displayName={displayName}
-        isLive={isLive}
-        loading={loading}
-        devices={devices}
-        selectedUdid={selectedUdid}
-        onSelectDevice={(udid) => {
-          setSelectedUdid(udid)
-          void attach(udid)
-        }}
-        onAttach={() => void attach(selectedUdid ?? undefined)}
-        onShutdown={() => void shutdown(selectedUdid ?? undefined)}
-        onHome={() => void sendButton('home')}
-        onRotate={() => void sendRotate()}
-      />
-
-      {selectionRequired && (
-        <p role="status" className="border-b border-border px-3 py-2 text-xs text-muted-foreground">
-          {emulatorOpeningMessage(selectionRequired, t)}
-        </p>
-      )}
-      {visibleError ? (
-        <div className="border-b border-border bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {visibleError}
-        </div>
-      ) : null}
-
-      <div
-        className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-muted px-3 py-6"
-        onPointerDownCapture={checkOnInteraction}
-        onWheelCapture={checkOnInteraction}
-        onKeyDownCapture={checkOnInteraction}
-        onPasteCapture={checkOnInteraction}
-      >
-        <MobileEmulatorAgentSetupGuideLayer isActive={isActive}>
-          {!isLive && !loading ? (
-            <p className="mb-4 text-center text-xs text-muted-foreground">
-              {t('auto.components.emulator.pane.EmulatorPane.59b08fa031', 'No emulator connected')}
-            </p>
-          ) : null}
-          <EmulatorDeviceFrame
-            worktreeId={worktreeId}
-            deviceId={deviceId}
-            previewUrl={previewUrl}
-            wsUrl={wsUrl}
-            streamKey={streamKey}
-            deviceName={displayName}
-            loading={loading}
-            isLive={isLive}
-            visualOrientation={visualOrientation}
-            isActive={isActive}
-            onTap={(x, y) => void sendTap(x, y)}
-            onGesture={(points) => void sendGesture(points)}
-            onStreamLost={scrcpyDeviceIdFromStreamUrl(previewUrl) ? markStreamLost : undefined}
-          />
-        </MobileEmulatorAgentSetupGuideLayer>
+      <div className="flex items-center gap-1 border-b border-border px-3 py-1.5">
+        <Button
+          size="xs"
+          variant={surface === 'mobile' ? 'secondary' : 'ghost'}
+          onClick={() => setSurface('mobile')}
+        >
+          <Smartphone /> {t('emulator.surface.mobile', 'Mobile')}
+        </Button>
+        <Button
+          size="xs"
+          variant={surface === 'desktop' ? 'secondary' : 'ghost'}
+          onClick={() => setSurface('desktop')}
+        >
+          <Monitor /> {t('emulator.surface.desktop', 'Desktop')}
+        </Button>
       </div>
+      {surface === 'desktop' ? (
+        <DesktopComputerPane active={isActive} />
+      ) : (
+        <>
+          <EmulatorPaneToolbar
+            displayName={displayName}
+            isLive={isLive}
+            loading={loading}
+            devices={devices}
+            selectedUdid={selectedUdid}
+            onSelectDevice={(udid) => {
+              setSelectedUdid(udid)
+              void attach(udid)
+            }}
+            onAttach={() => void attach(selectedUdid ?? undefined)}
+            onShutdown={() => void shutdown(selectedUdid ?? undefined)}
+            onHome={() => void sendButton('home')}
+            onRotate={() => void sendRotate()}
+          />
+
+          {selectionRequired && (
+            <p
+              role="status"
+              className="border-b border-border px-3 py-2 text-xs text-muted-foreground"
+            >
+              {emulatorOpeningMessage(selectionRequired, t)}
+            </p>
+          )}
+          {visibleError ? (
+            <div className="border-b border-border bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {visibleError}
+            </div>
+          ) : null}
+
+          <div
+            className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-muted px-3 py-6"
+            onPointerDownCapture={checkOnInteraction}
+            onWheelCapture={checkOnInteraction}
+            onKeyDownCapture={checkOnInteraction}
+            onPasteCapture={checkOnInteraction}
+          >
+            <MobileEmulatorAgentSetupGuideLayer isActive={isActive}>
+              {!isLive && !loading ? (
+                <p className="mb-4 text-center text-xs text-muted-foreground">
+                  {t(
+                    'auto.components.emulator.pane.EmulatorPane.59b08fa031',
+                    'No emulator connected'
+                  )}
+                </p>
+              ) : null}
+              <EmulatorDeviceFrame
+                worktreeId={worktreeId}
+                deviceId={deviceId}
+                previewUrl={previewUrl}
+                wsUrl={wsUrl}
+                streamKey={streamKey}
+                deviceName={displayName}
+                loading={loading}
+                isLive={isLive}
+                visualOrientation={visualOrientation}
+                isActive={isActive}
+                onTap={(x, y) => void sendTap(x, y)}
+                onGesture={(points) => void sendGesture(points)}
+                onStreamLost={scrcpyDeviceIdFromStreamUrl(previewUrl) ? markStreamLost : undefined}
+              />
+            </MobileEmulatorAgentSetupGuideLayer>
+          </div>
+        </>
+      )}
     </div>
   )
 }

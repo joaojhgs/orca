@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { writeWebSecretClipboardText } from './web-clipboard-api'
+import { writeWebClipboardText, writeWebSecretClipboardText } from './web-clipboard-api'
 
 function stubClipboard(initial = ''): { read: () => string; writeText: ReturnType<typeof vi.fn> } {
   let current = initial
@@ -46,4 +46,11 @@ describe('writeWebSecretClipboardText', () => {
     await vi.advanceTimersByTimeAsync(60_000)
     expect(writeText).toHaveBeenCalledTimes(1)
   })
+})
+
+it('starts a clipboard write within the user gesture', async () => {
+  const clipboard = stubClipboard()
+  const result = writeWebClipboardText('copy this')
+  expect(clipboard.read()).toBe('copy this')
+  await result
 })

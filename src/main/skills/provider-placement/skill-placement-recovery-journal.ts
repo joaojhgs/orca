@@ -1,5 +1,8 @@
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
-import { isSkillInstallProviderId } from '../../../shared/skills/installation/skill-install-providers'
+import {
+  isSkillInstallProviderId,
+  SKILL_INSTALL_PROVIDERS
+} from '../../../shared/skills/installation/skill-install-providers'
 import { readNodeFileWithinLimit } from '../../../shared/file-content/node-bounded-file-reader'
 import type { SkillInstalledFileMode } from '../filesystem/skill-install-filesystem'
 import {
@@ -12,6 +15,11 @@ import {
 } from '../providers/skill-provider-destinations'
 
 const JOURNAL_MAX_BYTES = 4 * 1024 * 1024
+const RELOCATABLE_PROVIDERS = new Set<string>(
+  SKILL_INSTALL_PROVIDERS.filter(({ homeEnv, id }) => homeEnv || id === 'opencode').map(
+    ({ id }) => id
+  )
+)
 
 export type SkillPlacementJournalActionV1 = {
   provider: string
@@ -87,7 +95,7 @@ function validProviderRootOverrides(value: unknown): value is SkillProviderRootO
   }
   return Object.entries(value).every(
     ([provider, root]) =>
-      (provider === 'claude' || provider === 'grok') &&
+      RELOCATABLE_PROVIDERS.has(provider) &&
       typeof root === 'string' &&
       root.length > 0 &&
       root.length <= 32_768 &&

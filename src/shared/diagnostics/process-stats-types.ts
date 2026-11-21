@@ -40,6 +40,8 @@ export type SessionMemory = UsageValues & {
 
 /** The top-level cpu/memory are the sum of sessions. */
 export type WorktreeMemory = UsageValues & {
+  executionHostId?: string
+  executionHostName?: string
   worktreeId: string
   worktreeName: string
   repoId: string
@@ -61,12 +63,32 @@ export type HostMemory = {
   memoryUsagePercent: number
   cpuCoreCount: number
   loadAverage1m: number
+  cpuUsagePercent?: number
+  diskTotal?: number
+  diskUsed?: number
+  diskAvailable?: number
+  diskUsagePercent?: number
+}
+
+export type ResourceHostSnapshot = {
+  id: string
+  name: string
+  kind: 'local' | 'ssh'
+  connectionId: string | null
+  host: HostMemory | null
+  worktrees: WorktreeMemory[]
+  managedCpu: number
+  managedMemory: number
+  error?: string
 }
 
 export type MemorySnapshot = {
+  /** Browser projection: identifies the paired runtime that actually produced these samples. */
+  runtimeOwnerEnvironmentId?: string
   app: AppMemory
   worktrees: WorktreeMemory[]
   host: HostMemory
+  hosts?: ResourceHostSnapshot[]
   /** Per-process byte metric used by app, session, worktree, history, and totalMemory values. */
   processMemoryMetric: ProcessMemoryMetric
   /** Committed-byte metric; absent on older hosts or unsupported captures means unknown, never zero. */

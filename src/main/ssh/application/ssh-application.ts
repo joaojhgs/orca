@@ -1,3 +1,4 @@
+import { refreshActiveRelaySessions } from '../../ipc/ssh/ssh-relay-session-callbacks'
 import type { Store } from '../../persistence/loading-store/store'
 import type { OrcaRuntimeService } from '../../runtime/orca-runtime'
 import { SshConnectionStore } from '../targets/ssh-connection-store'
@@ -109,6 +110,7 @@ export async function startSshApplication({
   registerSshTargetCrudHandlers(handle)
   registerSshConnectionHandlers(handle)
   registerSshPortForwardHandlers(handle)
+  refreshActiveRelaySessions()
   beforeReady?.()
 
   await ready

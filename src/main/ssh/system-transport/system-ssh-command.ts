@@ -96,6 +96,8 @@ function wrapChildProcess(proc: ChildProcess): SystemSshProcess {
 
 function wrapCommandProcess(proc: ChildProcess): SystemSshCommandChannel {
   const duplex = new Duplex({
+    // Why: stream EOF is not the SSH process exit; only its close event carries the exit code.
+    autoDestroy: false,
     read() {
       proc.stdout?.resume()
     },

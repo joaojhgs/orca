@@ -1,3 +1,4 @@
+import { activeSessions } from './ssh-active-relay-sessions'
 import type { RegisterSshRequest } from '../../ssh/application/ssh-application-requests'
 import {
   enrichSshForwardEntries,
@@ -150,7 +151,8 @@ export function registerSshPortForwardHandlers(handle: RegisterSshRequest): void
   })
 
   handle('ssh:listDetectedPorts', (args: { targetId: string }) => {
-    // Detected ports came from the relay's port scanner; a managed host reports them through its runtime.
-    return enrichDetected(args.targetId, [])
+    const ports =
+      activeSessions.get(args.targetId)?.getPortScanner()?.getDetectedPorts(args.targetId) ?? []
+    return enrichDetected(args.targetId, ports)
   })
 }

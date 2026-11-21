@@ -1,72 +1,32 @@
 import type { StateCreator } from 'zustand'
 import type { AppState } from '../../types'
 import { findFirstIndexedWorktree } from '../../../lib/workspace/ownership/worktree-runtime-owner-index'
-import type { GitHubWorkItem } from '../../../../../shared/github/work-items/work-item-types'
-import type { JiraIssue } from '../../../../../shared/jira/jira-types'
-import type { LinearIssue } from '../../../../../shared/linear/issue-types'
-import type { GitLabWorkItem } from '../../../../../shared/gitlab/gitlab-types'
-import {
-  getTaskSourceCacheScope,
-  type TaskSourceContext
-} from '../../../../../shared/work-items/task-source-context'
 import { parseWorkspaceKey } from '../../../../../shared/workspace/identity/workspace-scope'
+import { isAutomationsHistoryEntry } from './automations-page-location'
 import {
-  automationsPageLocationKey,
-  isAutomationsHistoryEntry,
-  type AutomationsPageLocation
-} from './automations-page-location'
+  getHistoryEntryKey,
+  isTaskStackEntry,
+  isViewEntry,
+  type WorktreeNavHistoryEntry,
+  type WorktreeNavHistoryViewEntry,
+  type WorktreeNavHistorySimpleViewEntry
+} from './workspace-navigation-history-entry'
 import {
   selectFolderWorkspaces,
   selectWorktreesByRepo
 } from '../../workspaces/catalog/workspace-record-fields'
 
+export {
+  isViewEntry,
+  type WorktreeNavHistoryEntry,
+  type WorktreeNavHistorySimpleViewEntry,
+  type WorktreeNavHistoryTaskDetailEntry,
+  type WorktreeNavHistoryAutomationsPageEntry,
+  type WorktreeNavHistoryViewEntry
+} from './workspace-navigation-history-entry'
+
 // Why: bound per-session history growth; 50 keeps goBack/goForward's linear scans cheap yet is never hit in normal use.
 const MAX_HISTORY = 50
-
-// Why: entries may be page sentinels, not just worktree IDs; names keep the "worktree" prefix for call-site stability.
-export type WorktreeNavHistorySimpleViewEntry = 'tasks' | 'automations' | 'artifacts' | 'skills'
-const SIMPLE_VIEW_ENTRIES: readonly WorktreeNavHistorySimpleViewEntry[] = [
-  'tasks',
-  'automations',
-  'artifacts',
-  'skills'
-]
-export type WorktreeNavHistoryTaskDetailEntry =
-  | {
-      kind: 'task-detail'
-      source: 'github'
-      workItem: GitHubWorkItem
-      sourceContext?: TaskSourceContext | null
-      initialTab?: 'conversation' | 'checks' | 'files'
-    }
-  | {
-      kind: 'task-detail'
-      source: 'linear'
-      issue: LinearIssue
-      sourceContext?: TaskSourceContext | null
-    }
-  | {
-      kind: 'task-detail'
-      source: 'gitlab'
-      workItem: GitLabWorkItem
-      sourceContext?: TaskSourceContext | null
-    }
-  | {
-      kind: 'task-detail'
-      source: 'jira'
-      issue: JiraIssue
-      sourceContext?: TaskSourceContext | null
-    }
-/** One Automations sub-page, so titlebar Back steps through them like any other page. */
-export type WorktreeNavHistoryAutomationsPageEntry = {
-  kind: 'automations-page'
-  location: AutomationsPageLocation
-}
-export type WorktreeNavHistoryViewEntry =
-  | WorktreeNavHistorySimpleViewEntry
-  | WorktreeNavHistoryTaskDetailEntry
-  | WorktreeNavHistoryAutomationsPageEntry
-export type WorktreeNavHistoryEntry = (string & {}) | WorktreeNavHistoryViewEntry
 
 export type WorktreeNavHistorySlice = {
   // Linear history, oldest -> newest.
@@ -96,59 +56,6 @@ export function setWorktreeNavActivator(fn: ActivateFn | null): void {
 // Why: injected to avoid an import cycle — the UI slice already depends on this module.
 export function setWorktreeNavViewActivator(fn: ViewActivateFn | null): void {
   viewActivator = fn
-}
-
-function isSimpleViewEntry(
-  entry: WorktreeNavHistoryEntry
-): entry is WorktreeNavHistorySimpleViewEntry {
-  return (
-    typeof entry === 'string' &&
-    SIMPLE_VIEW_ENTRIES.includes(entry as WorktreeNavHistorySimpleViewEntry)
-  )
-}
-
-// Why: view entries count as live unconditionally — findWorktreeById can't resolve page sentinels.
-export function isViewEntry(entry: WorktreeNavHistoryEntry): entry is WorktreeNavHistoryViewEntry {
-  return isSimpleViewEntry(entry) || typeof entry === 'object'
-}
-
-function isTaskStackEntry(entry: WorktreeNavHistoryEntry): boolean {
-  return entry === 'tasks' || (typeof entry === 'object' && entry.kind === 'task-detail')
-}
-
-function getHistoryEntryKey(entry: WorktreeNavHistoryEntry): string {
-  if (typeof entry === 'string') {
-    return isSimpleViewEntry(entry) ? `view:${entry}` : `worktree:${entry}`
-  }
-  if (entry.kind === 'automations-page') {
-    return `view:automations-page:${automationsPageLocationKey(entry.location)}`
-  }
-  if (entry.source === 'github') {
-    const sourceScope =
-      entry.sourceContext?.provider === 'github'
-        ? getTaskSourceCacheScope(entry.sourceContext)
-        : 'legacy'
-    return `view:task-detail:github:${sourceScope}:${entry.workItem.repoId}:${entry.workItem.type}:${entry.workItem.number}:${entry.initialTab ?? 'conversation'}`
-  }
-  if (entry.source === 'gitlab') {
-    const sourceScope =
-      entry.sourceContext?.provider === 'gitlab'
-        ? getTaskSourceCacheScope(entry.sourceContext)
-        : 'legacy'
-    return `view:task-detail:gitlab:${sourceScope}:${entry.workItem.repoId}:${entry.workItem.type}:${entry.workItem.number}`
-  }
-  if (entry.source === 'jira') {
-    const sourceScope =
-      entry.sourceContext?.provider === 'jira'
-        ? getTaskSourceCacheScope(entry.sourceContext)
-        : 'legacy'
-    return `view:task-detail:jira:${sourceScope}:${entry.issue.siteId ?? 'selected'}:${entry.issue.key}`
-  }
-  const sourceScope =
-    entry.sourceContext?.provider === 'linear'
-      ? getTaskSourceCacheScope(entry.sourceContext)
-      : 'legacy'
-  return `view:task-detail:linear:${sourceScope}:${entry.issue.workspaceId ?? 'selected'}:${entry.issue.id}`
 }
 
 type WorkspaceCatalog = Pick<AppState, 'folderWorkspaces' | 'worktreesByRepo'>

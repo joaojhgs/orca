@@ -1,5 +1,5 @@
 import * as gitExecFile from '../../../git/command-runner/git-exec-file'
-import { SshHostNotServedError } from '../../../providers/ssh-host-not-served-error'
+import { SSH_GIT_PROVIDER_UNAVAILABLE_MESSAGE } from '../../../providers/ssh-git-dispatch'
 import { describe, expect, it, vi } from 'vitest'
 import '../../construction/test-context/runtime-test-module-registration.spec'
 import {
@@ -17,7 +17,7 @@ import {
 } from '../../construction/test-context/orca-runtime-test-fixtures.spec'
 
 describe('OrcaRuntimeService', () => {
-  it('refuses SSH GitHub fork PR heads instead of resolving them on this machine', async () => {
+  it('requires an available direct SSH provider for GitHub fork PR heads', async () => {
     const remoteRepo = {
       id: TEST_REPO_ID,
       path: '/remote/repo',
@@ -41,7 +41,7 @@ describe('OrcaRuntimeService', () => {
         headRefName: 'contributor/fix',
         isCrossRepository: true
       })
-    ).rejects.toThrow(SshHostNotServedError)
+    ).rejects.toThrow(SSH_GIT_PROVIDER_UNAVAILABLE_MESSAGE)
     expect(getPullRequestPushTargetMock).not.toHaveBeenCalled()
   })
 

@@ -27,7 +27,9 @@ import {
 import { createEditorPanelDraftSelector } from './loading/editor-panel-draft-selector'
 import {
   createCurrentEditorArtifactRequest,
-  editorArtifactContentType
+  createEditorArtifactRequest,
+  editorArtifactContentType,
+  readPdfArtifactContent
 } from './panel/editor-artifact-upload'
 import { useEditorPanelSave } from './save/commands/useEditorPanelSave'
 import { isMarkdownReviewNotesEnabled } from '@/lib/editor/markdown/review-notes/markdown-review-notes-setting'
@@ -283,7 +285,7 @@ function EditorPanelInner({
   if (activeFile.mode === 'markdown-preview') {
     activeDocumentContent =
       editorDrafts[markdownDocumentStateFileId] ?? fileContents[activeFile.id]?.content ?? null
-  } else if (activeFile.mode === 'edit') {
+  } else if (activeFile.mode === 'edit' || /\.pdf$/i.test(activeFile.filePath)) {
     activeDocumentContent =
       editorDrafts[activeFile.id] ?? fileContents[activeFile.id]?.content ?? null
   }
@@ -299,18 +301,24 @@ function EditorPanelInner({
   const isMarkdownTableOfContentsVisible =
     markdownTableOfContentsVisible[markdownDocumentStateFileId] ?? false
   const artifactContentType = editorArtifactContentType(activeFile.filePath, model.isMarkdown)
+  const pdfPreview =
+    artifactContentType === 'application/pdf' ? fileContents[activeFile.id] : undefined
   const createActiveArtifactRequest =
-    activeDocumentContent === null || artifactContentType === null
+    artifactContentType === null || (activeDocumentContent === null && !pdfPreview)
       ? undefined
-      : () =>
-          Promise.resolve(
-            createCurrentEditorArtifactRequest(
-              activeFile,
-              markdownDocumentStateFileId,
-              activeDocumentContent ?? '',
-              artifactContentType
-            )
-          )
+      : async () =>
+          pdfPreview
+            ? createEditorArtifactRequest(
+                activeFile,
+                await readPdfArtifactContent(pdfPreview),
+                'application/pdf'
+              )
+            : createCurrentEditorArtifactRequest(
+                activeFile,
+                markdownDocumentStateFileId,
+                activeDocumentContent ?? '',
+                artifactContentType
+              )
 
   return (
     <EditorCommandOwnerContext value={isCmdSaveOwner}>

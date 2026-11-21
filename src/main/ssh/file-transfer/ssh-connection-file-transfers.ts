@@ -45,7 +45,7 @@ export async function uploadSshDirectory(
 ): Promise<void> {
   await withLinkedSftpTransfer(host, remoteDir, options, {
     sftp: async (sftp, targetDir, signal, endSession) => {
-      const { uploadDirectory } = await import('./sftp/sftp-upload')
+      const { uploadDirectory } = await import('./sftp/sftp-upload.js')
       await uploadDirectory(sftp, localDir, targetDir, localDir, { signal, endSession })
     },
     system: (signal) =>
@@ -66,7 +66,7 @@ export async function downloadSshFile(
   if (!host.usesSystemSshTransport()) {
     const sftp = await host.sftp()
     try {
-      const { fastGetViaSftp } = await import('./sftp/sftp-download')
+      const { fastGetViaSftp } = await import('./sftp/sftp-download.js')
       await fastGetViaSftp(sftp, remotePath, localPath)
     } finally {
       sftp.end()
@@ -86,7 +86,7 @@ export async function createSshFileUploadSession(
 ): Promise<FileUploadSession> {
   if (!host.usesSystemSshTransport()) {
     const sftp = await host.sftp()
-    const { uploadFile } = await import('./sftp/sftp-file-upload')
+    const { uploadFile } = await import('./sftp/sftp-file-upload.js')
     return {
       uploadFile: (localPath, remotePath, uploadOptions) =>
         uploadFile(sftp, localPath, remotePath, uploadOptions),
@@ -118,7 +118,7 @@ export async function writeSshFile(
 ): Promise<void> {
   await withLinkedSftpTransfer(host, remotePath, options, {
     sftp: async (sftp, targetPath) => {
-      const { writeStringViaSftp } = await import('./sftp/sftp-upload')
+      const { writeStringViaSftp } = await import('./sftp/sftp-upload.js')
       await writeStringViaSftp(sftp, targetPath, contents)
     },
     system: (signal) =>
@@ -225,7 +225,7 @@ export async function writeSshBuffer(
   if (!host.usesSystemSshTransport()) {
     const sftp = await host.sftp()
     try {
-      const { uploadBuffer } = await import('./sftp/sftp-upload')
+      const { uploadBuffer } = await import('./sftp/sftp-upload.js')
       await uploadBuffer(sftp, contents, remotePath, options)
     } finally {
       sftp.end()

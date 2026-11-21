@@ -17,6 +17,8 @@ import {
 import { getPtyExecutionHost } from '../../../../shared/terminal/pty/lifecycle/terminal-execution-host'
 
 export let localProvider: IPtyProvider = new LocalPtyProvider()
+export const sshProviders = new Map<string, IPtyProvider>()
+export const sshProvidersByGeneration = new Map<number, IPtyProvider>()
 let colorQueryReplyColors: TerminalOscColorQueryReplyColors | null = null
 
 // Push theme updates to every PTY owner before its next OSC query; never erase a surviving daemon's theme with unknown.
@@ -51,7 +53,13 @@ export type RegisteredPtyProvider = {
 }
 
 export function registeredPtyProviders(): RegisteredPtyProvider[] {
-  return [{ provider: localProvider, hostId: LOCAL_EXECUTION_HOST_ID }]
+  return [
+    { provider: localProvider, hostId: LOCAL_EXECUTION_HOST_ID },
+    ...Array.from(sshProviders, ([targetId, provider]) => ({
+      provider,
+      hostId: toSshExecutionHostId(targetId)
+    }))
+  ]
 }
 
 function ptyHostNotDispatchableMessage(hostId: ResolvedPtyHost): string {
@@ -78,7 +86,12 @@ export function getProvider(hostId: ExecutionHostId): IPtyProvider {
   if (hostId === LOCAL_EXECUTION_HOST_ID) {
     return localProvider
   }
-  throw new PtyHostNotDispatchableError(hostId)
+  const targetId = getSshTargetIdForExecutionHost(hostId)
+  const provider = targetId === null ? undefined : sshProviders.get(targetId)
+  if (!provider) {
+    throw new PtyHostNotDispatchableError(hostId)
+  }
+  return provider
 }
 
 /** 'foreign' = a PTY that runs off this machine on a host its id cannot name. */
@@ -122,7 +135,10 @@ export function getProviderForPty(ptyId: string): IPtyProvider {
 
 export function hasPtyProviderForInspection(ptyId: string): boolean {
   // Why: process inspection is background polling; other hosts read as idle, not repeated IPC errors.
-  return resolvePtyExecutionHost(ptyId) === LOCAL_EXECUTION_HOST_ID
+  const targetId = getPtySshConnectionId(ptyId)
+  return targetId === null
+    ? resolvePtyExecutionHost(ptyId) === LOCAL_EXECUTION_HOST_ID
+    : sshProviders.has(targetId)
 }
 
 export function getAppPtyId(connectionId: string | null | undefined, ptyId: string): string {
@@ -160,4 +176,27 @@ export function getLocalPtyProvider(): IPtyProvider {
 export function setLocalPtyProvider(provider: IPtyProvider): void {
   localProvider = provider
   pushColorQueryReplyColors(provider)
+}
+
+export function registerSshPtyProvider(targetId: string, provider: IPtyProvider): void {
+  unregisterSshPtyProvider(targetId)
+  sshProviders.set(targetId, provider)
+  pushColorQueryReplyColors(provider)
+  const generation = provider.providerGeneration
+  if (generation !== undefined && Number.isSafeInteger(generation) && generation > 0) {
+    sshProvidersByGeneration.set(generation, provider)
+  }
+}
+
+export function unregisterSshPtyProvider(targetId: string): void {
+  const provider = sshProviders.get(targetId)
+  const generation = provider?.providerGeneration
+  if (generation !== undefined && sshProvidersByGeneration.get(generation) === provider) {
+    sshProvidersByGeneration.delete(generation)
+  }
+  sshProviders.delete(targetId)
+}
+
+export function getSshPtyProvider(targetId: string): IPtyProvider | undefined {
+  return sshProviders.get(targetId)
 }

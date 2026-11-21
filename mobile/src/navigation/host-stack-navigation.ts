@@ -12,7 +12,7 @@ export type HostStackNavigationState = Readonly<{
 export type HostStackNavigationRoute = Readonly<{
   key?: string
   name: string
-  params?: Readonly<{ hostId?: unknown; worktreeId?: unknown; groupId?: unknown }>
+  params?: Readonly<{ hostId?: unknown; worktreeId?: unknown; groupId?: unknown; runId?: unknown }>
   state?: HostStackNavigationState
 }>
 
@@ -75,6 +75,7 @@ export type PendingHostStackNavigation = Readonly<{
 
 export const HOST_SESSION_ROUTE = '[hostId]/session/[worktreeId]'
 export const HOST_GROUP_ROUTE = '[hostId]/group/[groupId]'
+export const HOST_MANAGER_ROUTE = '[hostId]/manager'
 const HOST_INDEX_ROUTE = '[hostId]/index'
 
 // A session opened in its host list's place (Home's agent rows), so Back leaves the host instead of showing the list.

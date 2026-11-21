@@ -6,7 +6,7 @@ import type { Bot } from '../../shared/bot-types'
 import type { AgentStatusOrchestrationContext } from '../../shared/agent-status/contracts/agent-status-types'
 import type { BotAccessRequestWatch } from '../bots/bot-access-request-watch'
 import type { ConnectorGitHubInstallations } from '../connector-cloud/connector-github-installations'
-import { BotChangeNotices } from '../bots/bot-change-notices'
+import { BotChangeNotices, followBotToolSignInForBots } from '../bots/bot-change-notices'
 import { deleteAutomationsOfBot } from '../bots/bot-automations-removal'
 import { syncBotAutomationAgents } from '../bots/bot-automation-agent-sync'
 import { BotController } from '../bots/bot-controller'
@@ -35,8 +35,6 @@ import { botStructuredSessionWiring, type WiredBot } from '../bots/bot-structure
 import { botChatJournal } from '../bots/bot-chat-reads'
 import type { RuntimeStore } from './construction/runtime-store-contract'
 import { googleSetupRuns } from '../google/google-setup-runs'
-import { onBotToolSignInChanged } from '../bots/bot-tool-sign-in-changed'
-import { onBotToolCredentialEnded } from '../bots/bot-tool-credential-ended'
 import type { BotChangeScope } from '../../shared/bots/bot-change-scope'
 import type { BotChatTreeIndex } from '../bots/bot-chat-tree-index'
 import { pairedBotRosterCache } from '../bots/paired-bot-rosters'
@@ -342,12 +340,7 @@ export abstract class OrcaRuntimeWithBots extends OrcaRuntimeWithLinearCommands 
     this.botChangeNotices.changed({ kinds: ['settings'] })
   )
 
-  // A tool's sign-in state shows in every window's and phone's rows: they re-read the tools on this,
-  // and when a credential ends (a tool removed, a sign-in replaced).
-  protected readonly stopToolSignInNotices = [
-    onBotToolSignInChanged(() => this.botChangeNotices.changed({ kinds: ['settings'] })),
-    onBotToolCredentialEnded(() => this.botChangeNotices.changed({ kinds: ['settings'] }))
-  ]
+  protected readonly stopToolSignInNotices = followBotToolSignInForBots(this.botChangeNotices)
 
   /** Something a bot's settings or cards show changed on this host; windows and phones re-read.
    *  Unscoped, every reader re-reads. */

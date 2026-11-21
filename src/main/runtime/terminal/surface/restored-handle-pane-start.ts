@@ -1,3 +1,6 @@
+import { makePaneKey } from '../../../../shared/workspace-layout/stable-pane-id'
+import type { RuntimeTerminalCreate } from '../../../../shared/terminal/runtime/runtime-terminal-create-contract'
+import type { RuntimeTerminalResolvePane } from '../../../../shared/terminal/runtime/runtime-terminal-contracts'
 // Send/wait/read on an unstarted restored pane shares main's starter, then acts on its terminal.
 import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../../../shared/workspace-layout/layout-owner-switch'
 import { OrcaRuntimeWithGetTerminalInteractiveWait } from '../wait/terminal-interactive-wait'
@@ -6,6 +9,37 @@ import { MOBILE_TERMINAL_SURFACE_TIMEOUT_MS } from '../view/terminal-surface-dea
 import type { RestoredPane } from '../recovery/restored-pane-start'
 
 export abstract class OrcaRuntimeWithRestoredHandlePaneStart extends OrcaRuntimeWithGetTerminalInteractiveWait {
+  abstract getPtyExecutionHostMetadata(
+    ptyId: string | null
+  ): Pick<RuntimeTerminalCreate, 'executionHostId' | 'hostPlatform' | 'incarnationId'>
+  abstract resolveTerminalPane(
+    paneKey: string,
+    expectedWorktreeId?: string
+  ): RuntimeTerminalResolvePane
+
+  /** A live relay PTY retains its authority even when no renderer owns its pane. */
+  resolveTerminalSessionAuthority(handle: string): RuntimeTerminalResolvePane | null {
+    try {
+      const live = this.getLivePtyForHandle(handle)
+      if (live) {
+        return {
+          handle,
+          tabId: live.record.tabId,
+          leafId: live.record.leafId,
+          ptyId: live.pty.ptyId,
+          worktreeId: live.pty.worktreeId,
+          connected: live.pty.connected === true,
+          ...this.getPtyExecutionHostMetadata(live.pty.ptyId)
+        }
+      }
+      const { record } = this.getLiveLeafForHandle(handle)
+      const terminal = this.resolveTerminalPane(makePaneKey(record.tabId, record.leafId))
+      return terminal.handle === handle ? terminal : null
+    } catch {
+      return null
+    }
+  }
+
   /** Return null synchronously unless main must start this saved pane; use the started terminal's handle until binding/adoption catches up. */
   startRestoredHandlePane(
     handle: string,

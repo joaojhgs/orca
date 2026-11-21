@@ -223,3 +223,6 @@ export function isAgentSessionClaimedSpawnResult(
     result.owner.phase === 'live'
   )
 }
+
+export const AGENT_SESSION_EXECUTION_OWNER_PROTOCOL_VERSION = 2 as const
+export const AGENT_SESSION_CREATE_OPERATION_PROTOCOL_VERSION = 1 as const

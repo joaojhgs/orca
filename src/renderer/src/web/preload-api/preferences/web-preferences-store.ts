@@ -77,6 +77,7 @@ export function getStoredSettings(): GlobalSettings {
   const settings = mergeSettings(
     {
       ...defaults,
+      showSkillsButton: true,
       activeRuntimeEnvironmentId: null
     },
     migratedStored

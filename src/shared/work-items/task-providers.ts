@@ -1,6 +1,12 @@
-export type TaskProvider = 'github' | 'gitlab' | 'linear' | 'jira'
+export type TaskProvider = 'github' | 'gitlab' | 'linear' | 'jira' | 'multica'
 
-export const TASK_PROVIDERS: readonly TaskProvider[] = ['github', 'gitlab', 'linear', 'jira']
+export const TASK_PROVIDERS: readonly TaskProvider[] = [
+  'github',
+  'gitlab',
+  'linear',
+  'jira',
+  'multica'
+]
 
 const TASK_PROVIDER_SET = new Set<TaskProvider>(TASK_PROVIDERS)
 
@@ -43,6 +49,14 @@ export function normalizeVisibleTaskProviders(value: unknown): TaskProvider[] {
     if (!normalized.includes(provider as TaskProvider)) {
       normalized.push(provider as TaskProvider)
     }
+  }
+
+  const legacyDefaultProviders: TaskProvider[] = ['github', 'gitlab', 'linear', 'jira']
+  if (
+    normalized.length === legacyDefaultProviders.length &&
+    legacyDefaultProviders.every((provider) => normalized.includes(provider))
+  ) {
+    normalized.push('multica')
   }
 
   // Keep a selectable source after hydration or manual settings edits.
@@ -98,6 +112,9 @@ function isTaskProviderAvailable(
   }
   // Disconnected Jira must remain visible as its own first-time setup entry point.
   if (provider === 'jira') {
+    return true
+  }
+  if (provider === 'multica') {
     return true
   }
   return availability.linearConnected

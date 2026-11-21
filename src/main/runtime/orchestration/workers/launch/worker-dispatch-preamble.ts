@@ -42,9 +42,11 @@ function dispatchIdentityLines(params: PreambleParams): string {
   return [
     params.coordinatedFrom
       ? `You are coordinated from ${params.coordinatedFrom}. Your coordinator's address here is: ${params.coordinatorHandle}`
-      : isSessionHandle(params.coordinatorHandle)
-        ? `Your coordinator's Orca session ID is: ${params.coordinatorHandle}`
-        : 'Your coordinator receives mail you send with no recipient.',
+      : params.coordinatorHandle.startsWith('run:')
+        ? `Your coordinator's durable Run mailbox is: ${params.coordinatorHandle}`
+        : isSessionHandle(params.coordinatorHandle)
+          ? `Your coordinator's Orca session ID is: ${params.coordinatorHandle}`
+          : 'Your coordinator receives mail you send with no recipient.',
     `Your task ID is: ${params.taskId}`,
     ...(isSessionHandle(params.workerHandle)
       ? [`Your Orca session ID is: ${params.workerHandle}`]

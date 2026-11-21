@@ -10,6 +10,7 @@ import type {
 
 export type SshLeaseStoreMock = {
   getRepos: () => unknown[]
+  getSshTarget: Mock
   getSshRemotePtyLeases: Mock
   markSshRemotePtyLease: Mock
   removeSshRemotePtyLeases: Mock
@@ -47,6 +48,7 @@ export function createSshIpcHarness(mocks: SshIpcMocks): SshIpcHarness {
   const handlers = new Map<string, (_event: unknown, args: unknown) => unknown>()
   const mockStore = {
     getRepos: () => [],
+    getSshTarget: vi.fn((targetId: string) => mockSshStore.getTarget(targetId)),
     getSshRemotePtyLeases: vi.fn().mockReturnValue([]),
     markSshRemotePtyLease: vi.fn(),
     removeSshRemotePtyLeases: vi.fn(),

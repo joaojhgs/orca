@@ -3,6 +3,7 @@ export type SshExecOptions = {
   /** Compression is execCommand-only: it can retry plain when hosts lack base64/gzip; direct exec cannot. */
   compressCommand?: boolean
   signal?: AbortSignal
+  disableControlMaster?: boolean
 }
 
 export function createSshOperationAbortError(): Error & { name: string } {

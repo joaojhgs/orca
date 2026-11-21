@@ -19,7 +19,8 @@ import { isProcessRunning } from '../connection/runtime-pid-liveness'
 import { runtimeAccessDeniedError } from '../connection/runtime-access-denied'
 
 export async function getCliStatus(
-  userDataPath: string
+  userDataPath: string,
+  timeoutMs = 1000
 ): Promise<RuntimeRpcSuccess<CliStatusResult>> {
   const metadata = tryReadMetadata(userDataPath)
   const transport = metadata ? findTransport(metadata, 'unix', 'named-pipe') : null
@@ -41,7 +42,7 @@ export async function getCliStatus(
     })
   }
 
-  const response = await sendRequest<RuntimeStatus>(metadata, 'status.get', undefined, 1000)
+  const response = await sendRequest<RuntimeStatus>(metadata, 'status.get', undefined, timeoutMs)
   return projectConnectedStatus(metadata, response)
 }
 

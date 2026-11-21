@@ -7,6 +7,7 @@ import { useOrcaProfileAuthStatusRefresh } from '@/components/orca-profiles/use-
 import { useAppStore } from '@/store/index'
 import { isWebClientLocation } from '@/app-shell/platform/web-client-location'
 import { useTranslate } from '@/i18n/use-translate'
+import { ArtifactPublishingApprovalDialog } from '../ArtifactPublishingApprovalDialog'
 import { OrcaSignInButton, OrcaSignInWaitNotice } from '../../orca-profiles/OrcaSignInProgress'
 
 type HowToStep = { key: string; title: string; description: string }
@@ -21,7 +22,8 @@ export function ArtifactsSettingsPane({
   const t = useTranslate()
   const openArtifactsPage = useAppStore((state) => state.openArtifactsPage)
   const authStatus = useAppStore((state) => state.orcaProfileAuthStatus)
-  const signedIn = authStatus?.state === 'connected'
+  const localHosting = authStatus?.artifactHosting?.backend === 'local'
+  const signedIn = localHosting || authStatus?.state === 'connected'
   // Only the desktop host can grant sharing; web clients mirror it because settings.update excludes this capability.
   const isWebClient = isWebClientLocation()
   const sharingEnabled = settings.artifactSharingEnabled === true
@@ -40,8 +42,8 @@ export function ArtifactsSettingsPane({
             ),
             description: isWebClient
               ? t(
-                  'auto.components.settings.artifacts.enableStepWebDescription',
-                  'Open Settings → Artifacts in the Orca desktop app on the host device and enable publishing.'
+                  'auto.components.settings.artifacts.enableStepHeadlessWebDescription',
+                  'Request approval above and run the one-time command yourself over SSH on the host, or use its desktop Artifacts settings.'
                 )
               : t(
                   'auto.components.settings.artifacts.enableStepDescription',
@@ -54,12 +56,14 @@ export function ArtifactsSettingsPane({
       title: t('auto.components.settings.artifacts.shareStepTitle', 'Choose a file to share'),
       description: t(
         'auto.components.settings.artifacts.shareStepDescription',
-        'Open an HTML or Markdown file and select Share as artifact, or ask an agent to share it.'
+        'Open an HTML, Markdown, or PDF file and select Share as artifact, or ask an agent to share it.'
       )
     },
     {
       key: 'link',
-      title: t('auto.components.settings.artifacts.linkStepTitle', 'Copy the public link'),
+      title: localHosting
+        ? t('settings.artifacts.local.linkStepTitle', 'Copy the server-hosted link')
+        : t('auto.components.settings.artifacts.linkStepTitle', 'Copy the public link'),
       description: t(
         'auto.components.settings.artifacts.linkStepDescription',
         'After publishing, copy the link and send it to your team.'
@@ -79,25 +83,42 @@ export function ArtifactsSettingsPane({
     <div className="space-y-8">
       <SettingsGroup>
         <SettingsSwitchRow
-          label={t(
-            'auto.components.settings.artifacts.allowPublishing',
-            'Allow publishing public artifact links'
-          )}
-          description={
-            isWebClient
+          label={
+            localHosting
               ? t(
-                  'auto.components.settings.artifacts.allowPublishingWebDescription',
-                  'Desktop only. Open Settings → Artifacts on the host device to change this setting.'
+                  'settings.artifacts.local.allowPublishing',
+                  'Allow publishing server-hosted artifact links'
                 )
               : t(
-                  'auto.components.settings.artifacts.allowPublishingDescription',
-                  'Publish HTML and Markdown files as links anyone with the URL can open. Existing links remain until you delete them from Artifacts.'
+                  'auto.components.settings.artifacts.allowPublishing',
+                  'Allow publishing public artifact links'
                 )
+          }
+          description={
+            localHosting
+              ? t(
+                  'settings.artifacts.local.publishingDescription',
+                  'Artifacts stay on this Orca server. Anyone with the secret link and network access to the server can open them. Publishing approval is required on the host; no Orca Cloud account is needed.'
+                )
+              : isWebClient
+                ? t(
+                    'auto.components.settings.artifacts.allowPublishingHeadlessWebDescription',
+                    'Changing this host-wide permission requires approval on the host. Use the approval button below or the host desktop app.'
+                  )
+                : t(
+                    'auto.components.settings.artifacts.allowPublishingDescription',
+                    'Publish HTML, Markdown, and PDF files as links anyone with the URL can open.'
+                  )
           }
           checked={sharingEnabled}
           disabled={isWebClient}
           onChange={() => void updateSettings({ artifactSharingEnabled: !sharingEnabled })}
         />
+        {isWebClient ? (
+          <section data-settings-row="" className="py-3">
+            <ArtifactPublishingApprovalDialog enabled={sharingEnabled} />
+          </section>
+        ) : null}
         <SettingsSwitchRow
           label={t('auto.components.settings.artifacts.09f41ce46c', 'Show artifacts button')}
           description={t(
@@ -137,11 +158,11 @@ export function ArtifactsSettingsPane({
           sharingEnabled
             ? t(
                 'auto.components.settings.artifacts.howToDescription',
-                'Publish HTML or Markdown files as public links, then share them with your team.'
+                'Publish HTML, Markdown, or PDF files and share the links with your team.'
               )
             : t(
                 'auto.components.settings.artifacts.howToDescriptionDisabled',
-                'Enable artifact sharing above to publish HTML or Markdown files as public links.'
+                'Enable artifact sharing above to publish HTML, Markdown, or PDF files.'
               )
         }
         bodyClassName="py-4"

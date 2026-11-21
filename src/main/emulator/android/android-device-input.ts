@@ -1,7 +1,7 @@
 import { EmulatorError } from '../emulator-errors'
 import type { EmulatorGesturePoint } from '../emulator-gesture-sender'
 import { scrcpyVideoRegistry } from '../scrcpy-video-registry'
-import { parseWmSize, wmSizeArgs } from './adb-devices'
+import { readAndroidScreenSize } from './android-screen-size'
 import type { AndroidCommandRunner } from './android-command-runner'
 import { androidButton, androidSwipe, androidTap, androidTypeText } from './android-input-commands'
 import type { DeviceScreenSize } from './android-input-mapping'
@@ -85,8 +85,7 @@ export class AndroidDeviceInput {
     if (cached) {
       return cached
     }
-    const result = await this.deps.runner(sdk.adb, wmSizeArgs(serial))
-    const size = parseWmSize(result.stdout)
+    const size = await readAndroidScreenSize(this.deps.runner, sdk, serial)
     if (!size) {
       throw new EmulatorError('emulator_error', `Could not read screen size for ${serial}.`)
     }

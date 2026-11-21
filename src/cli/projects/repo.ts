@@ -12,6 +12,7 @@ import {
   getOptionalStringFlag,
   getRequiredStringFlag
 } from '../arguments/flags'
+import type { Project } from '../../shared/project/project-types'
 import { resolveRepoPathArgument } from './repo-path-arguments'
 import { RuntimeClientError } from '../runtime/connection/types'
 import { attachCliErrorData } from '../workspaces/worktree-setup-decision-recovery'
@@ -56,10 +57,35 @@ export const REPO_HANDLERS: Record<string, CommandHandler> = {
   'repo add': async ({ flags, client, cwd, json }) => {
     const repoPath = getRequiredStringFlag(flags, 'path')
     const kind = getOptionalRepoKind(flags)
-    const result = await client
+    const host = getOptionalStringFlag(flags, 'host')
+    const path = resolveRepoPathArgument(
+      repoPath,
+      cwd,
+      client.isRemote || (host !== undefined && host !== 'local'),
+      'Remote repo add'
+    )
+    const projectId = getOptionalStringFlag(flags, 'project')
+    let upstream: { owner: string; repo: string } | undefined
+    if (projectId) {
+      const { projects } = (await client.call<{ projects: Project[] }>('project.list')).result
+      const project = projects.find((entry) => entry.id === projectId)
+      if (!project) {
+        throw new RuntimeClientError('selector_not_found', `Project not found: ${projectId}`)
+      }
+      const identity = project.providerIdentity
+      if (identity?.provider !== 'github') {
+        throw new RuntimeClientError(
+          'invalid_argument',
+          '--project currently requires a GitHub-backed Orca project'
+        )
+      }
+      upstream = { owner: identity.owner, repo: identity.repo }
+    }
+    let result = await client
       .call<{ repo: Record<string, unknown> }>('repo.add', {
-        path: resolveRepoPathArgument(repoPath, cwd, client.isRemote, 'Remote repo add'),
-        ...(kind === undefined ? {} : { kind })
+        path,
+        ...(kind === undefined ? {} : { kind }),
+        ...(host === undefined ? {} : { host })
       })
       .catch((error: unknown) => {
         if (
@@ -76,6 +102,16 @@ export const REPO_HANDLERS: Record<string, CommandHandler> = {
         }
         throw error
       })
+    if (upstream) {
+      const repoId = result.result.repo.id
+      if (typeof repoId !== 'string' || !repoId) {
+        throw new RuntimeClientError('runtime_error', 'Orca did not return the added project ID')
+      }
+      result = await client.call<{ repo: Record<string, unknown> }>('repo.update', {
+        repo: `id:${repoId}`,
+        updates: { upstream }
+      })
+    }
     printResult(result, json, formatRepoShow)
   },
   'repo show': async ({ flags, client, json }) => {

@@ -1,11 +1,13 @@
 // WSL-host orcad must ignore Windows CLI shims; identify mounts by type because the automount root is configurable.
 import { existsSync, readFileSync } from 'node:fs'
+import { access } from 'node:fs/promises'
 import { isAbsolute } from 'node:path'
 import { resolveCliCommand } from '../../../shared/shell/command-resolution/node-cli-command-resolution'
+import { ORCAD_WSL_HOST_ENV } from '../../../shared/remote-runtime/serve-supervisor/orcad-server-launch-env'
 
 const WINDOWS_DRIVE_MOUNT_TYPES = new Set(['drvfs', '9p', 'virtiofs'])
 
-import { ORCAD_WSL_HOST_ENV } from '../../../shared/remote-runtime/serve-supervisor/orcad-server-launch-env'
+const WSL_INTEROP_PATH = '/proc/sys/fs/binfmt_misc/WSLInterop'
 
 let cachedGuestMounts: readonly string[] | null = null
 
@@ -16,15 +18,19 @@ const WINDOWS_COPY_VERDICT_LIMIT = 32
 type WindowsCopyVerdict = { windowsOnly: boolean; checkedAt: number }
 let windowsCopyVerdicts = new WeakMap<typeof resolveCliCommand, Map<string, WindowsCopyVerdict>>()
 
+function hasWslGuestEnvironment(env: NodeJS.ProcessEnv): boolean {
+  return Boolean(env.WSL_DISTRO_NAME?.trim() || env.WSL_INTEROP?.trim())
+}
+
 export function isWslGuestProcess(
   env: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
-  interopRegistered: () => boolean = () => existsSync('/proc/sys/fs/binfmt_misc/WSLInterop')
+  interopRegistered: () => boolean = () => existsSync(WSL_INTEROP_PATH)
 ): boolean {
   if (platform !== 'linux') {
     return false
   }
-  return Boolean(env.WSL_DISTRO_NAME?.trim() || env.WSL_INTEROP?.trim()) || interopRegistered()
+  return hasWslGuestEnvironment(env) || interopRegistered()
 }
 
 export function isWslHostOrcadProcess(
@@ -33,6 +39,22 @@ export function isWslHostOrcadProcess(
   interopRegistered?: () => boolean
 ): boolean {
   return env[ORCAD_WSL_HOST_ENV] === '1' && isWslGuestProcess(env, platform, interopRegistered)
+}
+
+export async function isWslHostOrcadProcessAsync(
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform
+): Promise<boolean> {
+  if (env[ORCAD_WSL_HOST_ENV] !== '1' || platform !== 'linux') {
+    return false
+  }
+  return (
+    hasWslGuestEnvironment(env) ||
+    access(WSL_INTEROP_PATH).then(
+      () => true,
+      () => false
+    )
+  )
 }
 
 /** Decode /proc/mounts octal escapes, including whitespace and backslashes. */

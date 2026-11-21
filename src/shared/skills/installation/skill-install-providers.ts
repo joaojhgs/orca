@@ -164,8 +164,8 @@ export const SKILL_INSTALL_PROVIDERS = Object.freeze([
   {
     id: 'opencode',
     displayName: 'OpenCode',
-    globalSegments: null,
-    workspaceSegments: null
+    globalSegments: ['.config', 'opencode', 'skills'],
+    workspaceSegments: ['.opencode', 'skills']
   },
   {
     id: 'pi',

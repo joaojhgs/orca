@@ -8,20 +8,25 @@ import type {
 } from '../../../../shared/workspace/ports/workspace-ports'
 import {
   filterWorkspacePortProbes,
-  killWorkspacePort,
-  scanWorkspacePortProbes
+  killWorkspacePort
 } from '../../../ports/workspace-port-ownership'
+import { scanExecutionWorkspacePorts } from '../../../ports/execution-workspace-port-scanner'
 import {
   killWorkspacePortOnExecutionHost,
   scanWorkspacePortsOnExecutionHost,
   type WorkspacePortExecutionHostDeps
 } from '../../../ports/workspace-port-execution-host'
+import { getActiveMultiplexer } from '../../../ssh/targets/ssh-target-registry'
 import { resolveWorktreeHostRouting } from '../catalog/worktree-launch-host-repo'
-import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host/execution-host'
+import { parseExecutionHostId } from '../../../../shared/execution-host/execution-host'
 import { RuntimeWorkspaceSleepOperations } from '../sleep/runtime-workspace-sleep-operations'
 export abstract class RuntimeWorkspacePortOperations extends RuntimeWorkspaceSleepOperations {
-  async scanWorkspacePorts(repoId?: string): Promise<WorkspacePortScanResult> {
-    return scanWorkspacePortProbes(await this.getWorkspacePortProbes(repoId))
+  async scanWorkspacePorts(repoId?: string, includeSsh = false): Promise<WorkspacePortScanResult> {
+    const probes = await this.getAllExecutionWorkspacePortProbes()
+    return scanExecutionWorkspacePorts(
+      includeSsh ? probes : probes.filter((probe) => !probe.connectionId),
+      repoId
+    )
   }
 
   async killWorkspacePort(args: WorkspacePortKillRequest): Promise<WorkspacePortKillResult> {
@@ -43,28 +48,29 @@ export abstract class RuntimeWorkspacePortOperations extends RuntimeWorkspaceSle
 
   protected getWorkspacePortHostDeps(): WorkspacePortExecutionHostDeps {
     return {
-      getLocalProbes: () => this.getWorkspacePortProbes()
+      getLocalProbes: () => this.getWorkspacePortProbes(),
+      getSshMultiplexer: getActiveMultiplexer
     }
   }
 
   // Authorize RPC port probes from host-owned workspace paths, never client-supplied paths.
   protected async getWorkspacePortProbes(repoId?: string): Promise<WorkspacePortProbe[]> {
+    return filterWorkspacePortProbes(await this.getAllExecutionWorkspacePortProbes(), repoId)
+  }
+
+  protected async getAllExecutionWorkspacePortProbes() {
     const repos = this.requireStore().getRepos()
-    return filterWorkspacePortProbes(
-      (await this.listResolvedWorktrees()).map((worktree) => {
-        // Resolve executionHostId too: remote SSH paths must never authorize local listeners.
-        const routing = resolveWorktreeHostRouting(repos, worktree)
-        return {
-          id: worktree.id,
-          repoId: worktree.repoId,
-          displayName: worktree.displayName,
-          path: worktree.git.path,
-          runsHere:
-            routing.kind === 'unowned' ||
-            (routing.kind === 'resolved' && routing.hostId === LOCAL_EXECUTION_HOST_ID)
-        }
-      }),
-      repoId
-    )
+    return (await this.listResolvedWorktrees()).map((worktree) => {
+      const routing = resolveWorktreeHostRouting(repos, worktree)
+      const host = routing.kind === 'resolved' ? parseExecutionHostId(routing.hostId) : null
+      return {
+        id: worktree.id,
+        repoId: worktree.repoId,
+        displayName: worktree.displayName,
+        path: worktree.git.path,
+        connectionId: host?.kind === 'ssh' ? host.targetId : undefined,
+        runsHere: routing.kind === 'unowned' || host?.kind === 'local'
+      }
+    })
   }
 }

@@ -1,13 +1,6 @@
 import type { AppState } from '../../../../src/renderer/src/store/types'
-import type { PaneManager } from '../../../../src/renderer/src/lib/pane-manager/pane-manager'
 import type { OpenFile } from '../../../../src/renderer/src/store/slices/editor/types/open-file'
 import type { RightSidebarTab } from '../../../../src/shared/ui-chrome/ui-chrome-types'
-import type {
-  ManagedPane,
-  ManagedPaneInternal,
-  PaneRenderingDiagnostics
-} from '../../../../src/renderer/src/lib/pane-manager/pane-manager-types'
-import type { GlobalSettings } from '../../../../src/shared/settings/global-settings-types'
 import type { BrowserWorkspace } from '../../../../src/shared/browser/workspaces/browser-workspace-types'
 import type { Repo } from '../../../../src/shared/repository/repo-types'
 import type { WorkspaceVisibleTabType } from '../../../../src/shared/workspace-layout/tab-groups/tab-types'
@@ -21,29 +14,6 @@ export type AppStore = {
   getState(): AppState
   setState(partial: Partial<AppState> | ((state: AppState) => Partial<AppState>)): void
   subscribe(listener: (state: AppState, previousState: AppState) => void): () => void
-}
-
-// PaneManager exposes both public and internal renderer state on the same handle.
-export type ManagedPaneHandle = ManagedPane & ManagedPaneInternal
-
-// Every registered PaneManager implements these methods; optional methods would weaken spec calls.
-export type PaneManagerLike = {
-  getActivePane(): ManagedPaneHandle | null
-  getPanes(limit?: number): ManagedPaneHandle[]
-  splitPane(paneId: number, direction: 'vertical' | 'horizontal'): ManagedPaneHandle | null
-  closePane(paneId: number): void
-  movePane: PaneManager['movePane']
-  setActivePane(paneId: number, opts?: { focus?: boolean }): void
-  suspendRendering(): void
-  resumeRendering(): void
-  setTerminalGpuAcceleration(mode: GlobalSettings['terminalGpuAcceleration']): void
-  getRenderingDiagnostics(): PaneRenderingDiagnostics[]
-  resetWebglTextureAtlases(): void
-  hasWebglRenderer(paneId: number): boolean
-  getNumericIdForLeaf(leafId: string): number | null
-  getLeafId(paneId: number): string | null
-  scheduleRevealRepaint(): void
-  scheduleRevealPresent(): void
 }
 
 export type ExplorerFileSummary = Pick<OpenFile, 'id' | 'filePath' | 'relativePath'>
@@ -70,7 +40,6 @@ declare global {
   interface Window {
     __store?: AppStore
     __dictationMeterE2E?: { publish(meter: DictationMeterState): void }
-    __paneManagers?: Map<string, PaneManagerLike>
     __REACT_DEVTOOLS_GLOBAL_HOOK__?: ReactCommitHook
     __tabsRenderedPerCommit?: number[]
   }

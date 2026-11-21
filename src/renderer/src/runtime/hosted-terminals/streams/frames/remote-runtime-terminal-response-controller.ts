@@ -9,7 +9,10 @@ import {
   clearSnapshot,
   rejectPendingSnapshotRequest
 } from '../../snapshots/remote-terminal-snapshot-lifecycle'
-import { disposeRemoteTerminalStreamState } from '../remote-terminal-stream-disposal'
+import {
+  discardOutputAcknowledgements,
+  disposeRemoteTerminalStreamState
+} from '../remote-terminal-stream-disposal'
 import { isTerminalDriverState } from './remote-terminal-multiplex-event'
 import type { TerminalMultiplexEvent } from './remote-terminal-multiplex-event'
 import { unwrapRuntimeRpcResult } from '../../../rpc/calls/runtime-rpc-result'
@@ -67,6 +70,32 @@ export abstract class RemoteRuntimeTerminalResponseController extends RemoteRunt
     if (event.type === 'ready') {
       this.ready = true
       this.resolveReadyIfConnected()
+      if (this.transportInterrupted) {
+        this.transportInterrupted = false
+        for (const stream of this.streams.values()) {
+          if (!stream.subscriptionRequested) {
+            continue
+          }
+          discardOutputAcknowledgements(stream)
+          clearSnapshot(stream)
+          clearResyncTimer(stream)
+          rejectPendingSnapshotRequest(stream, 'Remote terminal transport is recovering.')
+          stream.initialSnapshotReceived = false
+          stream.expectedSeq = undefined
+          stream.commandProbeBaselineSeq = undefined
+          stream.recoverySnapshotSeq = undefined
+          stream.streamGeneration = null
+          stream.sourceAckedEndByte = 0
+          stream.resyncInFlight = false
+          stream.resyncPendingSend = false
+          stream.resyncAttempts = 0
+          stream.resyncUnansweredTimeouts = 0
+          if (!this.sendStreamSubscription(stream)) {
+            this.handleClose('Remote terminal stream could not be restored after reconnect.')
+            break
+          }
+        }
+      }
       return
     }
 

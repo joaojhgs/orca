@@ -38,6 +38,7 @@ type GitHubRepositoryQueryCommandName =
 export type RuntimeRepositoryCommandSurface = {
   listProjects: RuntimeProjectHostSetupController['listProjects']
   updateProject: RuntimeProjectHostSetupController['updateProject']
+  listProjectHostSetups: RuntimeProjectHostSetupController['listSetups']
   listVisibleProjectHostSetups: RuntimeProjectHostSetupController['listVisibleSetups']
   createProjectHostSetup: RuntimeProjectHostSetupController['createSetup']
   setupProjectExistingFolder: RuntimeProjectHostSetupController['setupExistingFolder']
@@ -124,6 +125,7 @@ export function installRuntimeRepositoryCommandSurface(
   Object.assign(target, {
     listProjects: host.listProjects.bind(host),
     updateProject: host.updateProject.bind(host),
+    listProjectHostSetups: host.listSetups.bind(host),
     listVisibleProjectHostSetups: host.listVisibleSetups.bind(host),
     createProjectHostSetup: host.createSetup.bind(host),
     setupProjectExistingFolder: host.setupExistingFolder.bind(host),

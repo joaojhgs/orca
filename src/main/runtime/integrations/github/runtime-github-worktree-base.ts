@@ -1,3 +1,5 @@
+import { captureDirectSshWorktreeAuthority } from '../../../ipc/worktrees/direct-ssh-worktree-authority'
+import { resolveWorktreeCreateRoute } from '../../../workspaces/creation/worktree-create-execution-host-route'
 import type { GitHubPrStartPoint } from '../../../../shared/worktree/types'
 import type { Repo } from '../../../../shared/repository/repo-types'
 import {
@@ -46,28 +48,57 @@ export async function resolveRuntimeGitHubWorktreeBase(
   if (isFolderRepo(repo)) {
     return reviewStartPointFailure('folderUnsupported')
   }
-  // Use shared host gating: executionHostId may be a row's only SSH marker.
-  requireRepoLocalGitRoute(repo)
-  const localGitExecOptions = getLocalProjectGitExecOptions(deps.store, repo)
-  const localGhOptions = getLocalProjectGhExecOptions(deps.store, repo)
-  const gitExec = (gitArgs: string[]) => gitExecFileAsync(gitArgs, localGitExecOptions)
+  const route = resolveWorktreeCreateRoute(repo)
+  const ssh = route.kind === 'ssh' ? captureDirectSshWorktreeAuthority(route.connectionId) : null
+  if (ssh) {
+    await ssh.registerRoot(repo.path)
+  } else {
+    requireRepoLocalGitRoute(repo)
+  }
+  const connectionId = ssh?.connectionId ?? null
+  const localGitExecOptions = ssh ? undefined : getLocalProjectGitExecOptions(deps.store, repo)
+  const localGhOptions = ssh
+    ? repo.ghAccount
+      ? { ghAccount: repo.ghAccount }
+      : undefined
+    : getLocalProjectGhExecOptions(deps.store, repo)
+  const gitExec = (gitArgs: string[]) => {
+    if (ssh) {
+      ssh.assertCurrent()
+      return ssh.provider.exec(gitArgs, repo.path)
+    }
+    return gitExecFileAsync(gitArgs, localGitExecOptions ?? { cwd: repo.path })
+  }
   const resolveRemote = (): Promise<string> =>
     resolveGitHubReviewHeadRemote({
       repoPath: repo.path,
       issueSourcePreference: repo.issueSourcePreference,
-      connectionId: null,
+      connectionId,
       localGitOptions: localGhOptions,
       gitExec
     })
-  const fetchRemoteTrackingRef = (remote: string, branch: string): Promise<void> =>
-    fetchPrHeadTrackingRef(repo, remote, branch, { localGitExecOptions })
-  const fetchPullRequestHeadRef = (remote: string, prNumber: number): Promise<string> =>
-    fetchGitHubPullRequestHeadRef(repo, remote, prNumber, {
-      localGitExecOptions
-    })
+  const fetchRemoteTrackingRef = (remote: string, branch: string): Promise<void> => {
+    if (ssh) {
+      ssh.assertCurrent()
+      return ssh.provider.fetchRemoteTrackingRef(
+        repo.path,
+        remote,
+        branch,
+        `refs/remotes/${remote}/${branch}`
+      )
+    }
+    return fetchPrHeadTrackingRef(repo, remote, branch, { localGitExecOptions })
+  }
+  const fetchPullRequestHeadRef = (remote: string, prNumber: number): Promise<string> => {
+    if (ssh) {
+      ssh.assertCurrent()
+      return ssh.provider.fetchGitHubPullRequestHead(repo.path, remote, prNumber)
+    }
+    return fetchGitHubPullRequestHeadRef(repo, remote, prNumber, { localGitExecOptions })
+  }
   // A paired client's push-target ensure asks unprompted; it must not start a stopped distro (E9).
   return resolvePrStartPointUnlessWslStopped(
-    { path: repo.path, wslDistro: localGitExecOptions.wslDistro },
+    { path: repo.path, wslDistro: localGitExecOptions?.wslDistro },
     { wakeWslDistro: args.wakeWslDistro },
     () =>
       resolveGitHubPrStartPoint({
@@ -77,7 +108,7 @@ export async function resolveRuntimeGitHubWorktreeBase(
         baseRefName: args.baseRefName,
         isCrossRepository: args.isCrossRepository,
         issueSourcePreference: repo.issueSourcePreference,
-        connectionId: null,
+        connectionId,
         localGitOptions: localGhOptions,
         gitExec,
         fetchRemoteTrackingRef,

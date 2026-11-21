@@ -1,8 +1,12 @@
+import { activeSessions } from './ssh-active-relay-sessions'
+import { getSshPlainSshMode } from '../../ssh/ssh-plain-ssh-mode'
+import { isSshRelayOnHostNodeRuntime } from '../../ssh/ssh-host-node-runtime-mode'
 import type { SshPortForwardManager } from '../../ssh/port-forwarding/ssh-port-forward'
 import type {
   DetectedPort,
   EnrichedDetectedPort,
-  SshConnectionState
+  SshConnectionState,
+  SshConnectionStatus
 } from '../../../shared/remote-runtime/ssh/ssh-types'
 import { isOwnedSshTargetId } from '../../../shared/execution-host/execution-host'
 import {
@@ -27,6 +31,8 @@ import { sshDesktopHost } from '../../ssh/application/ssh-desktop-host'
 import { requestDesktopBrowserBridgeReconcile } from '../browser/desktop-browser-bridge-reconcile'
 import { listUnrestoredPortForwards } from './ssh-port-forward-unrestored'
 
+export const relayStateOverrides = new Map<string, SshConnectionState>()
+
 export function broadcastSshState(targetId: string, state: SshConnectionState): void {
   // The bridge serves claimed hosts, including owned ones whose state stays internal below.
   requestDesktopBrowserBridgeReconcile()
@@ -43,6 +49,10 @@ export function broadcastSshState(targetId: string, state: SshConnectionState): 
 }
 
 function withSshRemotePlatform(targetId: string, state: SshConnectionState): SshConnectionState {
+  const session = activeSessions.get(targetId)
+  const remotePlatform =
+    session?.getHostPlatform()?.os ?? session?.getPlainSshSession()?.remotePlatform
+  const plainSsh = state.status === 'connected' ? getSshPlainSshMode(targetId) : undefined
   const authority = getSshProviderAuthority(targetId)
   const managedServer = state.managedServer ?? getSshHostServerStatus(targetId)
   return {
@@ -50,6 +60,18 @@ function withSshRemotePlatform(targetId: string, state: SshConnectionState): Ssh
     targetId,
     providerEpoch: authority.providerEpoch,
     connectionGeneration: authority.connectionGeneration,
+    ...(remotePlatform ? { remotePlatform } : {}),
+    ...(session?.getState() === 'ready'
+      ? { supportsFolderDownload: connectionSupportsFolderDownload(targetId) }
+      : {}),
+    ...(plainSsh ? { plainSsh } : {}),
+    ...(session &&
+    state.status === 'connected' &&
+    !plainSsh &&
+    managedServer?.kind !== 'managed' &&
+    isSshRelayOnHostNodeRuntime(targetId)
+      ? { hostNodeRuntime: true }
+      : {}),
     ...(managedServer ? { managedServer } : {})
   }
 }
@@ -64,7 +86,7 @@ export function clearPublishedManagedServer(targetId: string): void {
 }
 
 export function getPublicSshState(targetId: string): SshConnectionState | undefined {
-  const state = connectionManager!.getState(targetId)
+  const state = relayStateOverrides.get(targetId) ?? connectionManager?.getState(targetId)
   return state ? withSshRemotePlatform(targetId, state) : undefined
 }
 
@@ -107,4 +129,33 @@ export function enrichDetected(
     undefined,
     options
   )
+}
+
+export function publishRelayOverride(
+  targetId: string,
+  status: SshConnectionStatus,
+  error: string | null,
+  reconnectAttempt: number
+): void {
+  const state = { targetId, status, error, reconnectAttempt }
+  relayStateOverrides.set(targetId, state)
+  broadcastSshState(targetId, state)
+}
+
+export function clearRelayStateOverride(targetId: string): void {
+  relayStateOverrides.delete(targetId)
+}
+
+export function connectionSupportsFolderDownload(targetId: string): boolean {
+  return connectionManager?.getConnection(targetId)?.usesSystemSshTransport() !== true
+}
+
+export function broadcastDetectedPortsFromCurrentWindow(
+  targetId: string,
+  ports: DetectedPort[]
+): void {
+  sshDesktopHost().publish('ssh:detected-ports-changed', {
+    targetId,
+    ports: enrichDetected(targetId, ports)
+  })
 }

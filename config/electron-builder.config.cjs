@@ -349,6 +349,7 @@ module.exports = {
   // Keep out/package.json’s CommonJS boundary and remote CLI WebSocket/E2EE deps. Electron-only workers may stay packed.
   // Renderer/mobile-web assets need real paths: swept temporary asar extracts are not recreated (#27976).
   asarUnpack: [
+    'out/main/execution-observer.cjs',
     'out/package.json',
     'out/cli/**',
     'out/shared/**',

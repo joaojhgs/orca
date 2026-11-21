@@ -1,0 +1,61 @@
+import type { ArtifactWriteRequest } from '../../../../shared/artifacts/artifacts'
+import { sshArtifactSourceKey } from '../../../../shared/artifacts/artifact-cli-bridge'
+import { parseExecutionHostId } from '../../../../shared/execution-host/execution-host'
+import { basename } from '@/lib/path'
+import { useAppStore } from '@/store'
+import type { OpenFile } from '@/store/slices/editor/types/open-file'
+import { flushPendingEditorBuffer } from './save/flush/editor-pending-flush'
+
+export function markdownArtifactSourceKey(file: OpenFile): string {
+  const route = file.operationProvenance?.generation.route
+  const host = parseExecutionHostId(route?.executionHostId)
+  if (host?.kind === 'ssh') {
+    return sshArtifactSourceKey(host.targetId, file.filePath)
+  }
+  if (file.externalSshTargetId) {
+    return sshArtifactSourceKey(file.externalSshTargetId, file.filePath)
+  }
+  if (route && (route.runtimeEnvironmentId || route.executionHostId !== 'local')) {
+    return JSON.stringify([
+      'editor',
+      route.runtimeEnvironmentId ?? null,
+      route.executionHostId,
+      file.filePath
+    ])
+  }
+  if (file.runtimeEnvironmentId) {
+    return JSON.stringify(['editor', file.runtimeEnvironmentId ?? null, 'remote', file.filePath])
+  }
+  return file.filePath
+}
+
+export function createMarkdownArtifactRequest(
+  file: OpenFile,
+  content: string
+): ArtifactWriteRequest {
+  return {
+    sourceKey: markdownArtifactSourceKey(file),
+    content,
+    contentType: 'text/markdown',
+    fileName: basename(file.filePath)
+  }
+}
+
+export function createPdfArtifactRequest(file: OpenFile, content: string): ArtifactWriteRequest {
+  return {
+    sourceKey: markdownArtifactSourceKey(file),
+    content,
+    contentType: 'application/pdf',
+    fileName: basename(file.filePath)
+  }
+}
+
+export function createCurrentMarkdownArtifactRequest(
+  file: OpenFile,
+  contentFileId: string,
+  fallbackContent: string
+): ArtifactWriteRequest {
+  flushPendingEditorBuffer(useAppStore.getState(), contentFileId)
+  const content = useAppStore.getState().editorDrafts[contentFileId] ?? fallbackContent
+  return createMarkdownArtifactRequest(file, content)
+}

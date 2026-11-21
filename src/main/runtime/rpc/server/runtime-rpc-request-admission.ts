@@ -6,6 +6,7 @@ import { errorResponse } from '../responses/rpc-response'
 import { RuntimeRpcBinaryRouting } from './runtime-rpc-binary-routing'
 import { classifyRuntimeLongPoll, type RuntimeLongPollClass } from './runtime-rpc-long-poll'
 import { OWNER_RPC_CALLER_SCOPE, type RpcCallerScope } from '../callers/rpc-caller-scope'
+import { sshBridgeCredentials } from '../ssh-bridge-credentials'
 import { LOCAL_CLI_RPC_CALLER } from '../callers/rpc-caller-identity'
 
 // Short calls that stop on disconnect without long-poll keepalives or admission slots.
@@ -153,6 +154,34 @@ export class RuntimeRpcRequestAdmission extends RuntimeRpcBinaryRouting {
     }
     if (request.authToken === this.authToken) {
       return { request, callerScope: OWNER_RPC_CALLER_SCOPE }
+    }
+    if (/^orcam_[A-Za-z0-9_-]{43}$/.test(request.authToken)) {
+      const principal = this.runtime
+        .getExistingOrchestrationDb()
+        ?.managerPrincipals.authenticate(request.authToken)
+      if (principal) {
+        const params = request.params
+        if (
+          params !== undefined &&
+          (typeof params !== 'object' || params === null || Array.isArray(params))
+        ) {
+          return { error: this.buildError(request.id, 'bad_request', 'Invalid manager params') }
+        }
+        const suppliedToken = params && 'serviceToken' in params ? params.serviceToken : undefined
+        if (suppliedToken !== undefined && suppliedToken !== request.authToken) {
+          return {
+            error: this.buildError(request.id, 'unauthorized', 'Manager credential mismatch')
+          }
+        }
+        return {
+          request: { ...request, params: { ...params, serviceToken: request.authToken } },
+          callerScope: { kind: 'manager-service', principalId: principal.id }
+        }
+      }
+    }
+    const bridgeScope = sshBridgeCredentials.resolve(request.authToken)
+    if (bridgeScope) {
+      return { request, callerScope: bridgeScope }
     }
     return { error: this.buildError(request.id, 'unauthorized', 'Invalid auth token') }
   }

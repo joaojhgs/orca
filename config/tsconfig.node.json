@@ -18,6 +18,8 @@
     "./scripts/test-runtime/node-worker/vitest-node-runtime-pool.ts",
     "./scripts/test-runtime/module-cache/vitest-module-cache-resolution-key.ts",
     "../src/main/**/*",
+    "../src/relay/relay.ts",
+    "../src/relay/relay-network-forward-entry.ts",
     "../src/cli/runtime/connection/transport.ts",
     "../src/cli/runtime/connection/types.ts",
     "../src/cli/runtime/connection/runtime-access-denied.ts",

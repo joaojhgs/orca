@@ -1,3 +1,7 @@
+import {
+  appendPendingProjectionAdmission,
+  compactPendingProjectionAdmissions
+} from './pty-pending-projection-admissions'
 import { extractHiddenStartupRendererQueryData } from '../../../../shared/terminal/protocol/queries/terminal-reply-query-extraction'
 import {
   INITIAL_MODE_2031_REPLY_SCAN_STATE,
@@ -98,6 +102,9 @@ export function dropOversizedPendingPtyData(
   ) {
     session.pendingOverflowMarkedPtys.add(id)
   }
+  if (pending.projectionAdmissionIds) {
+    session.sshOutputIntake?.transferProjections(pending.projectionAdmissionIds, 'pending-cap')
+  }
   session.pendingDroppedChars += pending.data.length
   // A trimmed tail would retain a corrupting gap; restore from snapshot and salvage only bounded query bytes.
   return toDroppedOutputSentinel(pending)
@@ -129,10 +136,14 @@ export function appendPendingPtyData(
   containsBackgroundOutput: boolean,
   rawLength = data.length,
   transformed = false,
-  startEscapeBoundary: PtyEscapeBoundary = ''
+  startEscapeBoundary: PtyEscapeBoundary = '',
+  projectionId?: string
 ): PendingPtyData {
   // Once dropped, keep bounded query/mode state while the restore sentinel supersedes ordinary output.
   if (existing?.droppedOutput === true) {
+    if (projectionId) {
+      session.sshOutputIntake?.transferProjections([projectionId], 'pending-gap')
+    }
     const mode2031 = scanDroppedMode2031Data(
       data,
       existing.droppedMode2031ScanState ?? INITIAL_MODE_2031_REPLY_SCAN_STATE
@@ -154,10 +165,20 @@ export function appendPendingPtyData(
       droppedSynchronizedOutputState: synchronizedOutput.state
     }
   }
+  const projectionOptions = {
+    isPending: (admissionId: string) =>
+      session.sshOutputIntake?.hasUnpublishedProjection(admissionId) ?? false,
+    transfer: (ids: readonly string[], reason: string) =>
+      session.sshOutputIntake?.transferProjections(ids, reason)
+  }
+  const projectionState = projectionId
+    ? appendPendingProjectionAdmission(existing ?? {}, projectionId, projectionOptions)
+    : compactPendingProjectionAdmissions(existing, projectionOptions)
   const nextContainsBackgroundOutput =
     existing?.containsBackgroundOutput === true || containsBackgroundOutput
   if (!existing) {
     const pending: PendingPtyData = {
+      ...projectionState,
       data,
       ...(typeof startSeq === 'number' ? { startSeq } : {}),
       ...(rawLength !== data.length ? { rawLength } : {}),
@@ -169,6 +190,7 @@ export function appendPendingPtyData(
   }
   const existingRawLength = existing.rawLength ?? existing.data.length
   const next: PendingPtyData = {
+    ...projectionState,
     data: existing.data + data,
     ...(!preservesSeq || existing.transformed || transformed
       ? { rawLength: existingRawLength + rawLength, transformed: true as const }

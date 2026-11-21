@@ -15,6 +15,22 @@ import { RuntimeRpcRequestAdmission } from './runtime-rpc-request-admission'
 export class RuntimeRpcMobileDevices extends RuntimeRpcRequestAdmission {
   private onPushUnregisterQueued?: () => void
 
+  private notificationPolicyDevices(
+    caller: Pick<DeviceEntry, 'deviceId' | 'parentDeviceId'>
+  ): { deviceId: string; name: string }[] {
+    return (this.deviceRegistry?.listDevices() ?? [])
+      .filter(
+        (device) =>
+          device.scope === 'mobile' &&
+          device.lastSeenAt > 0 &&
+          (caller.parentDeviceId !== undefined
+            ? device.deviceId === caller.deviceId
+            : device.parentDeviceId === undefined)
+      )
+      .slice(0, 1000)
+      .map(({ deviceId, name }) => ({ deviceId, name }))
+  }
+
   async revokeMobileDevice(deviceId: string): Promise<boolean> {
     const device = this.deviceRegistry?.getDevice(deviceId)
     const revoked = device?.scope === 'mobile' && this.revokeDevicesNow([device])
@@ -92,10 +108,13 @@ export class RuntimeRpcMobileDevices extends RuntimeRpcRequestAdmission {
   }
 
   /** A desktop socket's account claim: on its row (Slack naming) and the socket (who typed what). */
-  protected desktopAccountSelf(
-    device: Pick<DeviceEntry, 'deviceId' | 'scope'>,
+  protected socketDeviceSelf(
+    device: Pick<DeviceEntry, 'deviceId' | 'scope' | 'parentDeviceId'>,
     connectionId: string
-  ): Pick<DeviceSelfRpcContext, 'declareOrcaAccount' | 'orcaAccount' | 'clientInstanceId'> {
+  ): Pick<
+    DeviceSelfRpcContext,
+    'declareOrcaAccount' | 'orcaAccount' | 'clientInstanceId' | 'listNotificationPolicyDevices'
+  > {
     return {
       declareOrcaAccount: (account, clientInstanceId) => {
         this.deviceRegistry?.setOrcaAccount(device.deviceId, account)
@@ -107,6 +126,7 @@ export class RuntimeRpcMobileDevices extends RuntimeRpcRequestAdmission {
           })
         }
       },
+      listNotificationPolicyDevices: () => this.notificationPolicyDevices(device),
       orcaAccount: () => this.declaredDesktopClients.accountOf(connectionId),
       clientInstanceId: () => this.declaredDesktopClients.instanceOf(connectionId)
     }

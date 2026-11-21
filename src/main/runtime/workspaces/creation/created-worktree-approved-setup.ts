@@ -1,7 +1,10 @@
 import { projectGroupIdFromRepoId } from '../../../../shared/folder-workspaces/folder-workspace-worktree'
 import { projectGroupHookOwner } from '../../../../shared/workspace-setup/hooks/workspace-hook-owner'
 import { isFolderRepo } from '../../../../shared/repository/repo-kind'
-import { isRepoOnCatalogHost } from '../../../../shared/execution-host/execution-host'
+import {
+  getRepoExecutionHostId,
+  isRepoOnCatalogHost
+} from '../../../../shared/execution-host/execution-host'
 import { scopeHooksToRepoKind } from '../../../../shared/folder-workspaces/folder-workspace-hooks'
 import { getSetupRunnerCommandPlatformForPath } from '../../../../shared/agent-launch/startup/setup-runner-command'
 import type { RunApprovedWorktreeSetupResult } from '../../../../shared/worktree/create-types'
@@ -9,6 +12,11 @@ import {
   getDefaultTabsLaunch,
   getEffectiveHooksFromConfig
 } from '../../../workspace-hooks/effective-hook-config'
+import { captureDirectSshWorktreeAuthority } from '../../../ipc/worktrees/direct-ssh-worktree-authority'
+import { createRemoteSetupRunnerScript } from '../../../ipc/worktrees/create/create-direct-ssh-worktree'
+import { readDirectSshOrcaYaml } from '../../../ipc/worktrees/removal/direct-ssh-archive-hooks'
+import { getSshFilesystemProvider } from '../../../providers/ssh-filesystem-dispatch'
+import { resolveWorktreeCreateRoute } from '../../../workspaces/creation/worktree-create-execution-host-route'
 import { loadHooks } from '../../../workspace-hooks/hooks'
 import {
   checkCreatedWorktreeSetupTrust,
@@ -28,8 +36,11 @@ type ApprovedSetupRuntime = {
     selector: string,
     requiredHostId?: undefined,
     options?: { matchFolders?: boolean }
-  ) => Promise<Pick<Worktree, 'id' | 'repoId' | 'path' | 'displayName'>>
-  requireStore: () => Pick<RuntimeStore, 'getRepo' | 'getSettings' | 'getProjectGroups'>
+  ) => Promise<Pick<Worktree, 'id' | 'repoId' | 'path' | 'displayName' | 'hostId'>>
+  requireStore: () => Pick<
+    RuntimeStore,
+    'getRepo' | 'getRepoForHost' | 'getSettings' | 'getProjectGroups'
+  >
   provisionManagedWorktreeTerminals: (
     args: WorktreeTerminalProvisioningArgs
   ) => Promise<{ failed?: true }>
@@ -53,29 +64,66 @@ export async function runApprovedCreatedWorktreeSetup(
   const group = groupId
     ? store.getProjectGroups?.().find((entry) => entry.id === groupId)
     : undefined
-  const storedRepo = groupId ? undefined : store.getRepo(worktree.repoId)
+  const storedRepo = groupId
+    ? undefined
+    : worktree.hostId && store.getRepoForHost
+      ? store.getRepoForHost(worktree.repoId, worktree.hostId)
+      : store.getRepo(worktree.repoId)
   const repo = group ? projectGroupHookOwner(group) : storedRepo
   const hooksRoot = group ? group.parentPath : worktree.path
   if (!repo || !hooksRoot || (isFolderRepo(repo) && !isRepoOnCatalogHost(repo))) {
     return { status: 'not_configured' }
   }
-  const yamlHooks = scopeHooksToRepoKind(repo, loadHooks(hooksRoot))
+  if (storedRepo && worktree.hostId && getRepoExecutionHostId(storedRepo) !== worktree.hostId) {
+    return { status: 'not_configured' }
+  }
+  const route = storedRepo ? resolveWorktreeCreateRoute(storedRepo) : undefined
+  if (route?.kind === 'runtime' || (route?.kind === 'local' && !isRepoOnCatalogHost(repo))) {
+    return { status: 'not_configured' }
+  }
+  const ssh = route?.kind === 'ssh' ? captureDirectSshWorktreeAuthority(route.connectionId) : null
+  const fsProvider = ssh ? getSshFilesystemProvider(ssh.connectionId) : undefined
+  if (ssh) {
+    if (!fsProvider) {
+      throw new Error('SSH filesystem is unavailable. Reconnect before starting workspace setup.')
+    }
+    await ssh.registerRoot(hooksRoot)
+  }
+  const yamlHooks = scopeHooksToRepoKind(
+    repo,
+    ssh ? await readDirectSshOrcaYaml(fsProvider, hooksRoot) : loadHooks(hooksRoot)
+  )
+  ssh?.assertCurrent()
   const mismatch = checkCreatedWorktreeSetupTrust(repo, yamlHooks, 'run', { approvedSetupHash })
   if (mismatch) {
     return { status: 'mismatch', setupTrustMismatch: mismatch }
   }
   const setupScript = getEffectiveHooksFromConfig(repo, yamlHooks)?.scripts.setup
   const setup = setupScript
-    ? await createSetupRunnerScript(
-        repo,
-        hooksRoot,
-        setupScript,
-        storedRepo ? getLocalProjectWorktreeGitOptions(store, storedRepo) : undefined,
-        resolveSetupRunnerShell(store.getSettings()),
-        yamlHooks?.setupAgentStartupPolicy,
-        { worktreeId: worktree.id, displayName: worktree.displayName, workspacePath: worktree.path }
-      )
+    ? ssh && fsProvider && storedRepo
+      ? await createRemoteSetupRunnerScript(
+          storedRepo,
+          hooksRoot,
+          setupScript,
+          ssh,
+          fsProvider,
+          yamlHooks?.setupAgentStartupPolicy
+        )
+      : await createSetupRunnerScript(
+          repo,
+          hooksRoot,
+          setupScript,
+          storedRepo ? getLocalProjectWorktreeGitOptions(store, storedRepo) : undefined,
+          resolveSetupRunnerShell(store.getSettings()),
+          yamlHooks?.setupAgentStartupPolicy,
+          {
+            worktreeId: worktree.id,
+            displayName: worktree.displayName,
+            workspacePath: worktree.path
+          }
+        )
     : undefined
+  ssh?.assertCurrent()
   // The create already opened the command-less default tabs.
   const defaultTabs = defaultTabsWithCommands(getDefaultTabsLaunch(yamlHooks, repo, 'run'))
   if (!setup && !defaultTabs) {
@@ -90,7 +138,7 @@ export async function runApprovedCreatedWorktreeSetup(
     hasStartupTerminal: true,
     setupCommandPlatform: getSetupRunnerCommandPlatformForPath(
       setup?.runnerScriptPath ?? '',
-      process.platform === 'win32' ? 'windows' : 'posix'
+      !ssh && process.platform === 'win32' ? 'windows' : 'posix'
     ),
     ...options
   })

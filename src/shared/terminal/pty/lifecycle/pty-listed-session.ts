@@ -19,6 +19,8 @@ export function ptySessionIdentity(session: {
 
 /** Share pty:listSessions evidence across main, preloads and renderer so UI authority cannot drift. */
 export type PtyListedSession = {
+  executionHostId?: string
+  runtimeOwnerEnvironmentId?: string
   id: string
   incarnationId?: string
   /** Local diagnostic provenance, distinct even when legacy hosts omit incarnations. */

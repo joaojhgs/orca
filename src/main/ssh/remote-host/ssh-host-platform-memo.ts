@@ -10,7 +10,7 @@ export type SshHostPlatformFacts = {
 
 const known = new Map<string, SshHostPlatformFacts>()
 
-function sshHostLibc(
+export function sshHostLibc(
   os: RemoteHostPlatform['os'],
   target: NodeRuntimeTarget | null
 ): SshHostPlatformFacts['libc'] {

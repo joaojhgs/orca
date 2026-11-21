@@ -1,14 +1,22 @@
+import { isManagerReceiptVerb } from '../bridge/bridge-manager-receipt-verbs'
+import type { createNativeManagerReceiptVerbServer } from '../../manager/native-manager-receipt-verb-server'
 import type { BridgeHostOptions } from '../host-bridge/bridge-host-contract'
 import type { MobileWebShellBridgeArgs } from './use-mobile-web-shell-bridge'
 
 // Read each handler from the latest committed args; captured render closures would outlive their screen state.
-export function latestBridgeCallbacks(args: { readonly current: MobileWebShellBridgeArgs }) {
+export function latestBridgeCallbacks(
+  args: { readonly current: MobileWebShellBridgeArgs },
+  serveManagerReceipt: ReturnType<typeof createNativeManagerReceiptVerbServer>
+) {
   return {
     onNavigate: (href, replace) => args.current.onNavigate(href, replace),
     onNavigateBack: () => args.current.onNavigateBack(),
     onExternalLink: (url) => args.current.onExternalLink(url),
     onHaptic: (kind) => args.current.onHaptic(kind),
-    serveNativeVerb: (verb, params) => args.current.serveNativeVerb(verb, params),
+    serveNativeVerb: (verb, params) =>
+      isManagerReceiptVerb(verb)
+        ? serveManagerReceipt(verb, params)
+        : args.current.serveNativeVerb(verb, params),
     readStorage: () => args.current.readStorage(),
     onStorageWrite: (key, value) => args.current.onStorageWrite(key, value),
     onPageFault: (error) => args.current.onPageFault(error),

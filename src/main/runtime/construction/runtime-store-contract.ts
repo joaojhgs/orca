@@ -125,7 +125,6 @@ export type RuntimeStore = {
     autoRenameBranchFromWork?: GlobalSettings['autoRenameBranchFromWork']
     nativeChatAutoName?: GlobalSettings['nativeChatAutoName']
     nativeChatResumeWorkOnRestart?: GlobalSettings['nativeChatResumeWorkOnRestart']
-    notifications?: GlobalSettings['notifications']
     claudeManagedAccounts?: GlobalSettings['claudeManagedAccounts']
     activeClaudeManagedAccountId?: GlobalSettings['activeClaudeManagedAccountId']
     activeClaudeManagedAccountIdsByRuntime?: GlobalSettings['activeClaudeManagedAccountIdsByRuntime']
@@ -232,6 +231,7 @@ export type RuntimeStore = {
     aiVaultSearch?: GlobalSettings['aiVaultSearch']
     sourceControlAi?: GlobalSettings['sourceControlAi']
     commitMessageAi?: GlobalSettings['commitMessageAi']
+    notifications?: GlobalSettings['notifications']
   }
   // Unknown return lets mocks return void; runtime reads persisted settings on next access, never this return.
   updateSettings?: (

@@ -1,3 +1,4 @@
+import { recordUndeliveredSshPtyKill } from './undelivered-ssh-kill'
 import type { IPtyProvider } from '../../../providers/pty/provider-contract'
 import { SSH_PROVIDER_UNREGISTERED_REASON } from '../../../../shared/terminal/pty/lifecycle/pty-liveness-verdict'
 import { isCurrentPtyExit, ptyOwnership, ptyIncarnationById } from '../provider/ownership-state'
@@ -99,6 +100,13 @@ export function killPtyFromRuntimeController(
         // Detached SSH close must tombstone the lease so reconnect cannot revive a user-closed pane.
         const unproven = PtyRetirementWithoutProof.because(SSH_PROVIDER_UNREGISTERED_REASON)
         const incarnationId = finishPtyShutdown(ptyId, connectionId, store, unproven)
+        recordUndeliveredSshPtyKill({
+          store,
+          ptyId,
+          connectionId,
+          incarnationId: incarnationId ?? undefined,
+          reversible: false
+        })
         publishSyntheticExit(deps, ptyId, -1, incarnationId, unproven)
       }
       return false
@@ -127,6 +135,13 @@ export function killPtyFromRuntimeController(
           }
           return
         }
+        recordUndeliveredSshPtyKill({
+          store,
+          ptyId,
+          connectionId,
+          incarnationId: stoppingIncarnationId,
+          reversible: false
+        })
         reportStopFailure(err, stoppingIncarnationId)
       })
     return true

@@ -24,6 +24,7 @@ const PROVIDER_DISPLAY_NAMES: Readonly<Record<string, string>> = {
   claude: 'Claude',
   codex: 'Codex',
   gemini: 'Gemini',
+  opencode: 'OpenCode',
   'opencode-go': 'OpenCode Go',
   kimi: 'Kimi',
   antigravity: 'Antigravity',

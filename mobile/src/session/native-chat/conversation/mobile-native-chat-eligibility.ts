@@ -11,6 +11,7 @@ export type MobileNativeChatResolution = {
   sessionId: string | null
   // Forward the hook path because recent Claude sessions may not resolve by session id alone.
   transcriptPath: string | null
+  connectionId: string | null
   // Remembered identity alone permits reads only; typing could otherwise reach a bare shell.
   agentConfirmed: boolean
   // The running agent reported this session, so a missing transcript means no prompt yet.
@@ -22,6 +23,7 @@ export type MobileNativeChatIdentity = {
   agent: string
   sessionId: string | null
   transcriptPath: string | null
+  connectionId?: string | null
 }
 
 export type MobileNativeChatTab = {
@@ -49,6 +51,7 @@ export function resolveMobileNativeChat(
           agent: tab.agent,
           sessionId: tab.sessionId,
           transcriptPath: null,
+          connectionId: null,
           agentConfirmed: true,
           sessionLive: true
         }
@@ -78,6 +81,7 @@ export function resolveMobileNativeChat(
     transcriptPath: liveSession
       ? (liveSession.transcriptPath ?? null)
       : (rememberedSession?.transcriptPath ?? null),
+    connectionId: tab.agentStatus?.connectionId ?? rememberedSession?.connectionId ?? null,
     agentConfirmed: evidenceAgent !== null,
     sessionLive: liveSession?.id != null
   }
@@ -105,7 +109,8 @@ export function withRememberedNativeChatIdentity<
             terminal,
             agent: resolved.agent,
             sessionId: resolved.sessionId,
-            transcriptPath: resolved.transcriptPath
+            transcriptPath: resolved.transcriptPath,
+            ...(resolved.connectionId ? { connectionId: resolved.connectionId } : {})
           }
         : undefined
     return { ...tab, nativeChatIdentity }

@@ -4,6 +4,7 @@ import type { Store } from '../persistence/loading-store/store'
 import type { LocalFileAccess } from '../../shared/file-access/local-file-access'
 import { MEDIA_PREVIEW_SCHEME } from '../../shared/file-preview/media-preview-scheme'
 import { isDocumentPreview, type FilePreview } from '../../shared/file-preview/file-preview-kind'
+import type { IFilesystemProvider } from '../providers/filesystem-provider-contract'
 import type { RemoteFilePreviewAddress } from '../../shared/file-preview/remote-file-preview-address'
 import { abortWhenRendererGone } from '../ipc/renderer-requests/renderer-lifetime-abort'
 import {
@@ -20,7 +21,10 @@ export type LocalPreviewTarget = {
   access?: LocalFileAccess
 }
 export type RemotePreviewTarget = { remote: RemoteFilePreviewAddress }
-export type PreviewTarget = LocalPreviewTarget | RemotePreviewTarget
+export type SshPreviewTarget = {
+  ssh: { filePath: string; connectionId: string; provider: IFilesystemProvider }
+}
+export type PreviewTarget = LocalPreviewTarget | RemotePreviewTarget | SshPreviewTarget
 export type PreviewGrant = {
   target: PreviewTarget
   store: Store
@@ -82,8 +86,17 @@ export function mintPreviewUrl(
     )
   }
   // A retargeted link re-mints as its new kind, never as the old grant's type.
-  const key = JSON.stringify([target, mimeType])
+  const keyTarget =
+    'ssh' in target ? { ssh: target.ssh.connectionId, filePath: target.ssh.filePath } : target
+  const key = JSON.stringify([keyTarget, mimeType])
   let token = owned.get(key)
+  if ('ssh' in target && token) {
+    const previous = grants.get(token)?.target
+    if (previous && 'ssh' in previous && previous.ssh.provider !== target.ssh.provider) {
+      revokeGrant(token)
+      token = undefined
+    }
+  }
   if (!token || !grants.has(token)) {
     token = randomUUID()
     owned.set(key, token)

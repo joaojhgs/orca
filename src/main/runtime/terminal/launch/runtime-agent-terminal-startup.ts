@@ -161,7 +161,7 @@ export function withHostAccountLaunchEnv(
   }
 }
 
-async function buildRuntimeAgentTerminalStartupOptions(
+export async function buildRuntimeAgentTerminalStartupOptions(
   workspace: TerminalWorkspaceLaunchScope,
   opts: TerminalCreateOptions,
   agent: TuiAgent,
@@ -188,7 +188,12 @@ async function buildRuntimeAgentTerminalStartupOptions(
         ...(opts.extraAgentArgs !== undefined ? { extraAgentArgs: opts.extraAgentArgs } : {}),
         shell: agentLaunchQuotingShell(runtime),
         sessionOptions: sessionOptions ?? host.toSessionOptions(opts.launchPreferences),
-        ...(opts.suppressStartupUpdatePrompt ? { suppressStartupUpdatePrompt: true } : {})
+        ...(opts.suppressStartupUpdatePrompt ||
+        (agent === 'codex' &&
+          opts.startupAgent === 'codex' &&
+          opts.launchSource === 'orchestration')
+          ? { suppressStartupUpdatePrompt: true }
+          : {})
       }),
       opts.env?.PATH
     ),

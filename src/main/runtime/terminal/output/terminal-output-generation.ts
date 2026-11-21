@@ -1,3 +1,10 @@
+import type {
+  RemoteTerminalSourceRangeConsumerHooks,
+  RemoteTerminalSourceRangeReplacementPublication,
+  RemoteTerminalSourceRangeReplacementReservation,
+  RemoteTerminalSourceRangeStreamIdentity
+} from '../../remote-terminal-source-range-consumer'
+import type { TerminalOutputSourceRange } from '../../../../shared/terminal-output-source-range'
 import { OrcaRuntimeWithCreateTerminalSideEffectCommandCodeDetector } from './terminal-derived-agent-facts'
 import type { AgentStatus } from '../../../../shared/agent-status/title/agent-title-core'
 import { getDisplayPromptLifecycle } from '../../workspaces/process-listing/runtime-worktree-status-projection'
@@ -257,6 +264,55 @@ export abstract class OrcaRuntimeWithRecordAgentPromptLifecycleState extends Orc
     listener: (data: string, meta?: RuntimeTerminalDataMeta) => void
   ): () => void {
     return this.terminalStreamConsumers.subscribe(ptyId, listener)
+  }
+
+  setRemoteTerminalSourceRangeConsumerHooks(
+    hooks: RemoteTerminalSourceRangeConsumerHooks | null
+  ): void {
+    this.terminalStreamConsumers.setSourceRangeHooks(hooks)
+  }
+
+  attachRemoteTerminalSourceRangeConsumer(
+    identity: RemoteTerminalSourceRangeStreamIdentity
+  ): boolean {
+    return this.terminalStreamConsumers.attachSourceRangeConsumer(identity)
+  }
+
+  settleRemoteTerminalSourceRanges(
+    identity: RemoteTerminalSourceRangeStreamIdentity,
+    ranges: readonly TerminalOutputSourceRange[]
+  ): void {
+    this.terminalStreamConsumers.settleSourceRanges(identity, ranges)
+  }
+
+  reserveRemoteTerminalSourceRangeReplacement(
+    identity: RemoteTerminalSourceRangeStreamIdentity,
+    requiredSeq: number,
+    reason: string
+  ): RemoteTerminalSourceRangeReplacementReservation | null {
+    return this.terminalStreamConsumers.reserveSourceRangeReplacement(identity, requiredSeq, reason)
+  }
+
+  commitRemoteTerminalSourceRangeReplacement(
+    reservation: RemoteTerminalSourceRangeReplacementReservation,
+    publication: RemoteTerminalSourceRangeReplacementPublication
+  ): boolean {
+    return this.terminalStreamConsumers.commitSourceRangeReplacement(reservation, publication)
+  }
+
+  rollbackRemoteTerminalSourceRangeReplacement(
+    reservation: RemoteTerminalSourceRangeReplacementReservation,
+    reason: string
+  ): boolean {
+    return this.terminalStreamConsumers.rollbackSourceRangeReplacement(reservation, reason)
+  }
+
+  cancelRemoteTerminalSourceRanges(
+    identity: RemoteTerminalSourceRangeStreamIdentity,
+    ranges: readonly TerminalOutputSourceRange[],
+    reason: string
+  ): void {
+    this.terminalStreamConsumers.cancelSourceRanges(identity, ranges, reason)
   }
 
   /** Keeps this PTY's published output from now on, so a phone stream can later resume from it. */

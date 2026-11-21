@@ -1,3 +1,4 @@
+import { ExecutionAccountUsageRows } from '../../ExecutionAccountUsageRows'
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, RefreshCw } from 'lucide-react'
 import { useTranslate } from '@/i18n/use-translate'
@@ -332,6 +333,7 @@ export function AntigravityAccountsSection({
           </Tooltip>
         }
       >
+        <ExecutionAccountUsageRows provider="antigravity" />
         <AntigravityTerminalAccountRows
           state={state}
           usage={usage}

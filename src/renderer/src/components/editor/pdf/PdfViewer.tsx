@@ -1,18 +1,18 @@
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Image as ImageIcon, RotateCcw, Search, ZoomIn, ZoomOut } from 'lucide-react'
-import * as pdfjsLib from 'pdfjs-dist'
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import type {
   EventBus,
   PDFFindController,
   PDFViewer as PdfJsViewer
-} from 'pdfjs-dist/web/pdf_viewer.mjs'
+} from 'pdfjs-dist/legacy/web/pdf_viewer.mjs'
 import 'pdfjs-dist/web/pdf_viewer.css'
 import PdfFind from './PdfFind'
 import { useShortcutLabel } from '@/lib/keyboard/useShortcutLabel'
 import { useAppStore } from '@/store/index'
 import { usePdfViewerFindShortcut } from './use-pdf-viewer-find-shortcut'
 
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 import { useTranslate } from '@/i18n/use-translate'
 import { createPdfDocumentLoader, type PdfDocumentLoader } from './pdf-document-loader'
 import { createPdfViewerSession } from './pdf-viewer-session'
@@ -26,7 +26,14 @@ import { readPdfScalePreference, writePdfScalePreference } from './pdf-scale-pre
 import { EditorCommandOwnerContext } from '../commands/editor-command-owner-context'
 import { listenForViewerZoomRequests } from '../viewer-viewport/viewer-zoom-request'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
+// Why: the web server used to serve .mjs assets as application/octet-stream and
+// marked that response immutable for a year. Keep a revision in the request URL
+// so browsers that cached the bad MIME metadata cannot poison PDF loading after
+// the server-side content-type fix ships.
+const PDF_WORKER_CACHE_REVISION = 'module-mime-v1'
+const versionedWorkerUrl = new URL(workerUrl, window.location.href)
+versionedWorkerUrl.searchParams.set('orca-worker-revision', PDF_WORKER_CACHE_REVISION)
+pdfjsLib.GlobalWorkerOptions.workerSrc = versionedWorkerUrl.href
 
 const MIN_SCALE = 0.25
 const MAX_SCALE = 5

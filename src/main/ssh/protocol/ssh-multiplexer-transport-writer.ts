@@ -3,9 +3,13 @@ import {
   MAX_MESSAGE_SIZE
 } from '../../../shared/remote-runtime/relay/relay-frame-decoder'
 import { SshMultiplexerWriterLaneScheduler } from './ssh-multiplexer-writer-lane-scheduler'
-import type {
-  WriteAmbiguityReason,
-  WriteRefusalReason
+import {
+  WRITE_ACCEPTED,
+  writeRefused,
+  writeUnverifiable,
+  type WriteSettlement,
+  type WriteAmbiguityReason,
+  type WriteRefusalReason
 } from '../../../shared/terminal/pty/lifecycle/pty-write-settlement'
 
 export type MultiplexerTransportWriteResult = { ok: true } | { ok: false; error: Error }
@@ -307,4 +311,14 @@ export class SshMultiplexerTransportWriter {
     this.dispose(error)
     this.onFailure(error)
   }
+}
+
+/** Drops the transport error so callers carry exactly the fields `WriteSettlement` declares. */
+export function toWriteSettlement(result: MultiplexerWriteSettlement): WriteSettlement {
+  if (result.outcome === 'accepted') {
+    return WRITE_ACCEPTED
+  }
+  return result.outcome === 'refused'
+    ? writeRefused(result.reason)
+    : writeUnverifiable(result.reason, result.bytesHandedToTransport)
 }

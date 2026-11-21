@@ -37,6 +37,8 @@ import { NativeChatSelectionQuote } from '../../selection-quotes/NativeChatSelec
 import { NativeChatPaneMenuItems } from './NativeChatPaneMenuItems'
 import { NativeChatStructuredPaneMenuItems } from './NativeChatStructuredPaneMenuItems'
 import type { NativeChatComposerHandle } from '../../composer/native-chat-composer-types'
+import { copyNativeChatText } from '../../native-chat-clipboard'
+import { useNativeChatCopyShortcut } from '../../use-native-chat-copy-shortcut'
 import { AgentSessionContinuationMenuItem } from '@/components/agent-session-continuation/AgentSessionContinuationMenuItem'
 import { AgentSessionContextCopyMenuItem } from '@/components/terminal-pane/clipboard/AgentSessionContextCopyMenuItem'
 import {
@@ -170,6 +172,7 @@ export function useNativeChatContextMenu({
   })
   const keybindings = useAppStore((s) => s.keybindings)
   const shortcutLabel = formatOptionalPrimaryShortcutLabel('terminal.toggleNativeChat', keybindings)
+  useNativeChatCopyShortcut(rootRef, enabled)
   const { image, target } = state
   const hasSelection = state.selectedText.trim().length > 0
   const hasEditItems =
@@ -286,9 +289,7 @@ export function useNativeChatContextMenu({
             </DropdownMenuItem>
           ) : null}
           {hasSelection ? (
-            <DropdownMenuItem
-              onSelect={() => void window.api.ui.writeClipboardText(state.selectedText)}
-            >
+            <DropdownMenuItem onSelect={() => void copyNativeChatText(state.selectedText)}>
               <Copy />
               {t('auto.components.nativeChat.contextMenu.copy', 'Copy')}
               <DropdownMenuShortcut>{isMacPlatform() ? '⌘C' : 'Ctrl+C'}</DropdownMenuShortcut>

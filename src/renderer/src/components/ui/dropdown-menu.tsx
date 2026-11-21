@@ -26,6 +26,12 @@ import {
 } from './menu-item'
 import { PortalContainerContext, usePortalContainer } from './portal-container-context'
 
+function DropdownMenuGroup({
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Group>): React.JSX.Element {
+  return <DropdownMenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
+}
+
 const DropdownMenuCloseContext = React.createContext<() => void>(() => {})
 
 function useDropdownMenuClose() {
@@ -369,6 +375,7 @@ function DropdownMenuSubContent({
 
 export {
   DropdownMenu,
+  DropdownMenuGroup,
   useDropdownMenuClose,
   DropdownMenuPortal,
   DropdownMenuTrigger,

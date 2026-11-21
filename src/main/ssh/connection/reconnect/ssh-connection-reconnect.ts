@@ -17,6 +17,7 @@ const STALE_BACKGROUND_ATTEMPT_MS = 5_000
 export type SshConnectionReconnectHost = {
   targetId: string
   label: string
+  retryAfterBudget?: () => boolean
   isDisposed: () => boolean
   status: () => SshConnectionStatus
   isAwaitingCredential: () => boolean
@@ -110,10 +111,18 @@ export class SshConnectionReconnector {
     if (!this.mayRedial() || this.reconnectTimer) {
       return
     }
-    const decision = this.reconnectLadder.next(Date.now())
+    let decision = this.reconnectLadder.next(Date.now())
     if (decision.kind === 'give-up') {
-      this.host.setState('reconnection-failed', 'Max reconnection attempts reached')
-      return
+      if (!this.host.retryAfterBudget?.()) {
+        this.host.setState('reconnection-failed', 'Max reconnection attempts reached')
+        return
+      }
+      this.reconnectLadder.reset()
+      decision = {
+        kind: 'retry',
+        attemptIndex: RECONNECT_BACKOFF_MS.length - 1,
+        delayMs: RECONNECT_BACKOFF_MS.at(-1)!
+      }
     }
     this.host.setReconnectAttempt(decision.attemptIndex)
     this.host.setState('reconnecting')

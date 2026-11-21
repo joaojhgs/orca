@@ -1,3 +1,6 @@
+import { activeSessions } from './ssh-active-relay-sessions'
+import { clearRelayLostBackoff } from './ssh-relay-lost-backoff'
+import { relayStateOverrides } from './ssh-renderer-broadcast'
 import { awaitSshStartupReady, setSshStartupReady } from './ssh-startup-ready'
 import { ipcMain, type BrowserWindow } from 'electron'
 import type { Store } from '../../persistence/loading-store/store'
@@ -19,6 +22,7 @@ import { resetSshConnectionGenerations } from '../../ssh/connection/authority/ss
 import { resetSshProviderAuthorities } from '../../ssh/connection/authority/ssh-provider-authority'
 import {
   connectInFlight,
+  resetRelayInFlight,
   credentialRequestedForTarget,
   testConnectionProbes,
   testingTargets
@@ -31,6 +35,7 @@ import {
   connectionManager,
   portForwardManager,
   setConnectionManager,
+  setCurrentGetMainWindow,
   setCurrentRuntime,
   setPersistedStore,
   setPortForwardManager
@@ -74,6 +79,7 @@ export async function registerSshHandlers(
   }
   currentGetMainWindow = getMainWindow
   const getCurrentMainWindow = (): BrowserWindow | null => currentGetMainWindow()
+  setCurrentGetMainWindow(getCurrentMainWindow)
   setSshDesktopHost(createElectronSshDesktopHost(getCurrentMainWindow))
   ipcMain.removeHandler('ssh:submitCredential')
   ipcMain.handle(
@@ -137,6 +143,7 @@ export async function resetSshHandlerStateForTests(): Promise<void> {
   ipcMain.removeHandler('ssh:submitCredential')
 
   connectInFlight.clear()
+  resetRelayInFlight.clear()
   targetLifecycleInFlight.clear()
   resetSshConnectionGenerations()
   resetSshProviderAuthorities()
@@ -149,6 +156,15 @@ export async function resetSshHandlerStateForTests(): Promise<void> {
   quitTeardownStartGate.resetForTests()
   resetSshShutdownDrain()
 
+  await Promise.allSettled(
+    [...activeSessions.values()].map((session) => session.disposeAndPersist())
+  )
+  for (const targetId of activeSessions.keys()) {
+    clearRelayLostBackoff(targetId)
+  }
+  activeSessions.clear()
+  relayStateOverrides.clear()
+  setCurrentGetMainWindow(() => null)
   disposeDesktopBrowserBridge()
   await connectionManager?.disconnectAll()
   disposeOrcadManagedTunnels()

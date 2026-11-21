@@ -14,6 +14,7 @@ export async function resolveRuntimeGitLabForkMrBase(args: {
   mrIid: number
   localGitExecOptions?: { cwd: string; wslDistro?: string }
   gitExec: GitExec
+  fetchMergeRequestHead?: () => Promise<string>
   fetchCompareBaseRef: () => Promise<boolean>
   compareBaseRef?: string
 }): Promise<{ baseBranch: string; compareBaseRef?: string } | { error: string }> {
@@ -48,12 +49,14 @@ export async function resolveRuntimeGitLabForkMrBase(args: {
     }
   }
   try {
-    const localRef = await fetchGitLabMergeRequestHeadRef(
-      args.repo,
-      args.remote,
-      args.mrIid,
-      args.localGitExecOptions ? { localGitExecOptions: args.localGitExecOptions } : {}
-    )
+    const localRef = args.fetchMergeRequestHead
+      ? await args.fetchMergeRequestHead()
+      : await fetchGitLabMergeRequestHeadRef(
+          args.repo,
+          args.remote,
+          args.mrIid,
+          args.localGitExecOptions ? { localGitExecOptions: args.localGitExecOptions } : {}
+        )
     const sha = await resolveDurableHeadSha(localRef)
     if (!sha) {
       return reviewStartPointFailure('gitlab.forkHeadUnresolved', { number: args.mrIid })

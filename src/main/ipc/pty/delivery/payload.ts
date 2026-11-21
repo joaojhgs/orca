@@ -89,9 +89,13 @@ export function sendPtyHiddenOutputActivity(session: PtyIpcSession, id: string):
 export function sendPtyDataToRenderer(
   session: PtyIpcSession,
   id: string,
-  payload: PtyDataPayload
+  payload: PtyDataPayload,
+  projectionAdmissionIds?: readonly string[]
 ): boolean {
   if (!session.mainWindow) {
+    if (projectionAdmissionIds) {
+      session.sshOutputIntake?.transferProjections(projectionAdmissionIds, 'renderer-destroyed')
+    }
     return false
   }
   const charCount = getPtyPayloadCharCount(payload)
@@ -132,8 +136,25 @@ export function sendPtyDataToRenderer(
       id: redactPtyIdForDiagnostics(id),
       chars: charCount
     })
+    if (projectionAdmissionIds) {
+      session.sshOutputIntake?.transferProjections(projectionAdmissionIds, 'renderer-send-failed')
+    }
     console.error('[pty] renderer data send failed; payload will not be retried', error)
     return false
+  }
+  if (projectionAdmissionIds) {
+    try {
+      session.sshOutputIntake?.publishProjectionPrefix(
+        projectionAdmissionIds,
+        payload.data.length,
+        charCount
+      )
+    } catch {
+      session.sshOutputIntake?.transferProjections(
+        projectionAdmissionIds,
+        'projection-publish-failed'
+      )
+    }
   }
   if (
     session.rendererDeliveryRestoreNeededPtys.has(id) &&

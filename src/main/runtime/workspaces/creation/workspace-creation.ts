@@ -1,3 +1,4 @@
+import { createRuntimeSshManagedWorktree } from './runtime-ssh-worktree-create'
 import { assertOpenCodeModelLaunchPreferencesAbsent } from '../../../opencode/model-launch/opencode-model-startup-plan'
 import {
   formatAmbiguousCwdParentMessage,
@@ -13,7 +14,6 @@ import { isFolderRepo } from '../../../../shared/repository/repo-kind'
 import { notifyLineageRepos } from '../../../workspaces/catalog/worktree-lineage-change-notification'
 import { resolveWorktreeCreateRoute } from '../../../workspaces/creation/worktree-create-execution-host-route'
 import { ExecutionHostNotDispatchableError } from '../../../providers/execution-host-provider-dispatch'
-import { SshHostNotServedError } from '../../../providers/ssh-host-not-served-error'
 import { createRuntimeFolderWorktree } from './runtime-folder-worktree-create'
 import { createRuntimeLocalManagedWorktree } from './runtime-local-worktree-create'
 import type { PreparationRearmHolder } from '../../../workspaces/creation/preparation/worktree-create-preparation'
@@ -25,7 +25,6 @@ import { invalidateAuthorizedRootsCacheForRepo } from '../../../ipc/worktrees/re
 import { startRuntimeLocalWorktreeTerminals } from '../startup/runtime-local-worktree-terminal-startup'
 import { trackRuntimeWorkspaceCreate } from '../../../workspaces/creation/workspace-create-telemetry'
 import type { RuntimeWorkspaceCreateEvents } from '../../../workspaces/creation/workspace-create-telemetry'
-
 import { createdWorkspaceActivationCallbacks } from '../startup/workspace-create-activation'
 import { assertWslMoveRepoWritable } from '../../../persistence/moving-wsl-projects/quiescence/wsl-move-scope-guard'
 import { resolveManagedWorktreeCreateStartup } from '../startup/managed-worktree-create-startup'
@@ -97,16 +96,21 @@ export abstract class OrcaRuntimeWithCreateManagedWorktree extends OrcaRuntimeWi
     }
     assertWslMoveRepoWritable(store, repo)
     const createSettings = store.getSettings()
+    const startup = await resolveManagedWorktreeCreateStartup(
+      args,
+      createSettings.disabledTuiAgents,
+      {
+        agent: (...inputs) => this.buildStartupForAgent(repo, ...inputs),
+        draft: (...inputs) => this.buildStartupForDraft(repo, ...inputs)
+      }
+    )
     const {
       effectiveStartup,
       effectiveStartupFollowup,
       startupLaunchRuntime,
       effectiveCreatedWithAgent,
       effectiveDraftPaste
-    } = await resolveManagedWorktreeCreateStartup(args, createSettings.disabledTuiAgents, {
-      agent: (...inputs) => this.buildStartupForAgent(repo, ...inputs),
-      draft: (...inputs) => this.buildStartupForDraft(repo, ...inputs)
-    })
+    } = startup
     const activationCallbacks = createdWorkspaceActivationCallbacks(
       this.notifyActivateWorktree.bind(this),
       args.navigation
@@ -157,9 +161,32 @@ export abstract class OrcaRuntimeWithCreateManagedWorktree extends OrcaRuntimeWi
     }
     const timing = events.begin(repo.path)
     if (createRoute.kind === 'ssh') {
-      // Tagged before the refusal so the failed-create event keeps naming its host.
-      timing.recordExecutionHost('ssh')
-      throw new SshHostNotServedError(createRoute.connectionId)
+      return createRuntimeSshManagedWorktree({
+        args,
+        repo,
+        store,
+        connectionId: createRoute.connectionId,
+        timing,
+        startup,
+        lineageInput,
+        onWorkspaceCreated,
+        readStoreInstallationId: () => this.worktreeLineage.readStoreInstallationId(),
+        recordWorktreeCreated: (worktree) => {
+          const recorded = this.recordCreatedWorktreeLineage(worktree, lineageResolution)
+          this.invalidateResolvedWorktreeCache()
+          this.invalidateWorktreeScanCacheForRepo(repo.id)
+          invalidateAuthorizedRootsCacheForRepo(store, repo)
+          notifyLineageRepos(
+            this.notifyWorktreesChanged.bind(this),
+            repo.id,
+            recorded.lineage?.parentWorktreeId
+          )
+          return recorded
+        },
+        terminalPorts: (worktree) =>
+          this.localWorktreeTerminalPorts(args, activationCallbacks.local, worktree),
+        emitCreated: (event) => this.emitWorktreeLifecycle(event)
+      })
     }
     const localCreate = await createRuntimeLocalManagedWorktree({
       request: args,
@@ -281,12 +308,5 @@ export abstract class OrcaRuntimeWithCreateManagedWorktree extends OrcaRuntimeWi
           }
         : {})
     }
-  }
-
-  // A window, an agent or a PTY host can show setup in a terminal; otherwise it runs in-process.
-  private canUseSetupRunner(startup: unknown): boolean {
-    return (
-      this.authoritativeWindowId !== null || Boolean(startup) || Boolean(this.ptyController?.spawn)
-    )
   }
 }

@@ -1,5 +1,7 @@
+import { initializeGitRepo } from './initialize-runtime-git-repo'
+import { registerDirectSshRepo } from './direct-ssh-repo-registration'
 import { randomUUID } from 'node:crypto'
-import { mkdir, readdir, rm, stat } from 'node:fs/promises'
+import { mkdir, readdir, stat } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 import { DEFAULT_REPO_BADGE_COLOR } from '../../../shared/repository/appearance/repo-badge-color'
 import {
@@ -8,7 +10,6 @@ import {
   type ExecutionHostId
 } from '../../../shared/execution-host/execution-host'
 import type { Repo } from '../../../shared/repository/repo-types'
-import { gitExecFileAsync } from '../../git/command-runner/git-exec-file'
 import { awaitWindowsHostGitEnvironmentReady } from '../../git/command-runner/host-routing/windows-host-git-environment'
 import { getRepoName } from '../../git/repositories/repository-name'
 import { inspectGitRepoForRegistrationAsync } from '../../git/repositories/discovery/repo-detection'
@@ -56,6 +57,17 @@ export class RuntimeRepositoryRegistrationController {
     displayName?: string
   ): Promise<Repo> {
     const store = this.requireStore()
+    const host = parseExecutionHostId(executionHostId)
+    if (host?.kind === 'ssh') {
+      const repo = await registerDirectSshRepo(store, {
+        connectionId: host.targetId,
+        path,
+        kind,
+        displayName
+      })
+      this.invalidate(repo.id)
+      return repo
+    }
     if (!isAbsolute(path)) {
       throw new Error('Project path must be an absolute path')
     }
@@ -140,13 +152,10 @@ export class RuntimeRepositoryRegistrationController {
     existing: Repo,
     executionHostId: ExecutionHostId | null | undefined
   ): Repo {
-    if (
-      existing.executionHostId == null &&
-      parseExecutionHostId(executionHostId)?.kind === 'runtime'
-    ) {
-      const adopted =
-        store.updateRepo(existing, { executionHostId }) ??
-        ({ ...existing, executionHostId } as Repo)
+    const host = parseExecutionHostId(executionHostId)
+    if (existing.executionHostId == null && host?.kind === 'runtime') {
+      const update = { executionHostId: host.id }
+      const adopted = store.updateRepo(existing, update) ?? { ...existing, ...update }
       this.invalidate(existing.id)
       return adopted
     }
@@ -226,7 +235,7 @@ export class RuntimeRepositoryRegistrationController {
     }
 
     if (repoKind === 'git') {
-      const failure = await this.initializeGitRepo(targetPath, createdDir)
+      const failure = await initializeGitRepo(targetPath, createdDir)
       if (failure) {
         return failure
       }
@@ -261,40 +270,6 @@ export class RuntimeRepositoryRegistrationController {
     invalidateAuthorizedRootsCache()
     this.invalidate(repo.id)
     return { repo: store.getRepo(repo.id) ?? repo }
-  }
-
-  private async initializeGitRepo(
-    targetPath: string,
-    createdDir: boolean
-  ): Promise<RepoCreateFailure | null> {
-    let step: 'init' | 'commit' = 'init'
-    try {
-      // Host Git on purpose: the new repo has no project yet, even inside one.
-      await gitExecFileAsync(['init'], { cwd: targetPath, hostGit: true })
-      step = 'commit'
-      await gitExecFileAsync(['commit', '--allow-empty', '-m', 'Initial commit'], {
-        cwd: targetPath,
-        // Host Git on purpose: the new repo has no project yet, even inside one.
-        hostGit: true
-      })
-      return null
-    } catch (error) {
-      if (createdDir) {
-        await rm(targetPath, { recursive: true, force: true }).catch(() => {})
-      } else if (step === 'commit') {
-        await rm(join(targetPath, '.git'), {
-          recursive: true,
-          force: true
-        }).catch(() => {})
-      }
-      const message = error instanceof Error ? error.message : String(error)
-      if (step === 'commit' && /Please tell me who you are|user\.name|user\.email/i.test(message)) {
-        return repoCreateFailure('gitIdentityMissing')
-      }
-      return repoCreateFailure(step === 'init' ? 'gitInitFailed' : 'initialCommitFailed', {
-        detail: message
-      })
-    }
   }
 
   /** Read on this host so a paired client suggests this host's Workspace Directory, not its own. */

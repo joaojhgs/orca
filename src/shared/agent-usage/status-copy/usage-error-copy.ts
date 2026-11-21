@@ -67,6 +67,14 @@ export function isClaudeUsageWaitingForClaude(p: UsageStatusCopySource): boolean
   return p.provider === 'claude' && p.usageMetadata?.failureKind === 'stale-token'
 }
 
+function isExecutionHostSignInExpired(p: UsageStatusCopySource): boolean {
+  return (
+    /^(codex|claude|cursor|antigravity):default$|^opencode:/.test(
+      p.usageMetadata?.credentialSource ?? ''
+    ) && p.usageMetadata?.failureKind === 'stale-token'
+  )
+}
+
 export function getProviderUsageStatusLabel(
   p: UsageStatusCopySource,
   t: UsageCopyTranslate
@@ -77,6 +85,12 @@ export function getProviderUsageStatusLabel(
   // Why: no refresh fixes an owner that cannot vouch for its usage, so never say "Refresh failed".
   if (p.usageMetadata?.unverifiableOwner) {
     return t('auto.components.status.bar.tooltip.f8b8dbed85', 'Usage unavailable')
+  }
+  if (p.provider !== 'claude' && p.usageMetadata?.failureKind === 'usage-unavailable') {
+    return t('usage.unsupported.label', 'Usage tracking unavailable')
+  }
+  if (isExecutionHostSignInExpired(p)) {
+    return t('usage.execution.expired.label', 'Sign-in expired on source host')
   }
   const delegatedCliProvider = getDelegatedCliRefreshProvider(p)
   if (delegatedCliProvider === 'grok') {
@@ -143,6 +157,12 @@ export function getProviderUsageErrorMessage(
   p: UsageStatusCopySource,
   t: UsageCopyTranslate
 ): string {
+  if (isExecutionHostSignInExpired(p)) {
+    return t(
+      'usage.execution.expired.message',
+      'Refresh sign-in on the listed execution host. Orca does not rotate that host’s credentials.'
+    )
+  }
   const fallback = t('auto.components.status.bar.tooltip.2c35eca8d4', 'Unable to fetch usage')
   if (!p.error) {
     return fallback

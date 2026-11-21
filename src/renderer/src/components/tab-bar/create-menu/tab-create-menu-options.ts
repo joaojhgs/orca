@@ -162,8 +162,8 @@ export function buildTabCreateMenuOptions(
 
   if (context.hasSimulator) {
     const label = context.simulatorIsGoTo
-      ? t('auto.components.tab.bar.TabBar.b426bb2615', 'Go to Mobile Emulator')
-      : t('auto.components.tab.bar.TabBar.fd2b42aaa3', 'New Mobile Emulator')
+      ? t('auto.components.tab.bar.TabBar.92f4d1a6c8', 'Go to Device Preview')
+      : t('auto.components.tab.bar.TabBar.341eb2875d', 'New Device Preview')
     options.push({
       id: context.simulatorIsGoTo ? 'go-to-simulator' : 'new-simulator',
       kind: context.simulatorIsGoTo ? 'go-to-simulator' : 'new-simulator',
@@ -175,7 +175,16 @@ export function buildTabCreateMenuOptions(
         t('auto.components.tab.bar.tab.create.menu.options.1baeb07c17', 'ios simulator'),
         t('auto.components.tab.bar.tab.create.menu.options.8a580f88cf', 'iphone'),
         t('auto.components.tab.bar.tab.create.menu.options.7ecdc5ef08', 'ipad'),
-        t('auto.components.tab.bar.tab.create.menu.options.14965cc123', 'mobile')
+        t('auto.components.tab.bar.tab.create.menu.options.14965cc123', 'mobile'),
+        translate(
+          'auto.components.tab.bar.create.menu.tab.create.menu.options.3812def027',
+          'computer use'
+        ),
+        translate(
+          'auto.components.tab.bar.create.menu.tab.create.menu.options.f2c92f5ee2',
+          'desktop preview'
+        ),
+        translate('auto.components.tab.bar.create.menu.tab.create.menu.options.c0d2afa3b2', 'tauri')
       ]
     })
   }

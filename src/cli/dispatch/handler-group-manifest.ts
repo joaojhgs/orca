@@ -8,6 +8,8 @@ import { REFERENCE_HANDLER_GROUP } from '../references/reference-handler-group'
 import { SERVE_PAIRING_HANDLER_GROUPS } from '../server/serve-pairing-handler-groups'
 import { PLUGIN_HANDLER_GROUPS } from '../plugins/plugin-handler-groups'
 import { HOST_HANDLER_GROUPS } from '../hosts/host-handler-groups'
+import { SKILL_HANDLER_GROUPS } from '../skills/skill-handler-groups'
+import { MANAGER_HANDLER_GROUP } from '../manager/manager-handler-group'
 import { WORKTREE_HANDLER_GROUPS } from '../workspaces/worktree-handler-groups'
 
 export type HandlerGroup = {
@@ -18,6 +20,12 @@ export type HandlerGroup = {
 }
 
 export const HANDLER_GROUPS: readonly HandlerGroup[] = [
+  MANAGER_HANDLER_GROUP,
+  {
+    name: 'network',
+    keys: ['network routes', 'network ticket', 'network forward'],
+    load: async () => (await import('../network/network.js')).NETWORK_HANDLERS
+  },
   JIRA_HANDLER_GROUP,
   LINEAR_HANDLER_GROUP,
   REFERENCE_HANDLER_GROUP,
@@ -40,7 +48,7 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
   },
   {
     name: 'account',
-    keys: ['account add', 'account list', 'account select', 'account rm'],
+    keys: ['account add', 'account list', 'account select', 'account rm', 'account usage'],
     load: async () => (await import('../accounts/account.js')).ACCOUNT_HANDLERS
   },
   AUTH_HANDLER_GROUP,
@@ -179,6 +187,7 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
       'emulator launch',
       'emulator permissions',
       'emulator ax',
+      'emulator screenshot',
       'emulator logcat'
     ],
     load: async () => (await import('../emulator/emulator.js')).EMULATOR_HANDLERS
@@ -187,6 +196,12 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     name: 'computer',
     keys: [
       'computer capabilities',
+      'computer desktops',
+      'computer browsers',
+      'computer browser-connect',
+      'computer browser-ticket',
+      'computer desktop-screenshot',
+      'computer desktop-input',
       'computer list-apps',
       'computer permissions',
       'computer launch-app',
@@ -253,17 +268,8 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
       (await import('../discovery/agent-context-handlers.js')).INTROSPECTION_HANDLERS
   },
   ...HOST_HANDLER_GROUPS,
-  {
-    name: 'skill-sharing',
-    keys: ['skills installed', 'skills share'],
-    load: async () => (await import('../skills/skill-sharing.js')).SKILL_SHARING_HANDLERS
-  },
+  ...SKILL_HANDLER_GROUPS,
   ...PLUGIN_HANDLER_GROUPS,
-  {
-    name: 'skills',
-    keys: ['skills list', 'skills get', 'skills install', 'skills update'],
-    load: async () => (await import('../skills/skills.js')).SKILL_HANDLERS
-  },
   {
     name: 'search',
     keys: ['search'],

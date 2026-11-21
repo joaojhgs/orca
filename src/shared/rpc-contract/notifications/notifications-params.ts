@@ -3,6 +3,17 @@ import {
   MOBILE_PUSH_APNS_ENVIRONMENTS,
   MOBILE_PUSH_PLATFORMS
 } from '../../notifications/mobile-push-contract'
+import { NotificationScopePolicySchema } from '../../notification-scope-policy'
+
+export const NotificationPolicyUpdateParams = z.strictObject({
+  policy: NotificationScopePolicySchema,
+  expectedRevision: z.string().regex(/^[a-f0-9]{64}$/)
+})
+
+export const NotificationPolicyTargetsParams = z.strictObject({
+  offset: z.number().int().min(0).max(100_000).default(0),
+  limit: z.number().int().min(1).max(200).default(100)
+})
 
 export const NotificationUnsubscribeParams = z.object({
   subscriptionId: z

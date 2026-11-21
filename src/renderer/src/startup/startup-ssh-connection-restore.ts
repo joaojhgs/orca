@@ -26,7 +26,10 @@ export async function restoreSshConnectionsForStartup(args: {
   const targetMap = new Map(allTargets.map((t) => [t.id, t]))
   // Opted-out hosts stay disconnected like hosts that were off at quit; their panes offer Connect.
   const targets = connectionIds
-    .filter((targetId) => targetMap.get(targetId)?.reconnectOnLaunch !== false)
+    .filter((targetId) => {
+      const target = targetMap.get(targetId)
+      return target?.reconnectOnLaunch !== false && target?.connectOnStartup !== false
+    })
     .map((targetId) => ({
       targetId,
       needsPassphrase: targetMap.get(targetId)?.lastRequiredPassphrase ?? false

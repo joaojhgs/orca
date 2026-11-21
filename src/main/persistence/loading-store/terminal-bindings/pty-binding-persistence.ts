@@ -1,6 +1,8 @@
 // oxfmt-ignore
-import { parseExecutionHostId } from '../../../../shared/execution-host/execution-host'
+import { parseExecutionHostId, toSshExecutionHostId } from '../../../../shared/execution-host/execution-host'
 import { makePaneKey } from '../../../../shared/workspace-layout/stable-pane-id'
+import type { HostWorktreeTarget } from '../../../../shared/worktree/host-qualified-identity'
+import { parseAppSshPtyId } from '../../../../shared/remote-runtime/ssh/ssh-pty-id'
 import type { WorkspaceSessionState } from '../../../../shared/workspace-session/workspace-session-state-types'
 import { rollbackWorkspaceSessionAfterFailedAsyncWrite } from '../../restoring-sessions/workspace-session-write-rollback'
 import { clearReplacedPaneBinding } from './replaced-pane-binding'
@@ -49,6 +51,10 @@ import type {
   CommandOf,
   LayoutRefusalCode
 } from '../../../../shared/workspace-layout/workspace-layout-command-types'
+import {
+  resolveSshReattachPtyBinding,
+  type SshReattachPtyBinding
+} from './ssh-reattach-pty-binding'
 import { bumpPtyBindingGeneration } from './pty-binding-generations'
 
 type PtyBindingPersistenceOperationsRuntime = Pick<
@@ -155,7 +161,42 @@ export class PtyBindingPersistenceOperations {
     })
   }
 
-  async persistPtyBinding(
+  /** Reattach checks the current host layout after admission to the durable writer. */
+  async commitSshReattachPtyBinding(
+    target: HostWorktreeTarget,
+    binding: Omit<SshReattachPtyBinding, 'worktreeId'>,
+    isCurrent: () => boolean
+  ): Promise<string | null> {
+    const { sessions } = this[ptyBindingPersistenceOperationsContext]
+    const ptyOwner = parseAppSshPtyId(binding.ptyId)
+    let tabId = binding.tabId
+    const persisted = await this.runPtyBindingMutation(() => {
+      if (
+        !isCurrent() ||
+        !ptyOwner ||
+        target.hostId !== toSshExecutionHostId(ptyOwner.connectionId)
+      ) {
+        return null
+      }
+      const current = resolveSshReattachPtyBinding(
+        { ...binding, worktreeId: target.id },
+        sessions.getWorkspaceSession(target.hostId),
+        sessions.getWorkspaceSession()
+      )
+      tabId = current.tabId
+      return current
+    }, target.hostId)
+    return persisted ? tabId : null
+  }
+
+  persistPtyBinding(
+    input: PersistPtyBindingArgs | (() => PersistPtyBindingArgs | null),
+    hostId?: string | null
+  ): Promise<boolean> {
+    return this.runPtyBindingMutation(input, hostId)
+  }
+
+  private async runPtyBindingMutation(
     input: PersistPtyBindingArgs | (() => PersistPtyBindingArgs | null),
     hostId?: string | null
   ): Promise<boolean> {

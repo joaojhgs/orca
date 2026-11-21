@@ -16,6 +16,7 @@ import type {
 import { useTranslate } from '@/i18n/use-translate'
 
 type EmulatorScreenSurfaceProps = {
+  worktreeId?: string
   deviceId?: string
   frameLayout: DeviceFrameLayout | null
   isLive: boolean
@@ -40,6 +41,7 @@ type EmulatorScreenSurfaceProps = {
 }
 
 export function EmulatorScreenSurface({
+  worktreeId,
   deviceId,
   frameLayout,
   isLive,
@@ -91,6 +93,7 @@ export function EmulatorScreenSurface({
     >
       {/* Use the real streamed screen; extra in-screen chrome would duplicate iOS status bars and distort bezels. */}
       <EmulatorScreenStreamContent
+        worktreeId={worktreeId}
         deviceId={deviceId}
         loading={loading}
         onStreamError={onStreamError}

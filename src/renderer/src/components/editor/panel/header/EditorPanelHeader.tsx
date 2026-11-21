@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Columns2, Eye, FileText, ListTree, Rows2 } from 'lucide-react'
 import { useAppStore } from '@/store/index'
 import { useVisibleWorktreeDiffComments } from '../../../diff-comments/use-visible-worktree-diff-comments'
@@ -23,6 +23,7 @@ import { useShortcutKeyDetails } from '@/lib/keyboard/useShortcutLabel'
 import { ShortcutKeyCombo } from '@/components/ui/ShortcutKeyCombo'
 import type { ArtifactWriteRequest } from '../../../../../../shared/artifacts/artifacts'
 import { ArtifactPublishButton } from '@/components/artifacts/ArtifactPublishButton'
+import type { ArtifactMarkdownLayout } from '@/components/artifacts/artifact-share-layout'
 import { editorArtifactSourceKey } from '../editor-artifact-upload'
 
 const NO_CUSTOM_EDITOR_TITLES: Readonly<Record<CustomEditorToggleValue, string>> = {}
@@ -100,6 +101,13 @@ export function EditorPanelHeader({
   createArtifactRequest
 }: EditorPanelHeaderProps): React.JSX.Element {
   const t = useTranslate()
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareLayout, setShareLayout] = useState<ArtifactMarkdownLayout>('full-width')
+  const canShare = Boolean(createArtifactRequest && !isDiffSurface)
+  const openArtifactShare = (layout: ArtifactMarkdownLayout = shareLayout): void => {
+    setShareLayout(layout)
+    setShareOpen(true)
+  }
   const { owner: commentOwner, comments: diffComments } = useVisibleWorktreeDiffComments(
     activeFile.worktreeId,
     activeFile
@@ -147,6 +155,8 @@ export function EditorPanelHeader({
         canShowMarkdownPreview={canShowMarkdownPreview}
         onCopyPath={onCopyPath}
         onOpenMarkdownPreview={onOpenMarkdownPreview}
+        onShareArtifact={canShare ? openArtifactShare : undefined}
+        isMarkdown={isMarkdown}
       />
       {canOpenPreview && (
         <TooltipProvider>
@@ -327,12 +337,19 @@ export function EditorPanelHeader({
       )}
       {!isDiffSurface && createArtifactRequest ? (
         <ArtifactPublishButton
+          key={activeFile.id}
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          isMarkdown={isMarkdown}
+          markdownLayout={shareLayout}
+          onMarkdownLayoutChange={setShareLayout}
           sourceKey={editorArtifactSourceKey(activeFile)}
           className="size-6 [&_svg]:size-3.5!"
           createRequest={createArtifactRequest}
         />
       ) : null}
       <EditorPanelActionsMenu
+        onShareArtifact={canShare ? () => openArtifactShare() : undefined}
         fileLocationActions={
           activeFile.mode === 'edit' ||
           activeFile.mode === 'markdown-preview' ||

@@ -26,6 +26,7 @@ import {
 } from '../ui/dropdown-menu'
 import { AgentIcon } from '@/components/agent/icons/AgentIcon'
 import { getIntlLocale, translate } from '@/i18n/i18n'
+import { ExecutionAccountUsageRows } from '../settings/ExecutionAccountUsageRows'
 import { useIntlLocale, useTranslate, type Translate } from '@/i18n/use-translate'
 export { getStatsPaneSearchEntries } from './stats-search'
 
@@ -147,6 +148,7 @@ function StatsPaneContent({
   const intlLocale = useIntlLocale()
   const summary = useAppStore((s) => s.statsSummary)
   const fetchStatsSummary = useAppStore((s) => s.fetchStatsSummary)
+  const fetchRateLimits = useAppStore((s) => s.fetchRateLimits)
   const recordFeatureInteraction = useAppStore((s) => s.recordFeatureInteraction)
   const [activeUsageTab, setActiveUsageTab] = useState<UsageTab>('overview')
   // Grok credits come from this computer's status bar, so a remote host has no Grok tab.
@@ -162,11 +164,16 @@ function StatsPaneContent({
 
   useEffect(() => {
     void fetchStatsSummary()
-  }, [view, fetchStatsSummary])
+    void fetchRateLimits()
+  }, [view, fetchStatsSummary, fetchRateLimits])
 
   return (
     <div className="space-y-5">
       {hostName ? <StatsHostCaption name={hostName} /> : null}
+      <section className="space-y-4" data-testid="usage-tracking-live-quotas">
+        <h3 className="text-sm font-semibold">{t('stats.liveQuotas', 'Live usage limits')}</h3>
+        <ExecutionAccountUsageRows />
+      </section>
       {summary ? (
         <div className="space-y-3">
           {summary.totalAgentsSpawned === 0 && summary.totalPRsCreated === 0 ? (
@@ -206,6 +213,12 @@ function StatsPaneContent({
       ) : null}
 
       <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          {t(
+            'settings.usage.historySource',
+            'Token and cost history below is scanned from logs on the connected Orca server. SSH account quotas are shown above; remote session-log history is not included.'
+          )}
+        </p>
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold text-foreground">
             {t('auto.components.stats.StatsPane.c79f073d4c', 'Usage Analytics')}

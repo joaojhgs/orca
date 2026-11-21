@@ -1,7 +1,9 @@
 import type { FolderWorkspace } from '../../folder-workspaces/folder-workspace-types'
 import type { ProjectGroup } from '../../project/groups/project-group-types'
-import { LOCAL_EXECUTION_HOST_ID } from '../../execution-host/execution-host'
-import { getFolderWorkspaceHostId } from '../../folder-workspaces/folder-workspace-host-id'
+import { LOCAL_EXECUTION_HOST_ID, type ExecutionHostId } from '../../execution-host/execution-host'
+import { getFolderWorkspaceHostIdentity } from '../../folder-workspaces/folder-workspace-worktree'
+import { getFolderWorkspaceExecutionHostIdForRows } from '../hosts/host-filtering'
+import { createSidebarProjectGroupIndex } from '../sections/project-group-owner-index'
 import type { WorkspaceStatusDefinition } from '../../worktree/types'
 import {
   getWorkspaceStatus,
@@ -21,30 +23,36 @@ export type RenderableFolderWorkspace = {
 /** Resolve membership before grouping so every mode renders the same folder workspaces (#15362); modes choose lanes only. */
 export function getRenderableFolderWorkspaces(
   folderWorkspaces: readonly FolderWorkspace[],
-  projectGroups: readonly ProjectGroup[]
+  projectGroups: readonly ProjectGroup[],
+  defaultHostId: ExecutionHostId = LOCAL_EXECUTION_HOST_ID
 ): RenderableFolderWorkspace[] {
-  const projectGroupsById = new Map(projectGroups.map((group) => [group.id, group]))
-  const renderable: RenderableFolderWorkspace[] = []
+  const groups = createSidebarProjectGroupIndex(projectGroups, defaultHostId)
+  const renderable = new Map<string, RenderableFolderWorkspace>()
   for (const folderWorkspace of folderWorkspaces) {
-    const projectGroup = projectGroupsById.get(folderWorkspace.projectGroupId)
+    const hostId = getFolderWorkspaceExecutionHostIdForRows({
+      folderWorkspace,
+      projectGroup: undefined,
+      defaultHostId
+    })
+    const projectGroup = groups.resolve(folderWorkspace.projectGroupId, hostId)
     // A group filtered out for host visibility legitimately hides its workspaces.
     if (!projectGroup) {
       continue
     }
-    // Stamp an unstamped folder the way catalog adoption does, so its card, label and section name
-    // the host it runs on (folder-workspace-execution-host.ts).
-    const hostId = folderWorkspace.executionHostId
-      ? null
-      : getFolderWorkspaceHostId(folderWorkspace, projectGroups)
-    renderable.push({
-      folderWorkspace:
-        hostId && hostId !== LOCAL_EXECUTION_HOST_ID
-          ? { ...folderWorkspace, executionHostId: hostId }
-          : folderWorkspace,
+    const owner =
+      folderWorkspace.executionHostId || folderWorkspace.connectionId
+        ? hostId
+        : groups.owner(projectGroup)
+    const ownedWorkspace =
+      owner !== LOCAL_EXECUTION_HOST_ID && owner !== folderWorkspace.executionHostId
+        ? { ...folderWorkspace, executionHostId: owner }
+        : folderWorkspace
+    renderable.set(getFolderWorkspaceHostIdentity(ownedWorkspace), {
+      folderWorkspace: ownedWorkspace,
       projectGroup
     })
   }
-  return renderable
+  return [...renderable.values()]
 }
 
 /** Switch exhaustively so new grouping modes cannot silently hide folder workspaces again. */

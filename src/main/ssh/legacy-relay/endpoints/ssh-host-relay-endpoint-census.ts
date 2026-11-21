@@ -10,7 +10,7 @@ import {
   type RelayEndpointIncumbent
 } from './ssh-relay-endpoint-incumbent'
 import { countRelayEndpointPtys } from './ssh-relay-endpoint-pty-count'
-import { readRelayDaemonRuntimes } from './ssh-relay-endpoint-runtime'
+import { readRelayDaemonRuntimes } from '../../ssh-relay-endpoint-runtime'
 import { isWindowsRemoteHost, type RemoteHostPlatform } from '../../remote-host/ssh-remote-platform'
 
 /** `unenumerable`: Windows named pipes cannot be listed, so the caller keeps today's path. */

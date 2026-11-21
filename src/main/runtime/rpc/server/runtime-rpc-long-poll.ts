@@ -19,6 +19,18 @@ export type RuntimeLongPollClass = 'ask' | 'browser-host' | 'wait'
 
 // One long-poll classifier owns admission, abort and keepalive (design §3.1).
 export function classifyRuntimeLongPoll(request: RpcRequest): RuntimeLongPollClass | null {
+  if (
+    request.method === 'manager.eventsWait' ||
+    request.method === 'manager.workerStart' ||
+    request.method === 'manager.sessionGuide' ||
+    request.method === 'computer.desktopAction' ||
+    request.method === 'emulator.agentScreenshot' ||
+    request.method === 'emulator.attach' ||
+    request.method === 'browser.grab.await' ||
+    request.method === 'browser.grab.awaitSelection'
+  ) {
+    return 'wait'
+  }
   // A removal that also destroys its recipe environment waits on that environment's Git removal and
   // the recipe's destroy step; other removals stay short calls.
   if (

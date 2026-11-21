@@ -291,7 +291,7 @@ function codexResumeStateFromParseState(
   }
 }
 
-async function parseCodexSessionLines(args: {
+export async function parseCodexSessionLines(args: {
   file: FileWithMtime
   lines: AsyncIterable<string> | Iterable<string>
   platform: NodeJS.Platform

@@ -155,7 +155,11 @@ export function spawnTrackedSystemSshChannel(
   const commandOptions =
     options === undefined && Object.keys(buildArgsOptions).length === 0
       ? undefined
-      : { ...options, ...buildArgsOptions }
+      : {
+          ...options,
+          ...buildArgsOptions,
+          ...(options?.disableControlMaster ? { disableControlMaster: true } : {})
+        }
   assertNotDisposed(host)
   const channel =
     commandOptions === undefined

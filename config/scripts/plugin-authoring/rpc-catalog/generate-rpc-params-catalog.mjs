@@ -1,14 +1,6 @@
 // Derive method/schema bindings from host registry; a hand-maintained catalog of 600 methods would drift from dispatcher.
 import { execFileSync } from 'node:child_process'
-import {
-  existsSync,
-  globSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync
-} from 'node:fs'
+import { existsSync, globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import process from 'node:process'
@@ -22,11 +14,9 @@ const RPC_DIR = path.join(REPO_ROOT, 'src', 'main', 'runtime', 'rpc')
 const REGISTRY_ENTRY = path.join(RPC_DIR, 'methods', 'rpc-method-registry.ts')
 const OUTPUT_PATH = path.join(CONTRACT_DIR, 'rpc-params-catalog.generated.ts')
 
-// Create ignored out/ before mkdtemp; keep scratch under repo for external node_modules resolution and formatter config discovery.
+// Keep scratch under the repo for dependency/config resolution, never under a linked live out/.
 function scratchDir(prefix) {
-  const root = path.join(REPO_ROOT, 'out')
-  mkdirSync(root, { recursive: true })
-  return mkdtempSync(path.join(root, prefix))
+  return mkdtempSync(path.join(REPO_ROOT, `.${prefix}`))
 }
 
 const posix = (value) => value.split(path.sep).join('/')

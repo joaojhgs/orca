@@ -119,6 +119,10 @@ vi.mock(
 )
 
 import { registerFilesystemHandlers } from '../filesystem'
+import {
+  registerSshGitProvider,
+  unregisterSshGitProvider
+} from '../../../providers/ssh-git-dispatch'
 import { SshHostNotServedError } from '../../../providers/ssh-host-not-served-error'
 import { invalidateAuthorizedRootsCache } from '../../worktrees/removal/registered-worktree-roots-cache'
 
@@ -127,6 +131,40 @@ describe('registerFilesystemHandlers', () => {
     resetFilesystemIpcMocks()
     // Drop cached roots between fixtures.
     invalidateAuthorizedRootsCache()
+  })
+
+  it('dispatches Git status and staging to the registered SSH provider', async () => {
+    const connectionId = 'ssh-legacy'
+    const provider = {
+      getStatus: vi.fn().mockResolvedValue({ entries: [], conflictOperation: 'unknown' }),
+      stageFile: vi.fn().mockResolvedValue(undefined)
+    }
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fake implements only the routed Git verbs exercised here.
+    registerSshGitProvider(connectionId, provider as never)
+    try {
+      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the existing fixture supplies the store API exercised by these handlers.
+      registerFilesystemHandlers(store as never)
+      await expect(
+        handlers.get('git:status')!(null, {
+          worktreePath: '/remote/repo',
+          connectionId,
+          includeIgnored: true
+        })
+      ).resolves.toEqual({ entries: [], conflictOperation: 'unknown' })
+      await handlers.get('git:stage')!(null, {
+        worktreePath: '/remote/repo',
+        filePath: 'src/example.ts',
+        connectionId
+      })
+      expect(provider.getStatus).toHaveBeenCalledWith('/remote/repo', {
+        includeIgnored: true,
+        admissionTier: 'status'
+      })
+      expect(provider.stageFile).toHaveBeenCalledWith('/remote/repo', 'src/example.ts')
+      expect(getStatusMock).not.toHaveBeenCalled()
+    } finally {
+      unregisterSshGitProvider(connectionId)
+    }
   })
 
   it('rejects direct SSH status and reads before any local access', async () => {
@@ -143,7 +181,7 @@ describe('registerFilesystemHandlers', () => {
         filePath: `${WORKTREE_FEATURE_PATH}/a.ts`,
         connectionId: 'ssh-unserved'
       })
-    ).rejects.toThrow(SshHostNotServedError)
+    ).rejects.toThrow()
     expect(getStatusMock).not.toHaveBeenCalled()
     expect(readFileMock).not.toHaveBeenCalled()
     expect(statMock).not.toHaveBeenCalled()

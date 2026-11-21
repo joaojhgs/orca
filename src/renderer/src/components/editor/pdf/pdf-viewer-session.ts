@@ -1,10 +1,10 @@
-import type * as pdfjsLib from 'pdfjs-dist'
+import type * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import {
   EventBus,
   PDFFindController,
   PDFLinkService,
   PDFViewer as PdfJsViewer
-} from 'pdfjs-dist/web/pdf_viewer.mjs'
+} from 'pdfjs-dist/legacy/web/pdf_viewer.mjs'
 import {
   applyPdfScalePreference,
   zoomPdfViewerWithWheel,

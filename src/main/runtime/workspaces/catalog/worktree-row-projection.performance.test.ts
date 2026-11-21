@@ -42,7 +42,10 @@ vi.mock('../../../../shared/sidebar-list/feed/sidebar-inputs-switch', () => ({
 }))
 
 const dirs: string[] = []
+let runtime: OrcaRuntimeService | undefined
 afterEach(async () => {
+  await runtime?.disposeSkillUploadSessions()
+  runtime = undefined
   await closeTestStores()
   await removeTempDirs(dirs.splice(0))
 })
@@ -66,7 +69,8 @@ async function catalogFleet(size: number) {
     isBare: false,
     isMainWorktree: false
   }))
-  const rows = new OrcaRuntimeService(store).workspaceRows!
+  runtime = new OrcaRuntimeService(store)
+  const rows = runtime.workspaceRows!
   await rows.ready()
   const comment = (index: number) =>
     rows.resolvedWorktrees()?.find((worktree) => worktree.id === worktreeId(index))?.comment

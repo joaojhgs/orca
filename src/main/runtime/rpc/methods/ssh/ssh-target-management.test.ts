@@ -14,7 +14,8 @@ const mocks = vi.hoisted(() => ({
   browseSshDirectory: vi.fn()
 }))
 
-vi.mock('../../../../ssh/targets/ssh-target-registry', () => ({
+vi.mock(import('../../../../ssh/targets/ssh-target-registry'), async (importOriginal) => ({
+  ...(await importOriginal()),
   connectRegisteredSshTarget: vi.fn(),
   getRegisteredSshState: mocks.getRegisteredSshState,
   getRegisteredSshTargetMutations: () => mocks.mutations,

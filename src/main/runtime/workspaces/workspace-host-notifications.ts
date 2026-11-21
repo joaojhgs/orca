@@ -6,6 +6,7 @@ import type { RuntimeWorkspaceRepoScanRefresh } from './catalog/workspace-repo-s
 import type { SshConnectionState } from '../../../shared/remote-runtime/ssh/ssh-types'
 import { getPublicSshState } from '../hosts/platform-probe/public-ssh-state'
 import { splitWorktreeId } from '../../../shared/worktree/id'
+import { recordManagerContactEvent } from '../manager/manager-contact-event'
 import { RuntimeEmulatorBinding } from '../emulator/runtime-emulator-binding'
 
 export abstract class OrcaRuntimeWithNotifySshStateChanged extends RuntimeEmulatorBinding {
@@ -43,6 +44,14 @@ export abstract class OrcaRuntimeWithNotifySshStateChanged extends RuntimeEmulat
 
   // Main SSH handlers bypass runtime methods, so they need a client-event entrypoint.
   notifySshStateChanged(targetId: string, state: SshConnectionState): void {
+    const db = this.getExistingOrchestrationDb()
+    if (db) {
+      try {
+        recordManagerContactEvent(db, targetId, state.status === 'connected')
+      } catch {
+        console.warn('[manager] Execution contact could not be journaled; reconcile required')
+      }
+    }
     this.bumpSshRelayRecoveryGeneration(targetId)
     this.invalidateSshWorktreeScanCache(targetId)
     if (state.status !== 'connected') {

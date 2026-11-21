@@ -17,6 +17,12 @@ const TEST_FILE_NAME = /\.(?:test|spec|e2e|bench)\.[cm]?[jt]sx?$/
 // Mirror literals must appear in runner sources; list manual rows each run so their lack of CI remains visible.
 const NON_UNIT_TEST_RUNNERS = [
   {
+    name: 'Hermes IPC broker (native Node)',
+    include: ['integrations/hermes-orca-manager/controller-ipc-broker.test.mjs'],
+    sources: ['config/scripts/preflight/changed-checks/check-changed-selection.mjs'],
+    mirrors: ["'--test'", "'integrations/hermes-orca-manager/controller-ipc-broker.test.mjs'"]
+  },
+  {
     name: 'Playwright e2e',
     include: ['tests/e2e/**/*.spec.ts'],
     sources: ['tests/playwright.config.ts'],

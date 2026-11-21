@@ -191,7 +191,8 @@ export const electronViteConfig: UserConfig = {
       // Hidden maps omit sourceMappingURL because packaging strips them; release CI uploads maps for crash decoding.
       sourcemap: 'hidden',
       // PR fixtures discard maps; official releases must always retain them.
-      ...(process.env.ORCA_CI_MAIN_SOURCEMAPS === '0' &&
+      ...((process.env.ORCA_CI_MAIN_SOURCEMAPS === '0' ||
+        process.env.ORCA_BUILD_SOURCEMAPS === '0') &&
       orcaBuildIdentity !== 'stable' &&
       orcaBuildIdentity !== 'rc'
         ? { sourcemap: false }

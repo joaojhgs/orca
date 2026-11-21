@@ -44,6 +44,9 @@ import { AndroidStreamController } from '../android/android-stream-controller'
 import { scrcpyVideoRegistry } from '../scrcpy-video-registry'
 import { ANDROID_AVD_BOOT_TIMEOUT_MS } from '../../../shared/emulator/emulator-attach-timeouts'
 import type { EmulatorGesturePoint } from '../emulator-gesture-sender'
+import { captureAndroidScreenshot } from '../android/android-screenshot'
+import { androidNaturalOrientation } from '../android/android-input-mapping'
+import { readAndroidNaturalSize } from '../android/android-screen-size'
 
 export type AndroidEmulatorBackendOptions = {
   runner?: AndroidCommandRunner
@@ -220,8 +223,16 @@ export class AndroidEmulatorBackend implements EmulatorBackend {
 
   async rotate(deviceId: string, orientation: string): Promise<void> {
     const serial = await this.resolveDeviceId(deviceId)
+    const sdk = this.requireSdk()
+    const naturalSize = await readAndroidNaturalSize(this.runner, sdk, serial)
     this.input.forgetScreenSize(serial)
-    await androidRotate(this.runner, this.requireSdk(), serial, orientation)
+    await androidRotate(
+      this.runner,
+      sdk,
+      serial,
+      orientation,
+      naturalSize ? androidNaturalOrientation(naturalSize) : 'portrait'
+    )
   }
 
   async exec(deviceId: string, command: string): Promise<unknown> {
@@ -231,6 +242,10 @@ export class AndroidEmulatorBackend implements EmulatorBackend {
       await this.resolveDeviceId(deviceId),
       command
     )
+  }
+
+  async captureScreenshot(deviceId: string): Promise<string> {
+    return captureAndroidScreenshot(this.requireSdk(), await this.resolveDeviceId(deviceId))
   }
 
   async installApp(

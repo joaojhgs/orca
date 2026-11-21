@@ -45,6 +45,8 @@ import type {
   ExchangePairingTicketResult
 } from '../../../shared/remote-runtime/pairing/ticket-exchange-contract'
 
+import type { PairingAdministrationApi } from '../mobile-pairing-administration'
+
 // Bind key rotation to the authenticated socket so callers can re-key only themselves.
 export type DeviceSelfRpcContext = {
   registerDeviceKey(params: RegisterDeviceKeyParams): RegisterDeviceKeyResult
@@ -56,6 +58,8 @@ export type DeviceSelfRpcContext = {
   ): void
   /** What this connection declared, so desktops sharing one paired row each name their own. */
   orcaAccount(): DeclareOrcaAccountParams['account']
+  /** Notification policy only; never include pairing credentials or registration metadata. */
+  listNotificationPolicyDevices?(): { deviceId: string; name: string }[]
   /** The desktop installation this connection declared, if any. */
   clientInstanceId(): string | undefined
 }
@@ -203,6 +207,7 @@ export type RpcContext = {
   // Binary terminal transport is absent on Unix and non-E2EE WebSocket paths.
   sendBinary?: RpcBinarySender
   // Register only handler-owned stream ids; binary frames arrive outside JSON-RPC.
+  pairingAdministration?: PairingAdministrationApi
   registerBinaryStreamHandler?: (
     streamId: number,
     handler: (frame: TerminalStreamFrame) => void

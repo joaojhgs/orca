@@ -187,7 +187,10 @@ export const ptySessionControlApi = {
   },
   killFenced: (request: PtyFencedTerminationRequest): Promise<PtyFencedTerminationOutcome> =>
     ipcRenderer.invoke('pty:killFenced', request),
-  kill: (id: string, opts?: { keepHistory?: boolean; replaced?: boolean }): Promise<void> =>
+  kill: (
+    id: string,
+    opts?: { keepHistory?: boolean; replaced?: boolean; runtimeOwnerEnvironmentId?: string }
+  ): Promise<void> =>
     ipcRenderer.invoke('pty:kill', {
       id,
       keepHistory: opts?.keepHistory ?? false,

@@ -20,6 +20,7 @@ export abstract class RateLimitServiceAccountRefresh extends RateLimitServiceIna
   async refresh(): Promise<RateLimitState> {
     // User refresh must bypass recent poll/focus throttles.
     await this.fetchAll({ force: true })
+    await this.executionUsageRefresh?.()
     return this.getState()
   }
 
@@ -27,6 +28,7 @@ export abstract class RateLimitServiceAccountRefresh extends RateLimitServiceIna
     // Reconnecting mobile needs fresh data, but subscription replay must not force redundant fetches.
     const plan = this.getActiveWindowRefreshPlan(Date.now())
     await this.runActiveWindowRefreshPlan(plan)
+    await this.executionUsageRefresh?.()
     return this.getState()
   }
 

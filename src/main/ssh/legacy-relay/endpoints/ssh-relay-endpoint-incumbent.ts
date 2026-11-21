@@ -6,7 +6,7 @@ import {
   RELAY_CHILD_COUNT_VAR,
   RELAY_UNRECOGNIZED_CHILD_COUNT_VAR,
   relayDaemonChildCensusShell
-} from './relay-daemon-service-children'
+} from '../../relay-daemon-service-children'
 import {
   execCommand,
   isUnconfirmedSshCommandTermination

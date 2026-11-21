@@ -1,5 +1,6 @@
 import type { ITerminalInitOnlyOptions, ITerminalOptions } from '@xterm/xterm'
 import { DESKTOP_TERMINAL_SCROLLBACK_ROWS_DEFAULT } from '../../../../shared/terminal/replay/terminal-scrollback-policy'
+import { isPairedWebClientWindow } from '@/app-shell/chrome/desktop-window-chrome'
 import { LIGHT_BG_MIN_CONTRAST } from '../../../../shared/terminal-themes/terminal-contrast-correction'
 
 type TerminalCursorStyle = NonNullable<ITerminalOptions['cursorStyle']>
@@ -61,6 +62,8 @@ export function buildDefaultTerminalOptions(): ITerminalOptions & ITerminalInitO
     // Why: on macOS, non-US layouts rely on Option to compose characters like @ and €.
     macOptionIsMeta: false,
     macOptionClickForcesSelection: true,
+    // Web drags copy locally, not through the TUI's host clipboard. Alt preserves TUI clicks.
+    mouseEventsRequireAlt: isPairedWebClientWindow(),
     drawBoldTextInBrightColors: true,
     scrollbar: {
       // Accept the slim scrollbar’s ~one-column gutter cost and enable overview ruler. The old v1.4.51 table corruption was the ZWJ width bug, now fixed by terminal-unicode-provider; composeActiveTerminalTheme hides the ruler border.

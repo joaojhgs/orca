@@ -1,3 +1,4 @@
+import { materializeWorktreePushTargetRemoteSsh } from './materialize-worktree-push-target-ssh'
 import { ipcMain } from 'electron'
 
 import type { GitPushTarget } from '../../../../shared/worktree/types'
@@ -5,6 +6,7 @@ import type { GitUpstreamStatus } from '../../../../shared/git/status/git-status
 import { gitFetch } from '../../../git/remotes/remote'
 import { gitSyncForkDefaultBranch } from '../../../git/remotes/fork-sync'
 import { getUpstreamStatus } from '../../../git/source-control/upstream/upstream'
+import { assertValidGitPushTarget } from '../../../../shared/git/remotes/git-push-target-validation'
 import { validateGitPushTarget } from '../../../git/remotes/push-target-validation'
 import { resolveRegisteredWorktreePath } from '../../worktrees/removal/registered-worktree-roots-cache'
 import { getLocalGitOptionsForRegisteredWorktree } from '../../worktrees/local-worktree-runtime-options'
@@ -18,6 +20,7 @@ import {
   materializeWorktreePushTargetRemote
 } from '../../worktrees/worktree-remote'
 import type { FilesystemHandlerContext } from '../filesystem-handler-context'
+import { requireFilesystemSshGitProvider } from '../source-control/filesystem-ssh-git-route'
 import { requireReachableGitRoute } from '../../../providers/execution-host-provider-dispatch'
 import { getConnectionExecutionHostId } from '../../../../shared/execution-host/execution-host'
 import { assertWslUncPathRunning } from '../../../wsl/filesystem/wsl-unc-access-gate'
@@ -31,6 +34,15 @@ export function registerGitRemoteSyncHandlers(context: FilesystemHandlerContext)
       _event,
       args: { worktreePath: string; connectionId?: string; pushTarget?: GitPushTarget }
     ): Promise<GitUpstreamStatus> => {
+      if (args.connectionId) {
+        if (args.pushTarget) {
+          assertValidGitPushTarget(args.pushTarget)
+        }
+        return requireFilesystemSshGitProvider(args.connectionId).getUpstreamStatus(
+          args.worktreePath,
+          args.pushTarget
+        )
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       // Background poll: its Git or UNC read would boot a stopped WSL distro (E9).
       await assertWslUncPathRunning(args.worktreePath)
@@ -56,6 +68,19 @@ export function registerGitRemoteSyncHandlers(context: FilesystemHandlerContext)
         pushTarget?: GitPushTarget
       }
     ): Promise<void> => {
+      if (args.connectionId) {
+        const provider = requireFilesystemSshGitProvider(args.connectionId)
+        const materializedPushTarget = args.pushTarget
+          ? await materializeWorktreePushTargetRemoteSsh(
+              provider,
+              args.worktreePath,
+              args.pushTarget,
+              store,
+              ipcGitWorktreeTarget(args)
+            )
+          : undefined
+        return provider.fetchRemote(args.worktreePath, materializedPushTarget)
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
       const gitOptions = getLocalGitOptionsForRegisteredWorktree(
@@ -99,6 +124,12 @@ export function registerGitRemoteSyncHandlers(context: FilesystemHandlerContext)
       const expectedUpstream = validateGitForkSyncExpectedUpstream(args.expectedUpstream, {
         required: true
       })
+      if (args.connectionId) {
+        return requireFilesystemSshGitProvider(args.connectionId).syncForkDefaultBranch(
+          args.worktreePath,
+          expectedUpstream
+        )
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
       const gitOptions = getLocalGitOptionsForRegisteredWorktree(

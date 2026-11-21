@@ -6,24 +6,33 @@ import type { TaskRuntimeLineageRow } from '../run-list-page'
 import type { OrchestrationDb } from '../orchestration-db'
 import { transitionLifecycleWithDb } from '../lifecycle-transition'
 import { selectColumns, TASK_COLUMNS } from '../row-column-lists'
+import type { ManagerTaskRequirements } from '../../../../../shared/manager-completion-contract'
+import { createManagerTaskWithRequirements } from '../../../manager/manager-task-creation'
 
-export function createTask(
-  this: OrchestrationDb,
-  task: {
-    /** Set only for a Task placed on a paired server: one ID for it here and there, from the start's retry key. */
-    id?: string
-    spec: string
-    taskTitle?: string
-    displayName?: string
-    deps?: string[]
-    parentId?: string
-    createdByTerminalHandle?: string
-    createdByPaneKey?: string
-    createdByProcessIncarnation?: string
-    createdByRunGeneration?: number
-    runId?: string
-  }
-): TaskRow {
+// ── Tasks ──
+
+type TaskCreateInput = {
+  id?: string
+  spec: string
+  taskTitle?: string
+  displayName?: string
+  deps?: string[]
+  parentId?: string
+  createdByTerminalHandle?: string
+  createdByPaneKey?: string
+  createdByProcessIncarnation?: string
+  createdByRunGeneration?: number
+  runId?: string
+  completionRequirements?: ManagerTaskRequirements
+}
+
+export function createTask(this: OrchestrationDb, task: TaskCreateInput): TaskRow {
+  return createManagerTaskWithRequirements(this, task, (spec) =>
+    createTaskRow.call(this, { ...task, spec })
+  )
+}
+
+function createTaskRow(this: OrchestrationDb, task: TaskCreateInput): TaskRow {
   const runId = task.runId
   if (!runId) {
     throw new Error('Run is required')
@@ -130,8 +139,39 @@ export function getTask(
 
 export function listTasks(
   this: OrchestrationDb,
-  filter?: { status?: TaskStatus; ready?: boolean; runId?: string }
+  filter?: { status?: TaskStatus; ready?: boolean; runId?: string; limit?: number; offset?: number }
 ): TaskRow[] {
+  if (filter?.limit !== undefined) {
+    const limit = filter.limit
+    const offset = filter.offset ?? 0
+    if (
+      !Number.isSafeInteger(limit) ||
+      limit < 1 ||
+      limit > 201 ||
+      !Number.isSafeInteger(offset) ||
+      offset < 0 ||
+      offset > 100_000
+    ) {
+      throw new Error('Invalid bounded task page')
+    }
+    const conditions: string[] = []
+    const params: Database.BindValue[] = []
+    if (filter.runId) {
+      conditions.push('run_id = ?')
+      params.push(filter.runId)
+    }
+    const status = filter.ready ? 'ready' : filter.status
+    if (status) {
+      conditions.push('status = ?')
+      params.push(status)
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the existing canonical column list selects exactly TaskRow fields.
+    return this.db
+      .prepare(`SELECT ${TASK_COLUMN_LIST} FROM tasks ${where}
+      ORDER BY created_at, id LIMIT ? OFFSET ?`)
+      .all(...params, limit, offset) as TaskRow[]
+  }
   const runWhere = filter?.runId ? 'run_id = ? AND ' : ''
   const runParams: Database.BindValue[] = filter?.runId ? [filter.runId] : []
   if (filter?.ready) {

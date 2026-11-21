@@ -1,4 +1,7 @@
 import { defineMethod } from '../../core'
+import { getAppEnvironment } from '../../../../../shared/app-lifecycle/app-environment'
+import { ensureActiveOrcaProfile } from '../../../../orca-profiles/profile-index-store'
+import { getOrcaProfileAuthStatusFromProfile } from '../../../../orca-profiles/cloud-auth/profile-cloud-auth-status'
 import {
   ArtifactsDeleteParams,
   ListOptions,
@@ -7,6 +10,21 @@ import {
 } from '../../../../../shared/rpc-contract/artifacts/artifacts-params'
 
 export const ARTIFACT_METHODS = [
+  defineMethod({
+    name: 'artifacts.hostingStatus',
+    permission: 'workspace',
+    params: null,
+    handler: (_params, { runtime }) => runtime.getArtifactHostingStatus()
+  }),
+  defineMethod({
+    name: 'artifacts.authStatus',
+    permission: 'workspace',
+    params: null,
+    handler: () => {
+      const path = getAppEnvironment().getPath('userData')
+      return getOrcaProfileAuthStatusFromProfile(ensureActiveOrcaProfile(path), path)
+    }
+  }),
   defineMethod({
     name: 'artifacts.list',
     permission: 'workspace',

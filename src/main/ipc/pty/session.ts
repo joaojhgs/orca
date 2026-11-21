@@ -1,3 +1,5 @@
+import type { SshPtyOutputIntake } from '../ssh-pty-output-intake'
+import type { LegacySshProjectionSemantics } from '../ssh-pty-legacy-projection'
 import type { BrowserWindow, WebContents } from 'electron'
 import type { OrcaRuntimeService } from '../../runtime/orca-runtime'
 import type { Store } from '../../persistence/loading-store/store'
@@ -74,6 +76,8 @@ export type PtyIpcSession = {
   getSettings?: () => GlobalSettings
   options?: PtyIpcSessionOptions
   pendingData: PtyPendingDataDrainQueue
+  sshOutputIntake?: SshPtyOutputIntake
+  sourceCreditPendingPtys: Set<string>
   rendererExitingPtyIds: Set<string>
   rendererCreditBeforeExitByPty: Map<string, boolean>
   rendererDeliveryRestoreNeededPtys: Set<string>
@@ -138,7 +142,8 @@ export type PtyIpcSession = {
       sequenceChars?: number
       transformed?: boolean
     },
-    outputSeq: number | undefined
+    outputSeq: number | undefined,
+    projection?: LegacySshProjectionSemantics
   ) => void
   sendPtyExitToRenderer: (payload: { id: string; code: number; incarnationId?: string }) => void
   sendPtySpawnedToRenderer: (id: string) => void
@@ -190,6 +195,7 @@ export function createPtyIpcSession(args: {
     getSettings: args.getSettings,
     options: args.options,
     pendingData: undefined as unknown as PtyPendingDataDrainQueue,
+    sourceCreditPendingPtys: new Set(),
     rendererExitingPtyIds: new Set(),
     rendererCreditBeforeExitByPty: new Map(),
     rendererDeliveryRestoreNeededPtys: new Set(),

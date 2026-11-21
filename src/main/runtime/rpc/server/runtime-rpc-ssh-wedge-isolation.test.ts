@@ -9,14 +9,13 @@ import { readRuntimeMetadata } from './runtime-metadata'
 import { OrcaRuntimeRpcServer } from './runtime-rpc'
 import { STATUS_METHODS } from '../methods/host-management/status'
 import { SSH_METHODS } from '../methods/ssh/ssh'
+import type * as SshTargetRegistry from '../../../ssh/targets/ssh-target-registry'
 
 // Real socket probes must stay responsive while SSH is wedged on headless serve (#31179).
-const { connectMock, removeMock } = vi.hoisted(() => {
-  const never = (): Promise<never> => new Promise<never>(() => {})
-  return { connectMock: vi.fn(never), removeMock: vi.fn(never) }
-})
+const connectMock = vi.hoisted(() => vi.fn(() => new Promise<never>(() => {})))
 
-vi.mock('../../../ssh/targets/ssh-target-registry', () => ({
+vi.mock('../../../ssh/targets/ssh-target-registry', async (importOriginal) => ({
+  ...(await importOriginal<typeof SshTargetRegistry>()),
   connectRegisteredSshTarget: connectMock,
   getRegisteredSshState: () => ({
     targetId: 'ssh-1',
@@ -24,11 +23,7 @@ vi.mock('../../../ssh/targets/ssh-target-registry', () => ({
     error: null,
     reconnectAttempt: 6
   }),
-  getRegisteredSshTargetMutations: () => ({ add: vi.fn(), update: vi.fn(), remove: removeMock }),
-  getSshConnectionManager: () => null,
-  listRegisteredSshTargets: () => [{ id: 'ssh-1', label: 'broker', host: 'h', port: 22 }],
-  listRegisteredRemovedSshTargetLabels: () => ({}),
-  SshTargetManagementUnservedError: class extends Error {}
+  listRegisteredSshTargets: () => [{ id: 'ssh-1', label: 'broker', host: 'h', port: 22 }]
 }))
 
 const servers: OrcaRuntimeRpcServer[] = []
@@ -123,6 +118,13 @@ describe('runtime RPC with a wedged SSH layer (#31179)', () => {
     })
     session.write({ id: 'list', authToken: token, method: 'ssh.listTargets' })
 
-    await expect(session.next('list')).resolves.toMatchObject({ ok: true })
+    const response = await session.next('list')
+    expect(response.ok).toBe(true)
+    expect(response.result).toEqual({
+      targets: [
+        { id: 'ssh-1', label: 'broker', connected: false, connectionStatus: 'reconnecting' }
+      ]
+    })
+    expect(connectMock).toHaveBeenCalledWith('ssh-1', { automatic: false })
   })
 })

@@ -197,7 +197,7 @@ function foldMuseContent(accumulator: SessionAccumulator, content: string): void
   foldMuseLines(accumulator, content.split('\n'))
 }
 
-function foldMuseLines(
+export function foldMuseLines(
   accumulator: SessionAccumulator,
   lines: Iterable<string>,
   dedupe: MuseDedupeState = { text: null, ms: null }

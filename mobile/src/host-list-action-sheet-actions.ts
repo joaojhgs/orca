@@ -1,4 +1,4 @@
-import { Activity, Edit3, PowerOff, RefreshCw } from 'lucide-react-native'
+import { Activity, Edit3, MessageSquare, PowerOff, RefreshCw } from 'lucide-react-native'
 import type { ActionSheetAction } from './components/sheets/ActionSheetModal'
 import type { ConnectionState } from './transport/connection/connection-state'
 import type { HostProfile } from './host-catalog/host-profile'
@@ -14,6 +14,7 @@ export function getHostListActionSheetActions(args: {
   onDisconnect: (hostId: string) => void
   onDiagnostics: (hostId: string) => void
   onEdit: (hostId: string) => void
+  onManager?: (hostId: string) => void
   onRemove: (host: HostProfile) => void
 }): ActionSheetAction[] {
   const { host } = args
@@ -27,6 +28,20 @@ export function getHostListActionSheetActions(args: {
     args.state === 'reconnecting'
 
   return [
+    ...(args.onManager
+      ? [
+          {
+            id: 'manager',
+            label: translate('navigation.hostStackScreens.manager', 'Manager'),
+            icon: MessageSquare,
+            closeBeforePress: true,
+            onPress: () => {
+              args.onDismiss()
+              args.onManager?.(host.id)
+            }
+          }
+        ]
+      : []),
     {
       id: 'connect',
       label:

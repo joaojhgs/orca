@@ -69,7 +69,7 @@ export type GeminiCliOAuthEnabledResolver = () => boolean
 export type AntigravityUsageEnabledResolver = () => boolean
 export type ClaudeOAuthUsageEnabledResolver = () => boolean
 export type MuseUsageEnabledResolver = () => boolean
-export type ActiveRateLimitProvider = ProviderRateLimits['provider']
+export type ActiveRateLimitProvider = Exclude<ProviderRateLimits['provider'], 'opencode'>
 export type ActiveProviderState = {
   provider: ActiveRateLimitProvider
   limits: ProviderRateLimits | null

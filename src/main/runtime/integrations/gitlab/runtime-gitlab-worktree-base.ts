@@ -1,3 +1,8 @@
+import {
+  captureDirectSshWorktreeAuthority,
+  type DirectSshWorktreeAuthority
+} from '../../../ipc/worktrees/direct-ssh-worktree-authority'
+import { resolveWorktreeCreateRoute } from '../../../workspaces/creation/worktree-create-execution-host-route'
 import type { GitPushTarget } from '../../../../shared/worktree/types'
 import type { Repo } from '../../../../shared/repository/repo-types'
 import { isFolderRepo } from '../../../../shared/repository/repo-kind'
@@ -51,7 +56,12 @@ export async function resolveRuntimeGitLabWorktreeBase(
   if (isFolderRepo(repo)) {
     return reviewStartPointFailure('folderUnsupported')
   }
-  // Use shared host gating: executionHostId may be a row's only SSH marker.
+  const route = resolveWorktreeCreateRoute(repo)
+  if (route.kind === 'ssh') {
+    const ssh = captureDirectSshWorktreeAuthority(route.connectionId)
+    await ssh.registerRoot(repo.path)
+    return resolveGitLabMrBaseInRepo(repo, args, undefined, {}, ssh)
+  }
   requireRepoLocalGitRoute(repo)
   const localGitExecOptions = getLocalProjectGitExecOptions(deps.store, repo)
   const localWorktreeGitOptions = getLocalProjectWorktreeGitOptions(deps.store, repo)
@@ -66,10 +76,18 @@ export async function resolveRuntimeGitLabWorktreeBase(
 async function resolveGitLabMrBaseInRepo(
   repo: Repo,
   args: RuntimeGitLabWorktreeBaseArgs,
-  localGitExecOptions: ReturnType<typeof getLocalProjectGitExecOptions>,
-  localWorktreeGitOptions: ReturnType<typeof getLocalProjectWorktreeGitOptions>
+  localGitExecOptions: ReturnType<typeof getLocalProjectGitExecOptions> | undefined,
+  localWorktreeGitOptions: ReturnType<typeof getLocalProjectWorktreeGitOptions>,
+  ssh?: DirectSshWorktreeAuthority
 ): Promise<RuntimeGitLabWorktreeBaseResult> {
-  const gitExec = (gitArgs: string[]) => gitExecFileAsync(gitArgs, localGitExecOptions)
+  const connectionId = ssh?.connectionId ?? null
+  const gitExec = (gitArgs: string[]) => {
+    if (ssh) {
+      ssh.assertCurrent()
+      return ssh.provider.exec(gitArgs, repo.path)
+    }
+    return gitExecFileAsync(gitArgs, localGitExecOptions ?? { cwd: repo.path })
+  }
   let sourceBranch = args.sourceBranch?.trim() ?? ''
   let targetBranch = args.targetBranch?.trim() ?? ''
   let isCrossRepository = args.isCrossRepository === true
@@ -79,17 +97,18 @@ async function resolveGitLabMrBaseInRepo(
       discoveryRemote = await resolveRuntimeGitLabIssueSourceRemote(
         repo.path,
         repo.issueSourcePreference,
-        localWorktreeGitOptions
+        localWorktreeGitOptions,
+        ssh
       )
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Could not resolve git remote.' }
     }
-    const knownHosts = await getGlabKnownHosts(null, localWorktreeGitOptions)
+    const knownHosts = await getGlabKnownHosts(connectionId, localWorktreeGitOptions)
     const projectRef = await getProjectRefForRemote(
       repo.path,
       discoveryRemote,
       knownHosts,
-      null,
+      connectionId,
       localWorktreeGitOptions
     )
     if (!projectRef) {
@@ -100,7 +119,7 @@ async function resolveGitLabMrBaseInRepo(
       projectRef,
       args.mrIid,
       'mr',
-      null,
+      connectionId,
       localWorktreeGitOptions
     )
     if (!item || item.type !== 'mr') {
@@ -120,14 +139,21 @@ async function resolveGitLabMrBaseInRepo(
     remote = await resolveRuntimeGitLabIssueSourceRemote(
       repo.path,
       repo.issueSourcePreference,
-      localWorktreeGitOptions
+      localWorktreeGitOptions,
+      ssh
     )
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Could not resolve git remote.' }
   }
   const compareBaseRef = targetBranch ? `refs/remotes/${remote}/${targetBranch}` : undefined
   const fetchRemoteTrackingRef = async (branch: string, ref: string): Promise<void> => {
+    if (ssh) {
+      ssh.assertCurrent()
+      await ssh.provider.fetchRemoteTrackingRef(repo.path, remote, branch, ref)
+      return
+    }
     await gitExecFileAsync(['fetch', remote, `+refs/heads/${branch}:${ref}`], {
+      cwd: repo.path,
       ...localGitExecOptions,
       timeout: REVIEW_HEAD_FETCH_TIMEOUT_MS
     })
@@ -146,6 +172,14 @@ async function resolveGitLabMrBaseInRepo(
       remote,
       mrIid: args.mrIid,
       localGitExecOptions,
+      ...(ssh
+        ? {
+            fetchMergeRequestHead: () => {
+              ssh.assertCurrent()
+              return ssh.provider.fetchGitLabMergeRequestHead(repo.path, remote, args.mrIid)
+            }
+          }
+        : {}),
       gitExec,
       fetchCompareBaseRef,
       compareBaseRef

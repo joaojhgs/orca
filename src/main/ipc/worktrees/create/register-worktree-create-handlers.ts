@@ -17,7 +17,8 @@ import type { WorkspaceSource } from '../../../../shared/workspace/creation/work
 
 import { isFolderRepo } from '../../../../shared/repository/repo-kind'
 import { createLocalWorktree, notifyWorktreesChanged } from '../worktree-remote'
-import { SshHostNotServedError } from '../../../providers/ssh-host-not-served-error'
+import { createRemoteWorktree } from './create-direct-ssh-worktree'
+import { captureDirectSshWorktreeAuthority } from '../direct-ssh-worktree-authority'
 import { track } from '../../../telemetry/client'
 import { classifyWorkspaceCreateError } from '../creation/workspace-create-error-classifier'
 import { getCohortAtEmit } from '../../../telemetry/cohort-classifier'
@@ -25,6 +26,7 @@ import { adoptProvisionedRootSshCheckout } from '../../../workspaces/catalog/pro
 import { normalizeLinkedWorkItemFields } from '../ipc-context-schemas'
 import { createFolderWorkspace } from './folder-workspace-creation'
 import { findExactRepoOwner, isCapturedRepoCurrent } from '../listing/worktree-host-ownership'
+import { assertRemovalHostMatchesRepoRow } from '../repo-host-ownership'
 import { requireWorktreeCreateRoute } from '../../../workspaces/creation/worktree-create-execution-host-route'
 import { getRepoExecutionHostId } from '../../../../shared/execution-host/execution-host'
 import { workspaceLifecycleKey } from '../../../runtime/workspaces/lifecycle/workspace-lifecycle-commands'
@@ -74,20 +76,28 @@ export function registerWorktreeCreateHandlers(context: WorktreeIpcContext): voi
             } else {
               // Resolve executionHostId-only SSH ownership before any local Git operation.
               const createRoute = requireWorktreeCreateRoute(repo)
-              if (createRoute.kind === 'ssh') {
-                // Record ownership before refusal so failure telemetry retains its host.
-                telemetry.timing.recordExecutionHost('ssh')
-                throw new SshHostNotServedError(createRoute.connectionId)
-              }
-              result = await createLocalWorktree(
-                createArgs,
-                repo,
-                store,
-                mainWindow,
-                runtime,
-                telemetry.timing,
-                creation?.named
-              )
+              assertRemovalHostMatchesRepoRow(repo, repo.id, createRoute.hostId)
+              result =
+                createRoute.kind === 'ssh'
+                  ? await createRemoteWorktree(
+                      createArgs,
+                      repo,
+                      store,
+                      mainWindow,
+                      captureDirectSshWorktreeAuthority(createRoute.connectionId),
+                      runtime,
+                      telemetry.timing,
+                      creation?.named
+                    )
+                  : await createLocalWorktree(
+                      createArgs,
+                      repo,
+                      store,
+                      mainWindow,
+                      runtime,
+                      telemetry.timing,
+                      creation?.named
+                    )
             }
           } catch (error) {
             telemetry.failed(error)

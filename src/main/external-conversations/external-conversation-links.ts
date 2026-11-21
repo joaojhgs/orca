@@ -45,6 +45,11 @@ export type ExternalConversationLinkStore = WorkspaceRecordStore<
   onStateWritten?: (listener: (dirtyDomains: readonly string[] | undefined) => void) => unknown
 }
 
+type ExternalConversationLinkInventory = Pick<
+  ExternalConversationLinkStore,
+  'getRepos' | 'getAllWorktreeMeta' | 'getAllWorktreeMetaForHost' | 'getFolderWorkspaces'
+>
+
 export type LinkedConversation<L extends ExternalConversationLink = ExternalConversationLink> = {
   workspace: AgentPaneWorkspace
   link: L
@@ -164,7 +169,7 @@ export function removeLink(
 }
 
 /** Read canonical rows on every host; the locator map can hide same-path workspaces on other hosts. */
-export function* allLinks(store: ExternalConversationLinkStore): Generator<LinkedConversation> {
+export function* allLinks(store: ExternalConversationLinkInventory): Generator<LinkedConversation> {
   const hosts = new Set<ExecutionHostId>([
     LOCAL_EXECUTION_HOST_ID,
     ...store.getRepos().map(getRepoExecutionHostId)
@@ -186,7 +191,7 @@ export function* allLinks(store: ExternalConversationLinkStore): Generator<Linke
 
 /** Whether the chat answers a Slack thread, so its replies are written in Slack's markup. */
 export function sessionRepliesInSlack(
-  store: ExternalConversationLinkStore,
+  store: ExternalConversationLinkInventory,
   sessionId: string
 ): boolean {
   for (const { link } of allLinks(store)) {

@@ -63,7 +63,7 @@ type AddRepoLocalStartStepProps = {
   hostSelector?: ReactNode
   notice?: ReactNode
   actionsDisabled?: boolean
-  browseHostKind?: 'local' | 'runtime'
+  browseHostKind?: 'local' | 'runtime' | 'ssh'
   offersServerSshHosts?: boolean
   onBrowse: () => void
   onOpenCloneStep: () => void

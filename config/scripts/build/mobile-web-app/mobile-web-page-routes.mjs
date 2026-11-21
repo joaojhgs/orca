@@ -5,6 +5,10 @@
 const DEVICE_STORE_GRANT = 'native.store.rows'
 
 export const MOBILE_WEB_PAGE_ROUTES = [
+  {
+    pathname: '/h/[hostId]/manager',
+    grants: ['navigate', 'storage', 'externalLink', 'haptics', 'native.manager.receipt']
+  },
   // Home needs navigate/storage for session hops and app pins; shared protocol-wall Update action needs externalLink. Wide ownsHostArea permits sidebar.
   {
     pathname: '/h/[hostId]',

@@ -14,6 +14,20 @@ describe('web settings preload API', () => {
     vi.unstubAllGlobals()
   })
 
+  it('defaults to showing Skills while the host controls publishing permission', async () => {
+    const globals = installBrowserGlobals('Linux')
+    const { installWebPreloadApi } = await import('../../web-preload-api')
+    installWebPreloadApi()
+    await expect(globals.window.api.settings.get()).resolves.toMatchObject({
+      showSkillsButton: true,
+      agentSkillSharingEnabled: false
+    })
+    await globals.window.api.settings.set({ showSkillsButton: false })
+    await expect(globals.window.api.settings.get()).resolves.toMatchObject({
+      showSkillsButton: false
+    })
+  })
+
   it('keeps a completed settings merge when the paired host is removed mid-read', async () => {
     let resolveSettings!: (value: RuntimeRpcResponse<unknown>) => void
     const settingsRead = new Promise<RuntimeRpcResponse<unknown>>(

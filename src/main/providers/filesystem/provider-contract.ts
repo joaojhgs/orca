@@ -1,3 +1,7 @@
+import type {
+  FileWriteDiskPrecondition,
+  FileWriteResult
+} from '../../../shared/file-write/file-write-disk-precondition'
 import type { PathExistenceResult } from '../../../shared/file-access/path-existence-batch'
 import type { SearchOptions, SearchResult } from '../../../shared/file-search/code-search-types'
 import type {
@@ -68,6 +72,11 @@ export type IFilesystemProvider = {
   openFileUploadSession?(): Promise<FileUploadSession>
   getTempDir?(): Promise<string>
   writeFile(filePath: string, content: string): Promise<void>
+  writeFileIfUnchanged?(
+    filePath: string,
+    content: string,
+    precondition: FileWriteDiskPrecondition
+  ): Promise<FileWriteResult>
   writeTerminalArtifact?(
     filePath: string,
     content: string,

@@ -110,7 +110,8 @@ function installRuntimeRpc(
           requirePinnedWsPort: true
         }
       : {}),
-    webClientRoot: getBundledWebClientRoot()
+    webClientRoot: getBundledWebClientRoot(),
+    advertisedPairingAddress: serveOptions?.pairingAddress ?? undefined
   })
   state.core.runtimeRpc = runtimeRpc
   runtime.setAgentSenderPeerKey(() => runtimeRpc.getE2EEPublicKey())

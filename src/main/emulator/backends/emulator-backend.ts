@@ -76,6 +76,7 @@ export type EmulatorBackend = {
   button(deviceId: string, name: string): Promise<void>
   rotate(deviceId: string, orientation: string): Promise<void>
   exec(deviceId: string, command: string): Promise<unknown>
+  captureScreenshot?(deviceId: string): Promise<string>
 
   installApp?(deviceId: string, apkPath: string, options?: { reinstall?: boolean }): Promise<void>
   launchApp?(deviceId: string, packageName: string, activity?: string): Promise<void>

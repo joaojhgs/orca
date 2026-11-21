@@ -46,6 +46,7 @@ export type RuntimeApi = {
     call: (args: {
       method: string
       params?: unknown
+      timeoutMs?: number
       /** An orchestration mutation's contract and idempotency key, as the CLI sends them. */
       orchestration?: { contractVersion: number; requestId: string }
     }) => Promise<RuntimeRpcResponse<unknown>>
@@ -182,6 +183,8 @@ export type RuntimeApi = {
         onBinary?: (bytes: Uint8Array<ArrayBufferLike>) => void
         onError?: (error: { code: string; message: string }) => void
         onClose?: () => void
+        onTransportInterrupted?: () => void
+        onTransportReplayed?: () => void
       }
     ) => Promise<RuntimeEnvironmentSubscriptionHandle>
     // Only desktop clients deploy servers over SSH.

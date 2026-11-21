@@ -1,9 +1,12 @@
-import type {
-  SshTargetCreateInput,
-  SshTargetUpdateInput
+import {
+  MAX_SSH_RELAY_GRACE_PERIOD_SECONDS,
+  type SshTargetCreateInput,
+  type SshTargetUpdateInput
 } from '../../../../../../shared/remote-runtime/ssh/ssh-types'
 import {
   getSshTargetDraftConnectionFields,
+  isRelayGracePeriodValid,
+  parseRelayGracePeriodSeconds,
   type EditingTarget
 } from '../../../ssh-host-form/ssh-target-draft'
 import { translate } from '../../../../i18n/i18n'
@@ -39,6 +42,18 @@ export function buildSshTargetSavePayload(form: EditingTarget): SshTargetSavePay
     }
   }
 
+  const graceSeconds = parseRelayGracePeriodSeconds(form)
+  if (!isRelayGracePeriodValid(form, graceSeconds)) {
+    return {
+      ok: false,
+      error: translate(
+        'auto.components.settings.SshPane.3879cbaa52',
+        'Terminal timeout must be between 60 and {{value0}} seconds, or keep terminals alive until reset.',
+        { value0: MAX_SSH_RELAY_GRACE_PERIOD_SECONDS }
+      )
+    }
+  }
+  const remoteRuntime = form.remoteRuntime === 'auto' ? undefined : form.remoteRuntime
   const identityFile = form.identityFile.trim() || undefined
   const proxyCommand = form.proxyCommand.trim() || undefined
   const jumpHost = form.jumpHost.trim() || undefined
@@ -52,6 +67,8 @@ export function buildSshTargetSavePayload(form: EditingTarget): SshTargetSavePay
     host,
     port,
     username,
+    relayGracePeriodSeconds: graceSeconds,
+    ...(remoteRuntime ? { remoteRuntime } : {}),
     ...(form.gssapiAuthentication ? { gssapiAuthentication: true } : {}),
     ...(identityFile ? { identityFile } : {}),
     ...(proxyCommand ? { proxyCommand } : {}),
@@ -77,6 +94,8 @@ export function buildSshTargetSavePayload(form: EditingTarget): SshTargetSavePay
         systemSshConnectionReuse,
         systemSshProxyConnectionReuse,
         reconnectOnLaunch,
+        connectOnStartup: form.reconnectOnLaunch,
+        remoteRuntime,
         source: 'manual'
       }
     }

@@ -50,6 +50,7 @@ export type TerminalAgentPhonePushDeps = {
   readHookRow: (paneKey: string) => AgentStatusIpcPayload | null
   translate?: (key: string, fallback: string) => string
   dispatch: (event: MobileNotificationDispatchEvent) => void
+  confirmStopPoint?: (request: NotificationDispatchRequest) => Promise<boolean>
   /** Title edges and bells reach a window as facts; without one, this lane tells the phones. */
   onClientEvent: RuntimeClientEventBus['on']
   setTimer: (run: () => void, delayMs: number) => { cancel: () => void }
@@ -76,6 +77,28 @@ export class TerminalAgentPhonePush {
         }
       },
       deliver: (news, row) => {
+        if (row.lastAssistantMessage?.trim() === 'NO_REPLY') {
+          return
+        }
+        if (deps.confirmStopPoint) {
+          void deps
+            .confirmStopPoint({
+              source: 'agent-task-complete',
+              worktreeId: news.worktreeId,
+              paneKey: news.paneKey,
+              agentState: row.mainAgent?.state ?? row.state
+            })
+            .then((confirmed) => {
+              if (confirmed) {
+                this.send({
+                  ...news,
+                  event: this.buildEvent(news.worktreeId, news.paneKey, row, news.labels)
+                })
+              }
+            })
+            .catch(() => {})
+          return
+        }
         if (news.event.paneKey) {
           this.hooklessNews.noteFinish(news.event.paneKey)
         }
@@ -96,7 +119,10 @@ export class TerminalAgentPhonePush {
       hasPendingHookFinish: (paneKey) => this.turnNews.hasPending(paneKey),
       completionAlertsEnabled: () => {
         const settings = deps.readNotificationSettings()
-        return !settings || isNotificationSourceEnabled(settings, 'agent-task-complete', undefined)
+        return (
+          !deps.confirmStopPoint &&
+          (!settings || isNotificationSourceEnabled(settings, 'agent-task-complete', undefined))
+        )
       },
       deliverTitleFinish: (news, title) =>
         this.send(this.buildHooklessNews('agent-task-complete', news, title)),

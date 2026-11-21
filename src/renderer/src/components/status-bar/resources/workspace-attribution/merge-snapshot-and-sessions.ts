@@ -14,9 +14,12 @@ import type {
 } from './resource-usage-merge-types'
 import type { PtyListedSession as DaemonSession } from '../../../../../../shared/terminal/pty/lifecycle/pty-listed-session'
 import { buildResourceSessionBindingIndex } from './resource-session-bindings'
+
 import {
   resolveResourceFolderWorkspace,
-  resolveResourceWorkspaceHost
+  resolveResourceWorkspaceHost,
+  ownsRuntimeResourceSample,
+  resourceWorktreeKey
 } from './resource-workspace-host'
 import {
   deriveWorktreeNameFromWorktreeId,
@@ -66,17 +69,21 @@ export function mergeSnapshotAndSessions(
 
   function findWorktreeRow(
     repo: UnifiedProjectGroup,
-    worktreeId: string
+    worktreeId: string,
+    executionHostId?: string
   ): UnifiedWorktreeRow | undefined {
-    return worktreeRowsByRepo.get(repo.repoId)?.get(worktreeId)
+    return worktreeRowsByRepo
+      .get(repo.repoId)
+      ?.get(resourceWorktreeKey(worktreeId, executionHostId))
   }
 
   function appendWorktreeRow(repo: UnifiedProjectGroup, row: UnifiedWorktreeRow): void {
     repo.worktrees.push(row)
     repo.hasRemoteChildren ||= row.isRemote
     const rows = worktreeRowsByRepo.get(repo.repoId)!
-    if (!rows.has(row.worktreeId)) {
-      rows.set(row.worktreeId, row)
+    const key = resourceWorktreeKey(row.worktreeId, row.executionHostId)
+    if (!rows.has(key)) {
+      rows.set(key, row)
     }
   }
 
@@ -84,6 +91,9 @@ export function mergeSnapshotAndSessions(
     wt: WorktreeMemory,
     row: Pick<UnifiedWorktreeRow, 'worktreeId' | 'repoId' | 'repoName' | 'isRemote'> & {
       worktreeName: string
+      executionHostId?: string
+      executionHostName?: string
+      runtimeOwnerEnvironmentId?: string
       hostLabel?: string
       readOnly?: true
     }
@@ -98,7 +108,9 @@ export function mergeSnapshotAndSessions(
         incarnationId: daemonSession?.incarnationId,
         paneKey: s.paneKey,
         pid: s.pid,
-        label: resolveSnapshotSessionLabel(s, row.worktreeId, index),
+        label:
+          daemonSession?.title?.trim() || resolveSnapshotSessionLabel(s, row.worktreeId, index),
+        runtimeOwnerEnvironmentId: row.runtimeOwnerEnvironmentId,
         bound: ctx.workspaceSessionReady && boundPtyIds.has(s.sessionId),
         agentOwnership: daemonSession?.agentOwnership ?? 'unknown',
         tabId,
@@ -110,6 +122,8 @@ export function mergeSnapshotAndSessions(
     })
     appendWorktreeRow(repo, {
       worktreeId: row.worktreeId,
+      executionHostId: row.executionHostId,
+      executionHostName: row.executionHostName,
       worktreeName: row.worktreeName,
       repoId: row.repoId,
       repoName: row.repoName,
@@ -130,21 +144,34 @@ export function mergeSnapshotAndSessions(
       const worktree = resolveResourceFolderWorkspace(ctx, wt.worktreeId)
       const repoId = worktree?.repoId ?? wt.repoId
       const { isRemote, runtimeHostId } = resolveResourceWorkspaceHost(ctx, wt.worktreeId, repoId)
-      // Reject local samples for runtime-hosted workspaces to prevent cross-host attribution.
-      if (runtimeHostId) {
+      // Why: local snapshot data must never render under a runtime-hosted repo
+      // row; belt-and-braces with the matching session-ingest guard below.
+      if (
+        runtimeHostId &&
+        !ownsRuntimeResourceSample(ctx, wt.worktreeId, repoId, snapshot.runtimeOwnerEnvironmentId)
+      ) {
         continue
       }
       ingestSampledWorktree(wt, {
         worktreeId: wt.worktreeId,
+        executionHostId: wt.executionHostId,
+        executionHostName: wt.executionHostName,
+        runtimeOwnerEnvironmentId: snapshot.runtimeOwnerEnvironmentId,
         worktreeName: worktree?.displayName?.trim() || wt.worktreeName,
         repoId,
         repoName: (worktree && ctx.repoDisplayNameById.get(repoId)) || wt.repoName,
-        isRemote
+        isRemote: wt.executionHostId?.startsWith('ssh:') ?? isRemote
       })
     }
   }
 
   for (const host of ctx.runtimeHostResources ?? []) {
+    if (
+      snapshot?.runtimeOwnerEnvironmentId &&
+      host.hostId === `runtime:${snapshot.runtimeOwnerEnvironmentId}`
+    ) {
+      continue
+    }
     for (const wt of host.worktrees) {
       const worktree = resolveResourceFolderWorkspace(ctx, wt.worktreeId)
       const repoId = worktree?.repoId ?? wt.repoId
@@ -196,16 +223,25 @@ export function mergeSnapshotAndSessions(
       finalWorktreeId,
       finalRepoId
     )
-    if (runtimeHostId) {
+    if (
+      runtimeHostId &&
+      !ownsRuntimeResourceSample(
+        ctx,
+        finalWorktreeId,
+        finalRepoId,
+        session.runtimeOwnerEnvironmentId
+      )
+    ) {
       continue
     }
 
     const repo = ensureRepo(finalRepoId, finalRepoName)
 
-    let row = findWorktreeRow(repo, finalWorktreeId)
+    let row = findWorktreeRow(repo, finalWorktreeId, session.executionHostId)
     if (!row) {
       row = {
         worktreeId: finalWorktreeId,
+        executionHostId: session.executionHostId,
         worktreeName: finalWorktreeName,
         repoId: finalRepoId,
         repoName: finalRepoName,
@@ -213,7 +249,7 @@ export function mergeSnapshotAndSessions(
         memory: null,
         history: [],
         hasLocalSamples: false,
-        isRemote,
+        isRemote: session.executionHostId?.startsWith('ssh:') ?? isRemote,
         sessions: [],
         browsers: []
       }
@@ -222,6 +258,7 @@ export function mergeSnapshotAndSessions(
 
     row.sessions.push({
       sessionId: session.id,
+      runtimeOwnerEnvironmentId: session.runtimeOwnerEnvironmentId,
       incarnationId: session.incarnationId,
       paneKey: null,
       pid: 0,

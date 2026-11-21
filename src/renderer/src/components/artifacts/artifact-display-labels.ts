@@ -73,6 +73,9 @@ export function formatArtifactExpiryCompact(
 }
 
 export function artifactTypeLabel(item: ArtifactListItem, t: Translate = translate): string {
+  if (item.artifact.sourceContentType === 'application/pdf') {
+    return 'PDF'
+  }
   if (item.artifact.sourceContentType === 'text/markdown') {
     return t('auto.components.artifacts.typeMarkdown', 'Markdown')
   }

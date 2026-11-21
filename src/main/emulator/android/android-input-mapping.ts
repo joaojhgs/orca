@@ -2,6 +2,10 @@ import { EmulatorError } from '../emulator-errors'
 
 export type DeviceScreenSize = { width: number; height: number }
 
+export function androidNaturalOrientation(size: DeviceScreenSize): 'portrait' | 'landscape' {
+  return size.width > size.height ? 'landscape' : 'portrait'
+}
+
 // Input uses normalized coordinates, while the last addressable device pixel is dimension - 1.
 function toPixel(normalized: number, dimension: number): number {
   const rounded = Math.round(normalized * dimension)

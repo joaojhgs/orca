@@ -88,17 +88,15 @@ export function ShareSkillsSettingsPane(): React.JSX.Element {
           onChange={() => void updateSettings({ agentSkillSharingEnabled: !agentSharingEnabled })}
         />
 
-        {!isWebClient ? (
-          <SettingsSwitchRow
-            label={t('auto.components.settings.shareSkills.showButton', 'Show Skills button')}
-            description={t(
-              'auto.components.settings.shareSkills.showButtonDescription',
-              'Show the Skills shortcut in the sidebar.'
-            )}
-            checked={settings?.showSkillsButton === true}
-            onChange={() => void updateSettings({ showSkillsButton: !settings?.showSkillsButton })}
-          />
-        ) : null}
+        <SettingsSwitchRow
+          label={t('auto.components.settings.shareSkills.showButton', 'Show Skills button')}
+          description={t(
+            'auto.components.settings.shareSkills.showButtonDescription',
+            'Show the Skills shortcut in the sidebar.'
+          )}
+          checked={settings?.showSkillsButton === true}
+          onChange={() => void updateSettings({ showSkillsButton: !settings?.showSkillsButton })}
+        />
 
         {!signedIn ? (
           <section data-settings-row="" className="flex flex-wrap items-center gap-4 py-3">
@@ -176,30 +174,28 @@ export function ShareSkillsSettingsPane(): React.JSX.Element {
             ))}
           </ol>
 
-          {!isWebClient ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-auto w-full justify-start whitespace-normal rounded-md border border-border/60 bg-muted/20 px-4 py-3 text-left hover:bg-muted/35 hover:text-foreground"
-              onClick={openSkillsPage}
-            >
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
-                <BookOpen className="size-4" />
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-auto w-full justify-start whitespace-normal rounded-md border border-border/60 bg-muted/20 px-4 py-3 text-left hover:bg-muted/35 hover:text-foreground"
+            onClick={openSkillsPage}
+          >
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
+              <BookOpen className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1 space-y-0.5">
+              <span className="block text-sm font-medium text-foreground">
+                {t('auto.components.settings.shareSkills.c07ba8ab0b', 'Open skills')}
               </span>
-              <span className="min-w-0 flex-1 space-y-0.5">
-                <span className="block text-sm font-medium text-foreground">
-                  {t('auto.components.settings.shareSkills.c07ba8ab0b', 'Open skills')}
-                </span>
-                <span className="block text-xs font-normal text-muted-foreground">
-                  {t(
-                    'auto.components.settings.shareSkills.openSkillsDescription',
-                    'Publish a bundle, install from a link, or manage installed and shared skills.'
-                  )}
-                </span>
+              <span className="block text-xs font-normal text-muted-foreground">
+                {t(
+                  'auto.components.settings.shareSkills.openSkillsDescription',
+                  'Publish a bundle, install from a link, or manage installed and shared skills.'
+                )}
               </span>
-              <ArrowRight className="ml-auto size-4 shrink-0 text-muted-foreground" />
-            </Button>
-          ) : null}
+            </span>
+            <ArrowRight className="ml-auto size-4 shrink-0 text-muted-foreground" />
+          </Button>
         </div>
       </SettingsGroup>
     </div>

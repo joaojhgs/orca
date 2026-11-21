@@ -1,3 +1,4 @@
+import { ExecutionAccountUsageRows } from '../../ExecutionAccountUsageRows'
 import { translate } from '../../../../i18n/i18n'
 import type { Translate } from '../../../../i18n/use-translate'
 import { Button } from '../../../ui/button'
@@ -30,6 +31,7 @@ export function renderOpenCodeAccountsSection(
       >
         <OpenCodeGoCredentials onSaved={() => recordOpenCodeSettingEdit('apiKey')} />
 
+        <ExecutionAccountUsageRows provider="opencode" />
         <SearchableSetting
           title={t(
             'auto.components.settings.AccountsPane.4d274a02f0',

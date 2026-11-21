@@ -9,6 +9,7 @@ const TOP_LEVEL_VIEW_LOOKUP: Record<TopLevelView, true> = {
   automations: true,
   space: true,
   skills: true,
+  manager: true,
   artifacts: true,
   mobile: true
 }

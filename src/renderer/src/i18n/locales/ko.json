@@ -3814,7 +3814,6 @@
             "4f327c8b3d": "Markdown 열기...",
             "3d5d6c960d": "새로운 Markdown",
             "fd2b42aaa3": "새로운 모바일 에뮬레이터",
-            "b426bb2615": "모바일 에뮬레이터로 이동",
             "4833fb2cbe": "새 브라우저 탭",
             "d364f3c8d4": "새로운 Terminal",
             "7c1313d237": "새로운 Terminal:",
@@ -4929,10 +4928,8 @@
         "SkillsSelectionHeader": {
           "exit": "선택 나가기",
           "exitTooltip": "선택 나가기 · Esc",
-          "title": "공유할 스킬 선택",
           "selectAll": "가능한 {{count}}개 모두 선택",
-          "clear": "지우기",
-          "deleteTitle": "삭제할 스킬 선택"
+          "clear": "지우기"
         },
         "SkillDetailDialog": {
           "agents": "에이전트",
@@ -6055,8 +6052,6 @@
                   "c709860596": "새 프로젝트 만들기",
                   "5f9ffac036": "원격 Git repos 복제",
                   "7edb8ebe24": "URL에서 복제",
-                  "serverSshTitle": "이 서버의 SSH 호스트에 있는 프로젝트",
-                  "serverSshAddOnThisComputer": "서버에서는 사용할 수 없습니다. 프로젝트를 열려면 이 컴퓨터에 SSH 호스트를 추가하세요.",
                   "fb4fc5380e": "로컬 프로젝트, Git repo 또는 repos가 많은 폴더",
                   "2281fdc8c7": "폴더 찾아보기",
                   "runtimeBrowseDescription": "이 호스트의 기존 Git 리포지토리 또는 폴더"
@@ -8461,7 +8456,6 @@
           "reconnectOnLaunch": "시작 시 다시 연결",
           "reconnectOnLaunchHelp": "끄면 Orca가 시작될 때 이 호스트와 이 호스트를 통해 연결되는 Orca 서버를 직접 연결할 때까지 연결하지 않습니다.",
           "allowRemoteCliControl": "이 호스트가 작업 공간의 Orca 브라우저 탭을 제어하도록 허용",
-          "allowRemoteCliControlHelp": "새 호스트에서는 기본적으로 켜져 있습니다. 이 호스트의 에이전트와 orca 명령은 이 호스트의 작업 공간에서만, 연결되어 있는 동안에만 이 데스크톱의 Orca 브라우저 탭을 열고 읽고 사용할 수 있습니다. 제어 중인 탭에는 호스트 이름이 표시됩니다. 이 호스트에서 이전 버전의 Orca가 시작한 터미널에서 orca 오케스트레이션 명령을 실행하려면 이 설정도 켜져 있어야 합니다. 파일, 클립보드, 쿠키는 읽을 수 없습니다.",
           "addHost": "호스트 추가",
           "proxyConnectionReuse": "프록시 연결 하나를 재사용",
           "proxyConnectionReuseHelp": "느린 ProxyCommand 또는 ProxyJump 호스트를 통한 연결이 빨라집니다. ssh_config가 호스트별 Match 또는 %h 규칙에 의존하지 않는 경우에만 사용하세요.",
@@ -11753,9 +11747,7 @@
           "title": "아티팩트",
           "description": "팀과 HTML 및 Markdown 파일을 공유하고 공개 링크를 관리하세요.",
           "howToTitle": "아티팩트 사용 방법",
-          "howToDescription": "HTML 또는 Markdown 파일을 공개 링크로 게시한 다음 팀과 공유하세요.",
           "shareStepTitle": "공유할 파일을 선택하세요",
-          "shareStepDescription": "HTML 또는 Markdown 파일을 열고 아티팩트로 공유를 선택하거나 에이전트에게 공유를 요청하세요.",
           "linkStepTitle": "공개 링크 복사",
           "linkStepDescription": "게시 후 링크를 ​​복사하여 팀에 보내세요.",
           "manageStepTitle": "Orca에서 관리하세요",
@@ -11766,12 +11758,8 @@
           "signInDescription": "Orca 계정을 사용하여 아티팩트를 업로드하고 공개 링크를 관리하세요.",
           "signInAgain": "다시 로그인",
           "enableStepTitle": "아티팩트 공유 활성화",
-          "enableStepWebDescription": "호스트 장치의 Orca 데스크톱 앱에서 설정 → 아티팩트를 열고 게시를 활성화합니다.",
           "enableStepDescription": "위의 \"공개 아티팩트 링크 게시 허용\"을 켭니다.",
           "allowPublishing": "공개 아티팩트 링크 게시 허용",
-          "allowPublishingWebDescription": "데스크탑 전용. 이 설정을 변경하려면 호스트 장치에서 설정 → 아티팩트를 엽니다.",
-          "allowPublishingDescription": "URL이 있는 사람은 누구나 열 수 있는 링크로 HTML 및 Markdown 파일을 게시하세요. 기존 링크는 아티팩트에서 삭제할 때까지 유지됩니다.",
-          "howToDescriptionDisabled": "HTML 또는 Markdown 파일을 공개 링크로 게시하려면 위에서 아티팩트 공유를 활성화하세요.",
           "allowPublishingSearchDescription": "Orca가 HTML 및 Markdown 파일을 공개 링크로 게시하도록 허용합니다.",
           "keywordArtifacts": "아티팩트",
           "keywordShare": "공유",
@@ -18045,17 +18033,6 @@
         "9a4c6b2d7e": "스킬 공유",
         "3d8e5f1b9c": "비공개 링크 뒤에 있는 기술을 공유하고 사용하는 모든 컴퓨터에 설치하세요.",
         "c5b3e8a17d": "Orca에 로그인"
-      },
-      "web": {
-        "preloadApi": {
-          "cursorAccounts": {
-            "hostOnly": "Cursor 로그인 정보는 Orca가 실행 중인 컴퓨터에서만 읽을 수 있습니다."
-          },
-          "accounts": {
-            "signInHostOnly": "계정을 추가하거나 다시 로그인하는 것은 Orca가 실행 중인 컴퓨터의 데스크톱 앱에서만 사용할 수 있습니다.",
-            "claudeWslDefaultUnavailable": "WSL 계정을 시스템 기본값으로 다시 전환하는 작업은 데스크톱 앱에서만 사용할 수 있습니다."
-          }
-        }
       },
       "TaskPageJiraSavedFilters": {
         "6c381858a1": "Saved filters",

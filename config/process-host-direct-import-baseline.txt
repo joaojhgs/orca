@@ -70,3 +70,36 @@ src/shared/process-observation/tables/process-table-ps-capture.ts
 src/shared/terminal/pty/native-process/pty-slave-line-discipline-echo.ts
 src/shared/terminal/pty/native-process/shell-process-readiness.ts
 src/wsl-guest/commands/preflight-handler.ts
+
+# Standalone relay/hook import retained from published fork 6685509715.
+src/main/agent-hooks/managed-hook-runtime.ts
+
+# Standalone relay/hook import retained from published fork 6685509715.
+src/main/ssh/ssh-remote-cli-host-passthrough.ts
+
+# Standalone relay/hook import retained from published fork 6685509715.
+src/relay/agent-exec-handler.ts
+
+# Standalone relay/hook import retained from published fork 6685509715.
+src/relay/ai-vault-service-spawn.ts
+
+# Standalone relay/hook import retained from published fork 6685509715.
+src/relay/external-automations-handler.ts
+
+# Standalone relay/hook import retained from published fork 6685509715.
+src/relay/fs-handler-git-fallback.ts
+
+# Standalone relay/hook import retained from published fork 6685509715.
+src/relay/fs-handler-list-files.ts
+
+# Standalone relay/hook import retained from published fork 6685509715.
+src/relay/pty-shell-utils.ts
+
+# Standalone relay/hook import retained from published fork 6685509715.
+src/relay/relay-network-forward.ts
+
+# Standalone relay/hook import retained from published fork 6685509715.
+src/relay/subprocess-tree-termination.ts
+
+# Standalone relay/hook import retained from published fork 6685509715.
+src/relay/workspace-space-scan.ts

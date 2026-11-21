@@ -226,7 +226,7 @@ export abstract class OrcaRuntimeWithMaybeHydrateHeadlessFromRenderer extends Or
     data: string,
     outputSequence: number,
     forwardQueryReplies = false
-  ): void {
+  ): Promise<void> {
     const state = this.getOrCreateHeadlessTerminal(ptyId)
     const outputObservedAt = Date.now()
     const completion = state.writeChain.then(async () => {
@@ -290,6 +290,7 @@ export abstract class OrcaRuntimeWithMaybeHydrateHeadlessFromRenderer extends Or
       state.outputSequence = outputSequence
     })
     state.writeChain = completion.catch(() => {})
+    return completion
   }
 
   private readPtyAgentStatusRow(

@@ -11,27 +11,29 @@ import {
   loadNotificationDeliveryPreferences,
   type NotificationDeliveryPreferences
 } from '../delivery-policy/notification-delivery-preferences'
+import { readManagerNotificationTarget } from '../../../../src/shared/manager-notification-target'
 import { allowsMobilePushAlertKind } from '../../../../src/shared/notifications/mobile-push-alert'
 
 const RECENT_FOREGROUND_PUSH_CAP = 512
 const recentForegroundPushes = new Set<string>()
 
 function claimForegroundPush(payload: OrcaPushPayload): boolean {
+  const manager = readManagerNotificationTarget(payload.notificationId)
   const seq = payload.notificationSeq
   if (
-    !payload.notificationEpoch ||
-    typeof seq !== 'number' ||
-    !Number.isSafeInteger(seq) ||
-    seq < 0
+    !manager &&
+    (!payload.notificationEpoch || typeof seq !== 'number' || !Number.isSafeInteger(seq) || seq < 0)
   ) {
     return true
   }
-  const key = JSON.stringify([
-    payload.hostFingerprint,
-    payload.notificationEpoch,
-    payload.notificationId ?? null,
-    seq
-  ])
+  const key = manager
+    ? JSON.stringify([payload.hostFingerprint, 'manager', payload.notificationId])
+    : JSON.stringify([
+        payload.hostFingerprint,
+        payload.notificationEpoch,
+        payload.notificationId ?? null,
+        seq
+      ])
   if (recentForegroundPushes.has(key)) {
     return false
   }
@@ -139,6 +141,9 @@ export function pushNotificationRouteData(
   }
   return {
     hostId,
+    ...(readManagerNotificationTarget(payload.notificationId)
+      ? { notificationId: payload.notificationId }
+      : {}),
     ...(payload.paneKey ? { paneKey: payload.paneKey } : {}),
     ...(payload.worktreeId ? { worktreeId: payload.worktreeId } : {}),
     ...(payload.executionHost ? { executionHost: payload.executionHost } : {})

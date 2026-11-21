@@ -13,6 +13,7 @@ export type Metric = number | null
 /** One `pty.listSessions()` row. Aliased so ownership evidence cannot be dropped locally. */
 
 export type UnifiedSessionRow = {
+  runtimeOwnerEnvironmentId?: string
   sessionId: string
   incarnationId?: string
   paneKey: string | null
@@ -30,6 +31,8 @@ export type UnifiedSessionRow = {
 }
 
 export type UnifiedWorktreeRow = {
+  executionHostId?: string
+  executionHostName?: string
   worktreeId: string
   worktreeName: string
   repoId: string
@@ -72,7 +75,9 @@ export type MergeContext = {
   /** Repo connectionId by repo id (null/missing == local). */
   repoConnectionIdById: Map<string, string | null>
   /** Runtime execution host id by repo id (missing == not hosted by a paired server). */
-  repoRuntimeHostIdById: Map<string, string>
+  repoRuntimeHostIdById?: Map<string, string>
+  repoRuntimeScopedById?: Map<string, boolean>
+  repoRuntimeEnvironmentIdById?: ReadonlyMap<string, string>
   /** Process samples each paired server reported for its own workspaces. */
   runtimeHostResources?: readonly RuntimeHostResourceSample[]
   /** Browser inventory is open-only; the Resource Manager never scans it in the background. */

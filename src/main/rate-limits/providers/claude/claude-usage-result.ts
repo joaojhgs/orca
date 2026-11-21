@@ -1,7 +1,12 @@
+import { createHash } from 'node:crypto'
 import type {
   ProviderRateLimits,
-  UsageRateLimitMetadata
+  UsageRateLimitFailureKind,
+  UsageRateLimitMetadata,
+  UsageRateLimitSource
 } from '../../../../shared/agent-usage/rate-limits/rate-limit-types'
+import type { ClaudeRuntimeAuthPreparation } from '../../../claude-accounts/runtime-auth/runtime-auth-types'
+import type { ClaudeOAuthCredentialReadResult } from './claude-oauth-credentials'
 
 export function abortedClaudeRateLimitResult(): ProviderRateLimits {
   return {
@@ -27,6 +32,29 @@ export function makeClaudeUsageResult(
     error,
     status,
     usageMetadata: metadata
+  }
+}
+
+export function metadataForClaudeUsageAttempt(input: {
+  attemptedSources: UsageRateLimitSource[]
+  oauthCredentials: ClaudeOAuthCredentialReadResult
+  authPreparation?: ClaudeRuntimeAuthPreparation
+  source?: UsageRateLimitSource
+  failureKind?: UsageRateLimitFailureKind
+  deferredByLiveClaudeSession?: boolean
+  retryAtMs?: number
+}): UsageRateLimitMetadata {
+  return {
+    source: input.source,
+    attemptedSources: [...input.attemptedSources],
+    failureKind: input.failureKind,
+    credentialSource: input.oauthCredentials.source,
+    authProvenance: input.authPreparation?.provenance ?? 'system',
+    executionCredentialRevision: input.oauthCredentials.token
+      ? createHash('sha256').update(input.oauthCredentials.token).digest('hex')
+      : undefined,
+    deferredByLiveClaudeSession: input.deferredByLiveClaudeSession,
+    retryAtMs: input.retryAtMs
   }
 }
 

@@ -20,8 +20,10 @@ const doubles = vi.hoisted((): { client: FakeRpcClient | null } => ({ client: nu
 // Stub Expo-dependent client lookup; the hook reads only identity.
 vi.mock('./use-page-app-presence', () => ({ usePageAppPresence: () => {} }))
 vi.mock('../../transport/connection/host-client-hooks', () => ({
-  useHostClient: () => ({ client: doubles.client })
+  useHostClient: () => ({ client: doubles.client, clientId: 'private-pairing' })
 }))
+
+vi.mock('@react-native-async-storage/async-storage', () => ({ default: {} }))
 
 import { clientFrame, createFakeRpcClient } from '../test-support/bridge-host-test-fakes'
 import {

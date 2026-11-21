@@ -5,13 +5,18 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { readDesktopAwayState } from '../../notifications/desktop-away-state'
 import { DeviceRegistry } from '../rpc/server/pairing/device-registry'
 import { RuntimeMobileNotificationController } from './notifications/runtime-mobile-notification-controller'
-import { setRuntimeDesktopSurface } from '../construction/runtime-desktop-surface'
+import {
+  getRuntimeDesktopSurface,
+  setRuntimeDesktopSurface
+} from '../construction/runtime-desktop-surface'
 import { RuntimeSubscriptionRegistry } from '../client/runtime-subscription-registry'
 import { reportDesktopPresence } from '../rpc/methods/notifications/notifications'
 import { DESKTOP_PRESENCE_TTL_MS } from '../../../shared/app-lifecycle/presence/desktop-client-presence'
 import { DesktopPushService } from './desktop-push-service'
 import { PushUnregisterOutbox } from './push-unregister-outbox'
 import { createPushHostKeypair } from './push-host-challenge-fixtures'
+import { createHeadlessNotificationDelivery } from '../../notifications/headless-notification-delivery'
+import { AGENT_NOTIFICATION_QUIET_MS } from '../../../shared/agent-notification-quiet-window'
 
 const paths: string[] = []
 const services: DesktopPushService[] = []
@@ -77,6 +82,7 @@ async function pipeline() {
 it('carries the native idle boundary through replay and push dispatch', async () => {
   let idle = 179
   setRuntimeDesktopSurface({
+    ...getRuntimeDesktopSurface(),
     isAwayForMobileNotifications: () =>
       readDesktopAwayState({
         getSystemIdleState: () => 'active',
@@ -156,6 +162,60 @@ it('decides headless away from attached desktops, so the away-only filter holds 
       .getMissedSince(0)
       .map((event) => (event.type === 'notification' ? event.desktopAway : null))
   ).toEqual([true, true, false, true, false, true, false, true])
+})
+
+it('delivers accepted headless SSH completion through the mobile replay and push pipeline', async () => {
+  setRuntimeDesktopSurface({
+    ...getRuntimeDesktopSurface(),
+    isAwayForMobileNotifications: () =>
+      readDesktopAwayState(
+        { getSystemIdleState: () => 'active', getSystemIdleTime: () => 0 },
+        true
+      ),
+    showNotification: () => false,
+    sendToRenderers: () => {}
+  })
+  const h = await pipeline()
+  const delivery = createHeadlessNotificationDelivery({
+    enabled: () => true,
+    settings: () => ({
+      enabled: true,
+      mutedNotificationSourceIds: [],
+      agentTaskComplete: true,
+      agentNeedsInput: true,
+      notifyHiddenWorkspaces: true,
+      terminalBell: true,
+      suppressWhenFocused: true,
+      customSoundId: 'system',
+      customSoundPath: null,
+      customSoundVolume: 1
+    }),
+    dispatch: (event) => h.controller.dispatch(event)
+  })
+  const host = {
+    paneKey: 'game-pane',
+    connectionId: 'personal',
+    worktreeId: 'game-worktree',
+    receivedAt: Date.now(),
+    stateStartedAt: Date.now()
+  }
+  delivery.status({ ...host, payload: { state: 'working', prompt: 'Build game' } })
+  delivery.status({ ...host, payload: { state: 'done', prompt: 'Build game' } })
+  await flush()
+  expect(h.client.send).not.toHaveBeenCalled()
+  await new Promise((resolve) => setTimeout(resolve, AGENT_NOTIFICATION_QUIET_MS + 50))
+  await flush()
+  expect(h.client.send).toHaveBeenCalledTimes(1)
+  expect(h.controller.getMissedSince(0)).toEqual([
+    expect.objectContaining({
+      source: 'agent-task-complete',
+      agentState: 'done',
+      desktopAway: true,
+      worktreeId: 'game-worktree',
+      notificationSeq: 1,
+      notificationEpoch: expect.any(String)
+    })
+  ])
 })
 
 it('expires persisted registration at seven days despite host activity and renews explicitly', async () => {

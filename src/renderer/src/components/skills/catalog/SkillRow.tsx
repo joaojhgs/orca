@@ -64,7 +64,8 @@ export function SkillRow({
   onReveal,
   ownerHostId,
   onFocus,
-  onKeyDown
+  onKeyDown,
+  libraryActions
 }: {
   skill: DiscoveredSkill
   selectionMode: boolean
@@ -83,11 +84,12 @@ export function SkillRow({
   onSelectionChange: (selected: boolean, range: boolean) => void
   onShare: () => void
   onDelete: () => void
-  onReveal: () => void
+  onReveal?: () => void
   /** Host the skill file lives on. */
   ownerHostId: ExecutionHostId
   onFocus: () => void
   onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void
+  libraryActions?: { onAssign(): void; versionLabel: string }
 }): React.JSX.Element {
   const t = useTranslate()
   const intlLocale = useIntlLocale()
@@ -122,7 +124,8 @@ export function SkillRow({
       key: 'reveal',
       label: t('auto.components.skills.SkillsPage.dc4c3328ee', 'Reveal file'),
       icon: <FolderOpen />,
-      onSelect: onReveal
+      disabled: !onReveal,
+      onSelect: () => onReveal?.()
     },
     {
       key: 'copy-path',
@@ -140,6 +143,19 @@ export function SkillRow({
       onSelect: onDelete
     }
   ]
+  const displayedActions = libraryActions
+    ? [
+        actions[0],
+        {
+          key: 'assign',
+          label: t('skills.library.assign', 'Assign'),
+          icon: <FolderOpen />,
+          onSelect: libraryActions.onAssign
+        },
+        actions[1],
+        actions[4]
+      ]
+    : actions
 
   const activate = (): void => {
     if (selectionMode) {
@@ -220,7 +236,11 @@ export function SkillRow({
               ) : null}
             </div>
             <span className="flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
-              <span>{sourceKindLabel(skill.sourceKind, t)}</span>
+              <span>
+                {libraryActions
+                  ? t('skills.library.imported', 'Imported')
+                  : sourceKindLabel(skill.sourceKind)}
+              </span>
               <span className="hidden sm:inline" aria-hidden>
                 ·
               </span>
@@ -236,6 +256,11 @@ export function SkillRow({
               {skill.description ??
                 t('auto.components.skills.SkillsPage.9963dff6d3', 'No description found.')}
             </p>
+            {libraryActions ? (
+              <p className="col-start-1 truncate font-mono text-[11px] text-muted-foreground">
+                {libraryActions.versionLabel}
+              </p>
+            ) : null}
             {showReason ? (
               <span id={reasonId} className="sr-only">
                 {disabledReason}
@@ -262,14 +287,14 @@ export function SkillRow({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <SkillRowDropdownActions actions={actions} />
+                <SkillRowDropdownActions actions={displayedActions} />
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <SkillRowContextActions actions={actions} />
+        <SkillRowContextActions actions={displayedActions} />
       </ContextMenuContent>
     </ContextMenu>
   )

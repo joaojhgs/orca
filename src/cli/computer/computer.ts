@@ -40,7 +40,12 @@ import {
 } from './computer-action-flags'
 import { computerTypeTextTargetUnsupportedMessage } from '../../shared/computer/computer-use-type-text-target'
 
+import { VNC_AGENT_HANDLERS } from './vnc-agent'
+import { CDP_BROWSER_HANDLERS } from './cdp-browser'
+
 export const COMPUTER_HANDLERS: Record<string, CommandHandler> = {
+  ...VNC_AGENT_HANDLERS,
+  ...CDP_BROWSER_HANDLERS,
   'computer capabilities': async ({ client, json }) => {
     const result = await client.call<ComputerProviderCapabilities>('computer.capabilities', {})
     printResult(result, json, formatComputerCapabilities)

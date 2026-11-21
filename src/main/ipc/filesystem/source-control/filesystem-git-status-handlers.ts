@@ -4,7 +4,6 @@ import type {
   GitStagingArea,
   GitStatusResult
 } from '../../../../shared/git/status/git-status-types'
-import type { GitDiffResult } from '../../../../shared/git/diff/git-diff-compare-types'
 import type { GitStatusRefBindingRequest as GitStatusUpstreamRefWatchRequest } from '../../worktrees/git/worktree-git-status-ref-watch'
 import type { GitAdmissionTier } from '../../../../shared/rpc-contract/source-control/git-admission-tier-params'
 import { getStatus } from '../../../git/source-control/status/status-read'
@@ -14,7 +13,6 @@ import {
   abortRebase,
   detectConflictOperation
 } from '../../../git/source-control/mutations/git-conflict-operation'
-import { getDiff } from '../../../git/source-control/diffs/file-diff'
 import { registerFilesystemGitHistoryHandlers } from './filesystem-git-history-handlers'
 import { registerFilesystemGitAtRiskLocalFilesHandlers } from './filesystem-git-at-risk-local-files-handlers'
 import { isGitWorktreeMutationInFlight } from '../../../git/command-runner/git-worktree-mutation-state'
@@ -35,6 +33,7 @@ import { getWorktreeSharedLinkPaths } from '../../../git/worktrees/content-paths
 import { applyGitStatusUpstreamRefWatchRequest } from '../../worktrees/git/git-status-upstream-ref-watch-request'
 import type { FilesystemHandlerContext } from '../filesystem-handler-context'
 import { readWorktreeGitUnlessWslStopped } from './wsl-gated-worktree-git-read'
+import { requireFilesystemSshGitProvider } from './filesystem-ssh-git-route'
 import { requireReachableGitRoute } from '../../../providers/execution-host-provider-dispatch'
 import { getConnectionExecutionHostId } from '../../../../shared/execution-host/execution-host'
 import {
@@ -81,6 +80,13 @@ export function registerFilesystemGitStatusHandlers(context: FilesystemHandlerCo
         ...(controller ? { signal: controller.signal } : {})
       }
       try {
+        if (args.connectionId) {
+          // Why: await keeps the cancellation token registered until the remote request settles (an early finally would free it).
+          return await requireFilesystemSshGitProvider(args.connectionId).getStatus(
+            args.worktreePath,
+            options
+          )
+        }
         requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
         // The active workspace's first status is a user act: it may start its stopped WSL distro.
         const wakeDistro = args.wakeWslDistro
@@ -137,6 +143,13 @@ export function registerFilesystemGitStatusHandlers(context: FilesystemHandlerCo
         area?: GitStagingArea
       }
     ): Promise<GitStatusResult> => {
+      if (args.connectionId) {
+        return requireFilesystemSshGitProvider(args.connectionId).getSubmoduleStatus(
+          args.worktreePath,
+          args.submodulePath,
+          args.area
+        )
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       // Re-read on every status change: a background poll (E9).
       return readWorktreeGitUnlessWslStopped(
@@ -158,6 +171,13 @@ export function registerFilesystemGitStatusHandlers(context: FilesystemHandlerCo
       _event,
       args: { worktreePath: string; paths: string[]; connectionId?: string }
     ): Promise<string[]> => {
+      if (args.connectionId) {
+        const paths = args.paths.map((p) => validateGitRelativeFilePath(args.worktreePath, p))
+        return requireFilesystemSshGitProvider(args.connectionId).checkIgnoredPaths(
+          args.worktreePath,
+          paths
+        )
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       return readWorktreeGitUnlessWslStopped(
         store,
@@ -196,6 +216,11 @@ export function registerFilesystemGitStatusHandlers(context: FilesystemHandlerCo
       _event,
       args: { worktreePath: string; connectionId?: string }
     ): Promise<GitConflictOperation> => {
+      if (args.connectionId) {
+        return requireFilesystemSshGitProvider(args.connectionId).detectConflictOperation(
+          args.worktreePath
+        )
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       // A 3 s poll for inactive worktrees: its UNC reads would boot a stopped WSL distro (E9).
       await assertWslUncPathRunning(args.worktreePath)
@@ -229,6 +254,9 @@ export function registerFilesystemGitStatusHandlers(context: FilesystemHandlerCo
   ipcMain.handle(
     'git:abortMerge',
     async (_event, args: { worktreePath: string; connectionId?: string }): Promise<void> => {
+      if (args.connectionId) {
+        return requireFilesystemSshGitProvider(args.connectionId).abortMerge(args.worktreePath)
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
       const gitOptions = getLocalGitOptionsForRegisteredWorktree(
@@ -243,6 +271,9 @@ export function registerFilesystemGitStatusHandlers(context: FilesystemHandlerCo
   ipcMain.handle(
     'git:abortRebase',
     async (_event, args: { worktreePath: string; connectionId?: string }): Promise<void> => {
+      if (args.connectionId) {
+        return requireFilesystemSshGitProvider(args.connectionId).abortRebase(args.worktreePath)
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
       const gitOptions = getLocalGitOptionsForRegisteredWorktree(
@@ -251,44 +282,6 @@ export function registerFilesystemGitStatusHandlers(context: FilesystemHandlerCo
         worktreePath
       )
       await abortRebase(worktreePath, { ...gitOptions, admissionTier: 'interactive' })
-    }
-  )
-
-  ipcMain.handle(
-    'git:diff',
-    async (
-      _event,
-      args: {
-        worktreePath: string
-        filePath: string
-        staged: boolean
-        compareAgainstHead?: boolean
-        oldPath?: string
-        connectionId?: string
-        /** Showing the diff tab or its Retry: a user act that may start a stopped WSL distro. */
-        wakeWslDistro?: boolean
-      }
-    ): Promise<GitDiffResult> => {
-      requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
-      return readWorktreeGitUnlessWslStopped(
-        store,
-        args.worktreePath,
-        args.wakeWslDistro,
-        (worktreePath, gitOptions) =>
-          getDiff(
-            worktreePath,
-            validateGitRelativeFilePath(worktreePath, args.filePath),
-            args.staged,
-            args.compareAgainstHead,
-            {
-              ...gitOptions,
-              admissionTier: 'interactive',
-              ...(args.oldPath
-                ? { oldPath: validateGitRelativeFilePath(worktreePath, args.oldPath) }
-                : {})
-            }
-          )
-      )
     }
   )
 }

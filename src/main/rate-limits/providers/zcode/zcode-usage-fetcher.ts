@@ -129,6 +129,8 @@ export async function fetchZcodeRateLimits(
   options: ZcodeUsageCredentialOptions & {
     planCredential?: ZcodePlanCredential | null
     signal?: AbortSignal
+    /** Read-only OpenCode credential adapter, restricted to the same Z.ai quota API. */
+    openCodeApiKey?: string
   } = {}
 ): Promise<ProviderRateLimits> {
   const plan = options.planCredential
@@ -138,17 +140,30 @@ export async function fetchZcodeRateLimits(
   if (plan && !saved) {
     return failed('The saved GLM Coding Plan API key is unusable', 'parse', '')
   }
-  const cli = saved ? null : readZcodeUsageCredentials(options)
+  const openCode =
+    !saved && options.openCodeApiKey !== undefined
+      ? resolveUsageCredentials(options.openCodeApiKey, 'https://api.z.ai', 'opencode')
+      : null
+  if (!saved && !openCode && options.openCodeApiKey !== undefined) {
+    return failed('The OpenCode Z.ai API key is unusable', 'parse', '')
+  }
+  const cli = saved || openCode ? null : readZcodeUsageCredentials(options)
   if (cli?.status === 'error') {
     return failed('Could not read the selected ZCode CLI Coding Plan credential', 'parse', '')
   }
-  const credentials = saved ?? (cli?.status === 'ok' ? cli.credentials : null)
+  const credentials = saved ?? openCode ?? (cli?.status === 'ok' ? cli.credentials : null)
   if (!credentials) {
     return unavailable('ZCode Coding Plan credentials are not configured')
   }
-  const source = saved ? ZCODE_PLAN_CREDENTIAL_SOURCE : cli?.status === 'ok' ? cli.source : ''
+  const source = saved
+    ? ZCODE_PLAN_CREDENTIAL_SOURCE
+    : openCode
+      ? 'OpenCode Z.ai credentials'
+      : cli?.status === 'ok'
+        ? cli.source
+        : ''
   const result = await fetchUsage(credentials, source, options.signal)
-  if (!saved) {
+  if (cli?.status === 'ok') {
     const current = readZcodeUsageCredentials(options)
     if (
       current.status !== 'ok' ||

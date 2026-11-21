@@ -1,3 +1,6 @@
+import { activeSessions } from './ssh-active-relay-sessions'
+import { assertNotManagedServerHost } from './ssh-target-crud-handlers'
+import { getSshHostServerStatus } from '../../ssh/host-server/ssh-host-server-status'
 import type { RegisterSshRequest } from '../../ssh/application/ssh-application-requests'
 import {
   setSshTargetRegistryHandlers,
@@ -32,6 +35,30 @@ export function registerSshConnectionHandlers(handle: RegisterSshRequest): void 
     await disconnectSshHostForUser(args.targetId)
   })
 
+  handle('ssh:resetRelay', async ({ targetId }: { targetId: string }) => {
+    const { resetDirectSshRelay } = await import('./ssh-relay-reset-handler')
+    return resetDirectSshRelay(targetId)
+  })
+
+  handle(
+    'ssh:terminateSessions',
+    async ({ targetId, forRemoval }: { targetId: string; forRemoval?: boolean }) => {
+      const { terminateSshTargetSessions } = await import('./ssh-terminate-sessions')
+      if (forRemoval) {
+        assertNotManagedServerHost(targetId)
+      }
+      return terminateSshTargetSessions(targetId)
+    }
+  )
+
+  handle('ssh:moveToManagedServer', async ({ targetId }: { targetId: string }) => {
+    await connectTarget(targetId, { moveToManagedServer: true })
+    const status = getSshHostServerStatus(targetId)
+    return status?.kind === 'managed'
+      ? { outcome: 'moved', environmentId: status.environmentId }
+      : { outcome: 'stayed' }
+  })
+
   handle('ssh:getState', (args: { targetId: string }) => {
     return getPublicSshState(args.targetId)
   })
@@ -64,6 +91,10 @@ export function registerSshConnectionHandlers(handle: RegisterSshRequest): void 
       } catch (err) {
         return { success: false, error: errorMessage(err) }
       }
+    }
+
+    if (activeSessions.has(args.targetId)) {
+      return { success: true, state: getPublicSshState(args.targetId) }
     }
 
     // Track probe completion so shutdown can join its otherwise sessionless transport.

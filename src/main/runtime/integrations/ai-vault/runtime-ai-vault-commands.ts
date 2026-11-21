@@ -11,6 +11,7 @@ import type {
   AiVaultListResult
 } from '../../../../shared/ai-vault/contracts/ai-vault-types'
 import { listAiVaultSessions } from '../../../ai-vault/listing/cached-session-list'
+import { listAiVaultSessionsByHost } from '../../../ipc/ai-vault/ai-vault-host-list'
 import { deleteAiVaultSessionForRemoteClient } from '../../../ai-vault/deletion/host-session-delete'
 import type {
   AiVaultDeleteSessionArgs,
@@ -26,6 +27,9 @@ export class RuntimeAiVaultCommands {
   ) {}
 
   list(args?: AiVaultListArgs, signal?: AbortSignal): Promise<AiVaultListResult> {
+    if (args?.executionHostScope && args.executionHostScope !== 'local') {
+      return listAiVaultSessionsByHost(args, { signal })
+    }
     return listAiVaultSessions(args, { signal })
   }
 

@@ -9,7 +9,7 @@ import { withWorktreeRemoveStageSpan } from '../../../observability/instrumentat
 import { preservedBranchCleanupScopeKey } from '../../../../shared/git/branches/preserved-branch-cleanup'
 import { notifyWorktreesChanged } from '../worktree-remote'
 import { clearProviderPtyState } from '../../pty/provider/state-cleanup'
-import { getLocalPtyProvider } from '../../pty/provider/registry'
+import { getLocalPtyProvider, getSshPtyProvider } from '../../pty/provider/registry'
 import type { RemoveWorktreeArgs } from '../ipc-context-schemas'
 import type { WorktreeIpcContext } from '../worktree-ipc-context'
 import { getFolderWorkspaceRootId } from '../folder-workspace-model'
@@ -48,6 +48,8 @@ export async function removeFolderWorkspace(
     runtimeTarget: () => getLocalProjectWorktreeGitOptions(store, repo)
   })
   const ownerHost = parseExecutionHostId(removalHostId)
+  const sshPtyProvider =
+    ownerHost?.kind === 'ssh' ? getSshPtyProvider(ownerHost.targetId) : undefined
   const gate = await runtime.acquireFileWatcherRemoval(
     repo.path,
     ownerHost?.kind === 'ssh' ? ownerHost.targetId : undefined
@@ -64,17 +66,19 @@ export async function removeFolderWorkspace(
         ...(ownerHost?.kind === 'runtime'
           ? { resolvedRuntimeEnvironmentId: ownerHost.environmentId }
           : {}),
-        localProvider: getLocalPtyProvider(),
+        localProvider: sshPtyProvider ?? getLocalPtyProvider(),
         onPtyStopped: clearProviderPtyState,
         // PTY inventories cannot see structured sessions; close them before forgetting the workspace.
         closeStructuredSessions: teardownStops('folder-removal', 'structured-chat'),
-        ...(externalHost ? { includeProviderInventory: false, includeLocalRegistry: false } : {})
+        ...(externalHost
+          ? { includeProviderInventory: !!sshPtyProvider, includeLocalRegistry: false }
+          : {})
       }).catch((err) => {
         console.warn(`[worktree-teardown] failed for ${args.worktreeId}:`, err)
       })
     })
     await withWorktreeRemoveStageSpan('metadata_purge', 'folder', async () => {
-      removeWorktreeMetadataAndTransientState(
+      await removeWorktreeMetadataAndTransientState(
         { store, runtime, entryPoint: 'folder-removal' },
         args.worktreeId,
         removalHostId,

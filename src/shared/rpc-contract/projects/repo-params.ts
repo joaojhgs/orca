@@ -13,10 +13,21 @@ import {
 } from '../rpc-param-primitives'
 import { createRepoUpdateSchema } from './repo-update-params'
 import { RepoSelector, RepoShow } from '../github/github-repo-target-params'
+import { normalizeExecutionHostId } from '../../execution-host/execution-host'
 
 export const RepoPath = z.object({
   path: requiredString('Missing repo path'),
   kind: z.enum(['git', 'folder']).optional(),
+  host: requiredString('Missing host ID')
+    .transform((value, ctx) => {
+      const hostId = normalizeExecutionHostId(value)
+      if (!hostId) {
+        ctx.addIssue({ code: 'custom', message: 'Invalid host ID' })
+        return z.NEVER
+      }
+      return hostId
+    })
+    .optional(),
   displayName: OptionalString
 })
 

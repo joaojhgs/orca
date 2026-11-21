@@ -1,6 +1,6 @@
 import type { WebRuntimeTransportSubscription } from './web-runtime-subscription-contract'
 
-const REPLAYABLE_SUBSCRIPTION_METHODS = new Set(['files.watch'])
+const REPLAYABLE_SUBSCRIPTION_METHODS = new Set(['files.watch', 'terminal.multiplex'])
 
 type WebRuntimeSubscriptionRegistryOptions = {
   deviceToken: string

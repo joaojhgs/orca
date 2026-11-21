@@ -1,3 +1,4 @@
+import { activateBackendSsh } from './core-runtime-ssh-activation'
 import type { BackendCoreHost } from './core-runtime'
 import type { OrcadHandle } from '../orcad/serve-startup/orcad-start-contract'
 import type { BackendCoreProfileShutdown } from './core-profile-shutdown'
@@ -194,6 +195,13 @@ export async function activateBackendRuntime(
       }
     }
   })
+  registerCleanup(() => runtime.disposeSkillUploadSessions())
+  const { configureForkRuntimePolicy, configureLocalArtifactHosting } =
+    await import('../runtime/construction/fork-runtime-services')
+  registerCleanup(configureForkRuntimePolicy(runtime, profileStore))
+  registerCleanup(configureLocalArtifactHosting(runtime, profileStore, runtimeUserDataPath))
+  await activateBackendSsh(runtime, profileStore, registerCleanup)
+
   profileShutdown.paneGrids = runtime
   profileShutdown.paintLedger = runtime
   runtime.beginStructuredAgentSessionStartupOpen(chatJournal.maintenanceAfter, chatJournal.open)

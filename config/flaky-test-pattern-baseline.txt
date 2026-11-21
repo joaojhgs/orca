@@ -29,7 +29,6 @@
 3 test-no-polling-loop:src/main/skills/install/skill-bundle-process-termination.integration.test.ts
 2 test-no-polling-loop:src/main/skills/runtime-upload/skill-upload-process-restart.integration.test.ts
 1 test-no-polling-loop:src/main/ssh/connection/ssh-connection-host-key-store-wiring.test.ts
-1 test-no-polling-loop:src/main/ssh/legacy-relay/endpoints/ssh-relay-endpoint-incumbent-shell.integration.test.ts
 2 test-no-polling-loop:src/main/windows/windows-host-job.win32.test.ts
 1 test-no-polling-loop:src/main/windows/windows-pty-job.win32.test.ts
 1 test-no-polling-loop:src/main/worker-thread-child-process/worker-thread-child-process.test.ts
@@ -124,7 +123,6 @@
 3 test-no-real-time-wait:src/main/skills/install/skill-bundle-process-termination.integration.test.ts
 2 test-no-real-time-wait:src/main/skills/runtime-upload/skill-upload-process-restart.integration.test.ts
 1 test-no-real-time-wait:src/main/ssh/connection/ssh-connection-host-key-store-wiring.test.ts
-1 test-no-real-time-wait:src/main/ssh/legacy-relay/endpoints/ssh-relay-endpoint-incumbent-shell.integration.test.ts
 1 test-no-real-time-wait:src/main/updater/lifecycle/serve-supervisor-install-park.test.ts
 3 test-no-real-time-wait:src/main/windows/windows-host-job.win32.test.ts
 1 test-no-real-time-wait:src/main/windows/windows-process-tree-command-line-patch.test.ts

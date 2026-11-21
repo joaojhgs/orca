@@ -599,7 +599,8 @@
     },
     "loadStall": {
       "waitingForHost": "Waiting for {{host}}…"
-    }
+    },
+    "workspaceWebPreview": "Workspace web preview"
   },
   "editor": {
     "richMarkdown": {
@@ -1192,6 +1193,24 @@
       "newAgentsTitle": "New agents",
       "defaultSurfaceServerDescription": "The default for agents {{host}} starts itself, such as from its CLI or orchestration workers. Agents you open from this computer follow This computer's choice."
     },
+    "artifacts": {
+      "local": {
+        "linkStepTitle": "Copy the server-hosted link",
+        "allowPublishing": "Allow publishing server-hosted artifact links",
+        "publishingDescription": "Artifacts stay on this Orca server. Anyone with the secret link and network access to the server can open them. Publishing approval is required on the host; no Orca Cloud account is needed."
+      }
+    },
+    "executionUsage": {
+      "title": "Usage across execution hosts",
+      "description": "Matching accounts share one quota reading. Credentials stay on their execution host.",
+      "shared": "same account",
+      "sharedCredential": "same credential; account identity not verified",
+      "unknownIdentity": "account identity not verified",
+      "pending": "Usage has not been verified yet"
+    },
+    "usage": {
+      "historySource": "Token and cost history below is scanned from logs on the connected Orca server. SSH account quotas are shown above; remote session-log history is not included."
+    },
     "followSymlinkedDirectoriesKeywords": {
       "symlink": "symlink",
       "linkedFolder": "linked folder",
@@ -1244,7 +1263,24 @@
         "passphraseRequired": "Cannot parse privateKey: Encrypted private OpenSSH key detected, but no passphrase given",
         "permissionDenied": "Permission denied",
         "permissionDeniedPublickey": "Permission denied (publickey)"
-      }
+      },
+      "relayMoveAction": "Move to managed server",
+      "relayTerminateAction": "End SSH terminals",
+      "relayResetAction": "Reset SSH relay",
+      "relayUnverified": "Some terminals could not be verified.",
+      "relayResetMenu": "Reset SSH relay…",
+      "relayTerminateMenu": "End SSH terminals…",
+      "relayMoveMenu": "Move to managed server…",
+      "relayMoveDescription": "Move this host to a managed Orca server.",
+      "relayTerminateDescription": "End remote Orca terminals on this host.",
+      "relayResetDescription": "Disconnect this host and reset its relay. Running terminals may end.",
+      "relayRuntime": "SSH relay runtime",
+      "relayRuntimeAuto": "Automatic",
+      "relayRuntimePinned": "Orca Node",
+      "relayRuntimeLegacy": "Host Node",
+      "relayKeepAlive": "Keep SSH terminals alive until reset",
+      "relayTimeout": "SSH terminal timeout in seconds",
+      "relayCliControlDescription": "Agents and commands on this host can use Orca browser tabs in its workspaces while it is connected. Older terminals also need this permission for Orca orchestration."
     },
     "shortcuts": {
       "parseFailed": "Unable to parse shortcut.",
@@ -4993,6 +5029,12 @@
         "command": {
           "paletteTitle": "Command Palette",
           "paletteDescription": "Search for a command to run..."
+        },
+        "message": {
+          "scroller": {
+            "b9927d51e7": "Scroll to start",
+            "559a2048ac": "Scroll to end"
+          }
         }
       },
       "terminal": {
@@ -5468,7 +5510,6 @@
             "4f327c8b3d": "Open Markdown...",
             "3d5d6c960d": "New Markdown",
             "fd2b42aaa3": "New Mobile Emulator",
-            "b426bb2615": "Go to Mobile Emulator",
             "4833fb2cbe": "New Browser Tab",
             "d364f3c8d4": "New Terminal",
             "7c1313d237": "New Terminal:",
@@ -5477,7 +5518,9 @@
             "1a8af49530": "CMD Prompt",
             "2148f65e04": "PowerShell",
             "7a9b4af2af": "Scroll tabs left",
-            "232e075b07": "Scroll tabs right"
+            "232e075b07": "Scroll tabs right",
+            "92f4d1a6c8": "Go to Device Preview",
+            "341eb2875d": "New Device Preview"
           },
           "TabBarCreateEntry": {
             "d62d63b807": "Create file",
@@ -5607,6 +5650,21 @@
             "filePathsCannotContainEmptySegments": "File paths cannot contain empty segments.",
             "filePathsCannotContainDotSegments": "File paths cannot contain . or .. segments.",
             "filePathsCannotContainTildeSegments": "File paths cannot contain ~ segments."
+          },
+          "create": {
+            "menu": {
+              "tab": {
+                "create": {
+                  "menu": {
+                    "options": {
+                      "c0d2afa3b2": "tauri",
+                      "f2c92f5ee2": "desktop preview",
+                      "3812def027": "computer use"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -6063,6 +6121,19 @@
                   "ariaLabelWithSpaceScan": "Resource Manager, {{sessions}}, {{spaceScan}}"
                 }
               }
+            },
+            "host": {
+              "summary": {
+                "49378c2cbc": "Host resources unavailable",
+                "d642e54440": "Managed sessions",
+                "7d8c724eec": "free",
+                "6a2c33f24f": "Disk",
+                "de3af4f529": "CPU",
+                "b0f0c7ab4d": "available",
+                "a9e0fdbdb8": "RAM",
+                "82cdbe7350": "Local",
+                "71aa1dcb71": "SSH"
+              }
             }
           },
           "CaffeinateStatusSegment": {
@@ -6221,6 +6292,25 @@
           "UsageDisplayToggle": {
             "showRemaining": "Show remaining usage",
             "showUsed": "Show used usage"
+          },
+          "resources": {
+            "popover": {
+              "resource": {
+                "usage": {
+                  "session": {
+                    "rows": {
+                      "7aed30dbc0": "PID"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "ExecutionUsageGroup": {
+            "31c8314719": "Account identity not verified",
+            "fdaabf4fba": "Usage not verified yet",
+            "6b4c5b4f68": "· same credential",
+            "e41295531f": "· same account"
           }
         }
       },
@@ -6456,7 +6546,13 @@
             "d6e9f0a1b2": "credits",
             "a3b6c7d8e9": "grok usage",
             "9f2a3b4c5d": "xai",
-            "museKeyword": "muse"
+            "museKeyword": "muse",
+            "4101cdd523": "subscription",
+            "71c0c260a7": "antigravity",
+            "7a09679608": "cursor",
+            "ac9d4ccfa4": "distrobox",
+            "7e3126b599": "ssh",
+            "848059634a": "quota"
           }
         },
         "usage": {
@@ -6580,7 +6676,8 @@
           "remoteShareNotice": "These skills live on {{host}}. Open Skills on that machine to share them.",
           "viewSwitch": "Show",
           "searchLinks": "Search links",
-          "deleteSkills": "Delete skills…"
+          "deleteSkills": "Delete skills…",
+          "localLibrary": "Local library"
         },
         "SkillFreshnessNudge": {
           "titleOne": "An installed Orca skill is out of date",
@@ -6896,10 +6993,8 @@
         "SkillsSelectionHeader": {
           "exit": "Exit selection",
           "exitTooltip": "Exit selection · Esc",
-          "title": "Select skills to share",
           "selectAll": "Select all {{count}} eligible",
-          "clear": "Clear",
-          "deleteTitle": "Select skills to delete"
+          "clear": "Clear"
         },
         "SkillDetailDialog": {
           "agents": "Agents",
@@ -7025,6 +7120,28 @@
           "preservedDescription": "Orca updated the skill and saved your edits to {{value0}}.",
           "uncertainTitle": "Orca couldn't confirm the skill update on {{value0}}",
           "uncertainDescription": "Orca may have updated skills on {{value0}} but couldn't confirm the result. If you edited a skill during the update, your copy is in {{value1}}."
+        },
+        "SkillLibraryLinkImport": {
+          "f6b9c80595": "https://github.com/owner/skills"
+        },
+        "skill": {
+          "library": {
+            "batch": {
+              "assign": {
+                "f08bcd295b": "Unexpected assignment response. Refresh Assignments before retrying."
+              }
+            }
+          }
+        },
+        "SkillLibraryBatchFilePreview": {
+          "8d7a757cec": "[Preview truncated]",
+          "b08062fefe": "· binary",
+          "3c54c5bceb": "· executable",
+          "075da1500a": "bytes",
+          "216eccf423": "files"
+        },
+        "SkillLibraryVersionSelection": {
+          "0e75aa2950": "files"
         }
       },
       "sidebar": {
@@ -7883,8 +8000,6 @@
                   "c709860596": "Create new project",
                   "5f9ffac036": "Clone a remote Git repository",
                   "7edb8ebe24": "Clone from URL",
-                  "serverSshTitle": "Project on this server's SSH host",
-                  "serverSshAddOnThisComputer": "Not available from a server. Add the SSH host on this computer to open its projects.",
                   "fb4fc5380e": "Local project, Git repo, or folder with many repos",
                   "2281fdc8c7": "Browse folder",
                   "runtimeBrowseDescription": "Existing Git repository or folder on this host"
@@ -10335,7 +10450,8 @@
           "syncedServerPlural": "Synced {{count}} servers",
           "noFilterMatch": "No hosts match.",
           "addHost": "Add host",
-          "alreadyInSync": "~/.ssh/config already in sync"
+          "alreadyInSync": "~/.ssh/config already in sync",
+          "3879cbaa52": "Terminal timeout must be between 60 and {{value0}} seconds, or keep terminals alive until reset."
         },
         "SshPassphraseDialog": {
           "d5a234456f": "Cancel",
@@ -10406,7 +10522,6 @@
           "reconnectOnLaunch": "Reconnect on launch",
           "reconnectOnLaunchHelp": "When off, Orca leaves this host, and any Orca server reached through it, disconnected at launch until you connect it.",
           "allowRemoteCliControl": "Allow this host to control Orca browser tabs in its workspaces",
-          "allowRemoteCliControlHelp": "On by default for new hosts. Agents and orca commands on this host can open, read and use Orca browser tabs on this desktop, only in this host's workspaces and only while it is connected. Tabs it controls show its name. Terminals started on this host by an older Orca also need this on to run orca orchestration commands. It cannot read your files, clipboard or cookies.",
           "editTitle": "Edit SSH host",
           "addTitle": "Add SSH host",
           "editDescription": "Update connection details for this machine. Changes apply on next connect.",
@@ -10841,6 +10956,13 @@
             "4518496456": "Active Codex account",
             "be3a748ebb": "Claude accounts",
             "9b6ce52c36": "MiniMax usage"
+          },
+          "accounts": {
+            "search": {
+              "5201d8524c": "quota",
+              "8bde84fe15": "distrobox",
+              "d191005cda": "ssh"
+            }
           }
         },
         "advanced": {
@@ -12240,6 +12362,10 @@
             "skill": "skill",
             "connect": "connect",
             "12d2fdff3c": "Task providers"
+          },
+          "TasksPane": {
+            "1dc4c67613": "Browse Multica projects and issues through the configured Multica CLI.",
+            "75cedb3f84": "Multica"
           }
         },
         "terminal": {
@@ -13569,9 +13695,9 @@
           "title": "Artifacts",
           "description": "Share HTML and Markdown files with your team and manage their public links.",
           "howToTitle": "How to use Artifacts",
-          "howToDescription": "Publish HTML or Markdown files as public links, then share them with your team.",
+          "howToDescription": "Publish HTML, Markdown, or PDF files and share the links with your team.",
           "shareStepTitle": "Choose a file to share",
-          "shareStepDescription": "Open an HTML or Markdown file and select Share as artifact, or ask an agent to share it.",
+          "shareStepDescription": "Open an HTML, Markdown, or PDF file and select Share as artifact, or ask an agent to share it.",
           "linkStepTitle": "Copy the public link",
           "linkStepDescription": "After publishing, copy the link and send it to your team.",
           "manageStepTitle": "Manage it in Orca",
@@ -13582,12 +13708,12 @@
           "signInDescription": "Use your Orca account to upload artifacts and manage their public links.",
           "signInAgain": "Sign in again",
           "enableStepTitle": "Enable artifact sharing",
-          "enableStepWebDescription": "Open Settings → Artifacts in the Orca desktop app on the host device and enable publishing.",
+          "enableStepHeadlessWebDescription": "Request approval above and run the one-time command yourself over SSH on the host, or use its desktop Artifacts settings.",
           "enableStepDescription": "Turn on “Allow publishing public artifact links” above.",
           "allowPublishing": "Allow publishing public artifact links",
-          "allowPublishingWebDescription": "Desktop only. Open Settings → Artifacts on the host device to change this setting.",
-          "allowPublishingDescription": "Publish HTML and Markdown files as links anyone with the URL can open. Existing links remain until you delete them from Artifacts.",
-          "howToDescriptionDisabled": "Enable artifact sharing above to publish HTML or Markdown files as public links.",
+          "allowPublishingHeadlessWebDescription": "Changing this host-wide permission requires approval on the host. Use the approval button below or the host desktop app.",
+          "allowPublishingDescription": "Publish HTML, Markdown, and PDF files as links anyone with the URL can open.",
+          "howToDescriptionDisabled": "Enable artifact sharing above to publish HTML, Markdown, or PDF files.",
           "allowPublishingSearchDescription": "Allow Orca to publish HTML and Markdown files as public links.",
           "keywordArtifacts": "artifacts",
           "keywordShare": "share",
@@ -14838,6 +14964,67 @@
           "cancel": "Cancel",
           "confirm": "Remove",
           "unknownHost": "Unknown host"
+        },
+        "ArtifactPublishingApprovalDialog": {
+          "078d9b75be": "Check my approval",
+          "f297f670b6": "Close",
+          "9ffb1f3764": "Run this one-time command yourself over SSH on the connected Orca host, as the user running Orca. Do not ask an agent to run it. It expires after five minutes.",
+          "9ca5e27d96": "This lets every caller on this host publish HTML and Markdown as public links. Anyone with a link can read the content. Do not publish secrets.",
+          "d12ee4d9fb": "New uploads will be blocked. Existing public links remain until deleted.",
+          "d050e1f668": "Approve public artifact publishing",
+          "ae77d3ab38": "Disable artifact publishing",
+          "d4ecf82a7e": "Request publishing approval",
+          "7bbab43793": "Request disabling publishing"
+        },
+        "NotificationRuleEditor": {
+          "525ff165e0": "Remove override",
+          "32927ddd30": "Save rule",
+          "1dd346243f": "off",
+          "202272e91f": "subscribed",
+          "46c8fd28cd": "muted",
+          "f4a779626c": "allowed",
+          "2b03bae562": "Policy only, not transport or delivery confirmation. All roles previews the main agent; role-specific rules may differ.",
+          "7ae0f096a7": "Preview event",
+          "f23116b288": "Independent of human alerts and device mutes. Off explicitly disables supervision events for this scope; the manager cannot wake itself.",
+          "48d864e1d2": "Off",
+          "e39c8be816": "On",
+          "5edc7f565f": "Inherit",
+          "4153b64048": "Manager event subscription",
+          "864aae712b": "Silent keeps eligible alerts but disables system and custom sounds. It does not unmute alerts or delay manager wake-ups. Digests batch by session and event type for one minute, persist on the server and arrive silently. Device sound disables remain final vetoes.",
+          "082246c7af": "One-minute digest",
+          "2ecf22b180": "Silent",
+          "1a5fd60bd9": "Immediate",
+          "5dd42d6dda": "Human delivery",
+          "edb1fb7dac": "Selected events",
+          "3f64b63fbf": "Rules only filter eligible stop points. Child completion and YOLO permission requests do not become human alerts. Manager only permits alerts from the manager conversation, not other agents.",
+          "0fd34b8848": "Human alerts",
+          "effectivePreview": "{{event}} ({{channel}}, {{actor}}): human {{human}} by {{humanScope}}; manager {{manager}} by {{managerScope}}. Human delivery: {{delivery}} by {{deliveryScope}}."
+        },
+        "NotificationDeviceRules": {
+          "c812aca905": "Refresh paired devices",
+          "6956fc4253": "Muted event types",
+          "2817a32123": "Disable sounds without enabling any otherwise-muted alerts.",
+          "e1bce71f07": "Silent delivery",
+          "df1ab4fb25": "Allow eligible human alerts on this paired device.",
+          "b84f9bc361": "A device mute is a final human-delivery veto. It never disables manager supervision or unmutes a project.",
+          "2c9a66506e": "Paired mobile devices"
+        },
+        "NotificationScopeRules": {
+          "17a71cc5c9": "Mobile",
+          "796c8f5895": "Desktop / browser",
+          "2ebc15dee6": "Desktop and mobile",
+          "2af9cc2669": "Destination",
+          "84c7854ae2": "Manager",
+          "fa1418e39e": "Worker",
+          "0c1ad854fb": "Main agent",
+          "e3fa0227af": "All roles",
+          "0794bbd190": "Agent role",
+          "e1b3231b99": "Scope",
+          "e02f161b87": "Refresh scopes",
+          "ef248ecb0b": "Loading scopes…",
+          "92f14229ad": "Human notifications and manager supervision are independent.",
+          "45d8ddf20a": "Project and session rules",
+          "00ff3e57ce": "Saved {{value0}} override (not in current inventory)"
         }
       },
       "right": {
@@ -17479,6 +17666,11 @@
                   }
                 }
               }
+            },
+            "desktop": {
+              "stream": {
+                "e7e7fa80a2": "Main desktop"
+              }
             }
           },
           "MobileEmulatorAgentSetupGuide": {
@@ -17505,6 +17697,24 @@
           "useEmulatorScreenKeyboard": {
             "pasteTooLarge": "Paste is too large for emulator keyboard input.",
             "pasteTargetUnavailable": "Emulator keyboard paste failed because the device is not ready."
+          },
+          "desktop": {
+            "computer": {
+              "pane": {
+                "6ecbe9c3a8": "View only. Agent computer use stays on the main desktop.",
+                "daee142e1d": "CDP browser. Take control to pause agents before interacting.",
+                "e19a319c27": "You control this browser. Agent CDP connections are paused.",
+                "22de1b2e98": "Reconnect desktop",
+                "59073f7ee0": "Take browser control",
+                "228bc8b4a7": "Return to agents",
+                "c91a960a27": "Offline",
+                "d12e10db72": "Connecting…",
+                "4f5c7aad69": "Interactive",
+                "0d34e118f7": "View only",
+                "ffefb85f5b": "Choose desktop",
+                "70e6104eda": "Desktop view"
+              }
+            }
           }
         }
       },
@@ -19891,6 +20101,15 @@
                 }
               }
             }
+          },
+          "task": {
+            "page": {
+              "localized": {
+                "options": {
+                  "39f0fde2f8": "Multica"
+                }
+              }
+            }
           }
         }
       },
@@ -20213,7 +20432,12 @@
         },
         "expiredCompact": "Expired",
         "typeMarkdown": "Markdown",
-        "typeHtml": "HTML"
+        "typeHtml": "HTML",
+        "ArtifactListFilters": {
+          "ded7380c01": "HTML",
+          "1545ccda6d": "PDF",
+          "adeb734f7d": "Markdown"
+        }
       },
       "BrowserCookieImportMachineNotice": {
         "clientLabel": "Browsers on this device",
@@ -20332,17 +20556,6 @@
         "notAttachedShort": "Didn’t reconnect.",
         "dispatchRejectedShort": "The agent declined to continue.",
         "unsupportedShort": "Orca can’t resume this chat."
-      },
-      "web": {
-        "preloadApi": {
-          "cursorAccounts": {
-            "hostOnly": "Cursor sign-in details are only readable on the computer running Orca."
-          },
-          "accounts": {
-            "signInHostOnly": "Adding or re-signing an account is only available in the desktop app on the computer running Orca.",
-            "claudeWslDefaultUnavailable": "Switching a WSL lane back to the system default is only available in the desktop app."
-          }
-        }
       },
       "TaskPageJiraSavedFilters": {
         "6c381858a1": "Saved filters",
@@ -20572,6 +20785,39 @@
         "stateNeedsYou": "Needs you",
         "stateResuming": "Resuming",
         "stateStopped": "Stopped"
+      },
+      "manager": {
+        "use": {
+          "manager": {
+            "conversations": {
+              "ffd9864e8c": "Request recovery storage is unavailable. Restore this tab’s storage before sending objectives or replies."
+            }
+          }
+        }
+      },
+      "MulticaTaskSourcePanel": {
+        "d1e58fdf8e": "No project",
+        "0d05e0f742": "Unknown project",
+        "ea5cd457ab": "No Multica issues match these filters.",
+        "b52b6fe3cd": "Updated",
+        "e50fe52652": "Status",
+        "dc5e16cd3b": "Project",
+        "5f9d1fc767": "Title",
+        "c8cfa92670": "ID",
+        "89f0cd04e6": "Refresh Multica",
+        "7240a75ee3": "Filter Multica issues…",
+        "f896d6205b": "Canceled",
+        "d5667e8063": "Done",
+        "7acfb59f98": "In progress",
+        "cc710f762e": "Todo",
+        "ce9d35d596": "Backlog",
+        "f12f9a0738": "All statuses",
+        "98d9e76d06": "All projects",
+        "5a41f9ba1c": "All workspaces",
+        "ddd6a8cd3a": "Workspace",
+        "0fb3e3f5e7": "Multica",
+        "visibleCount": "{{shown}} shown · {{total}} total",
+        "limitNotice": "Showing the first {{limit}}; narrow the filters for more."
       }
     },
     "i18n": {
@@ -21512,7 +21758,8 @@
       "stop": "Stop the agent",
       "copyMessage": {
         "copied": "Copied",
-        "copy": "Copy message"
+        "copy": "Copy message",
+        "failed": "Unable to copy text"
       },
       "scrollMessageToTop": "Scroll this message to top",
       "loadingEarlier": "Loading…",
@@ -24898,6 +25145,179 @@
     "removePath": "Remove {{name}}",
     "addTypedPathCode": "Add <path/>"
   },
+  "artifacts": {
+    "pdfUnavailable": "PDF preview unavailable. Open the shared link to view or download it.",
+    "pdfLoading": "Loading PDF…",
+    "projects": {
+      "unassigned": "Unassigned project"
+    },
+    "filters": {
+      "loadedOnly": "Groups and filters include loaded artifacts. Load more to include older pages.",
+      "project": "Filter by project",
+      "allProjects": "All projects",
+      "type": "Filter by file type",
+      "allTypes": "All file types"
+    },
+    "share": {
+      "layout": "Page layout",
+      "fullWidth": "Full width",
+      "a4": "Centered A4",
+      "copyFullWidth": "Copy full-width link",
+      "copyA4": "Copy centered A4 link",
+      "action": "Share as artifact"
+    }
+  },
+  "skills": {
+    "library": {
+      "selectAssign": "Select imported skills to assign",
+      "reviewAssignment": "Review assignment",
+      "assignSkills": "Assign skills",
+      "assignBatchTitle": "Assign {{total}} imported skills",
+      "assignmentReview": "Pinned skills to assign",
+      "assignmentApproval": "Assign these pinned skills to the selected destination and runtimes. Existing runtime assignments are retained.",
+      "assignmentProgress": "Assigning {{index}}/{{total}}: {{name}}",
+      "assignmentResults": "Assignment results",
+      "closeResults": "Close results",
+      "assignBatchSubmit": "Assign {{total}} skills",
+      "selectionLimit": "Select up to 50 skills per operation.",
+      "oneVersionPerOperation": "Select one version of each skill for this operation.",
+      "assignTitle": "Assign {{name}}",
+      "assignHelp": "Pin this version to a host and its native coding runtimes. Existing sessions stay running and may load skills only on their next normal start.",
+      "destination": "Installation destination",
+      "executionHost": "Execution host",
+      "queuedHost": " · unavailable (queued until connected)",
+      "scope": "Scope",
+      "global": "Global skills",
+      "workspace": "Registered workspace",
+      "sharedPlacementHelp": "Placements share .agents/skills. Selecting a runtime enables discovery; it is not an access-control restriction for other runtimes that read that shared directory. Local edits and unowned files are never discarded.",
+      "cancel": "Cancel",
+      "provisioning": "Provisioning…",
+      "assignPinned": "Assign pinned version",
+      "savedLabel": "Saved skill versions",
+      "savedVersions": "Saved versions ({{total}})",
+      "emptyVersions": "Review and import a discovered skill to save an immutable local copy.",
+      "files": "{{total}} files",
+      "assign": "Assign",
+      "deleteVersion": "Delete version",
+      "assignmentsLabel": "Skill assignments",
+      "assignments": "Assignments ({{total}})",
+      "emptyAssignments": "Assign a saved version to an execution host. No agent restart is required to provision files.",
+      "workspaceUnavailable": "Workspace unavailable",
+      "pinnedVersion": "Pinned version: {{version}}",
+      "removalRequested": "Removal requested",
+      "reconcile": "Reconcile",
+      "unassign": "Unassign",
+      "discoverLabel": "Discover skills to import",
+      "discover": "Discover and import",
+      "sourceHost": "Source host",
+      "unavailableHost": " · unavailable",
+      "working": "Working…",
+      "scan": "Scan host",
+      "searchLabel": "Search library and discovered skills",
+      "search": "Search skills…",
+      "noMatches": "No matching skills found. Check the selected host or search.",
+      "reviewImport": "Review import",
+      "reviewTitle": "Review {{name}}",
+      "reviewHelp": "All listed files enter the local library, including scripts and assets. Nothing is executed during import. Check for secrets and unwanted instructions.",
+      "includedFiles": "Included files ({{total}})",
+      "bytes": "{{total}} bytes",
+      "executable": " · executable",
+      "binary": " · binary",
+      "binaryPreview": "Binary or large file: contents are not rendered. The file is still included in the snapshot.",
+      "truncated": "[Preview truncated]",
+      "importApproval": "Import approval",
+      "reviewed": "I reviewed the files and want to import this snapshot.",
+      "allowVersion": "Allow a new version if this name already has different content.",
+      "import": "Import into local library",
+      "unexpectedImport": "Unexpected import response. Refresh the library before retrying.",
+      "deleteTitle": "Delete saved version: {{name}}",
+      "unassignTitle": "Unassign skill: {{name}}",
+      "deleteHelp": "Remove this unassigned snapshot from the library. Original skill folders are not deleted.",
+      "unassignHelp": "Remove only Orca-owned, unmodified placements. Edited files and unowned originals remain protected; an offline host queues removal.",
+      "refresh": "Refresh",
+      "close": "Close skills",
+      "loading": "Loading library…",
+      "connectHelp": "Connect to an updated Orca server and refresh.",
+      "operationFailed": "The library operation failed. Check the execution host and retry.",
+      "updateRequired": "This Orca server needs an update before it can manage a local skill library.",
+      "allProjectHosts": "All project hosts",
+      "project": "Project workspaces",
+      "approveAssignment": "Approve skill assignment",
+      "reviewSkill": "Skill to review",
+      "reviewFile": "Included file to review",
+      "selectSkill": "Select {{name}} on {{host}}",
+      "selectAllImport": "Select all (up to 50)",
+      "clearImport": "Clear selection",
+      "preparingBatch": "Preparing snapshots…",
+      "reviewBatch": "Review and import {{total}} skills",
+      "batchSelection": "Skills to import",
+      "pluginSelectionLimit": "This selection exceeds 50 skills. Select a smaller plugin subset.",
+      "reviewBatchTitle": "Review {{total}} skill snapshots",
+      "reviewBatchHelp": "One approval imports all selected snapshots. Every listed file is included, including scripts and assets; nothing is executed. Check for secrets and unwanted instructions. Existing assignments stay unchanged.",
+      "reviewedBatch": "I reviewed the selected snapshots and want to import them all.",
+      "importingBatch": "Importing snapshots…",
+      "importBatch": "Import {{total}} skills",
+      "allHosts": "All connected hosts",
+      "scanHosts": "Scan hosts",
+      "scanHostsHelp": "Scan installed skills on the selected hosts. Review imports before assigning them to runtimes; nothing is imported automatically.",
+      "removeAssignmentsFirst": "Unassign this version before deleting it.",
+      "duplicateSelection": "Another version selected",
+      "importedList": "Imported skills",
+      "noImportedMatches": "No imported skills match this search.",
+      "importedEmpty": "No imported skills yet. Choose Import skills to review skills from connected hosts.",
+      "linkImport": "Import from a link",
+      "sourceLink": "Plugin, marketplace, or skill link",
+      "linkHelp": "GitHub plugin/marketplace repositories, skill folders, skills.sh, and local share links from this Orca profile. Plugin grouping and supporting files are retained; hooks, MCP servers, commands and agent definitions are not installed. Review before importing.",
+      "loadingLink": "Reading source…",
+      "scanLink": "Scan link",
+      "selectImported": "Select imported skills to share",
+      "reviewShare": "Review share",
+      "backImported": "Back to imported skills",
+      "skillsTitle": "Skills",
+      "importSkills": "Import skills",
+      "shareSkills": "Share skills",
+      "importedTab": "Imported skills",
+      "assignmentsTab": "Assignments",
+      "sharedTab": "Shared links",
+      "searchImported": "Search imported skills or links",
+      "selectPlugin": "Select plugin {{name}}",
+      "assignPlugin": "Assign plugin",
+      "sharePlugin": "Share plugin",
+      "chooseProject": "Choose a project",
+      "projectAssignmentHelp": "Pins skills to {{total}} currently registered workspaces on the selected hosts. New workspaces are not automatically assigned.",
+      "shareTitle": "Share imported skills",
+      "localShareHelp": "Host a pinned copy on this Orca server, like local artifacts. Anyone who can reach the server and has the link can download all included files. No Cloud upload.",
+      "bundleName": "Bundle name",
+      "approveShare": "Approve sharing selected skills",
+      "shareReviewed": "I reviewed these imported snapshots for secrets, instructions and scripts, and want to share every included file.",
+      "done": "Done",
+      "publishing": "Publishing…",
+      "createLocalLink": "Create local share link",
+      "includeVersion": "Include {{name}}",
+      "imported": "Imported",
+      "savedReviewHelp": "This is the imported immutable snapshot, not the source folder. Assign it to runtimes to provision its files."
+    }
+  },
+  "usage": {
+    "unsupported": {
+      "label": "Usage tracking unavailable"
+    },
+    "execution": {
+      "expired": {
+        "label": "Sign-in expired on source host",
+        "message": "Refresh sign-in on the listed execution host. Orca does not rotate that host’s credentials."
+      }
+    },
+    "failure": {
+      "unavailable": "Usage is unavailable. Try Refresh to reconnect.",
+      "setting": "The tracking change could not be confirmed. Try changing it again.",
+      "refresh": "The previous Refresh could not be completed. Try Refresh again.",
+      "read": "Usage could not be loaded. Try Refresh again.",
+      "retry": "Refresh"
+    },
+    "executionProviderAccounts": "{{provider}} · {{count}} accounts",
+    "executionOpenCodeProviders": "OpenCode · {{count}} providers"
+  },
   "accounts": {
     "wslAccountNotApplied": {
       "title": "Account selection not applied in {{distro}}",
@@ -26484,7 +26904,8 @@
       "events_other": "{{count}} events",
       "sessions_other": "{{count}} sessions",
       "turns_other": "{{count}} turns"
-    }
+    },
+    "liveQuotas": "Live usage limits"
   },
   "github": {
     "viewed": {
@@ -26933,6 +27354,10 @@
       "running": "Running",
       "starting": "Starting",
       "stopped": "Stopped"
+    },
+    "surface": {
+      "mobile": "Mobile",
+      "desktop": "Desktop"
     }
   },
   "ephemeralVm": {
@@ -29570,15 +29995,6 @@
       "importFailed": "Repository could not be imported"
     }
   },
-  "usage": {
-    "failure": {
-      "unavailable": "Usage is unavailable. Try Refresh to reconnect.",
-      "setting": "The tracking change could not be confirmed. Try changing it again.",
-      "refresh": "The previous Refresh could not be completed. Try Refresh again.",
-      "read": "Usage could not be loaded. Try Refresh again.",
-      "retry": "Refresh"
-    }
-  },
   "crashReport": {
     "freeze": {
       "attachmentsOmitted": "The saved freeze report and diagnostic logs were not attached: {{value0}}",
@@ -29757,5 +30173,55 @@
     "toolsLabel": "App tools",
     "workspaces": "Workspaces",
     "more": "More"
+  },
+  "manager": {
+    "operator": "Manager",
+    "selectOperator": "Select a manager",
+    "scopeHelp": "The server checks this manager’s permitted projects and execution hosts before accepting an objective.",
+    "workspace": "Workspace",
+    "objective": "Objective",
+    "objectiveHelp": "Give Hermes an outcome and constraints. Existing user sessions are not automatically adopted.",
+    "createObjective": "Send objective",
+    "resolvingOwner": "Resolving the Orca server…",
+    "title": "Hermes manager",
+    "connected": "Consumer connected",
+    "offline": "Consumer offline",
+    "new": "New objective",
+    "refresh": "Refresh",
+    "close": "Close manager",
+    "requestFailed": "Manager request failed",
+    "unconfirmed": "Request not confirmed",
+    "retryHelp": "Retry the same request to reconcile it safely. Do not send another copy.",
+    "retry": "Retry same request",
+    "objectives": "Manager objectives",
+    "search": "Search objectives",
+    "moreObjectives": "Load more objectives",
+    "conversation": "Manager conversation",
+    "loadingConversation": "Loading conversation…",
+    "loading": "Loading managers…",
+    "notConfigured": "No active manager configured",
+    "setupHelp": "An owner must issue a scoped manager credential and start its consumer on the coding worker. An older Orca server may need an update. Hermes does not run on this controller.",
+    "answerLabel": "Answer the selected question",
+    "message": "Message Hermes",
+    "replyHelp": "Replies provide guidance; they do not grant new permissions or bypass worker approval gates.",
+    "sendReply": "Send reply",
+    "cancelAnswer": "Cancel answer",
+    "navigation": "Manager",
+    "you": "You",
+    "hermes": "Hermes",
+    "answered": "Answered",
+    "question": "Question",
+    "answer": "Answer",
+    "loadMoreMessages": "Load more messages"
+  },
+  "project": {
+    "add": {
+      "directSshDescription": "Choose an SSH host and a project path.",
+      "desktop": "This desktop",
+      "serverSshHosts": "Browse SSH hosts",
+      "sshBrowseDescription": "Existing project or folder on this SSH host",
+      "sshServerDescription": "Browse SSH hosts registered with this server",
+      "sshDesktopDescription": "Browse SSH hosts registered with this desktop"
+    }
   }
 }

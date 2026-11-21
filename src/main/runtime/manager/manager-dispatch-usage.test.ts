@@ -1,0 +1,123 @@
+import { describe, expect, it } from 'vitest'
+import { ManagerDispatchPolicySchema } from '../../../shared/manager-dispatch-capacity-contract'
+import { selectManagerDispatchAccount } from './manager-dispatch-usage'
+import { dispatchAccount } from './manager-dispatch.test-fixture'
+import { EXECUTION_USAGE_MAX_AGE_MS } from '../../../shared/execution-usage-freshness'
+
+const now = 1000_000,
+  policy = ManagerDispatchPolicySchema.parse({})
+const target = { executionHostId: 'ssh:worker', agent: 'codex' }
+
+describe('manager fresh account dispatch gate', () => {
+  it('allows the scheduled collector to finish without declaring a low Work quota unavailable', () => {
+    const account = dispatchAccount(now - 330_000)
+    account.provider = 'claude'
+    expect(
+      selectManagerDispatchAccount([account], { ...target, agent: 'claude' }, policy, now)?.id
+    ).toBe(account.id)
+  })
+
+  it('uses a shared deduplicated identity and does not mistake normal future refresh scheduling for exhaustion', () => {
+    const account = dispatchAccount(now)
+    expect(selectManagerDispatchAccount([account], target, policy, now)?.id).toBe(account.id)
+    expect(
+      selectManagerDispatchAccount(
+        [account],
+        { ...target, executionHostId: 'ssh:second' },
+        policy,
+        now
+      )?.id
+    ).toBe(account.id)
+  })
+
+  it.each([
+    'missing',
+    'ambiguous',
+    'unreachable',
+    'stale',
+    'future',
+    'error',
+    'empty',
+    'exhausted',
+    'retry-after',
+    'invalid'
+  ] as const)('refuses confirmed exhaustion and ambiguity, with %s evidence', (mode) => {
+    const account = dispatchAccount(now)
+    const limits = account.rateLimits
+    const weekly = limits?.weekly
+    if (!limits || !weekly) {
+      throw new Error('Missing fixture limits')
+    }
+    let rows = [account]
+    if (mode === 'missing') {
+      rows = []
+    }
+    if (mode === 'ambiguous') {
+      rows = [account, { ...account, id: 'another' }]
+    }
+    if (mode === 'unreachable') {
+      account.sources[0].reachable = false
+    }
+    if (mode === 'stale') {
+      limits.updatedAt = now - EXECUTION_USAGE_MAX_AGE_MS - 1
+    }
+    if (mode === 'future') {
+      account.checkedAt = now + 5001
+    }
+    if (mode === 'error') {
+      limits.status = 'error'
+    }
+    if (mode === 'empty') {
+      limits.session = null
+      limits.weekly = null
+    }
+    if (mode === 'exhausted') {
+      weekly.usedPercent = 100
+    }
+    if (mode === 'retry-after') {
+      limits.usageMetadata = { retryAtMs: now + 1000 }
+    }
+    if (mode === 'invalid') {
+      weekly.usedPercent = Number.NaN
+    }
+    const read = () => selectManagerDispatchAccount(rows, target, policy, now)
+    if (mode === 'exhausted' || mode === 'ambiguous') {
+      expect(read).toThrow()
+    } else {
+      expect(read()).toEqual(mode === 'missing' || mode === 'unreachable' ? null : account)
+    }
+  })
+
+  it('requires an explicit OpenCode provider/model binding and never pools unrelated providers', () => {
+    const first = {
+      ...dispatchAccount(now),
+      provider: 'opencode' as const,
+      providerId: 'opencode-go'
+    }
+    const second = { ...first, id: 'other-provider', providerId: 'zai-coding-plan' }
+    expect(
+      selectManagerDispatchAccount(
+        [first, second],
+        { ...target, agent: 'opencode', model: 'opencode-go/model' },
+        policy,
+        now
+      )?.id
+    ).toBe(first.id)
+    expect(
+      selectManagerDispatchAccount(
+        [first, second],
+        { ...target, agent: 'opencode', model: 'zai-coding-plan/model' },
+        policy,
+        now
+      )?.id
+    ).toBe(second.id)
+    expect(
+      selectManagerDispatchAccount(
+        [first, second],
+        { ...target, agent: 'opencode', model: 'model' },
+        policy,
+        now
+      )
+    ).toBeNull()
+  })
+})

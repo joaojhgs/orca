@@ -55,7 +55,7 @@ export function buildRuntimeMobileAgentStatus(
   if (!pty?.lastAgentStatus && !retained && !hookRow.agentType && !hookRow.providerSession) {
     return {}
   }
-  const providerSession = hookRow.providerSession
+  const sessionIdentity = hookRow.providerSession
     ? {
         providerSession: hookRow.providerSession,
         ...(hookRow.orcaSessionId !== undefined ? { orcaSessionId: hookRow.orcaSessionId } : {})
@@ -66,6 +66,13 @@ export function buildRuntimeMobileAgentStatus(
           ...(retained.orcaSessionId !== undefined ? { orcaSessionId: retained.orcaSessionId } : {})
         }
       : {}
+  const connectionId =
+    pty?.connectionId ??
+    hookRows.find((row) => row.providerSession?.id === hookRow.providerSession?.id)?.connectionId
+  const providerSession = {
+    ...sessionIdentity,
+    ...(connectionId ? { connectionId } : {})
+  }
   const leaf = host.getLeaf(tab)
   const trackerOnlyTitle = host.getTrackedTitle(pty?.ptyId ?? leaf?.ptyId ?? null)
   const titleCandidate = pty

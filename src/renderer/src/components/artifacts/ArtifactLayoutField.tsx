@@ -1,0 +1,40 @@
+import { useId } from 'react'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { useTranslate } from '@/i18n/use-translate'
+import type { ArtifactMarkdownLayout } from './artifact-share-layout'
+
+export function ArtifactLayoutField({
+  value,
+  onChange
+}: {
+  value: ArtifactMarkdownLayout
+  onChange: (value: ArtifactMarkdownLayout) => void
+}): React.JSX.Element {
+  const t = useTranslate()
+  const id = useId()
+  return (
+    <FieldGroup>
+      <Field>
+        <FieldLabel id={id}>{t('artifacts.share.layout', 'Page layout')}</FieldLabel>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          value={value}
+          aria-labelledby={id}
+          onValueChange={(next) => {
+            if (next === 'full-width' || next === 'a4') {
+              onChange(next)
+            }
+          }}
+        >
+          <ToggleGroupItem value="full-width">
+            {t('artifacts.share.fullWidth', 'Full width')}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="a4">{t('artifacts.share.a4', 'Centered A4')}</ToggleGroupItem>
+        </ToggleGroup>
+      </Field>
+    </FieldGroup>
+  )
+}

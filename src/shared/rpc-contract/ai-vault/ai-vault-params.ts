@@ -4,6 +4,16 @@ import { AI_VAULT_AGENTS, boundedAiVaultScopeArgs } from '../../ai-vault/contrac
 import { OptionalBoolean } from '../rpc-param-primitives'
 import { AI_VAULT_SESSION_TITLE_REQUEST_MAX_COUNT } from '../../ai-vault/contracts/ai-vault-session-title'
 
+import { ExecutionHostScanScopeSchema } from '../execution-host-scan-scope'
+import {
+  AiVaultSearchRequestSchema,
+  AiVaultSearchStatusRequestSchema
+} from '../../ai-vault/search/ai-vault-search-contract'
+
+const HostSearchScope = z.object({ executionHostScope: ExecutionHostScanScopeSchema.optional() })
+export const AiVaultSearchSessionsParams = AiVaultSearchRequestSchema.and(HostSearchScope)
+export const AiVaultSearchStatusParams = AiVaultSearchStatusRequestSchema.and(HostSearchScope)
+
 // Bound discovery input; scopePaths are host-local match prefixes, never traversal paths.
 export const AI_VAULT_SCOPE_PATH_MAX_LENGTH = 4096
 
@@ -41,7 +51,8 @@ export const AiVaultListSessionsParams = z
     scopePaths: z.array(z.string().min(1).max(AI_VAULT_SCOPE_PATH_MAX_LENGTH)).optional(),
     scopeOnly: OptionalBoolean,
     // Host ID only restamps cached results; desktop/web send it, mobile omits it. Scanning stays host-local.
-    executionHostId: executionHostIdSchema.optional()
+    executionHostId: executionHostIdSchema.optional(),
+    executionHostScope: ExecutionHostScanScopeSchema.optional()
   })
   .superRefine((params, ctx) => {
     if (params.unlimited !== true && params.limit && params.limit > AI_VAULT_LIMIT_MAX) {
@@ -82,6 +93,7 @@ export const AiVaultPrepareSessionResumeParams = z.union([
 ])
 
 export const AiVaultSessionTitlesParams = z.object({
+  executionHostScope: ExecutionHostScanScopeSchema.optional(),
   requests: z
     .array(
       z.object({

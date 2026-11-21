@@ -33,6 +33,10 @@ export type RuntimeServiceCommandSurface = {
   getMobileNotificationListenerCount: RuntimeMobileNotificationController['getListenerCount']
   dispatchMobileNotification: RuntimeMobileNotificationController['dispatch']
   reportDesktopClientPresence: RuntimeMobileNotificationController['reportDesktopClientPresence']
+  configureNotificationScopePolicy: RuntimeMobileNotificationController['configurePolicy']
+  allowsMobileNotificationDelivery: RuntimeMobileNotificationController['allowsDelivery']
+  allowsMobileNotificationSound: RuntimeMobileNotificationController['allowsSound']
+  getMobileNotificationDeliveryMode: RuntimeMobileNotificationController['deliveryMode']
   getMissedNotificationsSince: RuntimeMobileNotificationController['getMissedSince']
   configureNotificationDismissalStore: RuntimeMobileNotificationController['configureDismissalStore']
   closeNotificationDismissals: RuntimeMobileNotificationController['closeDismissals']
@@ -52,12 +56,14 @@ export type RuntimeServiceCommandSurface = {
   getDataAccountsSnapshot: RuntimeAccountController['dataAccountsSnapshot']
   setCommitMessageAgentEnvironmentResolvers: RuntimeAccountController['setCommitMessageAgentEnvironment']
   getCommitMessageAgentEnvironmentResolvers: RuntimeAccountController['getCommitMessageAgentEnvironment']
+  getExecutionAccounts: RuntimeAccountController['getExecutionAccounts']
   getAccountsSnapshot: RuntimeAccountController['getSnapshot']
   getAccountsStreamSnapshot: RuntimeAccountController['getStreamSnapshot']
   getUsageRateLimits: RuntimeAccountController['usageRateLimits']
   requireUsageRateLimits: RuntimeAccountController['requireUsageRateLimits']
   refreshAccountsForMobile: RuntimeAccountController['refreshForMobile']
   refreshAccountsForMobileSubscriber: RuntimeAccountController['refreshForMobileSubscriber']
+  controlAccount: RuntimeAccountController['control']
   selectClaudeAccount: RuntimeAccountController['selectClaude']
   selectCodexAccount: RuntimeAccountController['selectCodex']
   selectCodexAccountForTarget: RuntimeAccountController['selectCodexForTarget']
@@ -147,6 +153,10 @@ export function installRuntimeServiceCommandSurface(
     getMobileNotificationListenerCount: notifications.getListenerCount.bind(notifications),
     dispatchMobileNotification: notifications.dispatch.bind(notifications),
     reportDesktopClientPresence: notifications.reportDesktopClientPresence.bind(notifications),
+    configureNotificationScopePolicy: notifications.configurePolicy.bind(notifications),
+    allowsMobileNotificationDelivery: notifications.allowsDelivery.bind(notifications),
+    allowsMobileNotificationSound: notifications.allowsSound.bind(notifications),
+    getMobileNotificationDeliveryMode: notifications.deliveryMode.bind(notifications),
     getMissedNotificationsSince: notifications.getMissedSince.bind(notifications),
     configureNotificationDismissalStore: notifications.configureDismissalStore.bind(notifications),
     closeNotificationDismissals: notifications.closeDismissals.bind(notifications),
@@ -172,12 +182,14 @@ export function installRuntimeServiceCommandSurface(
       accounts.setCommitMessageAgentEnvironment.bind(accounts),
     getCommitMessageAgentEnvironmentResolvers:
       accounts.getCommitMessageAgentEnvironment.bind(accounts),
+    getExecutionAccounts: accounts.getExecutionAccounts.bind(accounts),
     getAccountsSnapshot: accounts.getSnapshot.bind(accounts),
     getAccountsStreamSnapshot: accounts.getStreamSnapshot.bind(accounts),
     getUsageRateLimits: accounts.usageRateLimits.bind(accounts),
     requireUsageRateLimits: accounts.requireUsageRateLimits.bind(accounts),
     refreshAccountsForMobile: accounts.refreshForMobile.bind(accounts),
     refreshAccountsForMobileSubscriber: accounts.refreshForMobileSubscriber.bind(accounts),
+    controlAccount: accounts.control.bind(accounts),
     selectClaudeAccount: accounts.selectClaude.bind(accounts),
     selectCodexAccount: accounts.selectCodex.bind(accounts),
     selectCodexAccountForTarget: accounts.selectCodexForTarget.bind(accounts),

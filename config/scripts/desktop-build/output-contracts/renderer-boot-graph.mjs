@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
-export const RENDERER_BUILD_DIR = path.join('out', 'renderer')
+export const RENDERER_BUILD_DIR = path.join(process.env.ORCA_BUILD_OUTPUT_DIR || 'out', 'renderer')
 
 // Entry/modulepreload closure is fetched/evaluated before first paint and costs every launch regardless of feature use.
 export function readRendererBootGraph(rendererDir) {
@@ -95,7 +95,7 @@ function inspectBootChunks(chunks, payloads) {
 }
 
 export function verifyRendererBootGraph(root = process.cwd()) {
-  const rendererDir = path.join(root, RENDERER_BUILD_DIR)
+  const rendererDir = path.resolve(root, RENDERER_BUILD_DIR)
   const { chunks, totalBytes } = readRendererBootGraph(rendererDir)
   const { violations, twoByteChunks, nodeOnlyChunks } = inspectBootChunks(
     chunks,

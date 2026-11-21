@@ -5,6 +5,18 @@ import { appendAutomationsPageEntry } from './automations-page-history'
 
 export function createUiViewActions(set: UISliceSet, get: UISliceGet): Partial<UISlice> {
   return {
+    openManagerPage: () => {
+      // Why: old navigation/history entries must return to the normal agent terminal surface.
+      set({ activeView: 'terminal' })
+    },
+    closeManagerPage: () => {
+      if (get().activeView === 'manager') {
+        set((state) => ({
+          activeView: state.previousViewBeforeManager,
+          worktreeNavHistoryIndex: rewindHistoryIndexPastView(state, 'manager')
+        }))
+      }
+    },
     openActivityPage: () => {
       set((state) => ({
         activeView: 'activity',

@@ -106,7 +106,7 @@ export function createCopilotSessionResumeState(
   )
 }
 
-async function parseCopilotSessionLines(args: {
+export async function parseCopilotSessionLines(args: {
   file: FileWithMtime
   lines: AsyncIterable<string> | Iterable<string>
   platform: NodeJS.Platform

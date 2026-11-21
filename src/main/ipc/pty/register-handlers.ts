@@ -1,3 +1,4 @@
+import { installSessionSshOutputIntake } from './delivery/ssh-intake'
 import { createLocalPtyStartupPromises } from './provider/local-startup-promises'
 
 import { getAppEnvironment } from '../../../shared/app-lifecycle/app-environment'
@@ -147,6 +148,7 @@ export function registerPtyHandlers(
     options
   })
   wirePtyIpcSession(session)
+  installSessionSshOutputIntake(session)
   bindTerminalPaneStatusLifecycle(runtime, store)
   configureLocalPtyProvider({
     runtime,

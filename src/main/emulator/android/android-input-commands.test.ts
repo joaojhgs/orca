@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
-import { describe, expect, it } from 'vitest'
-import { androidTypeText } from './android-input-commands'
+import { describe, expect, it, vi } from 'vitest'
+import { androidRotate, androidTypeText } from './android-input-commands'
 import type { AndroidCommandRunner } from './android-command-runner'
 
 describe.runIf(process.platform !== 'win32')('Android text shell boundary', () => {
@@ -42,4 +42,33 @@ describe.runIf(process.platform !== 'win32')('Android text shell boundary', () =
     )
     expect(output).toBe(`2\ntext\n${text.replace(/ /g, '%s')}\n`)
   })
+})
+
+it('maps requested orientation relative to a landscape-native display', async () => {
+  const sdk = { sdkRoot: 'sdk', adb: 'adb', emulator: 'emulator' }
+  const runner = vi.fn<AndroidCommandRunner>(async () => ({ code: 0, stdout: '', stderr: '' }))
+
+  await androidRotate(runner, sdk, 'waydroid', 'portrait', 'landscape')
+  await androidRotate(runner, sdk, 'waydroid', 'landscape_left', 'landscape')
+
+  expect(runner).toHaveBeenCalledWith(sdk.adb, [
+    '-s',
+    'waydroid',
+    'shell',
+    'settings',
+    'put',
+    'system',
+    'user_rotation',
+    '1'
+  ])
+  expect(runner).toHaveBeenLastCalledWith(sdk.adb, [
+    '-s',
+    'waydroid',
+    'shell',
+    'settings',
+    'put',
+    'system',
+    'user_rotation',
+    '0'
+  ])
 })

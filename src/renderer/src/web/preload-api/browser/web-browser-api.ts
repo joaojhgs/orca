@@ -1,6 +1,14 @@
 import type { PreloadApi } from '../../../../../preload/api-types'
 import { translate } from '@/i18n/i18n'
 import { noopUnsubscribe } from '../web-storage'
+import { unwrapRuntimeRpcResult } from '../../../runtime/rpc/calls/runtime-rpc-result'
+import { createNonSecureContextUuid as createBrowserUuid } from '../../../../../shared/identifiers/non-secure-context-uuid'
+import { scrcpyDeviceIdFromStreamUrl } from '../../../components/emulator-pane/streaming/emulator-scrcpy-stream-url'
+import { callEnvironmentEnvelope } from '../../runtime/client/web-runtime-calls'
+import {
+  requireActiveEnvironment,
+  requireActiveEnvironmentOrNull
+} from '../../runtime/client/web-runtime-session'
 
 function desktopOnlyExtensionsResult(): { ok: false; error: string } {
   return {
@@ -149,15 +157,108 @@ export function createBrowserApi(): NonNullable<Partial<PreloadApi>['browser']> 
 }
 
 export function createEmulatorApi(): NonNullable<Partial<PreloadApi>['emulator']> {
-  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: a partial stub; withFallback in web-preload-api answers every emulator member it omits.
+  type Frame = { streamId: string; bytes: ArrayBuffer }
+  type StreamError = { streamId: string; message: string }
+  const frameListeners = new Set<(frame: Frame) => void>()
+  const errorListeners = new Set<(error: StreamError) => void>()
+  const streamTimers = new Map<string, number>()
+
+  const stopFrameStream = ({ streamId }: { streamId: string }): Promise<void> => {
+    const timer = streamTimers.get(streamId)
+    if (timer !== undefined) {
+      window.clearTimeout(timer)
+    }
+    streamTimers.delete(streamId)
+    return Promise.resolve()
+  }
+
   return {
     onPaneFocus: () => noopUnsubscribe,
     onAutoAttach: () => noopUnsubscribe,
-    startFrameStream: () => Promise.reject(new Error('Mobile emulator is unavailable on web.')),
-    stopFrameStream: () => Promise.resolve(),
-    startVideoStream: () => Promise.reject(new Error('Mobile emulator is unavailable on web.')),
+    startFrameStream: async ({ streamUrl }: { streamUrl: string }) => {
+      const device = scrcpyDeviceIdFromStreamUrl(streamUrl)
+      if (!device) {
+        throw new Error('This emulator stream is unavailable in the browser.')
+      }
+      const owner = requireActiveEnvironment()
+      const pairingRevision = owner.pairingRevision ?? owner.createdAt
+      const isActiveOwner = () => {
+        const current = requireActiveEnvironmentOrNull()
+        return (
+          current?.id === owner.id &&
+          (current.pairingRevision ?? current.createdAt) === pairingRevision
+        )
+      }
+      const streamId = createBrowserUuid()
+      const poll = async (): Promise<void> => {
+        if (!streamTimers.has(streamId)) {
+          return
+        }
+        try {
+          if (!isActiveOwner()) {
+            throw new Error('The paired Orca server changed during the emulator preview.')
+          }
+          const result = unwrapRuntimeRpcResult(
+            await callEnvironmentEnvelope<{ pngBase64: string }>(
+              owner.id,
+              'emulator.screenshot',
+              { device },
+              12_000,
+              pairingRevision,
+              owner.runtimeId ?? undefined
+            )
+          )
+          if (!streamTimers.has(streamId)) {
+            return
+          }
+          if (!isActiveOwner()) {
+            throw new Error('The paired Orca server changed during the emulator preview.')
+          }
+          const binary = atob(result.pngBase64)
+          const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0)).buffer
+          for (const listener of frameListeners) {
+            listener({ streamId, bytes })
+          }
+        } catch (error) {
+          if (!streamTimers.has(streamId)) {
+            return
+          }
+          const message = error instanceof Error ? error.message : 'Emulator stream disconnected'
+          for (const listener of errorListeners) {
+            listener({ streamId, message })
+          }
+          if (!isActiveOwner()) {
+            void stopFrameStream({ streamId })
+          }
+        }
+        if (streamTimers.has(streamId)) {
+          streamTimers.set(
+            streamId,
+            window.setTimeout(() => void poll(), 75)
+          )
+        }
+      }
+      streamTimers.set(
+        streamId,
+        window.setTimeout(() => void poll(), 0)
+      )
+      return { streamId }
+    },
+    stopFrameStream,
+    onFrameStreamFrame: (callback: (frame: Frame) => void) => {
+      frameListeners.add(callback)
+      return () => frameListeners.delete(callback)
+    },
+    onFrameStreamError: (callback: (error: StreamError) => void) => {
+      errorListeners.add(callback)
+      return () => errorListeners.delete(callback)
+    },
+    startVideoStream: () =>
+      Promise.reject(new Error('Video streaming is unavailable on web; use the frame stream.')),
     stopVideoStream: () => Promise.resolve(),
-    onFrameStreamFrame: () => noopUnsubscribe,
-    onFrameStreamError: () => noopUnsubscribe
-  } as unknown as NonNullable<Partial<PreloadApi>['emulator']>
+    sendScrcpyTouch: () => {},
+    sendScrcpyKeyboard: () => Promise.resolve(false),
+    onVideoStreamMeta: () => noopUnsubscribe,
+    onVideoStreamFrame: () => noopUnsubscribe
+  }
 }

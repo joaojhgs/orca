@@ -20,6 +20,60 @@ const COMPUTER_ACTION_FLAGS = [...COMPUTER_OBSERVE_FLAGS, 'full-tree']
 
 export const COMPUTER_COMMAND_SPECS: CommandSpec[] = [
   {
+    path: ['computer', 'browsers'],
+    summary: 'List approved SSH browser CDP endpoints and their desktop views',
+    usage: 'orca computer browsers [--json]',
+    allowedFlags: [...GLOBAL_FLAGS]
+  },
+  {
+    path: ['computer', 'browser-ticket'],
+    hidden: true,
+    summary: 'Request a short-lived ticket for an approved SSH browser',
+    usage: 'orca computer browser-ticket --browser <id> [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'browser']
+  },
+  {
+    path: ['computer', 'browser-connect'],
+    summary:
+      'Serve a token-protected loopback CDP endpoint through Orca; keep this command running',
+    usage:
+      'orca computer browser-connect --browser <id> [--port <n>] [--token-file <private-file>] [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'browser', 'port', 'token-file']
+  },
+  {
+    path: ['computer', 'desktops'],
+    summary: 'Discover approved reachable VNC desktops across connected hosts',
+    usage: 'orca computer desktops [--json]',
+    allowedFlags: [...GLOBAL_FLAGS]
+  },
+  {
+    path: ['computer', 'desktop-screenshot'],
+    summary: 'Capture an approved VNC desktop through the Orca controller',
+    usage: 'orca computer desktop-screenshot --desktop <id> --json',
+    allowedFlags: [...GLOBAL_FLAGS, 'desktop']
+  },
+  {
+    path: ['computer', 'desktop-input'],
+    summary: 'Send validated pixel-based input to an approved controllable VNC desktop',
+    usage:
+      'orca computer desktop-input --desktop <id> --action <move|click|scroll|drag|key|type> [--x <px> --y <px>] [--to-x <px> --to-y <px>] [--key <chord> | --text <text>] [--button <left|middle|right>] [--count <n>] [--direction <up|down|left|right>] [--steps <n>] [--json]',
+    allowedFlags: [
+      ...GLOBAL_FLAGS,
+      'desktop',
+      'action',
+      'x',
+      'y',
+      'to-x',
+      'to-y',
+      'key',
+      'text',
+      'button',
+      'count',
+      'direction',
+      'steps'
+    ]
+  },
+  {
     path: ['computer', 'capabilities'],
     summary: 'Show computer-use provider capabilities',
     usage: 'orca computer capabilities [--json]',

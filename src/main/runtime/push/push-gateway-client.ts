@@ -16,6 +16,7 @@ import {
   type PushGatewayResult
 } from './push-gateway-response'
 import { PushGatewaySession } from './push-gateway-session'
+import { fixedOriginFetch } from '../../lib/fixed-origin-fetch'
 
 const RegisterResponseSchema = z.object({ registrationId: z.string().min(1).max(512) })
 
@@ -64,7 +65,8 @@ export class PushGatewayClient {
 
   constructor(options: PushGatewayClientOptions) {
     this.origin = new URL(options.gatewayUrl).origin
-    this.fetchImpl = options.fetch ?? globalThis.fetch
+    this.fetchImpl =
+      options.fetch ?? fixedOriginFetch(this.origin, process.env.ORCA_PUSH_GATEWAY_TRANSPORT_URL)
     this.session = new PushGatewaySession({
       origin: this.origin,
       keypair: options.keypair,

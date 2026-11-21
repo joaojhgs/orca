@@ -19,13 +19,13 @@ import { translate } from '@/i18n/i18n'
 
 export const WORKSPACE_PORTS_SERVER_SSH_UPDATE_REASON =
   'Update the server to see ports on its SSH hosts.'
+const WORKSPACE_PORT_RPC_TIMEOUT_MS = 60_000
 // Why: call-time so the reason follows the UI language instead of the module's first evaluation.
 const workspacePortsServerSshUpdateReason = (): string =>
   translate(
     'auto.lib.workspacePortScan.serverSshUpdateRequired',
     'Update the server to see ports on its SSH hosts.'
   )
-const WORKSPACE_PORT_RPC_TIMEOUT_MS = 15_000
 
 const WORKSPACE_PORT_PLATFORMS = new Set<NodeJS.Platform | 'unknown'>([
   'aix',
@@ -109,7 +109,7 @@ export async function runWorkspacePortScanForTarget(
   target: RuntimeClientTarget,
   repoId?: string
 ): Promise<WorkspacePortScanResult> {
-  const params = repoId ? { repoId } : {}
+  const params = { ...(repoId ? { repoId } : {}), includeSsh: true }
   if (target.kind === 'local') {
     return requireWorkspacePortScanResult(await window.api.workspacePorts.scan(params))
   }

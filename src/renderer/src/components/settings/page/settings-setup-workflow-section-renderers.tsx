@@ -242,7 +242,7 @@ export function renderSharedLinksSettingsSection(
   context: SettingsRenderContext,
   t: Translate = translate
 ): React.JSX.Element | null {
-  const { navigation, view } = context
+  const { model, navigation, view } = context
   if (!navigation.navSections.some((section) => section.id === 'shared-links')) {
     return null
   }
@@ -253,7 +253,11 @@ export function renderSharedLinksSettingsSection(
       description={t('settings.sharedLinks.description', "Links you've published.")}
       searchEntries={navigation.getSectionSearchEntries('shared-links')}
     >
-      {view.isSectionMounted('shared-links') ? <SharedLinksSettingsPane /> : null}
+      {view.isSectionMounted('shared-links') ? (
+        <SharedLinksSettingsPane
+          owner={model.settingsHostScope.available ? model.settingsHostScope.target : null}
+        />
+      ) : null}
     </SettingsSection>
   )
 }

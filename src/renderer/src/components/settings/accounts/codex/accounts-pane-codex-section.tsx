@@ -1,3 +1,4 @@
+import { ExecutionAccountUsageRows } from '../../ExecutionAccountUsageRows'
 import { AlertTriangle, Loader2, Plus, X } from 'lucide-react'
 import { translate } from '@/i18n/i18n'
 import type { Translate } from '@/i18n/use-translate'
@@ -78,6 +79,7 @@ export function renderCodexAccountsSection(
           </>
         }
       >
+        <ExecutionAccountUsageRows provider="codex" />
         <SearchableSetting
           title={t('auto.components.settings.AccountsPane.bd16d363ed', 'Codex accounts')}
           description={t(

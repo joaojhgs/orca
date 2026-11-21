@@ -7,3 +7,6 @@ export const RETRY_REQUEST_ID_GUIDANCE =
 export function isOrchestrationRetryRequestId(value: unknown): value is string {
   return typeof value === 'string' && RETRY_REQUEST_ID_PATTERN.test(value)
 }
+
+export const VALUELESS_RETRY_REQUEST_GUIDANCE =
+  '--retry-request requires a value; it was passed with none.'

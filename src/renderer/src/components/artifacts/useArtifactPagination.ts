@@ -13,6 +13,9 @@ const LOCAL_RUNTIME = { kind: 'local' } as const
 const EMPTY_ARTIFACTS: readonly ArtifactListItem[] = []
 
 export function artifactAccountIdentity(authStatus: OrcaProfileAuthStatus | null): string | null {
+  if (authStatus?.artifactHosting?.backend === 'local') {
+    return authStatus.artifactHosting.identity
+  }
   return authStatus?.state === 'connected'
     ? `${authStatus.activeProfileId}:${authStatus.cloud?.userId ?? ''}:${authStatus.cloud?.cloudProfileId ?? ''}:${authStatus.cloud?.activeOrgId ?? ''}`
     : null

@@ -29,6 +29,11 @@ export function createElectronSshDesktopHost(
         powerMonitor.off('unlock-screen', listener)
       }
     },
+    async loadRuntimeEnvironmentInvalidator() {
+      const { invalidateRuntimeEnvironmentTransport } =
+        await import('../runtime-environments/runtime-environments')
+      return invalidateRuntimeEnvironmentTransport
+    },
     async clearTargetBrowserStorage(targetId) {
       const [partitions, storage] = await Promise.all([
         import('../../browser/routing/local-host-partitions/local-ssh-browser-partitions'),

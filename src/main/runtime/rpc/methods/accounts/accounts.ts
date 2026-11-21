@@ -10,6 +10,7 @@ import {
   SelectDataAccountParams,
   RemoveDataAccountParams,
   AccountsUnsubscribeParams,
+  AccountControlParams,
   BeginClaudeSignInParams,
   FinishClaudeSignInParams,
   AddClaudeFromConfigDirParams,
@@ -98,6 +99,26 @@ const ACCOUNT_METHOD_DEFINITIONS = [
       }
       await runtime.cancelClaudeSignIn(params)
       return {}
+    }
+  }),
+  defineMethod({
+    name: 'accounts.control',
+    permission: 'accounts-admin',
+    params: AccountControlParams,
+    handler: (params, { runtime, clientKind }) => {
+      if (clientKind === 'mobile') {
+        throw new Error('Account management requires a paired runtime client.')
+      }
+      return runtime.controlAccount(params)
+    }
+  }),
+  defineMethod({
+    name: 'accounts.usage',
+    permission: 'workspace',
+    params: null,
+    handler: async (_params, { runtime }) => {
+      await runtime.refreshAccountsForMobileSubscriber()
+      return { rateLimits: (await runtime.getAccountsSnapshot()).rateLimits }
     }
   }),
   defineMethod({

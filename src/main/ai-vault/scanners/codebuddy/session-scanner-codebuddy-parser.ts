@@ -185,7 +185,7 @@ export async function parseCodebuddySessionFile(
   return parseCodebuddySessionLines({ file, lines, platform, messages })
 }
 
-async function parseCodebuddySessionLines(args: {
+export async function parseCodebuddySessionLines(args: {
   file: FileWithMtime
   lines: AsyncIterable<string> | Iterable<string>
   platform: NodeJS.Platform

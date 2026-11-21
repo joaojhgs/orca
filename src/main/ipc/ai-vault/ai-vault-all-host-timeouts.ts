@@ -5,6 +5,8 @@ export const AI_VAULT_ALL_HOST_TIMEOUT_MS = {
   runtimeScan: 3_000,
   // SSH/tunneled scans walk large remote homes; the shorter local budget hid healthy hosts.
   sshTunneledRuntimeScan: 15_000,
+  sshScanRelay: 15_000,
+  sshScan: 20_000,
   // Indexed search shares the connection with scans, so use the same SSH budget.
   search: 15_000
 } as const

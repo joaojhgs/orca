@@ -7,7 +7,6 @@ import type {
   RuntimeTerminalShow,
   RuntimeTerminalSummary
 } from '../../../../shared/terminal/runtime/runtime-terminal-contracts'
-import type { RuntimeTerminalCreate } from '../../../../shared/terminal/runtime/runtime-terminal-create-contract'
 import type { RuntimeProviderSnapshotReadOptions } from '../output/provider-snapshot-read-options'
 import type { TerminalHandleRecord } from '../identity/terminal-handle-records'
 import type {
@@ -33,9 +32,6 @@ export abstract class OrcaRuntimeWithResolveTerminalPane extends OrcaRuntimeWith
   ): ReturnType<OrcaRuntimeWithCreateTerminal['createTerminal']>
 
   abstract getTerminalHandleForPaneKey(paneKey: string): string | null
-  abstract getPtyExecutionHostMetadata(
-    ptyId: string | null
-  ): Pick<RuntimeTerminalCreate, 'executionHostId' | 'hostPlatform' | 'incarnationId'>
   protected abstract getPaneKeyForTerminalHandle(handle: string): string | null
   protected abstract getResolvedWorktreeMap(): Promise<Map<string, ResolvedWorktree>>
   protected abstract buildPtyTerminalSummary(

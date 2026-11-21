@@ -1,3 +1,12 @@
+import { BROWSER_GRAB_COMPAT_METHODS } from './browser-grab'
+import { NETWORK_FORWARD_METHODS } from './network-forward'
+import { MULTICA_METHODS } from './multica'
+import { WORKSPACE_SPACE_METHODS } from './workspace-space'
+import { WORKSPACE_CLEANUP_METHODS } from './workspace-cleanup'
+import { MANAGER_METHODS } from './manager'
+import { USAGE_ANALYTICS_METHODS as SCOPED_USAGE_ANALYTICS_METHODS } from './usage-analytics'
+import { SKILL_LIBRARY_METHODS } from './skill-library'
+import { PAIRING_ADMINISTRATION_METHODS } from './pairing-administration'
 import { STATUS_METHODS } from './host-management/status'
 import { DESKTOP_WINDOW_METHODS } from './host-management/desktop-window'
 import { SIDEBAR_INPUT_METHODS } from './sidebar-inputs/sidebar-inputs'
@@ -125,6 +134,15 @@ import { ORCA_SIDEBAR_INPUTS_IS_MAIN } from '../../../../shared/sidebar-list/fee
 
 // Keep registration order and the full RPC/security surface visible in one manifest.
 const CORE_RPC_METHODS = [
+  ...BROWSER_GRAB_COMPAT_METHODS,
+  ...NETWORK_FORWARD_METHODS,
+  ...MULTICA_METHODS,
+  ...WORKSPACE_SPACE_METHODS,
+  ...WORKSPACE_CLEANUP_METHODS,
+  ...MANAGER_METHODS,
+  ...SCOPED_USAGE_ANALYTICS_METHODS,
+  ...SKILL_LIBRARY_METHODS,
+  ...PAIRING_ADMINISTRATION_METHODS,
   ...STATUS_METHODS,
   ...DESKTOP_WINDOW_METHODS,
   ...ORCAD_TERMINAL_CENSUS_METHODS,

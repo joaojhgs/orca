@@ -1,6 +1,9 @@
+import { activeSessions } from './ssh-active-relay-sessions'
+import { teardownActiveSshSession } from './ssh-session-teardown'
 import {
   connectInFlight,
   invalidateConnectAttempt,
+  resetRelayInFlight,
   testConnectionProbes
 } from './ssh-connect-attempt-registry'
 import { connectionManager, portForwardManager } from './ssh-ipc-context'
@@ -59,6 +62,10 @@ async function settleTasksWithinMs(
 
 function sshShutdownTasks(): SshShutdownTask[] {
   return [
+    ...[...activeSessions.keys()].map((targetId) => ({
+      targetId,
+      promise: teardownActiveSshSession(targetId, (session) => session.detachAndPersist(), false)
+    })),
     {
       targetId: '*transports',
       promise: connectionManager?.disconnectAll() ?? Promise.resolve()
@@ -76,10 +83,13 @@ function sshShutdownTasks(): SshShutdownTask[] {
   ]
 }
 
-async function drainSshShutdown(inFlight: readonly SshShutdownTask[]): Promise<SshShutdownResult> {
+async function drainSshShutdown(
+  inFlight: readonly SshShutdownTask[],
+  detachErrors: unknown[]
+): Promise<SshShutdownResult> {
   const deadline = Date.now() + SSH_SHUTDOWN_BUDGET_MS
   const unfinished: SshShutdownUnfinished[] = []
-  const errors: unknown[] = []
+  const errors = [...detachErrors]
   const runPhase = async (
     phase: SshShutdownPhase,
     tasks: readonly SshShutdownTask[]
@@ -123,11 +133,20 @@ export function beginSshShutdown(): Promise<SshShutdownResult> {
       targetId,
       promise: attempt.promise
     })),
+    ...[...resetRelayInFlight].map(([targetId, promise]) => ({ targetId, promise })),
     ...[...testConnectionProbes].map((promise) => ({ targetId: '*probe', promise }))
   ]
   for (const targetId of Array.from(connectInFlight.keys())) {
     invalidateConnectAttempt(targetId)
   }
-  sshShutdownDrain = drainSshShutdown(inFlight)
+  const detachErrors: unknown[] = []
+  for (const session of activeSessions.values()) {
+    try {
+      session.beginShutdownDetach()
+    } catch (error) {
+      detachErrors.push(error)
+    }
+  }
+  sshShutdownDrain = drainSshShutdown(inFlight, detachErrors)
   return sshShutdownDrain
 }

@@ -24,6 +24,7 @@ type EmulatorHostSettings = Pick<
   | 'mobileEmulatorOpeningMode'
   | 'mobileEmulatorRecentDevices'
 >
+import { captureEmulatorScreenshot } from '../../emulator/emulator-screenshot'
 
 export type RuntimeEmulatorCommandHost = {
   getEmulatorBridge(): EmulatorBridge | null
@@ -154,6 +155,15 @@ export class RuntimeEmulatorCommands {
       emulator: params.emulator,
       worktreeId
     })
+  }
+
+  async emulatorScreenshot(params: EmulatorTargetParams): Promise<{ pngBase64: string }> {
+    const worktreeId = await this.resolveWorktreeId(params.worktree)
+    const pngBase64 = await captureEmulatorScreenshot(this.requireEmulatorBridge(), {
+      device: params.device ?? params.emulator,
+      worktreeId
+    })
+    return { pngBase64 }
   }
 
   emulatorAttach(params: RuntimeEmulatorAttachParams) {

@@ -1,3 +1,4 @@
+import { recordUndeliveredSshPtyKill } from '../runtime/undelivered-ssh-kill'
 import type {
   PtyFencedTerminationRequest,
   PtyFencedTerminationOutcome
@@ -119,6 +120,13 @@ async function stopRendererOwnedPtyProcess(
     // Detached/unhydrated SSH ownership must be tombstoned, never routed to local fallback.
     const unproven = PtyRetirementWithoutProof.because(SSH_PROVIDER_UNREGISTERED_REASON)
     const incarnationId = finishPtyShutdown(args.id, connectionId, store, unproven)
+    recordUndeliveredSshPtyKill({
+      store,
+      ptyId: args.id,
+      connectionId,
+      incarnationId: incarnationId ?? undefined,
+      reversible: args.keepHistory === true
+    })
     publishSyntheticExit(deps, args.id, -1, incarnationId, unproven)
     return
   }
@@ -136,6 +144,13 @@ async function stopRendererOwnedPtyProcess(
     )
   } catch (err) {
     if (!isPtyAlreadyGoneError(err)) {
+      recordUndeliveredSshPtyKill({
+        store,
+        ptyId: args.id,
+        connectionId,
+        incarnationId: stoppingIncarnationId,
+        reversible: args.keepHistory === true
+      })
       // Failed shutdown may leave a live process; keep ownership so retry can reach it.
       throw err
     }

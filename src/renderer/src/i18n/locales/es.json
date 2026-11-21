@@ -3884,7 +3884,6 @@
             "4f327c8b3d": "Abrir Markdown...",
             "3d5d6c960d": "Nuevo Markdown",
             "fd2b42aaa3": "Nuevo emulador móvil",
-            "b426bb2615": "Ir al emulador móvil",
             "4833fb2cbe": "Nueva pestaña de navegador",
             "d364f3c8d4": "Nuevo terminal",
             "7c1313d237": "Nuevo terminal:",
@@ -5095,10 +5094,8 @@
         "SkillsSelectionHeader": {
           "exit": "Salir de la selección",
           "exitTooltip": "Salir de la selección · Esc",
-          "title": "Seleccionar skills para compartir",
           "selectAll": "Seleccionar las {{count}} aptas",
-          "clear": "Borrar",
-          "deleteTitle": "Seleccionar skills para eliminar"
+          "clear": "Borrar"
         },
         "SkillDetailDialog": {
           "agents": "Agentes",
@@ -6319,8 +6316,6 @@
                   "c709860596": "Crear nuevo proyecto",
                   "5f9ffac036": "Clonar un repositorio Git remoto",
                   "7edb8ebe24": "Clonar desde URL",
-                  "serverSshTitle": "Proyecto en un host SSH de este servidor",
-                  "serverSshAddOnThisComputer": "No disponible desde un servidor. Añade el host SSH en este ordenador para abrir sus proyectos.",
                   "fb4fc5380e": "Proyecto local, repositorio de Git o carpeta con muchos repositorios",
                   "2281fdc8c7": "Explorar carpeta",
                   "runtimeBrowseDescription": "Repositorio Git o carpeta existente en este host"
@@ -8753,7 +8748,6 @@
           "reconnectOnLaunch": "Reconectar al iniciar",
           "reconnectOnLaunchHelp": "Si está desactivado, Orca deja este host, y cualquier servidor de Orca al que se llegue a través de él, desconectado al iniciarse hasta que lo conectes.",
           "allowRemoteCliControl": "Permitir que este host controle pestañas del navegador de Orca en sus espacios de trabajo",
-          "allowRemoteCliControlHelp": "Activado de forma predeterminada en los hosts nuevos. Los agentes y comandos orca de este host pueden abrir, leer y usar pestañas del navegador de Orca en este escritorio, solo en los espacios de trabajo de este host y solo mientras esté conectado. Las pestañas que controla muestran su nombre. Las terminales iniciadas en este host por una versión anterior de Orca también necesitan esto activado para ejecutar comandos de orquestación de orca. No puede leer tus archivos, tu portapapeles ni tus cookies.",
           "addHost": "Añadir host",
           "proxyConnectionReuse": "Reutilizar una sola conexión proxy",
           "proxyConnectionReuseHelp": "Conexiones más rápidas a través de hosts ProxyCommand o ProxyJump lentos. Actívalo solo si tu ssh_config no depende de reglas Match o %h específicas de cada host.",
@@ -11972,9 +11966,7 @@
           "keywordPermission": "permiso",
           "signIn": "Iniciar sesión en Orca",
           "howToTitle": "Cómo utilizar artefactos",
-          "howToDescription": "Publique archivos HTML o Markdown como enlaces públicos y luego compártalos con su equipo.",
           "shareStepTitle": "Elige un archivo para compartir",
-          "shareStepDescription": "Abra un archivo HTML o Markdown y seleccione Compartir como artefacto o pídale a un agente que lo comparta.",
           "linkStepTitle": "Copia el enlace público",
           "linkStepDescription": "Después de publicar, copie el enlace y envíelo a su equipo.",
           "manageStepTitle": "Gestionarlo en Orca",
@@ -11985,12 +11977,8 @@
           "openArtifactsDescriptionV2": "Obtenga una vista previa, copie y administre enlaces compartidos a través de su cuenta.",
           "signInDescription": "Utilice su cuenta Orca para cargar artefactos y administrar sus enlaces públicos.",
           "enableStepTitle": "Habilitar el intercambio de artefactos",
-          "enableStepWebDescription": "Abra Configuración → Artefactos en la aplicación de escritorio Orca en el dispositivo host y habilite la publicación.",
           "enableStepDescription": "Active \"Permitir la publicación de enlaces de artefactos públicos\" arriba.",
           "allowPublishing": "Permitir la publicación de enlaces de artefactos públicos",
-          "allowPublishingWebDescription": "Solo escritorio. Abra Configuración → Artefactos en el dispositivo host para cambiar esta configuración.",
-          "allowPublishingDescription": "Publique archivos HTML y Markdown como enlaces que cualquiera con la URL puede abrir. Los enlaces existentes permanecen hasta que los elimine de Artifacts.",
-          "howToDescriptionDisabled": "Habilite el uso compartido de artefactos arriba para publicar archivos HTML o Markdown como enlaces públicos.",
           "allowPublishingSearchDescription": "Permita que Orca publique archivos HTML y Markdown como enlaces públicos.",
           "keywordArtifacts": "artefactos",
           "keywordShare": "compartir",
@@ -18380,17 +18368,6 @@
         "activityMonitorCount_one": "Supervisando {{count}} tarea en segundo plano",
         "activityMonitorCount_other": "Supervisando {{count}} tareas en segundo plano",
         "activityMonitorCount_many": "Supervisando {{count}} tareas en segundo plano"
-      },
-      "web": {
-        "preloadApi": {
-          "cursorAccounts": {
-            "hostOnly": "Los detalles del inicio de sesión de Cursor solo se pueden leer en el equipo donde se ejecuta Orca."
-          },
-          "accounts": {
-            "signInHostOnly": "Agregar una cuenta o volver a iniciar sesión en ella solo está disponible en la app de escritorio del equipo que ejecuta Orca.",
-            "claudeWslDefaultUnavailable": "Volver a cambiar una cuenta WSL al predeterminado del sistema solo está disponible en la app de escritorio."
-          }
-        }
       },
       "BrowserCookieImportDisclosure": {
         "title": "Los inicios de sesión de Google no se importan",

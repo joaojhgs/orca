@@ -158,8 +158,8 @@ export function TabBarStaticCreateMenu({
           {
             id: CREATE_ROW_MOBILE_EMULATOR_ID,
             label: workspaceHasSimulatorTab
-              ? t('auto.components.tab.bar.TabBar.b426bb2615', 'Go to Mobile Emulator')
-              : t('auto.components.tab.bar.TabBar.fd2b42aaa3', 'New Mobile Emulator'),
+              ? t('auto.components.tab.bar.TabBar.92f4d1a6c8', 'Go to Device Preview')
+              : t('auto.components.tab.bar.TabBar.341eb2875d', 'New Device Preview'),
             icon: <Smartphone className={ICON_CLASS} />,
             actionId: 'tab.newSimulator',
             run: onNewSimulatorTab

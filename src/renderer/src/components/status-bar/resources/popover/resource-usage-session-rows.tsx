@@ -1,6 +1,7 @@
 import React from 'react'
 import { ChevronDown, ChevronRight, Globe, Trash2, X } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/class-names'
 import { useTranslate } from '@/i18n/use-translate'
 import type { BrowserWorkspace } from '../../../../../../shared/browser/workspaces/browser-workspace-types'
@@ -63,6 +64,15 @@ export function SessionRow({
       <span className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">
         {session.label}
       </span>
+      {session.pid > 0 && (
+        <span className="shrink-0 text-[10px] text-muted-foreground" title={session.sessionId}>
+          {t(
+            'auto.components.status.bar.resources.popover.resource.usage.session.rows.7aed30dbc0',
+            'PID'
+          )}{' '}
+          {session.pid}
+        </span>
+      )}
       <MetricPair cpu={session.cpu} memory={session.memory} size="small" />
       {/* Reserve the kill gutter for alignment; paired samples are read-only, while bound local rows reveal actions on hover/focus. */}
       <span className={ROW_TRAILING_GUTTER_CLS}>
@@ -181,7 +191,12 @@ export function WorktreeRow({
           disabled={!isNavigable}
         >
           <span className="text-xs font-medium truncate">{rowLabel}</span>
-          {/* Use execution-host evidence; missing samples also occur during local warm reattach. */}
+          {worktree.executionHostName && (
+            <Badge variant="hostContext" className="max-w-32" title={worktree.executionHostId}>
+              <span className="truncate">{worktree.executionHostName}</span>
+            </Badge>
+          )}
+          {/* Why: gate the chip on SSH connectionId, not missing data — warm-reattached local PTYs land here with hasLocalSamples=false. */}
           {worktree.isRemote && (
             <span className="shrink-0 text-[9px] uppercase tracking-wide text-muted-foreground/70">
               {worktree.hostLabel

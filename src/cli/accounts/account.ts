@@ -53,6 +53,7 @@ import {
   selectAgentAccount
 } from './account-selection'
 import type { AntigravityAccountState } from '../../shared/agent-accounts/antigravity/antigravity-account-types'
+import { accountUsage } from './account-usage'
 
 type AccountsListSnapshot = {
   opencode?: ManagedDataAccountsState
@@ -243,6 +244,7 @@ async function assertAccountImportSupported(
 }
 
 export const ACCOUNT_HANDLERS: Record<string, CommandHandler> = {
+  'account usage': accountUsage,
   'account add': async (ctx) => {
     const agentFlag = ctx.flags.get('agent')
     // A valueless flag is true; never silently default it to a different provider's OAuth flow.

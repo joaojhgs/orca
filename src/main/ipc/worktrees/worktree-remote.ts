@@ -75,9 +75,10 @@ import {
 import { isTuiAgent } from '../../../shared/agent-launch/catalog/tui-agent-config'
 import { runWorktreeChangeInvalidators } from './listing/worktree-change-invalidators'
 
-type CreateWorktreeArgsWithSystemProvenance = CreateWorktreeArgs & {
+export type CreateWorktreeArgsWithSystemProvenance = CreateWorktreeArgs & {
   automationProvenance?: AutomationWorkspaceProvenance
   cliProvenance?: CliWorkspaceProvenance
+  creatorProvenance?: Worktree['creatorProvenance']
 }
 import {
   sanitizeWorktreeName,
@@ -390,8 +391,8 @@ export function recordWorkspaceLineageForCreatedWorktree(
 }
 
 /** Same refusal as the RPC create, before any checkout exists: a well-formed ref from another store. */
-async function assertCreatableCrossStoreParent(
-  runtime: OrcaRuntimeService,
+export async function assertCreatableCrossStoreParent(
+  runtime: Pick<OrcaRuntimeService, 'readStoreInstallationId'>,
   parent: NonNullable<CreateWorktreeArgs['crossStoreParent']>
 ): Promise<void> {
   // IPC args are unchecked.
@@ -626,7 +627,7 @@ function isMatchingSelectedGitHubPr(
   )
 }
 
-function isAllowedPushTargetRemoteConflict(
+export function isAllowedPushTargetRemoteConflict(
   conflictKind: 'local' | 'remote' | null,
   branchName: string,
   args: SelectedReviewBranchInput
@@ -654,7 +655,7 @@ function getSelectedReviewLookupHints(args: SelectedReviewBranchInput): {
   }
 }
 
-async function getSelectedHostedReviewForBranch(
+export async function getSelectedHostedReviewForBranch(
   repo: Pick<Repo, 'path' | 'connectionId' | 'executionHostId'>,
   branchName: string,
   args: SelectedReviewBranchInput

@@ -6,3 +6,12 @@ inline src/main/ipc/worktrees/worktree-remote.ts
 inline src/main/ssh/protocol/ssh-channel-multiplexer.ts
 inline src/main/ssh/connection/ssh-connection.ts
 inline src/renderer/src/components/terminal-pane/pty-transport/remote-runtime/remote-runtime-pty-transport.ts
+
+# Existing suppression retained from published fork 6685509715; no new directive or threshold.
+inline src/main/ssh/ssh-relay-deploy.ts
+
+# Existing suppression retained from published fork 6685509715; no new directive or threshold.
+inline src/main/ssh/ssh-relay-session.ts
+
+# Existing suppression retained from published fork 6685509715; no new directive or threshold.
+inline src/relay/pty-handler.ts

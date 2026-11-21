@@ -30,6 +30,8 @@ export type ShellStartupFeatureInput = {
   shellPath: string
   /** Use the spawn environment, never process.env. */
   env: Record<string, string | undefined>
+  /** Direct SSH clients from before the config-dir overlay may still send a home overlay. */
+  allowLegacyMimoHome?: boolean
   hasStartupCommand: boolean
   /** Delivery waits for the wrapper's OSC 777 marker. */
   waitsForShellReady: boolean
@@ -42,7 +44,9 @@ function shellName(shellPath: string): string {
 
 // Ignore inherited feature selections; derive this launch from its own intent.
 export function selectShellStartupFeatures(input: ShellStartupFeatureInput): ShellStartupFeature[] {
-  const overlay = OVERLAY_ENV_KEYS.some((key) => Boolean(input.env[key]))
+  const overlay =
+    OVERLAY_ENV_KEYS.some((key) => Boolean(input.env[key])) ||
+    (input.allowLegacyMimoHome === true && Boolean(input.env.ORCA_MIMOCODE_HOME))
   const wrappedBefore = overlay || input.hasStartupCommand
   const ready = input.waitsForShellReady
   // System zshrc overwrites HISTFILE; bash needs no wrapper for history alone.

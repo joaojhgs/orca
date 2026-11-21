@@ -25,6 +25,7 @@ import {
 import { useResourceSessionInventory } from './inventory/use-resource-session-inventory'
 import { useResourceUsageActions } from './session-actions/use-resource-usage-actions'
 import { useResourceUsageDerivedModel } from './use-resource-usage-derived-model'
+import { withRemoteResourceSamples } from '../remote-resource-samples'
 import { useRuntimeHostResources } from '../host-connections/use-runtime-host-resources'
 import {
   collectRuntimeResourceEnvironmentIds,
@@ -122,7 +123,7 @@ export function useResourceUsageStatusController() {
   const deferredSshSessionIdsByTabId = useAppStore((s) =>
     getResourceUsageDeferredSshSessionIdsByTabId(s, viewActive)
   )
-  const resourceSnapshot = snapshot
+  const resourceSnapshot = useMemo(() => withRemoteResourceSamples(snapshot), [snapshot])
   const runtimeEnvironments = useAppStore((s) => s.runtimeEnvironments)
   const runtimeEnvironmentIds = useMemo(
     () =>

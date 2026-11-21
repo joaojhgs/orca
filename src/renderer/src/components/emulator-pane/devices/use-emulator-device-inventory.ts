@@ -6,8 +6,7 @@ import {
   type Dispatch,
   type SetStateAction
 } from 'react'
-import { callRuntimeRpc } from '@/runtime/rpc/calls/runtime-rpc-call'
-import { toSimulatorDeviceRows, type RawEmulatorDevice } from './emulator-device-row-mapping'
+import { listEmulatorPaneDevices } from '../list-emulator-pane-devices'
 import { markSimulatorDeviceBooted } from './emulator-device-state'
 import { emulatorListDevicesErrorText } from '../session/emulator-pane-error-copy'
 import type { SimulatorDeviceRow } from '../session/emulator-pane-types'
@@ -21,12 +20,7 @@ export function useEmulatorDeviceInventory(
   const refreshDevices = useCallback(
     async (bootedTarget?: string | null) => {
       try {
-        const raw = (await callRuntimeRpc(
-          { kind: 'local' },
-          'emulator.listDevices',
-          {}
-        )) as RawEmulatorDevice[]
-        const list = toSimulatorDeviceRows(raw)
+        const list = await listEmulatorPaneDevices()
         const next = markSimulatorDeviceBooted(list, bootedTarget)
         if (!mountedRef.current) {
           return next

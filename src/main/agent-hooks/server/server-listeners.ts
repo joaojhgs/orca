@@ -214,6 +214,11 @@ export abstract class AgentHookServerListeners extends AgentHookServerAgentIdent
     return this.combinedStatusEntries().map(toAgentStatusIpcPayload)
   }
 
+  /** Host-local policy readers need the accepted evidence and its replay/retention provenance. */
+  getEnrichedStatusSnapshot(): EnrichedAgentHookEventPayload[] {
+    return this.combinedStatusEntries()
+  }
+
   /** Include metadata-only provider identities. */
   getProviderSessionIdentities(): AgentHookProviderSessionIdentity[] {
     return this.buildStatusChangeNotification().providerSessions

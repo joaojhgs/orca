@@ -122,7 +122,10 @@ export const EMULATOR_HANDLERS: Record<string, CommandHandler> = {
   },
   'emulator devices': async ({ flags, client, cwd, json }) => {
     const target = await getEmulatorCommandTarget(flags, cwd, client)
-    const res = await client.call('emulator.listDevices', { worktree: target.worktree })
+    const res = await client.call('emulator.listDevices', {
+      worktree: target.worktree,
+      ...(flags.get('local-only') === true ? {} : { executionHosts: true })
+    })
     printResult(res, json, formatEmulatorDevices)
   },
   'emulator attach': async ({ flags, client, cwd, json }) => {
@@ -283,12 +286,13 @@ export const EMULATOR_HANDLERS: Record<string, CommandHandler> = {
   },
   'emulator ax': async ({ flags, client, cwd, json }) => {
     const target = await getEmulatorCommandTarget(flags, cwd, client)
-    const res = await client.call('emulator.ax', {
-      device: target.device,
-      emulator: target.emulator,
-      worktree: target.worktree
-    })
+    const res = await client.call('emulator.ax', target)
     printResult(res, json, (r) => JSON.stringify(r, null, 2))
+  },
+  'emulator screenshot': async ({ flags, client, cwd, json }) => {
+    const target = await getEmulatorCommandTarget(flags, cwd, client)
+    const res = await client.call('emulator.agentScreenshot', target)
+    printResult(res, json, () => 'Captured device screenshot; use --json for PNG bytes.')
   },
   'emulator logcat': async ({ flags, client, cwd, json }) => {
     const target = await getEmulatorCommandTarget(flags, cwd, client)

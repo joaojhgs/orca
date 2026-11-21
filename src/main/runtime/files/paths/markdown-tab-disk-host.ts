@@ -20,7 +20,7 @@ import { assertFileMutationOwnershipCapability } from '../../../../shared/file-w
 import type { PersistedOpenFile } from '../../../../shared/workspace-session/workspace-session-state-types'
 import { readLocalRuntimeFilePrefix } from '../file-reads'
 import {
-  requireLocalRuntimeFileRoute,
+  getDirectSshRuntimeFileProvider,
   requireRuntimeFileProvider,
   type ResolvedRuntimeFileTarget,
   type RuntimeLocalFileHost
@@ -59,15 +59,17 @@ export function createMarkdownTabDiskHost(runtime: MarkdownTabDiskRuntime): Mark
     worktreeId: string,
     file: MarkdownFileAddress
   ): Promise<MarkdownFileRoute> => {
-    if (file.externalSshTargetId) {
-      throw new SshHostNotServedError(file.externalSshTargetId)
-    }
     const target = await runtime.resolveRuntimeFileTarget(`id:${worktreeId}`)
     const host = parseExecutionHostId(target.executionHostId)
+    if (
+      file.externalSshTargetId &&
+      (host?.kind !== 'ssh' || host.targetId !== file.externalSshTargetId)
+    ) {
+      throw new SshHostNotServedError(file.externalSshTargetId)
+    }
     if (host?.kind === 'runtime') {
       return { environmentId: host.environmentId, pairingRevision: undefined }
     }
-    requireLocalRuntimeFileRoute(target)
     return { environmentId: null, target }
   }
   const fileIo = (
@@ -83,6 +85,14 @@ export function createMarkdownTabDiskHost(runtime: MarkdownTabDiskRuntime): Mark
           file,
           route.pairingRevision
         )
+      }
+      const provider = getDirectSshRuntimeFileProvider(route.target)
+      if (provider) {
+        const result = await provider.readFile(file.filePath, { maxTextBytes: maxBytes })
+        if (result.isBinary) {
+          throw new Error('binary_file')
+        }
+        return { content: result.content, byteLength: (await provider.stat(file.filePath)).size }
       }
       const { bytes, size } = await readLocalRuntimeFilePrefix(
         file.filePath,
@@ -107,11 +117,14 @@ export function createMarkdownTabDiskHost(runtime: MarkdownTabDiskRuntime): Mark
           precondition
         )
       }
-      return requireRuntimeFileProvider(route.target, runtime).writeFileWithDiskPrecondition(
-        file.filePath,
-        content,
-        precondition
-      )
+      const provider = requireRuntimeFileProvider(route.target, runtime)
+      if ('writeFileWithDiskPrecondition' in provider) {
+        return provider.writeFileWithDiskPrecondition(file.filePath, content, precondition)
+      }
+      if (!provider.writeFileIfUnchanged) {
+        throw new Error('This host cannot compare a file before saving')
+      }
+      return provider.writeFileIfUnchanged(file.filePath, content, precondition)
     }
   })
   return {

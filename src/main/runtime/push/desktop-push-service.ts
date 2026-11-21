@@ -1,5 +1,4 @@
-// Push authenticates with host keys, independent of cloud sign-in; retain gateway registrations and durable cleanup for accountless hosts too.
-import { randomUUID } from 'node:crypto'
+import { testDesktopPushDelivery } from './test-desktop-push-delivery'
 import type {
   MobilePushTestResult,
   MobilePushRegisterInput,
@@ -10,6 +9,8 @@ import type { DeviceRegistry } from '../rpc/server/pairing/device-registry'
 import type { OrcaRuntimeService } from '../orca-runtime'
 import type { OrcaRuntimeRpcServer } from '../rpc/server/runtime-rpc'
 import { PushDispatcher } from './push-dispatcher'
+import { PushDigestDelivery } from './push-digest-delivery'
+import { confirmNotificationDigestRelevance } from '../../notifications/notification-digest-relevance'
 import { PushGatewayClient } from './push-gateway-client'
 import { PushRegisterThrottle } from './push-register-throttle'
 import {
@@ -18,6 +19,7 @@ import {
 } from './mobile-push-delivery-policy'
 import type { PushUnregisterOutbox } from './push-unregister-outbox'
 
+// Push authenticates with host keys, independent of cloud sign-in; retain gateway registrations and durable cleanup for accountless hosts too.
 const OUTBOX_RETRY_BASE_MS = 30_000
 const OUTBOX_RETRY_MAX_MS = 10 * 60_000
 
@@ -27,6 +29,7 @@ type DesktopPushServiceOptions = {
   runtime: OrcaRuntimeService
   runtimeRpc: OrcaRuntimeRpcServer
   gatewayUrl: string
+  userDataPath?: string
   /** Inject a gateway client for tests. */
   client?: PushGatewayClient
   /** Inject outbox backoff scheduling for tests. */
@@ -42,6 +45,7 @@ export class DesktopPushService {
   private readonly outbox: PushUnregisterOutbox
   private readonly client: PushGatewayClient
   private readonly dispatcher: PushDispatcher
+  private readonly digestDelivery: PushDigestDelivery
   private readonly deliveryMode: MobilePushDeliveryMode
   private readonly registerThrottle: PushRegisterThrottle
   private readonly scheduleRetry: (run: () => void, delayMs: number) => void
@@ -64,8 +68,26 @@ export class DesktopPushService {
     this.client = client
     this.outbox = options.runtimeRpc.getPushUnregisterOutbox()
     this.deliveryMode = readMobilePushDeliveryMode()
-    this.dispatcher = new PushDispatcher({ client, registry, deliveryMode: this.deliveryMode })
+    this.dispatcher = new PushDispatcher({
+      client,
+      registry,
+      deliveryMode: this.deliveryMode,
+      allowsDelivery: (event, deviceId) =>
+        this.runtime.allowsMobileNotificationDelivery?.(event, deviceId) ?? true,
+      allowsSound: (event, deviceId) =>
+        this.runtime.allowsMobileNotificationSound?.(event, deviceId) ?? true
+    })
     this.registerThrottle = options.registerThrottle ?? new PushRegisterThrottle()
+    this.digestDelivery = new PushDigestDelivery({
+      userDataPath: options.userDataPath,
+      registry,
+      dispatcher: this.dispatcher,
+      confirmRelevant: (event) => confirmNotificationDigestRelevance(this.runtime, event),
+      allowsDelivery: (event, deviceId) =>
+        this.runtime.allowsMobileNotificationDelivery?.(event, deviceId) ?? true,
+      deliveryMode: (event, deviceId) =>
+        this.runtime.getMobileNotificationDeliveryMode?.(event, deviceId) ?? 'immediate'
+    })
     this.scheduleRetry =
       options.scheduleRetry ??
       ((run, delayMs) => {
@@ -89,9 +111,10 @@ export class DesktopPushService {
   start(): void {
     this.stopped = false
     this.dispatcher.start()
+    this.digestDelivery.start()
     this.runtime.setMobilePushRegistrar(this)
     this.unsubscribe = this.runtime.onNotificationDispatched((event) => {
-      this.dispatcher.enqueue(event)
+      this.digestDelivery.enqueue(event)
     })
     // Unpairing queues a delete without going through this service; drain on that too.
     this.runtimeRpc.setOnPushUnregisterQueued(() => {
@@ -104,6 +127,7 @@ export class DesktopPushService {
   stop(): void {
     this.stopped = true
     this.dispatcher.stop()
+    this.digestDelivery.stop()
     this.unsubscribe?.()
     this.unsubscribe = null
     this.runtimeRpc.setOnPushUnregisterQueued(null)
@@ -119,42 +143,7 @@ export class DesktopPushService {
     if (this.stopped || this.deliveryMode === 'disabled') {
       return { accepted: false, reason: 'unavailable' }
     }
-    // Explicit tests target only the caller and bypass automatic activity filters.
-    const result = await this.client.send({
-      registrationIds: [registration.registrationId],
-      notification: {
-        source: 'terminal-bell',
-        agentState: null,
-        title: 'Test notification',
-        body: '',
-        notificationId: randomUUID(),
-        notificationEpoch: randomUUID(),
-        notificationSeq: 0,
-        expiresAt: Date.now() + 300_000,
-        sound: registration.filter.sound !== false
-      }
-    })
-    if (!result.ok) {
-      return {
-        accepted: false,
-        reason: result.reason === 'unreachable' ? 'unavailable' : 'rejected'
-      }
-    }
-    const status = result.results.find(
-      (entry) => entry.registrationId === registration.registrationId
-    )?.status
-    if (status === 'queued') {
-      return { accepted: true }
-    }
-    return {
-      accepted: false,
-      reason:
-        status === 'rate_limited'
-          ? 'rate_limited'
-          : status === 'dead'
-            ? 'not_registered'
-            : 'rejected'
-    }
+    return testDesktopPushDelivery(this.client, registration)
   }
 
   async register(input: MobilePushRegisterInput): Promise<MobilePushRegisterResult> {

@@ -1,0 +1,361 @@
+import { useId, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { HostCombobox } from '@/components/host-picker/HostCombobox'
+import { Checkbox } from '@/components/ui/checkbox'
+import type {
+  SkillAssignmentBatchProgress,
+  SkillAssignmentBatchResult
+} from './skill-library-batch-assign'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import { SkillInstallAgentPicker } from './installation/SkillInstallAgentPicker'
+import { SkillInstallWorkspaceCombobox } from './installation/SkillInstallWorkspaceCombobox'
+import type { SkillInstallProviderId } from '../../../../shared/skills/installation/skill-install-providers'
+import type {
+  SkillLibrarySnapshot,
+  SkillLibraryVersion
+} from '../../../../shared/skill-library-contract'
+import { parseExecutionHostId } from '../../../../shared/execution-host/execution-host'
+import type { SkillInstallDestination } from '../../../../shared/skills/installation/skill-install-contract'
+import { useTranslate } from '@/i18n/use-translate'
+import { SkillLibraryVersionSelection } from './SkillLibraryVersionSelection'
+import { SkillLibraryProjectSelect } from './SkillLibraryProjectSelect'
+
+type AssignDialogProps = {
+  version: SkillLibraryVersion | null
+  versions?: readonly SkillLibraryVersion[]
+  progress?: SkillAssignmentBatchProgress | null
+  outcomes?: readonly SkillAssignmentBatchResult[] | null
+  snapshot: SkillLibrarySnapshot
+  busy: boolean
+  error: string | null
+  onClose(): void
+  onAssign(
+    destination: SkillInstallDestination | SkillInstallDestination[],
+    providers: string[],
+    versions?: SkillLibraryVersion[]
+  ): void
+}
+
+export function SkillLibraryAssignDialog(props: AssignDialogProps) {
+  return (
+    <SkillLibraryAssignForm
+      key={
+        props.versions?.map((row) => row.versionId).join(',') ??
+        props.version?.versionId ??
+        'closed'
+      }
+      {...props}
+    />
+  )
+}
+
+function SkillLibraryAssignForm(props: AssignDialogProps) {
+  const t = useTranslate()
+  const [hostId, setHostId] = useState('local')
+  const [scope, setScope] = useState<'global' | 'workspace' | 'project'>('global')
+  const [projectId, setProjectId] = useState('')
+  const [workspace, setWorkspace] = useState('')
+  const [providers, setProviders] = useState<Set<SkillInstallProviderId>>(new Set(['codex']))
+  const [reviewed, setReviewed] = useState(false)
+  const versions = props.versions ?? (props.version ? [props.version] : [])
+  const [included, setIncluded] = useState(new Set(versions.map((row) => row.versionId)))
+  const selectedVersions = versions.filter((row) => included.has(row.versionId))
+  const bulk = props.versions !== undefined
+  const locked = props.busy || Boolean(props.outcomes)
+  const id = useId()
+  const choices = props.snapshot.workspaces.filter((row) => row.hostId === hostId)
+  const selected = choices.find((row) => `${row.kind}:${row.id}` === workspace)
+  const host = parseExecutionHostId(hostId)
+  const project = props.snapshot.projects?.find((row) => row.id === projectId)
+  const projectWorkspaces = props.snapshot.workspaces.filter(
+    (row) =>
+      project?.workspaceKeys.includes(`${row.kind}:${row.id}`) &&
+      (hostId === 'all' || row.hostId === hostId)
+  )
+  const validHost =
+    (scope === 'project' && hostId === 'all') ||
+    ((host?.kind === 'local' || host?.kind === 'ssh') &&
+      props.snapshot.hosts.some((row) => row.id === hostId))
+  const submit = () => {
+    if (
+      locked ||
+      !validHost ||
+      !selectedVersions.length ||
+      selectedVersions.length > 50 ||
+      (bulk && !reviewed) ||
+      (scope === 'workspace' && !selected) ||
+      (scope === 'project' && !projectWorkspaces.length)
+    ) {
+      return
+    }
+    if (scope === 'project') {
+      props.onAssign(
+        projectWorkspaces.map((row) => ({
+          scope: 'workspace',
+          ...(row.kind === 'worktree' ? { worktreeId: row.id } : { folderWorkspaceId: row.id })
+        })),
+        [...providers],
+        selectedVersions
+      )
+      return
+    }
+    const destination: SkillInstallDestination =
+      scope === 'workspace' && selected
+        ? {
+            scope: 'workspace',
+            ...(selected.kind === 'worktree'
+              ? { worktreeId: selected.id }
+              : { folderWorkspaceId: selected.id })
+          }
+        : {
+            scope: 'global',
+            executionTarget:
+              host?.kind === 'ssh' ? { kind: 'ssh', connectionId: host.targetId } : { kind: 'host' }
+          }
+    props.onAssign(destination, [...providers], selectedVersions)
+  }
+  return (
+    <Dialog
+      open={props.version !== null}
+      onOpenChange={(open) => {
+        if (!open && !props.busy) {
+          props.onClose()
+        }
+      }}
+    >
+      <DialogContent surface="security" className="flex max-h-[85vh] flex-col overflow-hidden">
+        <div className="scrollbar-sleek flex min-h-0 flex-col gap-4 overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {bulk
+                ? t('skills.library.assignBatchTitle', 'Assign {{total}} imported skills', {
+                    total: versions.length
+                  })
+                : t('skills.library.assignTitle', 'Assign {{name}}', {
+                    name: props.version?.name
+                  })}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                'skills.library.assignHelp',
+                'Pin this version to a host and its native coding runtimes. Existing sessions stay running and may load skills only on their next normal start.'
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {bulk ? (
+            <section aria-label={t('skills.library.assignmentReview', 'Pinned skills to assign')}>
+              <SkillLibraryVersionSelection
+                versions={versions}
+                selected={included}
+                disabled={locked}
+                onChange={(value) => {
+                  setIncluded(value)
+                  setReviewed(false)
+                }}
+              />
+            </section>
+          ) : null}
+          <fieldset className="flex flex-col gap-3" disabled={locked}>
+            <legend className="sr-only">
+              {t('skills.library.destination', 'Installation destination')}
+            </legend>
+            <Label htmlFor={`${id}-host`}>
+              {t('skills.library.executionHost', 'Execution host')}
+            </Label>
+            <HostCombobox
+              id={`${id}-host`}
+              value={hostId}
+              disabled={locked}
+              options={[
+                ...(scope === 'project'
+                  ? [
+                      {
+                        id: 'all',
+                        label: t('skills.library.allProjectHosts', 'All project hosts')
+                      }
+                    ]
+                  : []),
+                ...props.snapshot.hosts.map((host) => ({
+                  id: host.id,
+                  label: host.reachable
+                    ? host.label
+                    : `${host.label}${t('skills.library.queuedHost', ' · unavailable (queued until connected)')}`
+                }))
+              ]}
+              onChange={(value) => {
+                setHostId(value)
+                setWorkspace('')
+                setReviewed(false)
+              }}
+            />
+            <Label htmlFor={`${id}-scope`}>{t('skills.library.scope', 'Scope')}</Label>
+            <Select
+              value={scope}
+              disabled={locked}
+              onValueChange={(value) => {
+                if (value === 'global' || value === 'workspace' || value === 'project') {
+                  setScope(value)
+                  if (value === 'project') {
+                    setHostId('all')
+                  }
+                  if (value !== 'project' && hostId === 'all') {
+                    setHostId('local')
+                  }
+                  setReviewed(false)
+                }
+              }}
+            >
+              <SelectTrigger id={`${id}-scope`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="global">
+                    {t('skills.library.global', 'Global skills')}
+                  </SelectItem>
+                  <SelectItem value="workspace">
+                    {t('skills.library.workspace', 'Registered workspace')}
+                  </SelectItem>
+                  {props.snapshot.projects ? (
+                    <SelectItem value="project">
+                      {t('skills.library.project', 'Project workspaces')}
+                    </SelectItem>
+                  ) : null}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            {scope === 'workspace' ? (
+              <SkillInstallWorkspaceCombobox
+                value={workspace}
+                onValueChange={(value) => {
+                  setWorkspace(value)
+                  setReviewed(false)
+                }}
+                choices={choices.map((choice) => ({
+                  ...choice,
+                  id: `${choice.kind}:${choice.id}`
+                }))}
+                disabled={locked}
+              />
+            ) : null}
+            {scope === 'project' ? (
+              <SkillLibraryProjectSelect
+                id={`${id}-project`}
+                projectId={projectId}
+                projects={props.snapshot.projects}
+                total={projectWorkspaces.length}
+                disabled={locked}
+                onChange={(value) => {
+                  setProjectId(value)
+                  setReviewed(false)
+                }}
+              />
+            ) : null}
+            <SkillInstallAgentPicker
+              scope={scope === 'project' ? 'workspace' : scope}
+              selected={providers}
+              detectedAgents={null}
+              busy={locked}
+              onChange={(value) => {
+                setProviders(value)
+                setReviewed(false)
+              }}
+            />
+          </fieldset>
+          <p className="text-xs text-muted-foreground">
+            {t(
+              'skills.library.sharedPlacementHelp',
+              'Placements share .agents/skills. Selecting a runtime enables discovery; it is not an access-control restriction for other runtimes that read that shared directory. Local edits and unowned files are never discarded.'
+            )}
+          </p>
+          {bulk ? (
+            <Label>
+              <Checkbox
+                aria-label={t('skills.library.approveAssignment', 'Approve skill assignment')}
+                checked={reviewed}
+                disabled={locked}
+                onCheckedChange={(value) => setReviewed(value === true)}
+              />
+              {t(
+                'skills.library.assignmentApproval',
+                'Assign these pinned skills to the selected destination and runtimes. Existing runtime assignments are retained.'
+              )}
+            </Label>
+          ) : null}
+          {props.progress && props.busy ? (
+            <p role="status" className="text-xs text-muted-foreground">
+              {t(
+                'skills.library.assignmentProgress',
+                'Assigning {{index}}/{{total}}: {{name}}',
+                props.progress
+              )}
+            </p>
+          ) : null}
+          {props.outcomes ? (
+            <ul
+              aria-label={t('skills.library.assignmentResults', 'Assignment results')}
+              className="flex flex-col gap-2"
+            >
+              {props.outcomes.map((row) => (
+                <li key={`${row.versionId}-${row.destinationLabel ?? ''}`} className="text-xs">
+                  {row.name}: {row.status}
+                  {row.destinationLabel ? ` · ${row.destinationLabel}` : ''}
+                  {row.message ? ` — ${row.message}` : ''}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {props.error ? (
+            <p role="alert" className="text-xs text-destructive">
+              {props.error}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" disabled={props.busy} onClick={props.onClose}>
+              {props.outcomes
+                ? t('skills.library.closeResults', 'Close results')
+                : t('skills.library.cancel', 'Cancel')}
+            </Button>
+            <Button
+              disabled={
+                locked ||
+                !validHost ||
+                providers.size === 0 ||
+                !selectedVersions.length ||
+                selectedVersions.length > 50 ||
+                (scope === 'workspace' && !selected) ||
+                (scope === 'project' && !projectWorkspaces.length) ||
+                (bulk && !reviewed)
+              }
+              onClick={submit}
+            >
+              {props.busy
+                ? t('skills.library.provisioning', 'Provisioning…')
+                : bulk
+                  ? t('skills.library.assignBatchSubmit', 'Assign {{total}} skills', {
+                      total: selectedVersions.length
+                    })
+                  : t('skills.library.assignPinned', 'Assign pinned version')}
+            </Button>
+          </DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

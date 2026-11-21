@@ -29,7 +29,7 @@ type PendingRequest = {
   cleanup: () => void
 }
 
-type SshMultiplexerRequestOptions = {
+export type SshMultiplexerRequestOptions = {
   signal?: AbortSignal
   timeoutMs?: number
   beforeResolve?: (result: unknown) => void
@@ -627,3 +627,5 @@ export class SshChannelMultiplexer {
 function messageLane(msg: JsonRpcMessage): MultiplexerWriterLane {
   return 'method' in msg && msg.method === 'pty.data' ? 'ordinary' : 'control'
 }
+
+export type { MultiplexerTransport } from './ssh-multiplexer-transport-writer'

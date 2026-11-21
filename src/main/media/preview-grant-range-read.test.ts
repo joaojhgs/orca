@@ -4,6 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Store } from '../persistence/loading-store/store'
+import type { IFilesystemProvider } from '../providers/filesystem-provider-contract'
+import {
+  registerSshFilesystemProvider,
+  unregisterSshFilesystemProvider
+} from '../providers/ssh-filesystem-dispatch'
 
 vi.mock('electron', () => ({ protocol: { handle: vi.fn() } }))
 vi.mock('../ipc/filesystem/access/local-file-access-resolution', () => ({
@@ -17,6 +22,7 @@ import { resolveLocalFileRequestPath } from '../ipc/filesystem/access/local-file
 import { guardWslUncPathAccess } from '../wsl/filesystem/wsl-unc-access-gate'
 import { readLocalFilePreview } from './media-preview-protocol'
 import { readPreviewGrantRange } from './preview-grant-range-read'
+import { readSshFilePreview } from './ssh-file-preview'
 
 const emitter = new EventEmitter()
 const sender = {
@@ -52,6 +58,66 @@ describe('readPreviewGrantRange', () => {
     vi.mocked(guardWslUncPathAccess).mockRejectedValueOnce(new Error('Ubuntu is stopped'))
     await expect(readPreviewGrantRange(sender, url, 0, 4)).rejects.toThrow('Ubuntu is stopped')
     expect(resolveLocalFileRequestPath).not.toHaveBeenCalled()
+  })
+
+  it('reads SSH PDF bytes from the minting connection and rejects the grant after reconnect', async () => {
+    const connectionId = 'ssh-preview-fixture'
+    const filePath = '/remote/doc.pdf'
+    const content = Buffer.from('%PDF-1.4 body')
+    const unexpectedOperation = async (): Promise<never> => {
+      throw new Error('Unexpected filesystem operation outside the remote range fixture')
+    }
+    const makeProvider = () =>
+      ({
+        readDir: unexpectedOperation,
+        readFile: unexpectedOperation,
+        writeFile: unexpectedOperation,
+        writeFileBase64: unexpectedOperation,
+        writeFileBase64Chunk: unexpectedOperation,
+        deletePath: unexpectedOperation,
+        createFile: unexpectedOperation,
+        createDir: unexpectedOperation,
+        createDirNoClobber: unexpectedOperation,
+        rename: unexpectedOperation,
+        renameNoClobber: unexpectedOperation,
+        copy: unexpectedOperation,
+        search: unexpectedOperation,
+        listFiles: unexpectedOperation,
+        watch: unexpectedOperation,
+        stat: vi.fn(async () => ({ size: content.length, type: 'file' as const, mtime: 1 })),
+        realpath: vi.fn(async () => filePath),
+        readFileRange: vi.fn(async (_path: string, offset: number, length: number) => {
+          const bytes = content.subarray(offset, offset + length)
+          return { bytes, bytesRead: bytes.length }
+        })
+      }) satisfies IFilesystemProvider
+    // Only range operations are exposed by this fixture; any controller filesystem read must fail.
+    const original = makeProvider()
+    const replacement = makeProvider()
+    registerSshFilesystemProvider(connectionId, original)
+    vi.mocked(resolveLocalFileRequestPath).mockClear()
+    try {
+      const preview = await readSshFilePreview(
+        { sender },
+        { filePath, connectionId, provider: original },
+        store,
+        { documents: true }
+      )
+      if (!preview) {
+        throw new Error('Missing SSH preview URL')
+      }
+      expect(
+        new TextDecoder().decode(await readPreviewGrantRange(sender, preview.mediaUrl, 1, 3))
+      ).toBe('PDF')
+      registerSshFilesystemProvider(connectionId, replacement)
+      await expect(readPreviewGrantRange(sender, preview.mediaUrl, 1, 3)).rejects.toThrow(
+        'SSH connection changed'
+      )
+      expect(replacement.readFileRange).not.toHaveBeenCalled()
+      expect(resolveLocalFileRequestPath).not.toHaveBeenCalled()
+    } finally {
+      unregisterSshFilesystemProvider(connectionId)
+    }
   })
 
   it('serves bounded PDF reads only to the renderer that minted the live grant', async () => {

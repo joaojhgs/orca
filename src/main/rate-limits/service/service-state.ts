@@ -28,8 +28,11 @@ import type { NormalizedClaudeAccountSelectionTarget } from '../../claude-accoun
 import type { InactiveClaudeAccount } from '../providers/claude/claude-managed-account-usage'
 import type { NetworkProxySettings } from '../../../shared/network/network-proxy'
 import { readGrokAuthSession } from '../providers/grok/grok-auth'
+import type { ExecutionAccountUsage } from '../../../shared/execution-observer'
 
 export abstract class RateLimitServiceState {
+  protected executionUsageResolver: (() => ExecutionAccountUsage[]) | null = null
+  protected executionUsageRefresh: (() => Promise<void>) | null = null
   protected state: InternalRateLimitState = {
     claude: null,
     codex: null,

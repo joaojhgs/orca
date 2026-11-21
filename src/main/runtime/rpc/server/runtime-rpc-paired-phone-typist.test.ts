@@ -73,7 +73,7 @@ function pairDesktop(): string {
 // What the desktop's socket sends on ready, through the host's own handler and schema.
 async function declare(deviceId: string, connectionId: string, params: unknown): Promise<void> {
   const method = PAIRING_METHODS.find((candidate) => candidate.name === DECLARE_ORCA_ACCOUNT_METHOD)
-  const deviceSelf = server['desktopAccountSelf']({ deviceId, scope: 'runtime' }, connectionId)
+  const deviceSelf = server['socketDeviceSelf']({ deviceId, scope: 'runtime' }, connectionId)
   const context: RpcContext = {
     runtime,
     deviceSelf: {

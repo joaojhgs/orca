@@ -8,6 +8,7 @@ import {
   type SshFileTransferHost,
   type SshRemoteFileOptions
 } from '../file-transfer/ssh-connection-file-transfers'
+import { keepCustomizedRelayOnConnect } from '../ssh-host-managed-policy'
 import type { ChildProcess } from 'node:child_process'
 import type {
   Client as SshClient,
@@ -545,6 +546,9 @@ export class SshConnection {
     return {
       targetId: this.target.id,
       label: this.target.label,
+      retryAfterBudget: () =>
+        keepCustomizedRelayOnConnect(this.target) &&
+        (this.target.reconnectOnLaunch ?? this.target.connectOnStartup) !== false,
       isDisposed: () => this.disposed,
       status: () => this.state.status,
       isAwaitingCredential: () => this.isAwaitingCredential(),

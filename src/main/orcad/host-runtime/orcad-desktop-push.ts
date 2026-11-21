@@ -13,6 +13,7 @@ export function startOrcadDesktopPushService(
   const pushService = DesktopPushService.create({
     runtime,
     runtimeRpc,
+    userDataPath: getAppEnvironment().getPath('userData'),
     gatewayUrl: resolvePushGatewayOrigin(process.env, getAppEnvironment().isPackaged())
   })
   pushService?.start()

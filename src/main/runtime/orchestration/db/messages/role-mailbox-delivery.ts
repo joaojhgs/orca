@@ -11,6 +11,11 @@ import type { OrchestrationDb } from '../orchestration-db'
 import { exposeDeliveryTimestamps, exposeMessageListTimestamps } from '../utc-timestamp'
 import { requireMailboxConsumer } from './mailbox-consumer'
 import { ORCHESTRATION_DELIVERY_BATCH_LIMIT } from './mailbox-routing-page'
+import {
+  beginLifecycleWriteTransaction,
+  commitLifecycleWriteTransaction,
+  rollbackLifecycleWriteTransaction
+} from '../lifecycle-transition'
 import type { ReportFollowUpAction } from '../../../../../shared/orchestration/mailbox/orchestration-report-follow-up'
 import { DELIVERY_COLUMN_LIST } from '../row-column-lists'
 
@@ -72,14 +77,14 @@ export function getOrCreateMailboxDelivery(
   this: OrchestrationDb,
   params: MailboxDeliveryParams
 ): MailboxDeliveryBatch | undefined {
-  this.db.exec('BEGIN IMMEDIATE')
+  const transaction = beginLifecycleWriteTransaction(this.db, 'mailbox_delivery_create')
   try {
     requireMailboxConsumer(this, params)
     const batch = selectMailboxDelivery(this, params)
-    this.db.exec('COMMIT')
+    commitLifecycleWriteTransaction(this.db, transaction)
     return batch
   } catch (error) {
-    this.db.exec('ROLLBACK')
+    rollbackLifecycleWriteTransaction(this.db, transaction)
     throw error
   }
 }
@@ -185,7 +190,7 @@ export function acknowledgeMailboxDelivery(
     deliveryId: string
   }
 ): { delivery: DeliveryRow; duplicate: boolean } {
-  this.db.exec('BEGIN IMMEDIATE')
+  const transaction = beginLifecycleWriteTransaction(this.db, 'mailbox_delivery_acknowledge')
   try {
     requireMailboxConsumer(this, params)
     const delivery = this.getDeliveryRaw(params.deliveryId)
@@ -206,14 +211,14 @@ export function acknowledgeMailboxDelivery(
       )
     }
     if (delivery.status === 'acknowledged') {
-      this.db.exec('COMMIT')
+      commitLifecycleWriteTransaction(this.db, transaction)
       return { delivery: exposeDeliveryTimestamps(delivery), duplicate: true }
     }
     const acknowledged = markDeliveryAcknowledged(this, delivery)
-    this.db.exec('COMMIT')
+    commitLifecycleWriteTransaction(this.db, transaction)
     return { delivery: exposeDeliveryTimestamps(acknowledged), duplicate: false }
   } catch (error) {
-    this.db.exec('ROLLBACK')
+    rollbackLifecycleWriteTransaction(this.db, transaction)
     throw error
   }
 }

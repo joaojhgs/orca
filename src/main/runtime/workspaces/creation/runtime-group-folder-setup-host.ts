@@ -86,6 +86,13 @@ export abstract class OrcaRuntimeWithGroupFolderSetup extends OrcaRuntimeWithGet
       }
     })
   }
+  // A window, an agent or a PTY host can show setup in a terminal; otherwise it runs in-process.
+  protected canUseSetupRunner(startup: unknown): boolean {
+    return (
+      this.authoritativeWindowId !== null || Boolean(startup) || Boolean(this.ptyController?.spawn)
+    )
+  }
+
   protected localWorktreeTerminalPorts(
     args: Pick<TerminalCreateOptions, 'terminalImageViewerSupported' | 'wslUserAct'> & {
       navigation?: RuntimeNavigationTarget

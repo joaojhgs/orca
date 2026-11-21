@@ -1,3 +1,4 @@
+import { configureExecutionAccountUsage } from '../../runtime/construction/fork-runtime-services'
 import type { Store } from '../../persistence/loading-store/store'
 import type { OrcaRuntimeService } from '../../runtime/orca-runtime'
 import type {
@@ -65,6 +66,7 @@ export function createOrcadAccountServices(args: {
   const services = createProviderAccountServices(store, {
     setClaudeStatusLineListener: args.setClaudeStatusLineListener
   })
+  args.registerCleanup(configureExecutionAccountUsage(store, services.rateLimits))
   args.registerCleanup(() => {
     services.rateLimits.stop()
     args.setClaudeStatusLineListener(null)
@@ -112,7 +114,8 @@ export function createOrcadAccountServices(args: {
       runtime.setAccountServices({
         claudeAccounts: services.claudeAccounts,
         codexAccounts: services.codexAccounts,
-        rateLimits: services.rateLimits
+        rateLimits: services.rateLimits,
+        getSettings: () => store.getSettings()
       })
       runtime.setCommitMessageAgentEnvironmentResolvers({
         prepareForCodexLaunch: prepareCodexHome,

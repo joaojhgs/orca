@@ -1,3 +1,4 @@
+import { reconcileRuntimeManagedAgentHooks } from './reconcile-runtime-managed-agent-hooks'
 import { publishedLegacyChatPermissionMode } from '../../../../shared/agent-launch/permissions/agent-chat-permission-mode'
 import { getClaudeAgentViewService } from '../../../claude/agent-view/agent-view-service'
 import { getAppEnvironment } from '../../../../shared/app-lifecycle/app-environment'
@@ -21,10 +22,6 @@ import { nativeChatShowsCiResultLines } from '../../../../shared/native-chat/set
 import { normalizeDesktopTerminalScrollbackRows } from '../../../../shared/terminal/replay/terminal-scrollback-policy'
 import { TERMINAL_DEFAULT_WORD_SEPARATOR } from '../../../../shared/terminal/input/terminal-word-separator'
 import type { TerminalQuickCommand } from '../../../../shared/terminal/quick-commands/terminal-quick-command-types'
-import { recordManagedHookInstallFailure } from '../../../agent-hooks/installation/install-telemetry'
-import { applyAgentStatusHooksEnabled } from '../../../agent-hooks/installation/managed-agent-hook-controls'
-import { isWslHostOrcadProcess } from '../../../wsl/filesystem/wsl-guest-windows-drive-path'
-import { isAgentStatusHooksEnabledForAgent } from '../../../../shared/agent-hook-listener/configuration/agent-status-hooks-setting'
 import type { RuntimeStore } from '../../construction/runtime-store-contract'
 import { normalizePRAutoRefreshCadence } from '../../../../shared/source-control/hosted-review/review-refresh-policy'
 import {
@@ -38,8 +35,7 @@ import { composeAgentLaunchProfile } from '../../../../shared/agent-launch/choic
 import { agentLaunchSettingsRollbackUpdates } from '../../terminal/launch/agent-launch-settings-rollback'
 import type {
   RuntimeClientSettings,
-  RuntimeClientSettingsUpdate,
-  RuntimeHostDisplayLabelOverrides
+  RuntimeClientSettingsUpdate
 } from './runtime-client-settings-shape'
 import { normalizeNewTabMenuLayout } from '../../../../shared/new-tab-menu/new-tab-menu-layout'
 import { hostNativeChatDefaults } from '../../../../shared/native-chat/settings/native-chat-providers'
@@ -47,6 +43,8 @@ import { getDefaultNotificationSettings } from '../../../../shared/notifications
 import type { NotificationSettings } from '../../../../shared/notifications/notification-settings-types'
 import { projectSourceControlLaunchRecipes } from './runtime-client-source-control-ai-projection'
 import { projectHostOwnedSettings } from '../../../../shared/settings/host-owned-settings'
+import { ArtifactPublishingApprovalController } from '../../artifact-publishing-approval'
+import { join } from 'node:path'
 
 /** Which Orca cloud services this host registered; headless hosts register none. */
 export type RuntimeSharingServicePresence = {
@@ -55,6 +53,15 @@ export type RuntimeSharingServicePresence = {
 }
 
 export class RuntimeClientSettingsController {
+  readonly artifactPublishingApproval = new ArtifactPublishingApprovalController(
+    () => join(getAppEnvironment().getPath('userData'), 'artifact-publishing-approvals'),
+    (enabled) => {
+      if (!this.store?.updateSettings) {
+        throw new Error('runtime_unavailable')
+      }
+      this.store.updateSettings({ artifactSharingEnabled: enabled }, { notifyListeners: true })
+    }
+  )
   private reconciliationGeneration = 0
   private reconciliationTail: Promise<void> = Promise.resolve()
 
@@ -149,7 +156,7 @@ export class RuntimeClientSettingsController {
         [
           ...getHostDisplayLabelOverrides({ hostSettingOverrides: settings.hostSettingOverrides })
         ].map(([hostId, displayLabel]) => [hostId, { displayLabel }])
-      ) as RuntimeHostDisplayLabelOverrides
+      )
     }
   }
 
@@ -297,25 +304,11 @@ export class RuntimeClientSettingsController {
 
   private reconcileManagedAgentHooks(): Promise<void> {
     const generation = ++this.reconciliationGeneration
-    const reconciliation = this.reconciliationTail.then(async () => {
-      if (generation !== this.reconciliationGeneration) {
-        return
-      }
-      const settings = this.store?.getSettings()
-      if (!settings) {
-        return
-      }
-      await applyAgentStatusHooksEnabled(settings.agentStatusHooksEnabled !== false, settings, {
-        // R42, COMPAT(wsl-bridge): the bridge's panes in this distro share these entries; drop at D4.
-        keepSharedEntries: isWslHostOrcadProcess(),
-        shouldHydrateShellPath: getAppEnvironment().isPackaged(),
-        onInstallError: recordManagedHookInstallFailure,
-        shouldContinue: (agent) => {
-          const current = this.store?.getSettings()
-          return current !== undefined && isAgentStatusHooksEnabledForAgent(current, agent)
-        }
-      })
-    })
+    const reconciliation = this.reconciliationTail.then(() =>
+      reconcileRuntimeManagedAgentHooks(() =>
+        generation === this.reconciliationGeneration ? this.store?.getSettings() : undefined
+      )
+    )
     this.reconciliationTail = reconciliation.catch(() => {})
     return reconciliation
   }

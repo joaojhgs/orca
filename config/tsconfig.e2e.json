@@ -25,7 +25,7 @@
       "zod": ["../node_modules/zod"],
       // Why: specs reach mobile/src/transport, whose native imports resolve only once mobile is
       // installed and then load React Native's globals (numeric timers, a required NODE_ENV).
-      // An empty stub keeps the error count the same with or without mobile's install.
+      // These declarations work with either dependency layout.
       "expo-crypto": ["./e2e-typecheck-mobile-native-stub.ts"],
       "@react-native-async-storage/async-storage": ["./e2e-typecheck-mobile-native-stub.ts"]
     }

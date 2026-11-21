@@ -4361,7 +4361,6 @@
             "4f327c8b3d": "Markdown を開く…",
             "3d5d6c960d": "新規 Markdown",
             "fd2b42aaa3": "新規モバイルエミュレータ",
-            "b426bb2615": "モバイルエミュレータに移動",
             "4833fb2cbe": "新規ブラウザタブ",
             "d364f3c8d4": "新規ターミナル",
             "7c1313d237": "新規ターミナル:",
@@ -5492,10 +5491,8 @@
         "SkillsSelectionHeader": {
           "exit": "選択を終了",
           "exitTooltip": "選択を終了 · Esc",
-          "title": "共有するスキルを選択",
           "selectAll": "対象の {{count}} 件をすべて選択",
-          "clear": "クリア",
-          "deleteTitle": "削除するスキルを選択"
+          "clear": "クリア"
         },
         "SkillDetailDialog": {
           "agents": "Agent",
@@ -6653,8 +6650,6 @@
                   "c709860596": "新規プロジェクトを作成する",
                   "5f9ffac036": "リモート Git リポジトリのクローンを作成する",
                   "7edb8ebe24": "URL からクローン",
-                  "serverSshTitle": "このサーバーの SSH ホスト上のプロジェクト",
-                  "serverSshAddOnThisComputer": "サーバーからは利用できません。プロジェクトを開くには、このコンピューターに SSH ホストを追加してください。",
                   "fb4fc5380e": "ローカルプロジェクト、Git リポジトリ、または多数のリポジトリを含むフォルダー",
                   "2281fdc8c7": "フォルダーを参照",
                   "runtimeBrowseDescription": "このホスト上の既存の Git リポジトリまたはフォルダー"
@@ -9137,7 +9132,6 @@
           "reconnectOnLaunch": "起動時に再接続",
           "reconnectOnLaunchHelp": "オフにすると、Orca は起動時にこのホストと、それを経由する Orca サーバーを、接続するまで切断したままにします。",
           "allowRemoteCliControl": "このホストにワークスペース内の Orca ブラウザのタブの操作を許可する",
-          "allowRemoteCliControlHelp": "新しいホストではデフォルトでオンです。このホストの Agent と orca コマンドは、このホストのワークスペース内に限り、接続中のみ、このデスクトップの Orca ブラウザのタブを開いて読み取り、操作できます。操作中のタブにはホスト名が表示されます。このホストで古い Orca が起動したターミナルで orca オーケストレーションコマンドを実行する場合も、この設定をオンにする必要があります。ファイル、クリップボード、Cookie は読み取れません。",
           "addHost": "ホストを追加",
           "proxyConnectionReuse": "1 つのプロキシ接続を再利用",
           "proxyConnectionReuseHelp": "低速な ProxyCommand や ProxyJump ホスト経由の接続が速くなります。ssh_config がホスト固有の Match や %h ルールに依存していない場合にのみ有効にしてください。",
@@ -12390,9 +12384,7 @@
           "title": "アーティファクト",
           "description": "HTML および Markdown ファイルをチームと共有し、パブリックリンクを管理します。",
           "howToTitle": "アーティファクトの使用方法",
-          "howToDescription": "HTML または Markdown ファイルをパブリックリンクとして公開し、チームと共有します。",
           "shareStepTitle": "共有するファイルを選択してください",
-          "shareStepDescription": "HTML または Markdown ファイルを開き、[成果物として共有] を選択するか、Agent に共有を依頼します。",
           "linkStepTitle": "パブリックリンクをコピーする",
           "linkStepDescription": "公開したら、リンクをコピーしてチームに送信します。",
           "manageStepTitle": "Orca で管理する",
@@ -12403,12 +12395,8 @@
           "signInDescription": "Orca アカウントを使用して、アーティファクトをアップロードし、そのパブリックリンクを管理します。",
           "signInAgain": "再度サインインしてください",
           "enableStepTitle": "アーティファクトの共有を有効にする",
-          "enableStepWebDescription": "ホストデバイスの Orca デスクトップアプリで [設定] → [アーティファクト] を開き、公開を有効にします。",
           "enableStepDescription": "上の「パブリックアーティファクトリンクの公開を許可」をオンにします。",
           "allowPublishing": "パブリックアーティファクトリンクの公開を許可する",
-          "allowPublishingWebDescription": "デスクトップのみ。この設定を変更するには、ホストデバイスで「設定」→「アーティファクト」を開きます。",
-          "allowPublishingDescription": "HTML ファイルと Markdown ファイルを、URL を知っている人なら誰でも開くことができるリンクとして公開します。既存のリンクは、アーティファクトから削除するまで残ります。",
-          "howToDescriptionDisabled": "上記のアーティファクト共有を有効にして、HTML または Markdown ファイルをパブリックリンクとして公開します。",
           "allowPublishingSearchDescription": "Orca が HTML および Markdown ファイルをパブリックリンクとして公開できるようにします。",
           "keywordArtifacts": "アーティファクト",
           "keywordShare": "共有",
@@ -18937,17 +18925,6 @@
         "9a4c6b2d7e": "スキルの共有",
         "3d8e5f1b9c": "非公開リンクでスキルを共有し、使用するマシンにインストールします。",
         "c5b3e8a17d": "Orca にサインインする"
-      },
-      "web": {
-        "preloadApi": {
-          "cursorAccounts": {
-            "hostOnly": "Cursor のサインイン詳細は、Orca を実行しているコンピュータでのみ読み取れます。"
-          },
-          "accounts": {
-            "signInHostOnly": "アカウントの追加や再サインインは、Orca を実行しているコンピュータのデスクトップアプリでのみ利用できます。",
-            "claudeWslDefaultUnavailable": "WSL のアカウントをシステムのデフォルトに戻す操作は、デスクトップアプリでのみ利用できます。"
-          }
-        }
       },
       "TaskPageJiraSavedFilters": {
         "6c381858a1": "Saved filters",

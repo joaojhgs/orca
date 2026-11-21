@@ -5,6 +5,7 @@ import { resolveRegisteredWorktreePath } from '../../worktrees/removal/registere
 import { getLocalGitOptionsForRegisteredWorktree } from '../../worktrees/local-worktree-runtime-options'
 import { validateFullGitObjectId } from '../../../filesystem/local-file-io/filesystem-path-containment'
 import type { FilesystemHandlerContext } from '../filesystem-handler-context'
+import { requireFilesystemSshGitProvider } from './filesystem-ssh-git-route'
 import { requireReachableGitRoute } from '../../../providers/execution-host-provider-dispatch'
 import { getConnectionExecutionHostId } from '../../../../shared/execution-host/execution-host'
 
@@ -23,6 +24,13 @@ export function registerFilesystemGitUrlHandlers(context: FilesystemHandlerConte
       }
     ): Promise<string | null> => {
       // Remote URL construction needs the owning SSH host's .git/config.
+      if (args.connectionId) {
+        return requireFilesystemSshGitProvider(args.connectionId).getRemoteFileUrl(
+          args.worktreePath,
+          args.relativePath,
+          args.line
+        )
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
       const gitOptions = getLocalGitOptionsForRegisteredWorktree(
@@ -43,6 +51,12 @@ export function registerFilesystemGitUrlHandlers(context: FilesystemHandlerConte
     ): Promise<string | null> => {
       const sha = validateFullGitObjectId(args.sha, 'sha')
       // Remote URL construction needs the owning SSH host's .git/config.
+      if (args.connectionId) {
+        return requireFilesystemSshGitProvider(args.connectionId).getRemoteCommitUrl(
+          args.worktreePath,
+          sha
+        )
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
       await awaitWindowsHostGitEnvironmentReady({ cwd: worktreePath })

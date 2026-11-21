@@ -8,12 +8,7 @@ import type {
   NotificationSettings
 } from '../../../../shared/notifications/notification-settings-types'
 import { reserveNotificationCooldown } from '../../../../shared/notifications/notification-burst-cooldown'
-import type { ExecutionHostId } from '../../../../shared/execution-host/execution-host'
-import type { AgentStatusState } from '../../../../shared/agent-status/contracts/agent-status-types'
-import type {
-  StructuredAttentionOrigin,
-  StructuredAttentionState
-} from '../../../../shared/agent-session/view/agent-session-attention'
+import type { StructuredAttentionState } from '../../../../shared/agent-session/view/agent-session-attention'
 import type {
   MobilePushTestResult,
   MobilePushRegisterInput,
@@ -25,63 +20,22 @@ import { getRuntimeDesktopSurface } from '../../construction/runtime-desktop-sur
 import { MobileNotificationDismissalStore } from './mobile-notification-dismissal-store'
 import { DesktopClientPresenceTracker } from './desktop-client-presence-tracker'
 import type { DeliveredNotificationIdentity } from '../../../../shared/notifications/mobile-notification-identity'
+import {
+  resolveMobileNotificationPolicy,
+  type MobileNotificationDispatchEvent,
+  type MobileNotificationDismissEvent,
+  type MobileNotificationEvent,
+  type MobileNotificationPolicySource,
+  type MobilePushRegistrar,
+  type OwnerNotice
+} from './runtime-mobile-notification-event'
 
-export type MobileNotificationDispatchEvent = {
-  type: 'notification'
-  legacySocketAllowed?: boolean
-  desktopAllowed?: boolean
-  desktopAway?: boolean
-  emittedAt?: number
-  source: 'agent-task-complete' | 'terminal-bell' | 'test' | 'plugin'
-  title: string
-  body: string
-  worktreeId?: string
-  workspaceExecutionHostId?: ExecutionHostId | null
-  /** The pane the phone opens on tap; old phones ignore it and open the workspace's default tab. */
-  paneKey?: string
-  /** See `NotificationDispatchRequest.executionHost`; old phones ignore it and open the desktop's. */
-  executionHost?: `runtime:${string}`
-  notificationId?: string
-  notificationSeq?: number
-  notificationEpoch?: string
-  // Additive state distinguishes input-needed from finished in push; old clients ignore it.
-  agentState?: AgentStatusState
-  /** See `NotificationDispatchRequest.attentionKey`: cooldowns key on it instead of the workspace. */
-  attentionKey?: string
-  structuredOrigin?: StructuredAttentionOrigin
-}
-
-export type MobileNotificationDismissEvent = {
-  type: 'dismiss'
-  notificationId: string
-  notificationSeq?: number
-  notificationEpoch?: string
-  dismissedDelivery?: DeliveredNotificationIdentity
-}
-
-export type MobileNotificationEvent =
-  | MobileNotificationDispatchEvent
-  | MobileNotificationDismissEvent
-
-/** The desktop push service, once it exists; absent on hosts that never started one. */
-export type MobilePushRegistrar = {
-  test(deviceId: string): Promise<MobilePushTestResult>
-  register(input: MobilePushRegisterInput): Promise<MobilePushRegisterResult>
-  unregister(deviceId: string): Promise<{ unregistered: boolean }>
-}
-
-/** Host news for its owner with no agent turn behind it; `id` keys its cooldown and its phone notice. */
-export type OwnerNotice = {
-  id: string
-  title: string
-  body: string
-  /** Where a phone opens on tap. */
-  worktreeId?: string
-  paneKey?: string
-  /** False when the phone already hears it another way, like a failed turn's own push. */
-  phone?: false
-  /** False when this host's windows already show it, like an access request's toast. */
-  desktop?: false
+export type {
+  MobileNotificationDispatchEvent,
+  MobileNotificationDismissEvent,
+  MobileNotificationEvent,
+  MobilePushRegistrar,
+  OwnerNotice
 }
 
 export class RuntimeMobileNotificationController {
@@ -93,6 +47,37 @@ export class RuntimeMobileNotificationController {
   private pushRegistrar: MobilePushRegistrar | null = null
   private dismissalStore: MobileNotificationDismissalStore | null = null
   private readonly desktopClients = new DesktopClientPresenceTracker()
+
+  private policy: MobileNotificationPolicySource | null = null
+
+  configurePolicy(policy: NonNullable<RuntimeMobileNotificationController['policy']>): void {
+    this.policy = policy
+  }
+
+  allowsDelivery(
+    event: MobileNotificationEvent,
+    deviceId?: string,
+    destination: 'desktop' | 'mobile' = 'mobile'
+  ): boolean {
+    return (
+      event.type === 'dismiss' ||
+      resolveMobileNotificationPolicy(this.policy, event, deviceId, destination).human
+    )
+  }
+
+  allowsSound(event: MobileNotificationEvent, deviceId?: string): boolean {
+    return (
+      event.type !== 'dismiss' &&
+      resolveMobileNotificationPolicy(this.policy, event, deviceId, 'mobile').delivery ===
+        'immediate'
+    )
+  }
+
+  deliveryMode(event: MobileNotificationEvent, deviceId?: string) {
+    return event.type === 'dismiss'
+      ? 'immediate'
+      : resolveMobileNotificationPolicy(this.policy, event, deviceId, 'mobile').delivery
+  }
 
   configureDismissalStore(userDataPath: string): void {
     this.dismissalStore = new MobileNotificationDismissalStore(userDataPath)
@@ -168,6 +153,15 @@ export class RuntimeMobileNotificationController {
     if (event.type === 'notification') {
       if (this.attentionReads.covers({ ...event, origin: event.structuredOrigin })) {
         return
+      }
+      if (this.policy) {
+        event = { ...event, notificationScope: this.policy.scope(event) }
+        if (
+          !this.allowsDelivery(event, undefined, 'desktop') &&
+          !this.allowsDelivery(event, undefined, 'mobile')
+        ) {
+          return
+        }
       }
       // Decide once before recording so reconnect and buffer eviction cannot reset cooldown.
       const legacySocketAllowed =

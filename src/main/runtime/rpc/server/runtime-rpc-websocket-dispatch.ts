@@ -277,6 +277,7 @@ export class RuntimeRpcWebSocketDispatch extends RuntimeRpcMobileDevices {
               }
             : undefined,
         pairing: pairingContext,
+        pairingAdministration: device.scope === 'runtime' ? this.pairingAdministration : undefined,
         deviceSelf:
           authenticatedSocket && this.deviceRegistry
             ? {
@@ -284,7 +285,7 @@ export class RuntimeRpcWebSocketDispatch extends RuntimeRpcMobileDevices {
                   registerSocketDeviceKey(this.deviceRegistry!, authenticatedSocket, params),
                 exchangePairingTicket: (params) =>
                   exchangeSocketPairingTicket(this.deviceRegistry!, authenticatedSocket, params),
-                ...this.desktopAccountSelf(device, authenticatedSocket.connectionId)
+                ...this.socketDeviceSelf(device, authenticatedSocket.connectionId)
               }
             : undefined,
         mobileRelayHosts: this.mobileRelayHostCatalog ?? undefined,

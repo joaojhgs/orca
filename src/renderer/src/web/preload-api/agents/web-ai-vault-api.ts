@@ -41,48 +41,66 @@ import {
 import { requireActiveEnvironment } from '../../runtime/client/web-runtime-session'
 import { noopUnsubscribe } from '../web-storage'
 import { translate } from '@/i18n/i18n'
+import { webAiVaultHostParams } from '../web-ai-vault-host-scope'
 
 export function createWebAiVaultApi(): NonNullable<Partial<PreloadApi>['aiVault']> {
-  const search = createSessionSearchClient(
-    (method, params) => callRuntimeResult(method, params),
-    'relay'
-  )
+  const search = (hostParams: { executionHostScope?: string }) =>
+    createSessionSearchClient(
+      (method, params) => callRuntimeResult(method, { ...params, ...hostParams }),
+      'relay'
+    )
   return {
-    // A browser searches only its selected paired runtime.
-    searchSessions: (request, executionHostScope) =>
-      addressesOwnRuntime(executionHostScope)
-        ? search.searchSessions(request)
-        : Promise.resolve({ kind: 'unavailable', reason: 'no-service' }),
-    searchStatus: (executionHostScope) =>
-      addressesOwnRuntime(executionHostScope)
-        ? search.searchStatus()
-        : Promise.resolve(unavailableSessionSearchStatus()),
+    searchSessions: async (request, executionHostScope) => {
+      const hostParams = await webAiVaultHostParams(executionHostScope)
+      if (!hostParams) {
+        return { kind: 'unavailable', reason: 'no-service' }
+      }
+      const result = await search(hostParams).searchSessions(request)
+      if (result.kind !== 'results') {
+        return result
+      }
+      const ownHost = toRuntimeExecutionHostId(requireActiveEnvironment().id)
+      return {
+        ...result,
+        hits: result.hits.map((hit) =>
+          hit.executionHostId === 'local' ? { ...hit, executionHostId: ownHost } : hit
+        )
+      }
+    },
+    searchStatus: async (executionHostScope) => {
+      const hostParams = await webAiVaultHostParams(executionHostScope)
+      return hostParams ? search(hostParams).searchStatus() : unavailableSessionSearchStatus()
+    },
     // Host-index consent requires the desktop operator’s settings surface.
     setSearchEnabled: () => Promise.reject(new Error('unsupported')),
     clearSearchIndex: () =>
       Promise.reject(new Error('Clearing Agent Session History is unavailable in the browser.')),
-    listSessions: (args?: AiVaultListArgs) => {
+    listSessions: async (args?: AiVaultListArgs) => {
       const environment = requireActiveEnvironment()
       const executionHostId = toRuntimeExecutionHostId(environment.id)
       const requestedScope = normalizeExecutionHostScope(
         args?.executionHostScope ?? executionHostId
       )
-      if (requestedScope !== 'all' && requestedScope !== executionHostId) {
-        return Promise.resolve(webAiVaultUnavailableResult(requestedScope))
+      const hostParams = await webAiVaultHostParams(args?.executionHostScope)
+      if (!hostParams) {
+        return webAiVaultUnavailableResult(
+          requestedScope === 'all' ? executionHostId : requestedScope
+        )
       }
       const hostPairingRevision = environment.pairingRevision ?? environment.createdAt
       // Why: no local filesystem in the browser, so every history scan runs on and is stamped as the paired runtime host.
       return callRuntimeResult<AiVaultListResult>('aiVault.listSessions', {
         includeAntigravityIdeSessions: args?.includeAntigravityIdeSessions,
         limit: args?.limit,
-        unlimited: args?.unlimited,
+        ...(args?.unlimited !== undefined ? { unlimited: args.unlimited } : {}),
         force: args?.force,
         ...(requestedScope === executionHostId && args?.afterFingerprint !== undefined
           ? { afterFingerprint: args.afterFingerprint }
           : {}),
         scopePaths: args?.scopePaths,
         ...(args?.scopeOnly === true ? { scopeOnly: true } : {}),
-        executionHostId
+        executionHostId,
+        ...hostParams
       }).then((result) =>
         // Fence later host mutations on these rows to the pairing that listed them.
         result.sessions
@@ -93,17 +111,14 @@ export function createWebAiVaultApi(): NonNullable<Partial<PreloadApi>['aiVault'
           : result
       )
     },
-    resolveSessionTitles: (args: AiVaultSessionTitlesArgs) => {
-      const environment = requireActiveEnvironment()
-      const executionHostId = toRuntimeExecutionHostId(environment.id)
-      if (
-        args.executionHostScope &&
-        normalizeExecutionHostScope(args.executionHostScope) !== executionHostId
-      ) {
-        return Promise.resolve({ titles: [] })
+    resolveSessionTitles: async (args: AiVaultSessionTitlesArgs) => {
+      const hostParams = await webAiVaultHostParams(args.executionHostScope)
+      if (!hostParams) {
+        return { titles: [] }
       }
       return callRuntimeResult<AiVaultSessionTitlesResult>('aiVault.resolveSessionTitles', {
-        requests: args.requests
+        requests: args.requests,
+        ...hostParams
       }).catch(() => ({ titles: [] }))
     },
     // No RPC cancel verb; refreshId drops late results, but the unused scan runs until its timeout.

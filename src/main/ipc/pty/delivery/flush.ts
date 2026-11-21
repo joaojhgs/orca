@@ -107,6 +107,12 @@ export function flushPendingData(session: PtyIpcSession): void {
         shouldDropHiddenRendererPtyData(id, settings) &&
         !(pending.droppedOutput === true && pending.data)
       ) {
+        if (pending.projectionAdmissionIds) {
+          session.sshOutputIntake?.transferProjections(
+            pending.projectionAdmissionIds,
+            'hidden-drop'
+          )
+        }
         session.pendingData.remove(selection)
         session.pendingOverflowMarkedPtys.delete(id)
         session.updateProducerFlowControl(id)
@@ -147,7 +153,15 @@ export function flushPendingData(session: PtyIpcSession): void {
       const chunk = indivisible ? data : data.slice(0, splitAt)
       const remaining = indivisible ? '' : data.slice(splitAt)
       if (remaining) {
-        const nextPending: PendingPtyData = { data: remaining }
+        const nextPending: PendingPtyData = {
+          data: remaining,
+          ...(pending.projectionAdmissionIds
+            ? { projectionAdmissionIds: pending.projectionAdmissionIds }
+            : {}),
+          ...(pending.projectionAdmissionsTransferred
+            ? { projectionAdmissionsTransferred: true }
+            : {})
+        }
         if (typeof pending.startSeq === 'number') {
           nextPending.startSeq = pending.startSeq + chunk.length
         }
@@ -178,7 +192,8 @@ export function flushPendingData(session: PtyIpcSession): void {
           pending.rawLength,
           pending.transformed,
           pending.startEscapeBoundary
-        )
+        ),
+        pending.projectionAdmissionIds
       )
       if (!sent) {
         sendFailed = true

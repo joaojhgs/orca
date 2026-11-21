@@ -8,6 +8,7 @@ import type { GitBlameResult } from '../../../../shared/git/blame/git-blame-type
 import { getBlame } from '../../../git/source-control/blame/git-blame-read'
 import { validateGitRelativeFilePath } from '../../../filesystem/local-file-io/filesystem-path-containment'
 import { getConnectionExecutionHostId } from '../../../../shared/execution-host/execution-host'
+import { requireFilesystemSshGitProvider } from './filesystem-ssh-git-route'
 import { requireReachableGitRoute } from '../../../providers/execution-host-provider-dispatch'
 import { readWorktreeGitUnlessWslStopped } from './wsl-gated-worktree-git-read'
 import type { FilesystemHandlerContext } from '../filesystem-handler-context'
@@ -44,6 +45,12 @@ export function registerFilesystemGitHistoryHandlers({ store }: FilesystemHandle
         refs: args.refs,
         historyToken: args.historyToken,
         skip: args.skip
+      }
+      if (args.connectionId) {
+        return requireFilesystemSshGitProvider(args.connectionId).getHistory(
+          args.worktreePath,
+          options
+        )
       }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       return readWorktreeGitUnlessWslStopped(

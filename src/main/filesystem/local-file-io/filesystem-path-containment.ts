@@ -1,5 +1,6 @@
 import { resolve, relative, isAbsolute, sep, dirname } from 'node:path'
-import { statSync } from 'node:fs'
+import { statSync, type Stats } from 'node:fs'
+import { stat } from 'node:fs/promises'
 import { realpathAcrossWslDriveMount } from '../../wsl/filesystem/wsl-unc-drive-fs-path'
 import { isDefinitiveAbsence } from '../../../shared/errors/definitive-filesystem-absence'
 
@@ -50,12 +51,30 @@ function foldedContainmentAncestor(resolvedTarget: string, resolvedBase: string)
   return ancestor
 }
 
-/** Fail closed unless both spellings have a nonzero inode and match filesystem identity; folded names alone can be distinct on ext4. */
+/** Require filesystem identity because folded names alone can be distinct on ext4. */
+function statsIdentifySameObject(statA: Stats, statB: Stats): boolean {
+  return statA.ino !== 0 && statA.dev === statB.dev && statA.ino === statB.ino
+}
+
 function isSameFilesystemObject(pathA: string, pathB: string): boolean {
   try {
-    const statA = statSync(pathA)
-    const statB = statSync(pathB)
-    return statA.ino !== 0 && statA.dev === statB.dev && statA.ino === statB.ino
+    return statsIdentifySameObject(statSync(pathA), statSync(pathB))
+  } catch {
+    return false
+  }
+}
+
+async function isDescendantOrEqualAsync(target: string, base: string): Promise<boolean> {
+  if (isDescendantOrEqualExact(target, base)) {
+    return true
+  }
+  const ancestor = foldedContainmentAncestor(target, base)
+  if (ancestor === null) {
+    return false
+  }
+  try {
+    const [ancestorStat, baseStat] = await Promise.all([stat(ancestor), stat(base)])
+    return statsIdentifySameObject(ancestorStat, baseStat)
   } catch {
     return false
   }
@@ -91,22 +110,47 @@ export async function normalizeExistingPath(resolvedPath: string): Promise<strin
   }
 }
 
-export function validateGitRelativeFilePath(worktreePath: string, filePath: string): string {
+function resolveGitFilePath(worktreePath: string, filePath: string): string {
   if (!filePath || filePath.includes('\0') || resolve(filePath) === filePath) {
     throw new Error('Access denied: invalid git file path')
   }
+  return resolve(worktreePath, filePath)
+}
 
-  const resolvedFilePath = resolve(worktreePath, filePath)
-  if (!isDescendantOrEqual(resolvedFilePath, worktreePath)) {
+function normalizeContainedGitFilePath(
+  worktreePath: string,
+  resolvedFilePath: string,
+  contained: boolean
+): string {
+  if (!contained) {
     throw new Error('Access denied: git file path escapes the selected worktree')
   }
-
   const normalizedRelativePath = relative(worktreePath, resolvedFilePath)
   if (!normalizedRelativePath) {
     throw new Error('Access denied: invalid git file path')
   }
-
   return normalizedRelativePath
+}
+
+export function validateGitRelativeFilePath(worktreePath: string, filePath: string): string {
+  const resolved = resolveGitFilePath(worktreePath, filePath)
+  return normalizeContainedGitFilePath(
+    worktreePath,
+    resolved,
+    isDescendantOrEqual(resolved, worktreePath)
+  )
+}
+
+export async function validateGitRelativeFilePathAsync(
+  worktreePath: string,
+  filePath: string
+): Promise<string> {
+  const resolved = resolveGitFilePath(worktreePath, filePath)
+  return normalizeContainedGitFilePath(
+    worktreePath,
+    resolved,
+    await isDescendantOrEqualAsync(resolved, worktreePath)
+  )
 }
 
 export function validateFullGitObjectId(value: string, label: string): string {

@@ -9,6 +9,20 @@ import {
 } from '../../../../computer/sidecar-transport/sidecar-client'
 import { defineMethod } from '../../core'
 import {
+  CdpBrowserParams,
+  CdpControlParams,
+  CdpTargetsParams
+} from '../../../../../shared/cdp-relay-contract'
+import { listCdpBrowserTargets, setCdpHumanControl } from '../../../../computer/cdp-browser-policy'
+import { mintCdpBrowserTicket } from '../../../../computer/cdp-browser-access'
+import { ComputerDesktopActionParams } from '../../../../../shared/vnc-agent-contract'
+import { performVncAgentAction } from '../../../../computer/vnc-agent-control'
+import { listDesktopVncTargets } from '../../../../computer/desktop-vnc-targets'
+import {
+  createDesktopVncStreamTicket,
+  listExecutionDesktopVncTargets
+} from '../../../../computer/desktop-vnc-inventory'
+import {
   Click,
   ComputerObserveTarget,
   ComputerPermissions,
@@ -26,6 +40,8 @@ import {
 } from '../../../../../shared/rpc-contract/computer/computer-schemas-params'
 import {
   ComputerCapabilitiesParams,
+  ComputerDesktopStreamTicketParams,
+  ComputerDesktopTargetsParams,
   ComputerPermissionsStatusParams
 } from '../../../../../shared/rpc-contract/computer/computer-params'
 
@@ -34,6 +50,46 @@ export function resetComputerSessionsForTest(): void {
 }
 
 export const COMPUTER_METHODS = [
+  defineMethod({
+    name: 'computer.browserTargets',
+    permission: 'workspace',
+    params: CdpTargetsParams,
+    handler: async () => listCdpBrowserTargets()
+  }),
+  defineMethod({
+    name: 'computer.browserTicket',
+    permission: 'workspace',
+    params: CdpBrowserParams,
+    handler: async (params) => mintCdpBrowserTicket(params.browserId)
+  }),
+  defineMethod({
+    name: 'computer.browserControl',
+    permission: 'host-admin',
+    params: CdpControlParams,
+    handler: async (params) => setCdpHumanControl(params.browserId, params.humanControl)
+  }),
+  defineMethod({
+    name: 'computer.desktopAction',
+    permission: 'workspace',
+    params: ComputerDesktopActionParams,
+    handler: async (params, { signal }) =>
+      performVncAgentAction(params.desktopId, params.action, signal)
+  }),
+  defineMethod({
+    name: 'computer.desktopStreamTicket',
+    permission: 'workspace',
+    params: ComputerDesktopStreamTicketParams,
+    handler: async (params) => createDesktopVncStreamTicket(params.desktopId)
+  }),
+  defineMethod({
+    name: 'computer.desktopTargets',
+    permission: 'workspace',
+    params: ComputerDesktopTargetsParams,
+    handler: async (params) =>
+      params.executionHosts
+        ? listExecutionDesktopVncTargets()
+        : { targets: listDesktopVncTargets() }
+  }),
   defineMethod({
     name: 'computer.capabilities',
     permission: 'workspace',

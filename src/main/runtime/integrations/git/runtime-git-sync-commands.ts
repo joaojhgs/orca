@@ -7,10 +7,11 @@ import type { GitUpstreamStatus } from '../../../../shared/git/status/git-status
 import type { GitPushTarget } from '../../../../shared/worktree/types'
 import { materializeWorktreePushTargetRemote } from '../../../ipc/worktrees/worktree-remote'
 import { assertRuntimeReadWslDistroRunning } from './runtime-wsl-background-read-gate'
-import type { LocalGitProvider } from '../../../providers/git/local-provider'
 import {
   localGitOptionsForTarget,
   requireRuntimeGitProvider,
+  requireRuntimeLocalGitProvider,
+  runtimeGitRouteForTarget,
   type RuntimeGitCommandHost,
   type RuntimeGitTarget
 } from './runtime-git-command-target'
@@ -22,8 +23,14 @@ export class RuntimeGitSyncCommands {
   private async prepareRemoteSync(
     target: RuntimeGitTarget,
     pushTarget: GitPushTarget | undefined
-  ): Promise<{ provider: LocalGitProvider; pushTarget: GitPushTarget | undefined }> {
+  ): Promise<{
+    provider: ReturnType<typeof requireRuntimeGitProvider>
+    pushTarget: GitPushTarget | undefined
+  }> {
     const provider = requireRuntimeGitProvider(target)
+    if (runtimeGitRouteForTarget(target).kind === 'ssh') {
+      return { provider, pushTarget }
+    }
     const materialized = pushTarget
       ? await materializeWorktreePushTargetRemote(
           target.worktree.path,
@@ -135,7 +142,11 @@ export class RuntimeGitSyncCommands {
 
   async createRuntimeGitBranch(worktreeSelector: string, name: string, startPoint: string) {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
-    return requireRuntimeGitProvider(target).createBranch(target.worktree.path, name, startPoint)
+    return requireRuntimeLocalGitProvider(target).createBranch(
+      target.worktree.path,
+      name,
+      startPoint
+    )
   }
 
   async cherryPickRuntimeGit(worktreeSelector: string, commitId: string) {
@@ -152,12 +163,16 @@ export class RuntimeGitSyncCommands {
     commitId: string
   ) {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
-    return requireRuntimeGitProvider(target).applyCommit(target.worktree.path, operation, commitId)
+    return requireRuntimeLocalGitProvider(target).applyCommit(
+      target.worktree.path,
+      operation,
+      commitId
+    )
   }
 
   async sequencerAbortRuntimeGit(worktreeSelector: string, operation: GitCommitAction) {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
-    await requireRuntimeGitProvider(target).recoverSequencer(
+    await requireRuntimeLocalGitProvider(target).recoverSequencer(
       target.worktree.path,
       operation,
       'abort'
@@ -167,7 +182,7 @@ export class RuntimeGitSyncCommands {
 
   async sequencerContinueRuntimeGit(worktreeSelector: string, operation: GitCommitAction) {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
-    const result = await requireRuntimeGitProvider(target).recoverSequencer(
+    const result = await requireRuntimeLocalGitProvider(target).recoverSequencer(
       target.worktree.path,
       operation,
       'continue'
@@ -179,6 +194,6 @@ export class RuntimeGitSyncCommands {
     worktreeSelector: string
   ): Promise<{ success: boolean; error?: string }> {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
-    return requireRuntimeGitProvider(target).completeMerge(target.worktree.path)
+    return requireRuntimeLocalGitProvider(target).completeMerge(target.worktree.path)
   }
 }

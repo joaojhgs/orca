@@ -1,3 +1,4 @@
+import { app } from 'electron'
 import { getOrcaPushGatewayUrl } from '../../orca-profiles/cloud-auth/profile-cloud-auth-config'
 import { DesktopPushService } from '../../runtime/push/desktop-push-service'
 import type { OrcaRuntimeService } from '../../runtime/orca-runtime'
@@ -15,6 +16,7 @@ export function startDesktopPushService(runtimeRpc: OrcaRuntimeRpcServer): void 
     const pushService = DesktopPushService.create({
       runtime,
       runtimeRpc,
+      userDataPath: app.getPath('userData'),
       gatewayUrl: getOrcaPushGatewayUrl()
     })
     pushService?.start()

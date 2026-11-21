@@ -2,7 +2,7 @@ import type { OccurrenceSectionPath } from '../lineage/worktree-occurrence-plan'
 import type { RenderableFolderWorkspace } from '../folders/folder-workspace-lanes'
 import type { ProjectGroup } from '../../project/groups/project-group-types'
 import type { ProjectOrderBy } from '../../ui-chrome/ui-chrome-types'
-import { getDistinctProjectGroups } from '../../project/groups/project-groups'
+import { createSidebarProjectGroupIndex } from './project-group-owner-index'
 import { getProjectGroupHeaderKey } from './group-keys'
 import { appendOrderedGroups } from './group-sections'
 import type { SectionAppendContext } from './group-sections'
@@ -22,10 +22,11 @@ export function appendProjectGroupSections(
   }
 ): void {
   const { result, collapsedGroups } = ctx
+  const index = createSidebarProjectGroupIndex(args.projectGroups, ctx.defaultHostId)
   // Folder membership is already resolved above grouping; only count here (#15362).
   const folderCountByGroupId = new Map<string, number>()
   for (const pair of args.folderWorkspaces) {
-    const groupId = pair.folderWorkspace.projectGroupId
+    const groupId = index.sectionId(pair.projectGroup)
     folderCountByGroupId.set(groupId, (folderCountByGroupId.get(groupId) ?? 0) + 1)
   }
   walkProjectGroupTree(
@@ -34,11 +35,13 @@ export function appendProjectGroupSections(
       projectGroups: args.projectGroups,
       folderCountByGroupId,
       projectOrderBy: args.projectOrderBy,
+      defaultHostId: ctx.defaultHostId,
       repoOrder: args.repoOrder
     },
     {
       group: (projectGroup, depth, count) => {
-        const key = getProjectGroupHeaderKey(projectGroup.id)
+        const groupId = index.sectionId(projectGroup)
+        const key = getProjectGroupHeaderKey(groupId)
         result.push({
           type: 'header',
           key,
@@ -46,6 +49,7 @@ export function appendProjectGroupSections(
           count,
           icon: { kind: 'project' },
           projectGroup,
+          hostId: index.owner(projectGroup),
           projectGroupDepth: depth
         })
         if (collapsedGroups.has(key)) {
@@ -55,7 +59,7 @@ export function appendProjectGroupSections(
         appendWorktreeRows(result, ctx.repoOf, ctx.occurrencePlan, {
           collapsedGroups,
           groupDepth: depth + 1,
-          sectionKey: getFolderLaneSectionKey(projectGroup.id),
+          sectionKey: getFolderLaneSectionKey(groupId),
           hostContextLabelByWorktreeIdentity: ctx.mixedWorktreeHostContextLabels,
           folderPairByIdentity: ctx.folderPairByIdentity
         })
@@ -67,23 +71,30 @@ export function appendProjectGroupSections(
 }
 
 /** The same group parents used by section emission, including missing-parent roots. */
-export function getProjectGroupOccurrencePaths(projectGroups: readonly ProjectGroup[]) {
-  const groupsById = new Map(projectGroups.map((group) => [group.id, group]))
+export function getProjectGroupOccurrencePaths(
+  index: ReturnType<typeof createSidebarProjectGroupIndex>
+) {
   const paths = new Map<string, OccurrenceSectionPath>()
-  for (const group of getDistinctProjectGroups(projectGroups)) {
+  for (const group of index.groups) {
     const pending: ProjectGroup[] = []
     const seen = new Set<string>()
     let current: ProjectGroup | undefined = group
-    while (current && !paths.has(current.id) && !seen.has(current.id)) {
-      seen.add(current.id)
+    while (current) {
+      const id = index.sectionId(current)
+      if (paths.has(id) || seen.has(id)) {
+        break
+      }
+      seen.add(id)
       pending.push(current)
-      current = current.parentGroupId ? groupsById.get(current.parentGroupId) : undefined
+      current = current.parentGroupId
+        ? index.resolve(current.parentGroupId, index.owner(current))
+        : undefined
     }
-    let parent = current ? paths.get(current.id) : undefined
-    for (let index = pending.length - 1; index >= 0; index -= 1) {
-      const entry = pending[index]
-      const path: OccurrenceSectionPath = { key: getProjectGroupHeaderKey(entry.id), parent }
-      paths.set(entry.id, path)
+    let parent = current ? paths.get(index.sectionId(current)) : undefined
+    for (let position = pending.length - 1; position >= 0; position -= 1) {
+      const id = index.sectionId(pending[position])
+      const path: OccurrenceSectionPath = { key: getProjectGroupHeaderKey(id), parent }
+      paths.set(id, path)
       parent = path
     }
   }

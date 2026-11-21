@@ -59,9 +59,11 @@ it('sends explicit actions only to advertising hosts and keeps the legacy host p
       })
     )
     await callAntigravityChatSignIn({ kind: 'local' }, 'Start', { intent: 'signIn' })
-    expect(local).toHaveBeenCalledWith({
-      method: 'accounts.antigravityChatSignInStart',
-      params: { intent: 'signIn' }
-    })
+    expect(local).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'accounts.antigravityChatSignInStart',
+        params: { intent: 'signIn' }
+      })
+    )
   }
 })

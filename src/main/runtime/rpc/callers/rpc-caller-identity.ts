@@ -4,6 +4,7 @@ import type { RpcDispatchStreamingOptions } from '../dispatch/dispatcher-stream-
 import { CLI_AGENT_CALLER_CLIENT_CAPABILITY } from '../../../../shared/remote-runtime/cli-agent-caller-capability'
 
 export type RpcCallerIdentity =
+  | { kind: 'manager-service'; principalId: string }
   /** The `orca` CLI over the runtime socket, and the in-process bridges that relay it. */
   | { kind: 'local-cli' }
   /** All local IPC windows share identity across reload and app restart. */
@@ -27,10 +28,13 @@ export function resolveRpcCallerIdentity(
   transport:
     | Pick<
         RpcDispatchStreamingOptions,
-        'caller' | 'clientKind' | 'pairedDeviceId' | 'clientCapabilities'
+        'caller' | 'clientKind' | 'pairedDeviceId' | 'clientCapabilities' | 'callerScope'
       >
     | undefined
 ): RpcCallerIdentity | undefined {
+  if (transport?.callerScope?.kind === 'manager-service') {
+    return { kind: 'manager-service', principalId: transport.callerScope.principalId }
+  }
   if (transport?.caller) {
     return transport.caller
   }
@@ -47,6 +51,8 @@ export function resolveRpcCallerIdentity(
 /** Permanent durable-ledger keys: existing CLI and device rows must remain addressable across versions. */
 export function rpcCallerOperationKey(caller: RpcCallerIdentity): string {
   switch (caller.kind) {
+    case 'manager-service':
+      return `manager-service:${caller.principalId}`
     case 'local-cli':
       return 'trusted-local:runtime'
     case 'desktop':

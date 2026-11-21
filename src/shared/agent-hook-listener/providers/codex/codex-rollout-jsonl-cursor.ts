@@ -48,10 +48,12 @@ export function readJsonlFirstRecord(filePath: string): JsonlFirstRecord {
 /** Undefined distinguishes unreadable/vanished files from no new lines; lineFilter rejects raw substrings before JSON.parse. */
 export function readJsonlCursor(
   cursor: JsonlCursor,
-  lineFilter?: (line: string) => boolean
+  lineFilter?: (line: string) => boolean,
+  endOffset?: number
 ): JsonRecord[] | undefined {
   let read: JsonlCursorBytes | undefined
-  const prefetchedRead = cursor.filePath ? takePrefetchedCursorRead(cursor) : undefined
+  const prefetchedRead =
+    cursor.filePath && endOffset === undefined ? takePrefetchedCursorRead(cursor) : undefined
   if (prefetchedRead) {
     read = prefetchedRead.read
   } else if (cursor.filePath) {
@@ -62,7 +64,9 @@ export function readJsonlCursor(
       stats = undefined
     }
     if (stats?.isFile()) {
-      const plan = planJsonlRead({ ...cursor, filePath: cursor.filePath }, stats.size)
+      const size =
+        endOffset === undefined ? stats.size : Math.max(0, Math.min(stats.size, endOffset))
+      const plan = planJsonlRead({ ...cursor, filePath: cursor.filePath }, size)
       read = plan
       if (plan.length > 0) {
         const buffer = Buffer.allocUnsafe(plan.length)

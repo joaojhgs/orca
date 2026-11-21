@@ -10,6 +10,7 @@ import { getLocalGitOptionsForRegisteredWorktree } from '../../worktrees/local-w
 import { validateFullGitObjectId } from '../../../filesystem/local-file-io/filesystem-path-containment'
 import type { FilesystemHandlerContext } from '../filesystem-handler-context'
 import type { GitAdmissionTier } from '../../../../shared/rpc-contract/source-control/git-admission-tier-params'
+import { requireFilesystemSshGitProvider } from '../source-control/filesystem-ssh-git-route'
 import { requireReachableGitRoute } from '../../../providers/execution-host-provider-dispatch'
 import { getConnectionExecutionHostId } from '../../../../shared/execution-host/execution-host'
 import { assertWslUncPathRunning } from '../../../wsl/filesystem/wsl-unc-access-gate'
@@ -28,6 +29,14 @@ export function registerGitRemoteCompareHandlers(context: FilesystemHandlerConte
         admissionTier?: GitAdmissionTier
       }
     ): Promise<GitBranchCompareResult> => {
+      if (args.connectionId) {
+        const provider = requireFilesystemSshGitProvider(args.connectionId)
+        return args.admissionTier
+          ? provider.getBranchCompare(args.worktreePath, args.baseRef, {
+              admissionTier: args.admissionTier
+            })
+          : provider.getBranchCompare(args.worktreePath, args.baseRef)
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       // A 30 s poll while Source Control shows the branch: its Git would boot a stopped WSL distro (E9).
       await assertWslUncPathRunning(args.worktreePath)
@@ -52,6 +61,12 @@ export function registerGitRemoteCompareHandlers(context: FilesystemHandlerConte
       args: { worktreePath: string; commitId: string; connectionId?: string }
     ): Promise<GitCommitCompareResult> => {
       const commitId = validateFullGitObjectId(args.commitId, 'commitId')
+      if (args.connectionId) {
+        return requireFilesystemSshGitProvider(args.connectionId).getCommitCompare(
+          args.worktreePath,
+          commitId
+        )
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
       const gitOptions = getLocalGitOptionsForRegisteredWorktree(

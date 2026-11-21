@@ -6,6 +6,7 @@ import { commitChanges, completeMerge } from '../../../git/source-control/mutati
 import { resolveRegisteredWorktreePath } from '../../worktrees/removal/registered-worktree-roots-cache'
 import { getLocalGitOptionsForRegisteredWorktree } from '../../worktrees/local-worktree-runtime-options'
 import type { FilesystemHandlerContext } from '../filesystem-handler-context'
+import { requireFilesystemSshGitProvider } from './filesystem-ssh-git-route'
 import { requireReachableGitRoute } from '../../../providers/execution-host-provider-dispatch'
 import { getConnectionExecutionHostId } from '../../../../shared/execution-host/execution-host'
 
@@ -77,6 +78,12 @@ export function registerFilesystemGitCommitHandlers(context: FilesystemHandlerCo
       // Validate at IPC so users receive a clear error before process launch.
       if (typeof args.message !== 'string' || args.message.trim().length === 0) {
         throw new Error('Commit message is required')
+      }
+      if (args.connectionId) {
+        return requireFilesystemSshGitProvider(args.connectionId).commit(
+          args.worktreePath,
+          args.message
+        )
       }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)

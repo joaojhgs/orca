@@ -14,6 +14,8 @@ import type {
   LocalFilesystemProvider,
   LocalFilesystemProviderOptions
 } from '../../providers/filesystem/local-provider'
+import { requireSshFilesystemProvider } from '../../providers/ssh-filesystem-dispatch'
+import type { IFilesystemProvider } from '../../providers/filesystem/provider-contract'
 import { SshHostNotServedError } from '../../providers/ssh-host-not-served-error'
 
 export type ResolvedRuntimeFileWorktree = Worktree & { git: GitWorktreeInfo }
@@ -66,11 +68,21 @@ export function requireLocalRuntimeFileRoute(target: {
 export function requireRuntimeFileProvider(
   target: { executionHostId: ExecutionHostId },
   host: RuntimeLocalFileHost
-): LocalFilesystemProvider {
-  return requireLocalRuntimeFileRoute(target).createProvider({
-    requireStore: () => host.requireStore(),
-    resolveAuthorizedPath: resolveRuntimeAuthorizedPath
-  })
+): IFilesystemProvider | LocalFilesystemProvider {
+  const route = runtimeFileRouteForTarget(target)
+  return route.kind === 'ssh'
+    ? requireSshFilesystemProvider(route.connectionId)
+    : route.createProvider({
+        requireStore: () => host.requireStore(),
+        resolveAuthorizedPath: resolveRuntimeAuthorizedPath
+      })
+}
+
+export function getDirectSshRuntimeFileProvider(target: {
+  executionHostId: ExecutionHostId
+}): IFilesystemProvider | null {
+  const connectionId = runtimeFileSshTargetId(target)
+  return connectionId ? requireSshFilesystemProvider(connectionId) : null
 }
 
 /** Local yields undefined; runtime hosts throw rather than expose nested SSH ids in this client's namespace. */

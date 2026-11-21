@@ -1,5 +1,8 @@
 import type { Repo } from '../../../../shared/repository/repo-types'
-import type { ExecutionHostId } from '../../../../shared/execution-host/execution-host'
+import {
+  getRepoDialableSshTargetId,
+  type ExecutionHostId
+} from '../../../../shared/execution-host/execution-host'
 import type { RemoveWorktreeResult } from '../../../../shared/worktree/create-types'
 import { assertRemovalHostMatchesRepoRow } from '../repo-host-ownership'
 import { isFolderRepo } from '../../../../shared/repository/repo-kind'
@@ -7,10 +10,7 @@ import { assertWorktreeUnlockedForRemoval } from '../../../../shared/worktree/re
 import { isWindowsAbsolutePathLike } from '../../../../shared/file-access/cross-platform-path'
 import { getLocalProjectWorktreeGitOptions } from '../../../workspaces/execution-host/project-runtime-git-options'
 import { listWorktreesStrict as listGitWorktreesStrict } from '../../../git/worktrees/catalog/worktree-listing'
-import {
-  SshHostNotServedError,
-  SSH_WORKTREE_REMOVAL_NOT_SERVED_MESSAGE
-} from '../../../providers/ssh-host-not-served-error'
+import { captureDirectSshWorktreeAuthority } from '../direct-ssh-worktree-authority'
 import { resolveWorktreeRemovalMetadata } from '../../../workspaces/removal/worktree-removal-repo-owner'
 import {
   authorizeUnregisteredWindowsRemoval,
@@ -37,6 +37,7 @@ import { removeDeletedCheckoutMetadataAndTransientState } from './worktree-remov
 import { removeFolderWorkspace } from './remove-folder-workspace'
 import { removeUnregisteredWorktree } from './remove-unregistered-worktree'
 import { removeRegisteredLocalWorktree } from './remove-registered-local-worktree'
+import { removeDirectSshWorktree } from './remove-direct-ssh-worktree'
 import { retryFailedLocalWorktreeRemoval } from './retry-failed-local-worktree-removal'
 import { retryFailedRemovalUnlessRegistered } from '../../../workspaces/removal/worktree-removal-leftover'
 
@@ -53,15 +54,24 @@ export async function executeWorktreeRemoval(
     return removeFolderWorkspace(context, args, repo, repoId, removalHostId)
   }
   assertRemovalHostMatchesRepoRow(repo, repoId, removalHostId)
-  if (repo.connectionId) {
-    throw new SshHostNotServedError(repo.connectionId, SSH_WORKTREE_REMOVAL_NOT_SERVED_MESSAGE)
+  const removedMeta = resolveWorktreeRemovalMetadata(store, repoId, args.worktreeId, removalHostId)
+  const connectionId = getRepoDialableSshTargetId(repo)
+  if (connectionId) {
+    return removeDirectSshWorktree(
+      context,
+      args,
+      repo,
+      worktreePath,
+      removalHostId,
+      captureDirectSshWorktreeAuthority(connectionId),
+      removedMeta
+    )
   }
   const localWorktreeGitOptions = getLocalProjectWorktreeGitOptions(store, repo)
   const hasLocalWorktreeGitOptions = Object.keys(localWorktreeGitOptions).length > 0
   const registeredWorktrees = hasLocalWorktreeGitOptions
     ? await listGitWorktreesStrict(repo.path, localWorktreeGitOptions)
     : await listGitWorktreesStrict(repo.path)
-  const removedMeta = resolveWorktreeRemovalMetadata(store, repoId, args.worktreeId, removalHostId)
   const removedPushTarget = removedMeta?.pushTarget
   const registeredWorktree = findRegisteredDeletableWorktree(
     repo.path,

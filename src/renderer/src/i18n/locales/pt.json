@@ -6298,9 +6298,7 @@
           "title": "Artifacts",
           "description": "Compartilhe arquivos HTML e Markdown com sua equipe e gerencie seus links públicos.",
           "howToTitle": "Como usar Artifacts",
-          "howToDescription": "Publique arquivos HTML ou Markdown como links públicos e depois compartilhe-os com sua equipe.",
           "shareStepTitle": "Escolha um arquivo para compartilhar",
-          "shareStepDescription": "Abra um arquivo HTML ou Markdown e selecione Compartilhar como artifact, ou peça a um agente para compartilhá-lo.",
           "linkStepTitle": "Copiar o link público",
           "linkStepDescription": "Depois de publicar, copie o link e envie-o para sua equipe.",
           "manageStepTitle": "Gerencie no Orca",
@@ -6311,12 +6309,8 @@
           "signInDescription": "Use sua conta Orca para enviar artifacts e gerenciar seus links públicos.",
           "signInAgain": "Entrar novamente",
           "enableStepTitle": "Ativar compartilhamento de artifacts",
-          "enableStepWebDescription": "Abra Configurações → Artifacts no app desktop do Orca no dispositivo host e ative a publicação.",
           "enableStepDescription": "Ative \"Permitir publicação de links públicos de artifact\" acima.",
           "allowPublishing": "Permitir publicação de links públicos de artifact",
-          "allowPublishingWebDescription": "Somente desktop. Abra Configurações → Artifacts no dispositivo host para alterar esta configuração.",
-          "allowPublishingDescription": "Publica arquivos HTML e Markdown como links que qualquer pessoa com a URL pode abrir. Os links existentes permanecem até que você os exclua em Artifacts.",
-          "howToDescriptionDisabled": "Ative o compartilhamento de artifacts acima para publicar arquivos HTML ou Markdown como links públicos.",
           "allowPublishingSearchDescription": "Permite que o Orca publique arquivos HTML e Markdown como links públicos.",
           "keywordArtifacts": "artifacts",
           "keywordShare": "compartilhar",
@@ -6505,7 +6499,6 @@
           "reconnectOnLaunch": "Reconectar ao iniciar",
           "reconnectOnLaunchHelp": "Quando desativado, o Orca deixa este host, e qualquer servidor Orca acessado por ele, desconectado ao iniciar até você conectá-lo.",
           "allowRemoteCliControl": "Permitir que este host controle abas do navegador Orca nos espaços de trabalho dele",
-          "allowRemoteCliControlHelp": "Ativado por padrão para novos hosts. Agentes e comandos orca neste host podem abrir, ler e usar abas do navegador Orca neste computador, apenas nos espaços de trabalho deste host e enquanto ele estiver conectado. As abas que ele controla mostram o nome dele. Terminais iniciados neste host por um Orca mais antigo também precisam disto ativado para executar comandos de orquestração do orca. Ele não pode ler seus arquivos, área de transferência ou cookies.",
           "addHost": "Adicionar host",
           "proxyConnectionReuse": "Reutilizar uma única conexão de proxy",
           "proxyConnectionReuseHelp": "Conexões mais rápidas por hosts ProxyCommand ou ProxyJump lentos. Ative somente se o seu ssh_config não depender de regras Match ou %h específicas de host.",
@@ -12442,9 +12435,7 @@
                   "7edb8ebe24": "Clonar de URL",
                   "fb4fc5380e": "Projeto local, repositório Git, ou pasta com vários repositórios",
                   "2281fdc8c7": "Navegar pela pasta",
-                  "runtimeBrowseDescription": "Repositório Git ou pasta existente neste host",
-                  "serverSshTitle": "Projeto no host SSH deste servidor",
-                  "serverSshAddOnThisComputer": "Indisponível a partir de um servidor. Adicione o host SSH neste computador para abrir os projetos dele."
+                  "runtimeBrowseDescription": "Repositório Git ou pasta existente neste host"
                 }
               }
             }
@@ -14452,10 +14443,8 @@
         "SkillsSelectionHeader": {
           "exit": "Sair da seleção",
           "exitTooltip": "Sair da seleção · Esc",
-          "title": "Selecione as skills para compartilhar",
           "selectAll": "Selecionar todas as {{count}} elegíveis",
-          "clear": "Limpar",
-          "deleteTitle": "Selecione as skills para excluir"
+          "clear": "Limpar"
         },
         "SkillFreshnessNudge": {
           "titleOne": "Uma skill do Orca instalada está desatualizada",
@@ -17552,7 +17541,6 @@
             "4f327c8b3d": "Abrir Markdown...",
             "3d5d6c960d": "Novo Markdown",
             "fd2b42aaa3": "Novo Emulador Móvel",
-            "b426bb2615": "Ir para o Emulador Móvel",
             "4833fb2cbe": "Nova Aba do Navegador",
             "d364f3c8d4": "Novo Terminal",
             "7c1313d237": "Novo Terminal:",
@@ -20153,17 +20141,6 @@
         "moreHosts_one": "Mais {{count}} host. Busque pelo nome para encontrá-lo.",
         "moreHosts_other": "Mais {{count}} hosts. Busque pelo nome para encontrar um.",
         "moreHosts_many": "Mais {{count}} hosts. Busque pelo nome para encontrar um."
-      },
-      "web": {
-        "preloadApi": {
-          "cursorAccounts": {
-            "hostOnly": "Os dados de login do Cursor só podem ser lidos no computador que executa o Orca."
-          },
-          "accounts": {
-            "signInHostOnly": "Adicionar uma conta ou entrar nela novamente só está disponível no aplicativo para desktop, no computador que executa o Orca.",
-            "claudeWslDefaultUnavailable": "Voltar uma instância WSL ao padrão do sistema só está disponível no aplicativo para desktop."
-          }
-        }
       },
       "TaskPageJiraSavedFilters": {
         "6c381858a1": "Filtros salvos",

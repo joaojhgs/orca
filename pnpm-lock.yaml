@@ -214,12 +214,18 @@ importers:
       '@linear/sdk':
         specifier: ^97.0.0
         version: 97.0.0(graphql@16.14.2)
+      '@novnc/novnc':
+        specifier: 1.5.0
+        version: 1.5.0
       '@orca/process-host':
         specifier: workspace:*
         version: link:src/packages/process-host
       '@parcel/watcher':
         specifier: ^2.5.6
         version: 2.5.6
+      '@shadcn/react':
+        specifier: ^0.3.1
+        version: 0.3.1(@types/react@19.2.18)(react@19.2.9)
       '@xterm/addon-serialize':
         specifier: 0.15.0-beta.330
         version: 0.15.0-beta.330(patch_hash=17ca66ab9c7f52fc2fee94053b3b587c1210da468f3ddc7c4f5dba50b521c93e)(@xterm/xterm@6.1.0-beta.336(patch_hash=c5421560f0f6faaa1dd5dba59d50819b16ea1446a7f3f34a839a53becf8e380d))
@@ -1758,6 +1764,9 @@ packages:
   '@noble/hashes@2.4.0':
     resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
     engines: {node: '>= 20.19.0'}
+
+  '@novnc/novnc@1.5.0':
+    resolution: {integrity: sha512-4yGHOtUCnEJUCsgEt/L78eeJu00kthurLBWXFiaXfonNx0pzbs6R/3gJb1byZe6iAE8V9MF0syQb0xIL8MSOtQ==}
 
   '@open-draft/deferred-promise@2.2.0':
     resolution: {integrity: sha512-CecwLWx3rhxVQF6V4bAgPS5t+So2sTbPgAzafKkVizyi7tlwpcFpdFqq+wqF2OwNBmqFuu6tOyouTuxgpMfzmA==}
@@ -3462,6 +3471,17 @@ packages:
       '@typescript-eslint/parser':
         optional: true
       eslint:
+        optional: true
+
+  '@shadcn/react@0.3.1':
+    resolution: {integrity: sha512-2gOR0HDMtWeRsCZfNDaU0YDFdgH3zsDQ6lz67Fv/y/qjY9y+R8kJqAn6q56phqv7/zHi0wqURjntrNO9zL7vnQ==}
+    peerDependencies:
+      '@types/react': '>=19'
+      react: '>=19'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      react:
         optional: true
 
   '@shaderfrog/glsl-parser@7.0.1':
@@ -9317,6 +9337,8 @@ snapshots:
 
   '@noble/hashes@2.4.0': {}
 
+  '@novnc/novnc@1.5.0': {}
+
   '@open-draft/deferred-promise@2.2.0':
     optional: true
 
@@ -10672,6 +10694,11 @@ snapshots:
     optionalDependencies:
       eslint: 10.10.0(@types/keyv@3.1.4)(jiti@2.7.0)(supports-color@7.2.0)
       oxc-parser: 0.148.0
+
+  '@shadcn/react@0.3.1(@types/react@19.2.18)(react@19.2.9)':
+    optionalDependencies:
+      '@types/react': 19.2.18
+      react: 19.2.9
 
   '@shaderfrog/glsl-parser@7.0.1': {}
 

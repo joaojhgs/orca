@@ -25,6 +25,8 @@ type PushDispatcherOptions = {
   deliveryMode?: MobilePushDeliveryMode
   /** Test seam: lets a suite drive the single retry without real time. */
   scheduleRetry?: (run: () => void, delayMs: number) => void
+  allowsDelivery?: (event: MobileNotificationEvent, deviceId: string) => boolean
+  allowsSound?: (event: MobileNotificationEvent, deviceId: string) => boolean
 }
 
 type PushTarget = { deviceId: string; registration: MobilePushRegistration }
@@ -37,10 +39,14 @@ export class PushDispatcher {
   private readonly registry: PushDispatcherRegistry
   private readonly deliveryMode: MobilePushDeliveryMode
   private readonly scheduleRetry: (run: () => void, delayMs: number) => void
+  private readonly allowsDelivery: NonNullable<PushDispatcherOptions['allowsDelivery']>
+  private readonly allowsSound: NonNullable<PushDispatcherOptions['allowsSound']>
 
   constructor(options: PushDispatcherOptions) {
     this.client = options.client
     this.registry = options.registry
+    this.allowsDelivery = options.allowsDelivery ?? (() => true)
+    this.allowsSound = options.allowsSound ?? (() => true)
     this.deliveryMode = options.deliveryMode ?? 'full'
     this.scheduleRetry =
       options.scheduleRetry ??
@@ -59,24 +65,33 @@ export class PushDispatcher {
     this.outcomes.flush()
   }
 
-  enqueue(event: MobileNotificationEvent): void {
+  enqueue(
+    event: MobileNotificationEvent,
+    deviceIds?: ReadonlySet<string>,
+    forceSilent = false
+  ): void {
     if (this.stopped || this.deliveryMode === 'disabled') {
       return
     }
     try {
-      const plan = this.planSend(event)
+      const plan = this.planSend(event, deviceIds)
       if (!plan) {
         return
       }
       for (const sound of [true, false]) {
         const targets = plan.targets.filter(
-          (target) => (target.registration.filter.sound !== false) === sound
+          (target) =>
+            (event.type !== 'dismiss' &&
+              !forceSilent &&
+              target.registration.filter.sound !== false &&
+              this.allowsSound(event, target.deviceId)) === sound
         )
         for (let start = 0; start < targets.length; start += MAX_REGISTRATIONS_PER_SEND) {
           void this.deliver(
             targets.slice(start, start + MAX_REGISTRATIONS_PER_SEND),
             { ...plan.notification, ...(!sound ? { sound: false } : {}) },
-            0
+            0,
+            event
           )
         }
       }
@@ -86,7 +101,8 @@ export class PushDispatcher {
   }
 
   private planSend(
-    event: MobileNotificationEvent
+    event: MobileNotificationEvent,
+    deviceIds?: ReadonlySet<string>
   ): { targets: PushTarget[]; notification: PushSendNotification } | null {
     if (event.type === 'dismiss') {
       const target = event.dismissedDelivery ?? event
@@ -122,6 +138,8 @@ export class PushDispatcher {
       const registration = device.pushRegistration
       if (
         !registration ||
+        (deviceIds && !deviceIds.has(device.deviceId)) ||
+        !this.allowsDelivery(event, device.deviceId) ||
         registration.expiresAt <= Date.now() ||
         !allowsMobilePushDelivery(registration.filter, event)
       ) {
@@ -159,22 +177,37 @@ export class PushDispatcher {
   private async deliver(
     targets: readonly PushTarget[],
     notification: PushSendNotification,
-    attempt: number
+    attempt: number,
+    event: MobileNotificationEvent
   ): Promise<void> {
     if (this.stopped) {
       return
     }
-    const currentTargets = targets.filter((target) =>
-      this.registry
-        .listDevices()
-        .some(
-          (device) =>
-            device.deviceId === target.deviceId &&
-            device.pushRegistration === target.registration &&
-            target.registration.expiresAt > Date.now()
-        )
+    const currentTargets = targets.filter(
+      (target) =>
+        this.allowsDelivery(event, target.deviceId) &&
+        this.registry
+          .listDevices()
+          .some(
+            (device) =>
+              device.deviceId === target.deviceId &&
+              device.pushRegistration === target.registration &&
+              target.registration.expiresAt > Date.now()
+          )
     )
     if (!currentTargets.length) {
+      return
+    }
+    const newlySilent =
+      notification.sound !== false
+        ? currentTargets.filter((target) => !this.allowsSound(event, target.deviceId))
+        : []
+    if (newlySilent.length) {
+      void this.deliver(newlySilent, { ...notification, sound: false }, attempt, event)
+      const audible = currentTargets.filter((target) => !newlySilent.includes(target))
+      if (audible.length) {
+        void this.deliver(audible, notification, attempt, event)
+      }
       return
     }
     try {
@@ -198,7 +231,7 @@ export class PushDispatcher {
       // Retry transport misses once; an identical refused payload will be refused again.
       if (attempt === 0 && result.reason === 'unreachable') {
         this.scheduleRetry(() => {
-          void this.deliver(targets, notification, attempt + 1)
+          void this.deliver(targets, notification, attempt + 1, event)
         }, PUSH_RETRY_DELAY_MS)
       }
     } catch (error) {

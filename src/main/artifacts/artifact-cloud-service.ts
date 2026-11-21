@@ -97,6 +97,9 @@ export class ArtifactCloudService {
   // Keep gate failures asynchronous for callers’ promise chains.
   async share(request: ArtifactWriteRequest): Promise<ArtifactCloudOperation<ArtifactListItem>> {
     assertArtifactSharingAllowed(this.isSharingEnabled)
+    if (request.contentType === 'application/pdf') {
+      return { status: 'unconfigured', message: 'PDF artifacts require local server hosting.' }
+    }
     const idempotencyKey = randomUUID()
     return this.withAuth(request, (token, apiUrl, auth) =>
       this.publisher.share(request, token, apiUrl, auth, idempotencyKey)
@@ -107,6 +110,9 @@ export class ArtifactCloudService {
     request: ArtifactWriteRequest
   ): Promise<ArtifactCloudOperation<ArtifactPublishResult>> {
     assertArtifactSharingAllowed(this.isSharingEnabled)
+    if (request.contentType === 'application/pdf') {
+      return { status: 'unconfigured', message: 'PDF artifacts require local server hosting.' }
+    }
     const idempotencyKey = randomUUID()
     return this.withAuth(request, (token, apiUrl, auth) =>
       this.publisher.publish(request, token, apiUrl, auth, idempotencyKey)
@@ -115,6 +121,9 @@ export class ArtifactCloudService {
 
   async update(request: ArtifactWriteRequest): Promise<ArtifactCloudOperation<ArtifactListItem>> {
     assertArtifactSharingAllowed(this.isSharingEnabled)
+    if (request.contentType === 'application/pdf') {
+      return { status: 'unconfigured', message: 'PDF artifacts require local server hosting.' }
+    }
     return this.withAuth(request, (token, apiUrl, auth) =>
       this.publisher.runForSource(request.sourceKey, auth, async () => {
         auth.assertCurrent()
@@ -226,10 +235,7 @@ export class ArtifactCloudService {
       )
       const value = await operation(token, apiUrl, auth)
       auth.assertCurrent()
-      return {
-        status: 'ok',
-        value
-      }
+      return { status: 'ok', value }
     }
     const config = getOrcaCloudAuthConfig()
     if (!config.configured) {

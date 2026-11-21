@@ -22,15 +22,26 @@ import {
   isRuntimeEnvironmentManuallyDisconnected,
   markRuntimeEnvironmentManuallyDisconnected
 } from '../runtime-environments/connectivity/runtime-environment-manual-disconnect'
-import { getRuntimeEnvironmentStatusOwner } from '../runtime-environments/connections/runtime-environment-request-connections'
+import {
+  closeRemoteRuntimeRequestConnection,
+  getRuntimeEnvironmentStatusOwner
+} from '../runtime-environments/connections/runtime-environment-request-connections'
+import { advanceRuntimeEnvironmentCapabilityIncarnation } from '../runtime-environments/connections/runtime-environment-capability-evidence'
+import { advanceRuntimeEnvironmentTransportGeneration } from '../runtime-environments/connections/runtime-environment-transport-generation'
+import {
+  sshDesktopHost,
+  type RuntimeEnvironmentTransportInvalidator
+} from '../../ssh/application/ssh-desktop-host'
 import { disconnectRegisteredSshTarget } from './ssh-session-teardown'
 import { noteRuntimeEnvironmentConnectRequested } from '../runtime-environments/pairing/runtime-environment-pairing-refusal-registry'
 import { clearSshCredentialDeclinedForEnvironment } from '../../ssh/authentication/ssh-credential-decline'
 
 /** Managed server and SSH host share user disconnect intent; only explicit Connect may restore either. */
 
-type InvalidateTransport = (environmentId: string) => Promise<void> | void
-type RuntimeLayer = { userDataPath: string; invalidateTransport: InvalidateTransport }
+type RuntimeLayer = {
+  userDataPath: string
+  invalidateTransport: RuntimeEnvironmentTransportInvalidator
+}
 
 const appUserDataPath = (): string => getAppEnvironment().getPath('userData')
 
@@ -67,13 +78,12 @@ export async function disconnectSshHostForUser(
   )
   environments.forEach((environment) => markRuntimeEnvironmentManuallyDisconnected(environment.id))
   if (environments.length > 0) {
-    // Import lazily because runtime-environments wires handlers and imports this SSH layer.
     const invalidateTransport =
       runtimeLayer?.invalidateTransport ??
-      (await import('../runtime-environments/runtime-environments'))
-        .invalidateRuntimeEnvironmentTransport
+      (await sshDesktopHost().loadRuntimeEnvironmentInvalidator?.()) ??
+      invalidateHeadlessRuntimeEnvironmentTransport
     for (const environment of environments) {
-      // A Connect during the import already lifted this server; tearing it down would undo that.
+      // A Connect during desktop adapter loading may have lifted this server.
       if (isRuntimeEnvironmentManuallyDisconnected(environment.id)) {
         await disconnectRuntimeEnvironmentForUser(environment.id, {
           userDataPath,
@@ -83,6 +93,12 @@ export async function disconnectSshHostForUser(
     }
   }
   await teardown
+}
+
+function invalidateHeadlessRuntimeEnvironmentTransport(environmentId: string): void {
+  advanceRuntimeEnvironmentCapabilityIncarnation(environmentId)
+  advanceRuntimeEnvironmentTransportGeneration(environmentId)
+  closeRemoteRuntimeRequestConnection(environmentId)
 }
 
 /** The status bar's Disconnect of a managed server is a Disconnect of the machine it runs on. */
@@ -127,11 +143,13 @@ let launchReconnectOptOutsHeld: Promise<void> | undefined
 
 /** Opted-out hosts start each launch as if the user had disconnected them: nothing dials them, servers included, until Connect. Once per process, before server status probes start. */
 export async function holdLaunchReconnectOptOuts(
-  targets: readonly Pick<SshTarget, 'id' | 'label' | 'reconnectOnLaunch'>[],
+  targets: readonly Pick<SshTarget, 'id' | 'label' | 'reconnectOnLaunch' | 'connectOnStartup'>[],
   userDataPath: string = appUserDataPath()
 ): Promise<void> {
   return (launchReconnectOptOutsHeld ??= (async () => {
-    const held = targets.filter((target) => target.reconnectOnLaunch === false)
+    const held = targets.filter(
+      (target) => (target.reconnectOnLaunch ?? target.connectOnStartup) === false
+    )
     held.forEach((target) => recordSshUserDisconnected(target.id))
     if (held.length === 0) {
       return

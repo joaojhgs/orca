@@ -4,13 +4,13 @@ import { promisify } from 'node:util'
 import type { SFTPWrapper } from 'ssh2'
 import { createSshOperationAbortError } from '../../connection/ssh-exec-options'
 import { SFTP_UPLOAD_IN_FLIGHT_BYTES, uploadFileWithWindow } from './sftp-file-upload'
-import { latchLateSftpStreamErrors } from './sftp-stream-late-error'
+import { latchLateSftpSessionErrors, latchLateSftpStreamErrors } from './sftp-stream-late-error'
 import {
   createLinkedSshFileTransferSignal,
   raceSftpFileTransferWithAbort
 } from '../ssh-file-transfer-abort'
 
-function mkdirSftp(
+export function mkdirSftp(
   sftp: SFTPWrapper,
   path: string,
   options?: { allowExisting?: boolean }
@@ -267,5 +267,22 @@ async function assertLocalUploadPathInsideRoot(
     (relativeToRoot === '..' || relativeToRoot.startsWith(`..${sep}`) || isAbsolute(relativeToRoot))
   ) {
     throw new Error(`Path escaped upload root: ${candidatePath}`)
+  }
+}
+
+export { uploadFile } from './sftp-file-upload'
+
+export async function writeStringsViaSftp(
+  conn: { sftp(): Promise<SFTPWrapper> },
+  files: readonly { path: string; contents: string }[]
+): Promise<void> {
+  const sftp = await conn.sftp()
+  latchLateSftpSessionErrors(sftp)
+  try {
+    for (const file of files) {
+      await writeStringViaSftp(sftp, file.path, file.contents)
+    }
+  } finally {
+    sftp.end()
   }
 }

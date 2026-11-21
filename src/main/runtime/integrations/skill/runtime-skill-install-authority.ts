@@ -1,3 +1,4 @@
+import type { SkillSshWorkspaceAuthority } from '../../../../shared/skill-ssh-relay-contract'
 import { homedir } from 'node:os'
 import { getWslHome } from '../../../wsl/discovery/distro-catalog'
 import { parseWslUncPath } from '../../../../shared/file-access/wsl-paths'
@@ -21,13 +22,20 @@ import type { SkillInstallRequest } from '../../../../shared/skills/installation
 import type { SkillProviderRootOverrides } from '../../../skills/providers/skill-provider-destinations'
 import type { RuntimeSkillCommandHost } from './runtime-skill-command-contract'
 
-/** Whether the destination lives on an SSH target; a workspace that cannot be placed throws. */
 export async function isSkillSshDestination(
   host: RuntimeSkillCommandHost,
   destination: SkillInstallRequest['destination']
 ): Promise<boolean> {
+  return (await resolveSkillSshDestination(host, destination)) !== null
+}
+
+export async function resolveSkillSshDestination(
+  host: RuntimeSkillCommandHost,
+  destination: SkillInstallRequest['destination']
+): Promise<{ connectionId: string; workspace?: SkillSshWorkspaceAuthority } | null> {
   if (destination.scope === 'global') {
-    return destination.executionTarget?.kind === 'ssh'
+    const target = destination.executionTarget
+    return target?.kind === 'ssh' ? { connectionId: target.connectionId } : null
   }
   if (destination.worktreeId) {
     const repos = host
@@ -39,13 +47,15 @@ export async function isSkillSshDestination(
     }
     const executionHost = parseExecutionHostId([...hostIds][0])
     if (!executionHost || executionHost.kind === 'local') {
-      return false
+      return null
     }
-    // Non-SSH hosts retain local-path fallthrough; runtime-owned repos must not fail SSH classification.
+    // Why null and not a throw: base treated any non-ssh host as "not an SSH install" and
+    // fell through to the local path; a runtime-owned repo must not hard-error here.
     if (executionHost.kind !== 'ssh') {
-      return false
+      return null
     }
-    // Resolve host-qualified inventory: worktree ids collide and showManagedWorktree lacks the SSH row's hostId.
+    // Why the resolved inventory and not showManagedWorktree: a worktree id can collide across
+    // hosts, and only this list carries the hostId needed to pick the SSH-owned row.
     const worktrees = (await host.listResolvedWorktrees()).filter(
       (candidate) =>
         candidate.id === destination.worktreeId &&
@@ -58,7 +68,11 @@ export async function isSkillSshDestination(
           : 'skill-install-workspace-not-found'
       )
     }
-    return true
+    const worktree = worktrees[0]
+    return {
+      connectionId: executionHost.targetId,
+      workspace: { kind: 'worktree', id: worktree.id, path: worktree.path }
+    }
   }
   const folders = host
     .listFolderWorkspaces()
@@ -67,8 +81,20 @@ export async function isSkillSshDestination(
   if (folders.length > 1 || folderHosts.size > 1) {
     throw new Error('skill-install-workspace-host-ambiguous')
   }
-  // Only SSH connectionId selected this branch historically; other hosts retain local fallback.
-  return Boolean(folders[0]) && parseExecutionHostId([...folderHosts][0])?.kind === 'ssh'
+  const folder = folders[0]
+  const executionHost = parseExecutionHostId([...folderHosts][0])
+  if (!folder || !executionHost || executionHost.kind === 'local') {
+    return null
+  }
+  // Why null: base gated this branch on `folder.connectionId`, so any non-ssh host simply
+  // was not an SSH install and fell through to the local path.
+  if (executionHost.kind !== 'ssh') {
+    return null
+  }
+  return {
+    connectionId: executionHost.targetId,
+    workspace: { kind: 'folder', id: folder.id, path: folder.folderPath }
+  }
 }
 
 export async function resolveSkillProviderRoots(

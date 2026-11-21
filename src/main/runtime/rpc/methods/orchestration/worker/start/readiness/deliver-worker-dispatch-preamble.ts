@@ -157,7 +157,7 @@ function workerTaskSource(args: {
   return dispatchTaskSource({
     db: args.db,
     dispatch: { id: args.dispatchId, run_id: args.runId, task_id: args.taskId },
-    from: args.coordinatorHandle,
+    from: args.coordinatorHandle.startsWith('run:') ? undefined : args.coordinatorHandle,
     senderSnapshot: (party, reported) =>
       args.runtime.orchestrationSenderNames.snapshotOf(party, reported)
   })

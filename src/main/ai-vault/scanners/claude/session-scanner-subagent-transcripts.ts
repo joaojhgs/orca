@@ -45,3 +45,27 @@ export type SubagentTranscriptPartition = {
   sessionFilePaths: string[]
   subagentTranscriptCounts: Map<string, number>
 }
+
+const SUBAGENT_DIRECT_CHILD_PATTERN = /^(.*)[\\/]subagents[\\/]agent-[^\\/]+\.jsonl$/i
+const SUBAGENT_SUBTREE_PATTERN = /[\\/]subagents[\\/]/i
+export function partitionSubagentTranscriptPaths(
+  paths: readonly string[]
+): SubagentTranscriptPartition {
+  const sessionFilePaths: string[] = []
+  const subagentTranscriptCounts = new Map<string, number>()
+  for (const path of paths) {
+    if (!SUBAGENT_SUBTREE_PATTERN.test(path)) {
+      sessionFilePaths.push(path)
+      continue
+    }
+    const directChild = SUBAGENT_DIRECT_CHILD_PATTERN.exec(path)
+    if (directChild) {
+      const parentTranscriptPath = `${directChild[1]}.jsonl`
+      subagentTranscriptCounts.set(
+        parentTranscriptPath,
+        (subagentTranscriptCounts.get(parentTranscriptPath) ?? 0) + 1
+      )
+    }
+  }
+  return { sessionFilePaths, subagentTranscriptCounts }
+}

@@ -48,75 +48,80 @@ export function installPtySessionListingIpcHandler(deps: {
         }
       }
       assertResourceViewVisible(event, viewAdmission)
-      const deduped = new Map<string, PtyListedSession>()
-      const admission = new PtyProcessListAdmission()
-      const diagnostic = scope?.includeUnrouted === true
-      await visitPtyProcessListingsInBatches(
-        scope === undefined
-          ? registeredPtyProviders()
-          : [
-              {
-                provider: getProvider(getConnectionExecutionHostId(scope.connectionId)),
-                hostId: getConnectionExecutionHostId(scope.connectionId)
-              }
-            ],
-        ({ provider, hostId }) => {
-          assertResourceViewVisible(event, viewAdmission)
-          if (diagnostic && hostId === LOCAL_EXECUTION_HOST_ID) {
-            return provider.listProcesses({ includeUnrouted: true })
-          }
-          return hostId === LOCAL_EXECUTION_HOST_ID || scope !== undefined
-            ? provider.listProcesses()
-            : provider.listProcesses().catch(() => [])
-        },
-        ({ provider, hostId }, sessions) => {
-          const seen = new Set<string>()
-          const duplicated = new Set<string>()
-          for (const session of sessions) {
-            if (seen.has(session.id)) {
-              duplicated.add(session.id)
-            }
-            seen.add(session.id)
-          }
-          for (const rawSession of sessions) {
-            const session = admission.admit(rawSession)
-            // Rebuild routing for reconnect-discovered sessions; later kill requests carry only the PTY ID.
-            ptyOwnership.set(session.id, hostId)
-            deduped.set(diagnostic ? ptySessionIdentity(session) : session.id, {
-              id: session.id,
-              ...(session.inventorySourceId !== undefined
-                ? { inventorySourceId: session.inventorySourceId }
-                : {}),
-              ...(session.routed !== undefined ? { routed: session.routed } : {}),
-              cwd: session.cwd,
-              title: session.title,
-              ...(session.foregroundProcess
-                ? { foregroundProcess: session.foregroundProcess }
-                : {}),
-              ...(session.rootProcessId !== undefined && session.rootProcessId > 0
-                ? { rootProcessId: session.rootProcessId }
-                : {}),
-              ...(session.incarnationId ? { incarnationId: session.incarnationId } : {}),
-              fencedTermination:
-                !duplicated.has(session.id) &&
-                hostId === LOCAL_EXECUTION_HOST_ID &&
-                provider.supportsFencedTermination?.(session.id) === true,
-              ...(session.worktreeId !== undefined ? { worktreeId: session.worktreeId } : {}),
-              ...(session.paneKey !== undefined ? { paneKey: session.paneKey } : {}),
-              ...(session.exiting === true ? { exiting: true as const } : {}),
-              // During restore, claims provide liveness evidence; only listing-capable providers can prove ownership absent (#8459).
-              agentOwnership:
-                (session.agentSessionOwners?.length ?? 0) > 0
-                  ? 'present'
-                  : !duplicated.has(session.id) &&
-                      provider.providesAgentSessionOwnerListings?.(session.id) === true
-                    ? 'absent'
-                    : 'unknown'
-            })
-          }
-        }
-      )
-      return Array.from(deduped.values())
+      return listPtySessions(scope, () => assertResourceViewVisible(event, viewAdmission))
     }
   )
+}
+
+export async function listPtySessions(
+  scope?: PtySessionListScope,
+  assertVisible: () => void = () => {}
+): Promise<PtyListedSession[]> {
+  const deduped = new Map<string, PtyListedSession>()
+  const admission = new PtyProcessListAdmission()
+  const diagnostic = scope?.includeUnrouted === true
+  await visitPtyProcessListingsInBatches(
+    scope === undefined
+      ? registeredPtyProviders()
+      : [
+          {
+            provider: getProvider(getConnectionExecutionHostId(scope.connectionId)),
+            hostId: getConnectionExecutionHostId(scope.connectionId)
+          }
+        ],
+    ({ provider, hostId }) => {
+      assertVisible()
+      if (diagnostic && hostId === LOCAL_EXECUTION_HOST_ID) {
+        return provider.listProcesses({ includeUnrouted: true })
+      }
+      return hostId === LOCAL_EXECUTION_HOST_ID || scope !== undefined
+        ? provider.listProcesses()
+        : provider.listProcesses().catch(() => [])
+    },
+    ({ provider, hostId }, sessions) => {
+      const seen = new Set<string>()
+      const duplicated = new Set<string>()
+      for (const session of sessions) {
+        if (seen.has(session.id)) {
+          duplicated.add(session.id)
+        }
+        seen.add(session.id)
+      }
+      for (const rawSession of sessions) {
+        const session = admission.admit(rawSession)
+        // Rebuild routing for reconnect-discovered sessions; later kill requests carry only the PTY ID.
+        ptyOwnership.set(session.id, hostId)
+        deduped.set(diagnostic ? ptySessionIdentity(session) : session.id, {
+          id: session.id,
+          ...(session.inventorySourceId !== undefined
+            ? { inventorySourceId: session.inventorySourceId }
+            : {}),
+          ...(session.routed !== undefined ? { routed: session.routed } : {}),
+          cwd: session.cwd,
+          title: session.title,
+          ...(session.foregroundProcess ? { foregroundProcess: session.foregroundProcess } : {}),
+          ...(session.rootProcessId !== undefined && session.rootProcessId > 0
+            ? { rootProcessId: session.rootProcessId }
+            : {}),
+          ...(session.incarnationId ? { incarnationId: session.incarnationId } : {}),
+          fencedTermination:
+            !duplicated.has(session.id) &&
+            hostId === LOCAL_EXECUTION_HOST_ID &&
+            provider.supportsFencedTermination?.(session.id) === true,
+          ...(session.worktreeId !== undefined ? { worktreeId: session.worktreeId } : {}),
+          ...(session.paneKey !== undefined ? { paneKey: session.paneKey } : {}),
+          ...(session.exiting === true ? { exiting: true as const } : {}),
+          // During restore, claims provide liveness evidence; only listing-capable providers can prove ownership absent (#8459).
+          agentOwnership:
+            (session.agentSessionOwners?.length ?? 0) > 0
+              ? 'present'
+              : !duplicated.has(session.id) &&
+                  provider.providesAgentSessionOwnerListings?.(session.id) === true
+                ? 'absent'
+                : 'unknown'
+        })
+      }
+    }
+  )
+  return Array.from(deduped.values())
 }

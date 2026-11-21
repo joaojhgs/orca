@@ -8,6 +8,8 @@ import {
   type BotNeedsYouCounts
 } from '../../shared/bots/bot-change-scope'
 import { parsePaneKey } from '../../shared/workspace-layout/stable-pane-id'
+import { onBotToolSignInChanged } from './bot-tool-sign-in-changed'
+import { onBotToolCredentialEnded } from './bot-tool-credential-ended'
 
 // `botsChanged` goes out on the next tick after a change, so an owner's click shows at once; later
 // changes in the following quiet window go out together at its end, instead of one notice each. Each
@@ -171,4 +173,12 @@ export function followWorktreeLifecycleForBots(
       notices.changed(scope)
     }
   })
+}
+
+/** Re-read bot tool settings when the sign-in changes or a credential ends. */
+export function followBotToolSignInForBots(
+  notices: Pick<BotChangeNotices, 'changed'>
+): (() => void)[] {
+  const notify = () => notices.changed({ kinds: ['settings'] })
+  return [onBotToolSignInChanged(notify), onBotToolCredentialEnded(notify)]
 }

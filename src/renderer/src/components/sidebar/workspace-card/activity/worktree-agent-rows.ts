@@ -30,6 +30,7 @@ import { tabFromWorktreeAttributedStatusEntry } from './worktree-agent-row-fallb
 import { agentEntrySessionStartedAt as effectiveWorktreeAgentRowStartedAt } from '../../../../../../shared/agent-session/lifecycle/resume/agent-session-start-time'
 import { resolveRowAgentType } from './worktree-agent-row-type'
 import { entryWithRuntimeOrchestration } from './worktree-agent-row-orchestration'
+import { resolveAgentRowLiveTurnState } from '../../agent-row-live-turn-state'
 
 function markSeenPaneKeyForCurrentTab(args: {
   paneKey: string | undefined
@@ -161,7 +162,9 @@ export function buildWorktreeAgentRows(args: {
         tab,
         agentType: resolveRowAgentType(rowEntry, tab),
         rowSource: 'live',
-        state: resolveAgentRowState(rowEntry, args.now, hasLivePty),
+        state: isFresh
+          ? resolveAgentRowLiveTurnState({ ...args, entry: rowEntry })
+          : resolveAgentRowState(rowEntry, args.now, hasLivePty),
         startedAt
       })
       rows.push(...buildSubagentChildRows({ parentEntry: rowEntry, tab, parentIsFresh: isFresh }))

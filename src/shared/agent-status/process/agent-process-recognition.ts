@@ -25,6 +25,16 @@ const PROCESS_EXTENSION_RE = /\.(?:exe|cmd|bat|ps1)$/i
 const INTERPRETER_SCRIPT_EXTENSION_RE = /\.(?:js|mjs|cjs)$/i
 const PYTHON_SCRIPT_EXTENSION_RE = /\.(?:py|pyw)$/i
 
+function isClaudeNativeInstallPath(value: string | null | undefined): boolean {
+  if (!value) {
+    return false
+  }
+  const path = comparablePath(value.trim().replace(/^["']|["']$/g, ''))
+  return /^(?:\/|[a-z]:\/).*\/\.local\/share\/claude\/versions\/\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?(?:\.exe)?$/i.test(
+    path
+  )
+}
+
 function normalizeProcessName(
   processName: string | null | undefined,
   options: { stripInterpreterScriptExtension?: boolean } = {}
@@ -187,6 +197,9 @@ export function isExpectedAgentProcess(
   if (!normalizedProcess || !normalizedExpected) {
     return false
   }
+  if (normalizedExpected === 'claude' && isClaudeNativeInstallPath(processName)) {
+    return true
+  }
   return (
     normalizedProcess === normalizedExpected ||
     normalizedProcess.startsWith(`${normalizedExpected}.`) ||
@@ -221,6 +234,9 @@ export function isAgentForegroundProcess(
 export function recognizeAgentProcess(
   processName: string | null | undefined
 ): RecognizedAgentProcess | null {
+  if (isClaudeNativeInstallPath(processName)) {
+    return { agent: 'claude', processName: 'claude' }
+  }
   const normalized = normalizeProcessName(processName)
   return recognizedAgentForProcess(normalized)
 }
@@ -239,7 +255,7 @@ export function recognizeAgentProcessFromCommandLine(
   const keep = options?.includeHeadlessOneShot === true
   const tokens = tokenizeCommandLine(unwrapCodexStartupImageCommand(commandLine))
   const firstNormalized = normalizeProcessName(tokens[0])
-  let direct = recognizedAgentForProcess(firstNormalized)
+  let direct = recognizeAgentProcess(tokens[0])
   // Qoder's public dispatcher routes these commands to the IDE rather than the agent CLI.
   if (firstNormalized === 'qoder' && tokens[1] && !tokens[1].startsWith('-')) {
     return null

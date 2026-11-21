@@ -51,3 +51,26 @@ export function describeSandboxedSftpFailure(error: unknown, remotePath: string)
     { sandboxedSftpNamespace: true }
   )
 }
+
+type SftpSessionEmitter = ErrorEmitter & {
+  once(event: 'close', listener: () => void): unknown
+  removeListener(event: 'error', listener: (err: Error) => void): unknown
+}
+
+/**
+ * Hold one `'error'` listener on the SFTP *session* for as long as the session lives.
+ *
+ * A transfer that attaches and removes its own session listener — `writeStringViaSftp`
+ * does, so a session error can reject the write in flight — leaves the emitter with zero
+ * listeners between transfers and after the last one. A late STATUS reply arriving in
+ * that window is the synchronous throw described above. Errors during a transfer still
+ * reach that transfer first: it prepends its listener ahead of this one.
+ *
+ * Attach this once, right after `conn.sftp()`, on every path that runs transfers over a
+ * session it owns.
+ */
+export function latchLateSftpSessionErrors(sftp: SftpSessionEmitter): void {
+  const swallowLateSftpError = (): void => {}
+  sftp.on('error', swallowLateSftpError)
+  sftp.once('close', () => sftp.removeListener('error', swallowLateSftpError))
+}

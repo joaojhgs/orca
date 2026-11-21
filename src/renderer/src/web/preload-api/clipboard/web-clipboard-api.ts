@@ -16,7 +16,11 @@ import {
   clipboardImageThumbnailSize,
   type ClipboardImageThumbnail
 } from '../../../../../shared/clipboard/clipboard-image'
-import { assertClipboardTextWriteWithinLimitWithYield } from '../../../../../shared/clipboard/clipboard-text'
+import {
+  CLIPBOARD_TEXT_MEASURE_YIELD_CODE_UNITS,
+  assertClipboardTextWriteWithinLimit,
+  assertClipboardTextWriteWithinLimitWithYield
+} from '../../../../../shared/clipboard/clipboard-text'
 import { blobToBase64, convertImageBlobToPng } from '@/lib/clipboard/images/image-blob-png'
 import { copyClipboardTextViaExecCommand } from './web-clipboard-copy-fallback'
 import { callRuntimeEnvelope, callRuntimeResult } from '../../runtime/client/web-runtime-calls'
@@ -83,7 +87,12 @@ export async function readClipboardImagePngBase64(eventImage?: Blob): Promise<st
 }
 
 export async function writeWebClipboardText(text: string): Promise<void> {
-  await assertClipboardTextWriteWithinLimitWithYield(text)
+  // Start ordinary copies within the gesture; large payloads still yield.
+  if (text.length <= CLIPBOARD_TEXT_MEASURE_YIELD_CODE_UNITS) {
+    assertClipboardTextWriteWithinLimit(text)
+  } else {
+    await assertClipboardTextWriteWithinLimitWithYield(text)
+  }
   const clipboard = navigator.clipboard
   if (typeof clipboard?.writeText === 'function') {
     try {

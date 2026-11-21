@@ -7,6 +7,7 @@ import { RuntimeBrowserScreencastController } from '../browser/screencast/runtim
 import { createRuntimeBrowserCommands } from '../browser/installation/runtime-browser-commands-factory'
 import { RuntimeJiraCommands } from '../integrations/jira/runtime-jira-commands'
 import type { RpcBinarySender } from '../rpc/transports/rpc-binary-sender'
+import { RuntimeSshEmulatorCommands } from '../runtime-ssh-emulator-commands'
 
 type PublicMethods<T> = Pick<T, keyof T>
 type BrowserSurface = Omit<PublicMethods<RuntimeBrowserCommands>, 'browserScreencast'> & {
@@ -25,7 +26,8 @@ type BrowserSurface = Omit<PublicMethods<RuntimeBrowserCommands>, 'browserScreen
 
 export type RuntimeEdgeCommandSurface = BrowserSurface &
   PublicMethods<RuntimeJiraCommands> &
-  PublicMethods<RuntimeEmulatorCommands>
+  PublicMethods<RuntimeEmulatorCommands> &
+  PublicMethods<RuntimeSshEmulatorCommands>
 
 type ScreencastDependencies = ConstructorParameters<typeof RuntimeBrowserScreencastController>[0]
 type EmulatorHost = ConstructorParameters<typeof RuntimeEmulatorCommands>[0]
@@ -179,6 +181,7 @@ export class RuntimeEdgeCommandController {
       ...bindPrefixedMethods(this.jira, 'jira'),
       ...bindBrowserMethods(this.browser, BROWSER_COMMAND_NAMES),
       ...bindPrefixedMethods(this.emulator, 'emulator'),
+      ...bindPrefixedMethods(new RuntimeSshEmulatorCommands(args.emulatorHost), 'emulator'),
       browserScreencast: (params, options) => this.screencasts.start(params, options)
     } as RuntimeEdgeCommandSurface
   }

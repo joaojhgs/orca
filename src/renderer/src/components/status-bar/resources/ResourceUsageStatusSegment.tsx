@@ -21,6 +21,7 @@ import {
 } from './popover/resource-usage-popover-body'
 import { renderResourceUsageKillDialog } from './popover/resource-usage-kill-dialog'
 import { WorkspaceSpaceCompactPanel } from '../workspace-storage/WorkspaceSpaceCompactPanel'
+import { ResourceHostSummary } from '../resource-host-summary'
 
 export function ResourceUsageStatusSegment(): React.JSX.Element {
   const t = useTranslate()
@@ -161,6 +162,9 @@ export function ResourceUsageStatusSegment(): React.JSX.Element {
                 )}
               </div>
             )}
+            {resourceSnapshot?.hosts ? (
+              <ResourceHostSummary hosts={resourceSnapshot.hosts} />
+            ) : null}
             {renderResourceUsagePopoverBody(
               {
                 setPopoverBodyNode,

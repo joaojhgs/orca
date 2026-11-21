@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { SkillInstallFailureSchema, type SkillInstallFailure } from './skill-install-failure'
 
 export const SkillPackageIdentitySchema = z

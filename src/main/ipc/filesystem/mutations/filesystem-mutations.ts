@@ -9,7 +9,8 @@ import {
   resolveLocalRequestPath
 } from '../access/local-file-access-resolution'
 import type { LocalFileAccess } from '../../../../shared/file-access/local-file-access'
-import { SshHostNotServedError } from '../../../providers/ssh-host-not-served-error'
+import { requireSshFilesystemProvider } from '../../../providers/ssh-filesystem-dispatch'
+import { importExternalPathsSsh } from './filesystem-import-ssh'
 import { resolveLocalDroppedPathsForAgent } from './dropped-path-resolution'
 import type { SshMutationExpectation } from '../../../../shared/remote-runtime/ssh/ssh-types'
 import { assertSshMutationExpectation } from '../../../ssh/connection/authority/ssh-connection-generation'
@@ -20,6 +21,7 @@ import {
 } from '../../../filesystem/local-file-io/filesystem-create-path-guards'
 import type {
   ImportItemResult,
+  ImportSkipReason,
   ResolveDroppedPathsResult
 } from '../../../../shared/file-import/filesystem-import-result'
 import type {
@@ -50,8 +52,8 @@ export function registerFilesystemMutationHandlers(store: Store): void {
         args.expectedSshConnectionGeneration,
         args.expectedExecutionHostId
       )
-      if (args.connectionId) {
-        throw new SshHostNotServedError(args.connectionId)
+      if (args.connectionId != null) {
+        return requireSshFilesystemProvider(args.connectionId).createFile(args.filePath)
       }
       const filePath = windowsFsPath(await resolveDesktopAuthorizedPath(args.filePath, store))
       await mkdir(dirname(filePath), { recursive: true })
@@ -76,8 +78,8 @@ export function registerFilesystemMutationHandlers(store: Store): void {
         args.expectedSshConnectionGeneration,
         args.expectedExecutionHostId
       )
-      if (args.connectionId) {
-        throw new SshHostNotServedError(args.connectionId)
+      if (args.connectionId != null) {
+        return requireSshFilesystemProvider(args.connectionId).createDir(args.dirPath)
       }
       const dirPath = windowsFsPath(await resolveDesktopAuthorizedPath(args.dirPath, store))
       await assertNotExists(dirPath)
@@ -103,8 +105,11 @@ export function registerFilesystemMutationHandlers(store: Store): void {
         args.expectedSshConnectionGeneration,
         args.expectedExecutionHostId
       )
-      if (args.connectionId) {
-        throw new SshHostNotServedError(args.connectionId)
+      if (args.connectionId != null) {
+        return requireSshFilesystemProvider(args.connectionId).renameNoClobber(
+          args.oldPath,
+          args.newPath
+        )
       }
       // Preserve both leaves: rename acts on directory entries, including links; opened documents can move outside project roots.
       const { from, to } = await resolveLocalRenamePaths(
@@ -133,8 +138,11 @@ export function registerFilesystemMutationHandlers(store: Store): void {
         args.expectedSshConnectionGeneration,
         args.expectedExecutionHostId
       )
-      if (args.connectionId) {
-        throw new SshHostNotServedError(args.connectionId)
+      if (args.connectionId != null) {
+        return requireSshFilesystemProvider(args.connectionId).copy(
+          args.sourcePath,
+          args.destinationPath
+        )
       }
       const sourcePath = await resolveDesktopAuthorizedPath(args.sourcePath, store, {
         preserveSymlink: true
@@ -170,8 +178,17 @@ export function registerFilesystemMutationHandlers(store: Store): void {
         args.expectedSshConnectionGeneration,
         args.expectedExecutionHostId
       )
-      if (args.connectionId) {
-        throw new SshHostNotServedError(args.connectionId)
+      if (args.connectionId != null) {
+        return importExternalPathsSsh(args.sourcePaths, args.destDir, args.connectionId, {
+          ensureDir: args.ensureDir,
+          assertCurrent: () =>
+            assertSshMutationExpectation(
+              args.connectionId,
+              args.expectedSshTargetId,
+              args.expectedSshConnectionGeneration,
+              args.expectedExecutionHostId
+            )
+        })
       }
 
       // Authorize before copying; opened-document images may target that document's own folder.
@@ -272,7 +289,32 @@ export function registerFilesystemMutationHandlers(store: Store): void {
           failed: []
         }
       }
-      throw new SshHostNotServedError(args.connectionId)
+      const worktreePath = args.worktreePath.replace(/\/+$/, '')
+      const destDir = `${worktreePath}/.orca/drops`
+      const { results } = await importExternalPathsSsh(args.paths, destDir, args.connectionId, {
+        ensureDir: true,
+        assertCurrent: () =>
+          assertSshMutationExpectation(
+            args.connectionId,
+            args.expectedSshTargetId,
+            args.expectedSshConnectionGeneration,
+            args.expectedExecutionHostId
+          )
+      })
+      const resolvedPaths: string[] = []
+      const skipped: { sourcePath: string; reason: ImportSkipReason }[] = []
+      const failed: { sourcePath: string; reason: string }[] = []
+      // Iterate in input order so injected paths align with the user's drop order.
+      for (const r of results) {
+        if (r.status === 'imported') {
+          resolvedPaths.push(r.destPath)
+        } else if (r.status === 'skipped') {
+          skipped.push({ sourcePath: r.sourcePath, reason: r.reason })
+        } else {
+          failed.push({ sourcePath: r.sourcePath, reason: r.reason })
+        }
+      }
+      return { resolvedPaths, skipped, failed }
     }
   )
 }

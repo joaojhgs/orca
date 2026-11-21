@@ -23,6 +23,7 @@ import { ORCAD_MIGRATION_LOCAL_WSL_SOURCE_RUNTIME_CAPABILITY } from '../../../sh
 import { advertisedOrcadMigrationDestinationCapabilities } from '../../orcad/migration/orcad-migration-destination-capabilities'
 import { USAGE_CREDENTIALS_RUNTIME_CAPABILITY } from '../../../shared/remote-runtime/protocol/account-runtime-capabilities'
 import {
+  BROWSER_DESIGN_MODE_RUNTIME_CAPABILITY,
   MIN_COMPATIBLE_RUNTIME_CLIENT_VERSION,
   RUNTIME_CAPABILITIES,
   RUNTIME_PROTOCOL_VERSION
@@ -37,7 +38,6 @@ import {
   TERMINAL_PROMPT_DELIVERY_RUNTIME_CAPABILITY,
   TERMINAL_PAIRED_PARKING_RUNTIME_CAPABILITY
 } from '../../../shared/terminal/runtime-policy/terminal-runtime-capabilities'
-import type { RuntimeDegradation } from '../../../shared/remote-runtime/protocol/runtime-capability-degradation'
 
 import {
   type RuntimeStatus,
@@ -47,7 +47,8 @@ import {
 import {
   TERMINAL_PERSISTENCE_DEGRADATION_CAPABILITY,
   TERMINAL_PERSISTENCE_UNAVAILABLE_CODE,
-  TERMINAL_PERSISTENCE_UNAVAILABLE_MESSAGE
+  TERMINAL_PERSISTENCE_UNAVAILABLE_MESSAGE,
+  type RuntimeDegradation
 } from '../../../shared/remote-runtime/protocol/runtime-capability-degradation'
 import { MOBILE_WEB_BUNDLE_CAPABILITY } from '../../../shared/mobile-web-bundle/mobile-web-bundle-capability'
 import { getBundledMobileWebBundleRoot } from '../rpc/methods/mobile-delivery/bundled-mobile-web-bundle'
@@ -120,7 +121,8 @@ export abstract class OrcaRuntimeWithGetStatus extends RuntimeWorkspaceChangeEve
         BROWSER_CERTIFICATE_TRUST_RUNTIME_CAPABILITY,
         BROWSER_PAGE_ZOOM_RUNTIME_CAPABILITY,
         BROWSER_STOP_HARD_RELOAD_RUNTIME_CAPABILITY,
-        BROWSER_GRAB_RUNTIME_CAPABILITY
+        BROWSER_GRAB_RUNTIME_CAPABILITY,
+        BROWSER_DESIGN_MODE_RUNTIME_CAPABILITY
       )
     }
     capabilities.push(...orcaAccountRuntimeCapabilities())

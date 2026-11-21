@@ -4479,7 +4479,6 @@
             "4f327c8b3d": "Markdown Aç...",
             "3d5d6c960d": "Yeni Markdown",
             "fd2b42aaa3": "Yeni Mobil Emülatör",
-            "b426bb2615": "Mobil Emülatöre Git",
             "4833fb2cbe": "Yeni Tarayıcı Sekmesi",
             "d364f3c8d4": "Yeni Terminal",
             "7c1313d237": "Yeni Terminal:",
@@ -5896,10 +5895,8 @@
         "SkillsSelectionHeader": {
           "exit": "Seçimden çık",
           "exitTooltip": "Seçimden çık · Esc",
-          "title": "Paylaşılacak becerileri seçin",
           "selectAll": "Uygun {{count}} öğenin tümünü seç",
-          "clear": "Temizle",
-          "deleteTitle": "Silinecek becerileri seçin"
+          "clear": "Temizle"
         },
         "SkillDetailDialog": {
           "agents": "Ajanlar",
@@ -6823,8 +6820,6 @@
                   "c709860596": "Yeni proje oluştur",
                   "5f9ffac036": "Uzak bir Git reposunu klonla",
                   "7edb8ebe24": "URL'den clone'la",
-                  "serverSshTitle": "Bu sunucunun SSH sunucusundaki proje",
-                  "serverSshAddOnThisComputer": "Sunucudan kullanılamaz. Projelerini açmak için SSH sunucusunu bu bilgisayara ekleyin.",
                   "fb4fc5380e": "Yerel proje, Git reposu veya birçok repo içeren klasör",
                   "2281fdc8c7": "Klasöre göz at",
                   "runtimeBrowseDescription": "Bu ana makinedeki mevcut Git reposu veya klasör"
@@ -9282,7 +9277,6 @@
           "reconnectOnLaunch": "Açılışta yeniden bağlan",
           "reconnectOnLaunchHelp": "Kapalıyken Orca, siz bağlanana kadar bu sunucuya ve onun üzerinden erişilen Orca sunucularına açılışta bağlanmaz.",
           "allowRemoteCliControl": "Bu sunucunun kendi çalışma alanlarındaki Orca tarayıcı sekmelerini kontrol etmesine izin ver",
-          "allowRemoteCliControlHelp": "Yeni sunucular için varsayılan olarak açıktır. Bu sunucudaki ajanlar ve orca komutları, yalnızca bu sunucunun çalışma alanlarında ve yalnızca sunucu bağlıyken bu masaüstündeki Orca tarayıcı sekmelerini açabilir, okuyabilir ve kullanabilir. Kontrol ettiği sekmeler adını gösterir. Bu sunucuda eski bir Orca sürümü tarafından başlatılan terminallerin orca orkestrasyon komutlarını çalıştırması için de bu ayarın açık olması gerekir. Dosyalarınızı, panonuzu veya çerezlerinizi okuyamaz.",
           "editTitle": "SSH sunucusunu düzenle",
           "addTitle": "SSH sunucusu ekle",
           "editDescription": "Bu makine için bağlantı bilgilerini güncelleyin. Değişiklikler bir sonraki bağlantıda uygulanır.",
@@ -12392,9 +12386,7 @@
           "title": "Artifact'ler",
           "description": "HTML ve Markdown dosyalarını ekibinizle paylaşın ve herkese açık bağlantılarını yönetin.",
           "howToTitle": "Artifact'ler nasıl kullanılır",
-          "howToDescription": "HTML veya Markdown dosyalarını herkese açık bağlantılar olarak yayınlayıp ekibinizle paylaşın.",
           "shareStepTitle": "Paylaşılacak bir dosya seçin",
-          "shareStepDescription": "Bir HTML veya Markdown dosyası açıp Artifact olarak paylaş'ı seçin ya da bir ajandan paylaşmasını isteyin.",
           "linkStepTitle": "Herkese açık bağlantıyı kopyalayın",
           "linkStepDescription": "Yayınladıktan sonra bağlantıyı kopyalayıp ekibinize gönderin.",
           "manageStepTitle": "Orca'da yönetin",
@@ -12405,12 +12397,8 @@
           "signInDescription": "Artifact yüklemek ve herkese açık bağlantılarını yönetmek için Orca hesabınızı kullanın.",
           "signInAgain": "Tekrar oturum aç",
           "enableStepTitle": "Artifact paylaşımını etkinleştir",
-          "enableStepWebDescription": "Sunucu cihazdaki Orca masaüstü uygulamasında Ayarlar → Artifact'ler'i açıp yayınlamayı etkinleştirin.",
           "enableStepDescription": "Yukarıdaki “Herkese açık artifact bağlantıları yayınlamaya izin ver”i açın.",
           "allowPublishing": "Herkese açık artifact bağlantıları yayınlamaya izin ver",
-          "allowPublishingWebDescription": "Yalnızca masaüstü. Bu ayarı değiştirmek için sunucu cihazda Ayarlar → Artifact'ler'i açın.",
-          "allowPublishingDescription": "HTML ve Markdown dosyalarını URL'ye sahip herkesin açabileceği bağlantılar olarak yayınlayın. Var olan bağlantılar, siz onları Artifact'lerden silene kadar kalır.",
-          "howToDescriptionDisabled": "HTML veya Markdown dosyalarını herkese açık bağlantılar olarak yayınlamak için yukarıdan artifact paylaşımını etkinleştirin.",
           "allowPublishingSearchDescription": "Orca'nın HTML ve Markdown dosyalarını herkese açık bağlantılar olarak yayınlamasına izin verin.",
           "keywordArtifacts": "artifact'ler",
           "keywordShare": "paylaş",
@@ -18893,17 +18881,6 @@
         "9a4c6b2d7e": "Beceri paylaşımı",
         "3d8e5f1b9c": "Becerileri listelenmemiş bir bağlantının arkasında paylaşın ve kullandığınız herhangi bir makineye kurun.",
         "c5b3e8a17d": "Orca'da oturum aç"
-      },
-      "web": {
-        "preloadApi": {
-          "cursorAccounts": {
-            "hostOnly": "Cursor oturum bilgileri yalnızca Orca'nın çalıştığı bilgisayarda okunabilir."
-          },
-          "accounts": {
-            "signInHostOnly": "Hesap ekleme veya bir hesapta yeniden oturum açma yalnızca Orca'nın çalıştığı bilgisayardaki masaüstü uygulamasında kullanılabilir.",
-            "claudeWslDefaultUnavailable": "Bir WSL kanalını yeniden sistem varsayılanına geçirmek yalnızca masaüstü uygulamasında kullanılabilir."
-          }
-        }
       },
       "TaskPageJiraSavedFilters": {
         "6c381858a1": "Kayıtlı filtreler",

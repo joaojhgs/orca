@@ -35,6 +35,9 @@ import { JIRA_COMMAND_SPECS } from './jira'
 import { LINEAR_COMMAND_SPECS } from './linear'
 import { VM_COMMAND_SPECS } from './vm'
 import { VM_ENV_COMMAND_SPECS } from './vm-env'
+import { SKILL_LIBRARY_COMMAND_SPECS } from './skill-library'
+import { MANAGER_COMMAND_SPECS } from './manager'
+import { NETWORK_COMMAND_SPECS } from './network'
 import { SKILL_COMMAND_SPECS } from './skills'
 import { ARTIFACT_COMMAND_SPECS } from './artifacts'
 import { SEARCH_COMMAND_SPECS } from './search'
@@ -86,6 +89,9 @@ export const COMMAND_SPECS: CommandSpec[] = [
   ...VM_COMMAND_SPECS,
   ...VM_ENV_COMMAND_SPECS,
   ...EMULATOR_COMMAND_SPECS,
+  ...NETWORK_COMMAND_SPECS,
+  ...MANAGER_COMMAND_SPECS,
+  ...SKILL_LIBRARY_COMMAND_SPECS,
   ...SKILL_COMMAND_SPECS,
   ...SEARCH_COMMAND_SPECS,
   ...PROFILE_STATE_COMMAND_SPECS,

@@ -22,6 +22,8 @@ type SubscribeCallbacks = {
   onBinary?: (bytes: Uint8Array<ArrayBufferLike>) => void
   onError?: (error: { message: string }) => void
   onClose?: () => void
+  onTransportInterrupted?: () => void
+  onTransportReplayed?: () => void
 }
 
 /**

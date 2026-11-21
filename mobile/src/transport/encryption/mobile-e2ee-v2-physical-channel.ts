@@ -23,7 +23,7 @@ export type MobileE2EEV2Socket = {
   readonly OPEN: number
   readonly readyState: number
   readonly bufferedAmount: number
-  send: (frame: string | Uint8Array) => void
+  send: (frame: string | Uint8Array<ArrayBuffer>) => void
 }
 
 export class MobileE2EEV2PhysicalChannel {

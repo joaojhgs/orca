@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { ChevronRight, CircleAlert, CircleSlash, Link, Loader2 } from 'lucide-react'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { cn } from '@/lib/class-names'
@@ -19,6 +19,7 @@ import { CLOSE_ALL_CONTEXT_MENUS_EVENT } from '@/lib/overlay-interaction/close-a
 import type { RuntimeFileOperationArgs } from '@/runtime/files/runtime-file-client-types'
 import { createMultiSelectDragGhost } from '../mutations/file-explorer-multi-drag-image'
 import { FileExplorerRowContextMenu } from './file-explorer-row-context-menu'
+import { FileExplorerArtifactShare } from '../../FileExplorerArtifactShare'
 
 export type FileExplorerRowProps = {
   node: TreeNode
@@ -112,6 +113,8 @@ export function FileExplorerRow({
   onNativeDragTargetChange,
   onNativeDragExpandDir
 }: FileExplorerRowProps): React.JSX.Element {
+  const [artifactShareOpen, setArtifactShareOpen] = useState(false)
+  const artifactShareAnchor = useRef<HTMLButtonElement>(null)
   const t = useTranslate()
   const showLoadError = node.isDirectory && isExpanded && !isLoading && loadError !== null
   const rowDropDir = node.isDirectory ? node.path : targetDir
@@ -127,6 +130,13 @@ export function FileExplorerRow({
       onNativeDragExpandDir,
       onMoveDrop
     })
+  const setRowNode = useCallback(
+    (node: HTMLButtonElement | null) => {
+      artifactShareAnchor.current = node
+      setRowDragNode(node)
+    },
+    [setRowDragNode]
+  )
 
   return (
     <ContextMenu
@@ -149,8 +159,8 @@ export function FileExplorerRow({
             isFlashing && 'bg-amber-400/20 ring-1 ring-inset ring-amber-400/70'
           )}
           style={{ paddingLeft: `${(node.depth - displayDepthOffset) * 16 + 8}px` }}
-          ref={setRowDragNode}
-          // The OS-drop owner reads the target folder here at drop time.
+          ref={setRowNode}
+          // Why: the explorer's OS-drop owner reads the target folder from this at drop time.
           data-file-explorer-drop-dir={rowDropDir}
           // Let wheel capture rescue scrolling Chromium swallows over draggable rows (file-explorer-drag-scroll-marker).
           data-explorer-draggable="true"
@@ -267,6 +277,7 @@ export function FileExplorerRow({
         </button>
       </ContextMenuTrigger>
       <FileExplorerRowContextMenu
+        onShareArtifact={() => setArtifactShareOpen(true)}
         node={node}
         isExpanded={isExpanded}
         deleteShortcutLabel={deleteShortcutLabel}
@@ -289,6 +300,16 @@ export function FileExplorerRow({
         onCollapseFolderSubtree={onCollapseFolderSubtree}
         onFindInFolder={onFindInFolder}
       />
+      {artifactShareOpen ? (
+        <FileExplorerArtifactShare
+          node={node}
+          connectionId={connectionId}
+          context={runtimeDownloadContext}
+          workspaceId={sourceWorkspaceId}
+          anchorRef={artifactShareAnchor}
+          onOpenChange={setArtifactShareOpen}
+        />
+      ) : null}
     </ContextMenu>
   )
 }

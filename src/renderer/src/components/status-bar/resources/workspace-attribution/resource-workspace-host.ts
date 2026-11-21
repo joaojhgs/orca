@@ -31,6 +31,35 @@ export function resolveResourceWorkspaceHost(
       ? host.kind === 'runtime'
         ? host.id
         : null
-      : (ctx.repoRuntimeHostIdById.get(repoId) ?? null)
+      : (ctx.repoRuntimeHostIdById?.get(repoId) ??
+        (ctx.repoRuntimeEnvironmentIdById?.get(repoId)
+          ? `runtime:${ctx.repoRuntimeEnvironmentIdById.get(repoId)}`
+          : ctx.repoRuntimeScopedById?.get(repoId)
+            ? 'runtime:unknown'
+            : null))
   }
+}
+
+/** Local samples cannot leak into peer rows; web samples can describe only their paired owner. */
+export function ownsRuntimeResourceSample(
+  ctx: MergeContext,
+  worktreeId: string,
+  repoId: string,
+  environmentId?: string
+): boolean {
+  if (!environmentId) {
+    return false
+  }
+  const worktree = ctx.ambiguousWorktreeIds?.has(worktreeId)
+    ? undefined
+    : ctx.worktreeById?.get(worktreeId)
+  const host = parseExecutionHostId(worktree?.hostId)
+  const owner =
+    worktree?.runtimeOwnerEnvironmentId ??
+    (host?.kind === 'runtime' ? host.environmentId : ctx.repoRuntimeEnvironmentIdById?.get(repoId))
+  return owner === environmentId
+}
+
+export function resourceWorktreeKey(worktreeId: string, executionHostId?: string): string {
+  return executionHostId ? `${executionHostId}\0${worktreeId}` : worktreeId
 }

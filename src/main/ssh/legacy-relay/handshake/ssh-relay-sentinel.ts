@@ -2,7 +2,7 @@ import type { ClientChannel } from 'ssh2'
 import { createSshOperationAbortError } from '../../connection/ssh-exec-options'
 import { RELAY_SENTINEL, RELAY_SENTINEL_TIMEOUT_MS } from '../../protocol/relay-handshake'
 import type { MultiplexerTransport } from '../../protocol/ssh-multiplexer-transport-writer'
-import { buildRelayHandshakeRefusalError } from './ssh-relay-handshake-mismatch'
+import { buildRelayHandshakeRefusalError } from '../../protocol/ssh-relay-handshake-mismatch'
 
 const MAX_RELAY_STARTUP_BUFFER_BYTES = 64 * 1024
 const RELAY_SENTINEL_BUFFER = Buffer.from(RELAY_SENTINEL, 'utf-8')

@@ -4,6 +4,7 @@ import type { ExecutionHostScope } from '../../../../../shared/execution-host/ex
 import type { ExecutionHostHealth } from '../../../../../shared/execution-host/execution-host-health'
 import type { SshConnectionStatus } from '../../../../../shared/remote-runtime/ssh/ssh-types'
 import type { TaskProvider } from '../../../../../shared/work-items/task-providers'
+import { getTaskSourceProviderIdentityLabel } from '../../task-source-provider-identity-label'
 import type { TaskProviderIdentity } from '../../../../../shared/work-items/task-provider-identity'
 import type { TaskSourceContext } from '../../../../../shared/work-items/task-source-context'
 import { getTranslatedExecutionHostLabel } from '../../../runtime/hosts/display/execution-host-label'
@@ -62,7 +63,7 @@ export function getTaskSourceContextSummary(
   args:
     | ({ provider: Extract<TaskProvider, 'github' | 'gitlab'> } & RepoBackedTaskSourceSummaryArgs)
     | {
-        provider: Extract<TaskProvider, 'linear' | 'jira'>
+        provider: Extract<TaskProvider, 'linear' | 'jira' | 'multica'>
         providerLabel: string
         hostAvailability?: readonly TaskSourceHostAvailability[]
         hostLabelById?: HostLabelLookup
@@ -81,6 +82,17 @@ export function getTaskSourceContextSummary(
         args.providerLabel,
         {
           accountLabel: args.linearWorkspaceName,
+          accountHostId: args.accountHostId,
+          hostLabelById: args.hostLabelById,
+          hostAvailability: args.hostAvailability
+        },
+        t
+      )
+    case 'multica':
+      return getAccountBackedTaskSourceSummary(
+        args.providerLabel,
+        {
+          accountLabel: null,
           accountHostId: args.accountHostId,
           hostLabelById: args.hostLabelById,
           hostAvailability: args.hostAvailability
@@ -152,7 +164,7 @@ function getRepoBackedTaskSourceSummary(
   )
   const unavailableHosts = getUnavailableHosts(args.hostAvailability ?? [], args.hostLabelById, t)
   const availabilityLabel = getAvailabilityLabel(unavailableHosts, t)
-  const identityLabels = uniqueLabels(args.repoIdentities.map(getProviderIdentityLabel))
+  const identityLabels = uniqueLabels(args.repoIdentities.map(getTaskSourceProviderIdentityLabel))
   const accountLabels = uniqueLabels(contexts.map((context) => context.accountLabel))
   const repoCount = args.selectedRepoCount ?? contexts.length
   const hostLabel =
@@ -219,26 +231,6 @@ export function getAccountBackedTaskSourceSummary(
       .filter((part): part is string => Boolean(part))
       .join(' · '),
     title: titleParts.join(' · ')
-  }
-}
-
-function getProviderIdentityLabel(
-  identity: TaskProviderIdentity | null | undefined
-): string | null {
-  if (!identity) {
-    return null
-  }
-  switch (identity.provider) {
-    case 'github':
-      return `${identity.owner}/${identity.repo}`
-    case 'gitlab':
-      return identity.namespace && identity.project
-        ? `${identity.namespace}/${identity.project}`
-        : (identity.projectId ?? null)
-    case 'linear':
-      return identity.workspaceName ?? identity.workspaceId ?? null
-    case 'jira':
-      return identity.siteUrl ?? identity.siteId ?? null
   }
 }
 

@@ -46,6 +46,7 @@ export function StatusBarUsageArea({
   const [usageAreaRef, usageWidths] = useUsageRowWidths()
   const {
     antigravityAccounts,
+    executionAccounts,
     anyFetching,
     anyVisible,
     canSignInFromUsageRow,
@@ -117,6 +118,9 @@ export function StatusBarUsageArea({
                   className="inline-flex items-center gap-3 rounded px-1 py-0.5 hover:bg-accent/70"
                   aria-label={t('auto.components.status.bar.UsageRosterPanel.title', 'Usage')}
                 >
+                  {rosterProviders.length === 0
+                    ? t('auto.components.status.bar.UsageRosterPanel.title', 'Usage')
+                    : null}
                   {showUnitLabel ? <UsageUnitLabel display={usagePercentageDisplay} /> : null}
                   {shownProviders.map((p) => (
                     <ClippedRowProviderSegment
@@ -150,6 +154,7 @@ export function StatusBarUsageArea({
               >
                 <UsageRosterPanel
                   providers={rosterProviders}
+                  executionAccounts={executionAccounts}
                   display={usagePercentageDisplay}
                   statusBarUsageMode={statusBarUsageMode}
                   onStatusBarUsageModeChange={setStatusBarUsageMode}

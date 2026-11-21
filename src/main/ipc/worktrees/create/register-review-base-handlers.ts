@@ -1,17 +1,15 @@
 import { ipcMain } from 'electron'
 import type { GitHubPrStartPoint, GitPushTarget } from '../../../../shared/worktree/types'
 import { isFolderRepo } from '../../../../shared/repository/repo-kind'
-import { getRepoRoutingConnectionId } from '../../../../shared/execution-host/execution-host'
 import { gitExecFileAsync } from '../../../git/command-runner/git-exec-file'
 import {
   getLocalProjectGhExecOptions,
   getLocalProjectGitExecOptions,
   getWorktreeCreatePrefetchGitOptions
 } from '../../../workspaces/execution-host/project-runtime-git-options'
-import {
-  SSH_GIT_RECONNECT_MESSAGE,
-  SshHostNotServedError
-} from '../../../providers/ssh-host-not-served-error'
+import { requireWorktreeCreateRoute } from '../../../workspaces/creation/worktree-create-execution-host-route'
+import { captureDirectSshWorktreeAuthority } from '../direct-ssh-worktree-authority'
+import { assertRemovalHostMatchesRepoRow } from '../repo-host-ownership'
 import {
   fetchPrHeadTrackingRef,
   fetchGitHubPullRequestHeadRef
@@ -46,56 +44,81 @@ export function registerReviewBaseHandlers(context: WorktreeIpcContext): void {
       if (isFolderRepo(repo)) {
         return reviewStartPointFailure('folderUnsupported')
       }
-      // SSH ownership may exist only in executionHostId.
-      const connectionId = getRepoRoutingConnectionId(repo)
+      const route = requireWorktreeCreateRoute(repo)
+      assertRemovalHostMatchesRepoRow(repo, repo.id, route.hostId)
+      const ssh =
+        route.kind === 'ssh' ? captureDirectSshWorktreeAuthority(route.connectionId) : null
+      const connectionId = ssh?.connectionId ?? null
+      await ssh?.registerRoot(repo.path)
       const gitExec = async (args: string[]): Promise<{ stdout: string; stderr: string }> => {
-        if (!connectionId) {
+        if (!ssh) {
           return gitExecFileAsync(args, getLocalProjectGitExecOptions(store, repo))
         }
-        throw new SshHostNotServedError(connectionId, SSH_GIT_RECONNECT_MESSAGE)
+        ssh.assertCurrent()
+        return ssh.provider.exec(args, repo.path)
       }
       const localGhOptions = connectionId
         ? repo.ghAccount
           ? { ghAccount: repo.ghAccount }
           : undefined
         : getLocalProjectGhExecOptions(store, repo)
-      const fetchRemoteTrackingRef = (remote: string, branch: string): Promise<void> =>
-        fetchPrHeadTrackingRef(repo, remote, branch, {
+      const fetchRemoteTrackingRef = (remote: string, branch: string): Promise<void> => {
+        if (ssh) {
+          ssh.assertCurrent()
+          return ssh.provider.fetchRemoteTrackingRef(
+            repo.path,
+            remote,
+            branch,
+            `refs/remotes/${remote}/${branch}`
+          )
+        }
+        return fetchPrHeadTrackingRef(repo, remote, branch, {
           localGitExecOptions: getLocalProjectGitExecOptions(store, repo)
         })
-      const fetchPullRequestHeadRef = (remote: string, prNumber: number): Promise<string> =>
-        fetchGitHubPullRequestHeadRef(repo, remote, prNumber, {
+      }
+      const fetchPullRequestHeadRef = (remote: string, prNumber: number): Promise<string> => {
+        if (ssh) {
+          ssh.assertCurrent()
+          return ssh.provider.fetchGitHubPullRequestHead(repo.path, remote, prNumber)
+        }
+        return fetchGitHubPullRequestHeadRef(repo, remote, prNumber, {
           localGitExecOptions: getLocalProjectGitExecOptions(store, repo)
         })
+      }
 
-      // Source Control's push-target ensure asks unprompted; it must not start a stopped distro (E9).
-      const { wslDistro } = connectionId ? {} : getWorktreeCreatePrefetchGitOptions(store, repo)
+      const resolve = () =>
+        resolveGitHubPrStartPoint({
+          repoPath: repo.path,
+          prNumber: args.prNumber,
+          headRefName: args.headRefName,
+          baseRefName: args.baseRefName,
+          isCrossRepository: args.isCrossRepository,
+          issueSourcePreference: repo.issueSourcePreference,
+          connectionId,
+          localGitOptions: localGhOptions,
+          gitExec,
+          fetchRemoteTrackingRef,
+          fetchPullRequestHeadRef,
+          resolveRemote: () =>
+            resolveGitHubReviewHeadRemote({
+              repoPath: repo.path,
+              issueSourcePreference: repo.issueSourcePreference,
+              connectionId,
+              localGitOptions: localGhOptions,
+              gitExec
+            })
+        })
+      if (ssh) {
+        const result = await resolve()
+        ssh.assertCurrent()
+        return result
+      }
+      // Source Control's push-target ensure asks unprompted, so keep stopped WSL distros asleep.
+      const { wslDistro } = getWorktreeCreatePrefetchGitOptions(store, repo)
       return resolvePrStartPointUnlessWslStopped(
         { path: repo.path, wslDistro },
         { wakeWslDistro: args.wakeWslDistro },
-        () =>
-          resolveGitHubPrStartPoint({
-            repoPath: repo.path,
-            prNumber: args.prNumber,
-            headRefName: args.headRefName,
-            baseRefName: args.baseRefName,
-            isCrossRepository: args.isCrossRepository,
-            issueSourcePreference: repo.issueSourcePreference,
-            connectionId,
-            localGitOptions: localGhOptions,
-            gitExec,
-            fetchRemoteTrackingRef,
-            fetchPullRequestHeadRef,
-            // Share source preference and hosting identity across local, WSL and SSH creation.
-            resolveRemote: () =>
-              resolveGitHubReviewHeadRemote({
-                repoPath: repo.path,
-                issueSourcePreference: repo.issueSourcePreference,
-                connectionId,
-                localGitOptions: localGhOptions,
-                gitExec
-              })
-          })
+        resolve
       )
     }
   )

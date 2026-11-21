@@ -1,5 +1,5 @@
 import type React from 'react'
-import { FileDown, MoreHorizontal } from 'lucide-react'
+import { FileDown, MoreHorizontal, Share2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 type EditorPanelActionsMenuProps = {
   fileLocationActions?: React.ReactNode
+  onShareArtifact?: () => void
   isDiffSurface: boolean
   /** Diff-only wrap preference; ignored for normal file tabs. */
   diffWordWrap: boolean
@@ -33,6 +34,7 @@ type EditorPanelActionsMenuProps = {
 
 export function EditorPanelActionsMenu({
   fileLocationActions,
+  onShareArtifact,
   isDiffSurface,
   diffWordWrap,
   diffShowWhitespace,
@@ -69,6 +71,12 @@ export function EditorPanelActionsMenu({
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" sideOffset={4}>
+        {onShareArtifact ? (
+          <DropdownMenuItem onSelect={onShareArtifact}>
+            <Share2 />
+            {t('artifacts.share.action', 'Share as artifact')}
+          </DropdownMenuItem>
+        ) : null}
         {fileLocationActions ? (
           <>
             {fileLocationActions}

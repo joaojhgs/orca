@@ -9,7 +9,6 @@ import type { ResourceSessionBindingIndex } from './resource-session-bindings'
 export function deriveWorktreeNameFromWorktreeId(worktreeId: string): string {
   return getWorktreePathBasenameFromId(worktreeId) ?? worktreeId
 }
-
 function shortCwd(cwd: string): string {
   if (!cwd) {
     return ''

@@ -1,3 +1,5 @@
+import type { WorkerStartServiceOrigin } from '../worker-start-origin'
+import { ManagerAuthorityError } from '../../../../../manager/manager-authority-error'
 import { createLocalWorkerStartDispatch } from './local-worker-start-dispatch'
 import { refuseClaimedWorkerTerminal } from '../../../../../orchestration/db/worker-dispatch/worker-terminal-claim'
 import { probeWorkerOpenCodeModelLaunchSupport } from './launch/worker-opencode-model-preflight'
@@ -59,8 +61,9 @@ export async function startLocalWorker(args: {
   /** Set when a worker starts its own helper; the helper reports to this Dispatch. */
   helperCreator?: DispatchContextRow
   followUp?: WorkerFollowUp
+  serviceOrigin?: WorkerStartServiceOrigin
 }): Promise<unknown> {
-  const { runtime, db, coordinator, callerSession, orchestrationMutation } = args
+  const { runtime, db, coordinator, callerSession, orchestrationMutation, serviceOrigin } = args
   const recordStart = prepareWorkerStartCard(runtime, callerSession)
   // `--terminal` names a party: a chat by its `/clear` root address, as its Dispatch does.
   const terminal = args.params.terminal && resolveDispatchAssigneeParty(args.params.terminal, db)
@@ -77,11 +80,9 @@ export async function startLocalWorker(args: {
       callerWorktreeId,
       crossStoreParent: params.crossStoreParent
     })
-  const coordinatorWorktreeId = await resolveDispatchCallerWorktreeId(
-    runtime,
-    params.from,
-    callerSession
-  )
+  const coordinatorWorktreeId =
+    serviceOrigin?.workspaceId ??
+    (await resolveDispatchCallerWorktreeId(runtime, params.from, callerSession))
   const existingWorktree =
     requestedWorktree === 'current' ? `id:${coordinatorWorktreeId}` : requestedWorktree
   const launchParams = await resolveWorkerConfiguredAgentParams(runtime, params, async () =>
@@ -133,17 +134,19 @@ export async function startLocalWorker(args: {
   // Synchronous through the Dispatch insert, so nothing else claims the terminal in between.
   refuseClaimedWorkerTerminal(db, params.terminal, runtime, args.followUp?.of)
   const run = args.bindRun()
-  const started = createLocalWorkerStartDispatch(args, {
-    params,
-    run,
-    requestedWorktree,
-    createsWorktree,
-    mode,
-    resolvedWorktreeId: resolvedWorktree?.id,
-    repoSelector: creationTarget?.repoSelector,
-    agent,
-    launchReceipt: launch.receipt
-  })
+  const acceptDispatch = () =>
+    createLocalWorkerStartDispatch(args, {
+      params,
+      run,
+      requestedWorktree,
+      createsWorktree,
+      mode,
+      resolvedWorktreeId: resolvedWorktree?.id,
+      repoSelector: creationTarget?.repoSelector,
+      agent,
+      launchReceipt: launch.receipt
+    })
+  const started = serviceOrigin ? serviceOrigin.acceptDispatch(acceptDispatch) : acceptDispatch()
   releaseRetriedWorkerTerminal(runtime, db, params)
   const effects: WorkerEffect[] = []
   const task = started.task
@@ -161,6 +164,7 @@ export async function startLocalWorker(args: {
   }
   let result: unknown
   try {
+    serviceOrigin?.assertAuthority()
     placed = await placeWorkerAgent({
       runtime,
       db,
@@ -244,6 +248,7 @@ export async function startLocalWorker(args: {
       setupState: setupReceipt.state,
       terminalOwnership: external ? 'external' : 'created'
     })
+    serviceOrigin?.assertPlacement(started.dispatch.id)
     if (workerChat) {
       rebindReusedStructuredWorker(terminalHandle, db)
     }
@@ -269,9 +274,17 @@ export async function startLocalWorker(args: {
       readinessDeadline,
       effects,
       terminalRevealWarning: placed.warning,
+      beforeDispatch: serviceOrigin?.assertAuthority,
       onStage
     })
   } catch (error) {
+    // A revoked manager cannot abandon a launched resource on behalf of its owner.
+    if (serviceOrigin && error instanceof ManagerAuthorityError) {
+      if (db.getWorkerDispatch(started.dispatch.id)?.state === 'starting') {
+        db.markWorkerStartUnknown(started.dispatch.id, failedStage, error.message, effects)
+      }
+      throw error
+    }
     result = await failWorkerStartWithReceipt({
       runtime,
       structuredSession: placed?.structuredSession ?? null,

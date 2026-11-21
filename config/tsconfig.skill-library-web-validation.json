@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "../src/renderer/src/env.d.ts",
+    "../src/renderer/src/components/skills/SkillLibrary*.tsx",
+    "../src/renderer/src/components/skills/use-skill-library.ts",
+    "../src/renderer/src/components/skills/SkillsPage.tsx"
+  ],
+  "compilerOptions": { "composite": false, "incremental": false, "noEmit": true }
+}

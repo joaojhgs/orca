@@ -66,6 +66,73 @@ describe('listChangedFiles', () => {
     expect(main(fixture, undefined, matches)).toBe(1)
   })
 
+  it('enforces tests whose bodies change while retaining tests from the fork parent', () => {
+    createExistingTest()
+    vi.stubEnv('GITHUB_EVENT_NAME', '')
+    const base = git('rev-parse', 'HEAD')
+    git('checkout', '-qb', 'fork')
+    const file = 'restored.test.ts'
+    writeFileSync(join(fixture, file), existingTest)
+    git('add', file)
+    git('commit', '-qm', 'fork tests')
+    git('update-ref', 'refs/remotes/fork/main', 'HEAD')
+    git('checkout', '-q', '--detach', base)
+    git('merge', '-q', '--no-commit', '--no-ff', 'fork')
+
+    writeFileSync(join(fixture, file), movedImports)
+    expect(listChangedFiles(fixture).has(file)).toBe(false)
+    vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
+    expect(listChangedFiles(fixture).has(file)).toBe(true)
+    vi.stubEnv('GITHUB_EVENT_NAME', '')
+    writeFileSync(join(fixture, file), `${movedImports}Date.now()\n`)
+    expect(listChangedFiles(fixture).has(file)).toBe(true)
+  })
+
+  it('keeps new polling findings in edited files renamed from a retained parent', () => {
+    createExistingTest()
+    vi.stubEnv('GITHUB_EVENT_NAME', '')
+    const base = git('rev-parse', 'HEAD')
+    git('checkout', '-qb', 'fork')
+    const original = 'retained.test.ts'
+    const file = 'renamed.test.ts'
+    const polling = 'while (!ready()) {\n  await delay()\n}\n'
+    const retained = `${polling}export const loadingMethods = { ready, delay, observe }\n`
+    writeFileSync(join(fixture, original), retained)
+    git('add', original)
+    git('commit', '-qm', 'retained polling')
+    git('update-ref', 'refs/remotes/fork/main', 'HEAD')
+    git('checkout', '-q', '--detach', base)
+    git('merge', '-q', '--no-commit', '--no-ff', 'fork')
+    git('mv', original, file)
+    writeFileSync(join(fixture, file), `${retained}void ready\n`)
+
+    const match = (line) => ({
+      file,
+      ruleId: 'test-no-polling-loop',
+      range: { start: { line, column: 0 }, end: { line: line + 2, column: 1 } }
+    })
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(main(fixture, undefined, [match(0)])).toBe(0)
+
+    const freshPolling = polling.replace('!ready()', '!finished()')
+    writeFileSync(join(fixture, file), `${retained}void ready\n${freshPolling}`)
+    expect(main(fixture, undefined, [match(0), match(5)])).toBe(1)
+    expect(errors).toHaveBeenCalledWith(
+      'test-no-polling-loop:renamed.test.ts: 1 flaky-test finding(s), baseline allows 0.'
+    )
+
+    // An existing allowance still compares the full count.
+    writeFileSync(
+      join(fixture, 'config/flaky-test-pattern-baseline.txt'),
+      '1 test-no-polling-loop:renamed.test.ts\n'
+    )
+    expect(main(fixture, undefined, [match(0), match(5)])).toBe(1)
+    expect(errors).toHaveBeenCalledWith(
+      'test-no-polling-loop:renamed.test.ts: 2 flaky-test finding(s), baseline allows 1.'
+    )
+  })
+
   it.each([
     ['a changed suppression comment', movedImports.replace('declaration only', 'new reason')],
     ['an import binding change', movedImports.replace('{ watch }', '{ watch as renamed }')],

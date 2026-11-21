@@ -1,3 +1,4 @@
+import { ExecutionAccountUsageRows } from '../../ExecutionAccountUsageRows'
 import { Loader2, Plus, X } from 'lucide-react'
 import { translate } from '@/i18n/i18n'
 import type { Translate } from '@/i18n/use-translate'
@@ -90,6 +91,7 @@ export function renderClaudeAccountsSection(
           'Optional. Orca can use your normal Claude login; add accounts only if you want quick switching without moving chat sessions.'
         )}
       >
+        <ExecutionAccountUsageRows provider="claude" />
         <SearchableSetting
           title={t('auto.components.settings.AccountsPane.89b9a151c3', 'Claude accounts')}
           description={t(

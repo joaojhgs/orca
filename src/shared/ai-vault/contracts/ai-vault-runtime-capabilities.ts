@@ -1,3 +1,4 @@
+export const AI_VAULT_EXECUTION_HOSTS_CAPABILITY = 'aiVault.execution-hosts.v1' as const
 import { AI_VAULT_CHAT_FORK_SOURCE_CAPABILITY } from '../resume/ai-vault-resume-preparation'
 
 // aiVault.listSessions is unconditional, so getStatus advertises this statically rather than as a runtime-dependent capability.
@@ -9,6 +10,7 @@ export const AI_VAULT_SESSION_TITLE_REFRESH_RUNTIME_CAPABILITY =
 export const AI_VAULT_DELETE_SESSION_RUNTIME_CAPABILITY = 'aiVault.delete-session.v1' as const
 
 export const AI_VAULT_RUNTIME_CAPABILITIES = [
+  AI_VAULT_EXECUTION_HOSTS_CAPABILITY,
   AI_VAULT_RUNTIME_CAPABILITY,
   AI_VAULT_SESSION_TITLES_RUNTIME_CAPABILITY,
   AI_VAULT_SESSION_TITLE_REFRESH_RUNTIME_CAPABILITY,

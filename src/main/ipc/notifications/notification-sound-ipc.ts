@@ -14,7 +14,7 @@ import { isNotificationFocusActive } from '../../notifications/notification-focu
 
 const MAX_NOTIFICATION_SOUND_BYTES = 10 * 1024 * 1024
 
-export function registerNotificationSoundHandlers(store: Store): void {
+export function registerNotificationSoundHandlers(store: Pick<Store, 'getSettings'>): void {
   // Return paths so preload caching avoids repeat 10MB sound transfers.
   ipcMain.removeHandler('notifications:resolveSoundPath')
   ipcMain.handle(

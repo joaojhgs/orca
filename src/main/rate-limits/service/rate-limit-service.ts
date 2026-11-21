@@ -7,6 +7,8 @@ import { hasMiniMaxSessionCookie } from '../../minimax/minimax-cookie-store'
 import { hasMiniMaxApiKey } from '../../minimax/minimax-api-key-store'
 import { hasZcodePlanApiKey } from '../../zcode/zcode-plan-api-key-store'
 import { RateLimitServiceAccountRefresh } from './service-account-refresh'
+import { withExecutionAccountUsage } from '../execution-usage-snapshot'
+import type { ExecutionAccountUsage } from '../../../shared/execution-observer'
 import type { AntigravityAccountUsageRecorder } from '../providers/antigravity/antigravity-account-usage'
 import {
   type CodexAccountSelectionTarget,
@@ -34,6 +36,20 @@ import type { RateLimitState } from '../../../shared/agent-usage/rate-limits/rat
 import type { NetworkProxySettings } from '../../../shared/network/network-proxy'
 
 export class RateLimitService extends RateLimitServiceAccountRefresh {
+  setExecutionUsageSource(
+    resolver: () => ExecutionAccountUsage[],
+    refresh: () => Promise<void>
+  ): void {
+    this.executionUsageResolver = resolver
+    this.executionUsageRefresh = refresh
+  }
+  getExecutionAccounts(): ExecutionAccountUsage[] {
+    return this.executionUsageResolver?.() ?? []
+  }
+
+  publishExecutionUsageChange(): void {
+    this.pushToRenderer()
+  }
   setCodexHomePathResolver(resolver: CodexHomePathResolver): void {
     this.codexHomePathResolver = resolver
   }
@@ -216,7 +232,7 @@ export class RateLimitService extends RateLimitServiceAccountRefresh {
       await Promise.all([hasMiniMaxSessionCookie(), hasMiniMaxApiKey(), hasZcodePlanApiKey()])
     this.pruneInactiveClaudeState()
     this.pruneInactiveCodexState()
-    return {
+    const result: RateLimitState = {
       ...this.state,
       // Filesystem-stored cookie presence keeps MiniMax visible across renderer reloads.
       minimaxCookieConfigured,
@@ -237,5 +253,8 @@ export class RateLimitService extends RateLimitServiceAccountRefresh {
       ),
       antigravityAccounts: this.antigravityAccounts
     }
+    return this.executionUsageResolver
+      ? withExecutionAccountUsage(result, this.executionUsageResolver())
+      : result
   }
 }

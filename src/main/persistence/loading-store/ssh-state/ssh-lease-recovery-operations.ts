@@ -1,14 +1,45 @@
 import { WORKSPACE_SESSION_DOMAINS } from '../../workspace-session-domains'
-import type { SshPendingPtyKill } from '../../../../shared/remote-runtime/ssh/ssh-pending-pty-kill'
-import type { SshRemotePtyLease } from '../../../../shared/remote-runtime/ssh/ssh-types'
 import type { PtyRetirementEvidence } from '../../../pty/process-retirement/pty-exit-proof'
+import type {
+  SshPendingPtyKill,
+  SshPendingPtyKillEntry
+} from '../../../../shared/remote-runtime/ssh/ssh-pending-pty-kill'
+import type {
+  SshPtyConsumerRecovery,
+  SshRemotePtyLease
+} from '../../../../shared/remote-runtime/ssh/ssh-types'
+import {
+  clearSshRemotePtyKillIntent as clearSshRemotePtyKillIntentOperation,
+  getSshRemotePtyKillIntents as getSshRemotePtyKillIntentsOperation,
+  noteSshRemotePtyKillReplayAttempt as noteSshRemotePtyKillReplayAttemptOperation,
+  pruneExpiredSshRemotePtyKillIntents as pruneExpiredSshRemotePtyKillIntentsOperation,
+  recordSshRemotePtyKillIntent as recordSshRemotePtyKillIntentOperation
+} from '../../leasing-ssh-ptys/ssh-pty-kill-intent-operations'
 import {
   getSshRemotePtyLeases as getSshRemotePtyLeasesOperation,
   markSshRemotePtyLease as markSshRemotePtyLeaseOperation,
-  removeSshRemotePtyLeases as removeSshRemotePtyLeasesOperation,
+  markDirectSshRemotePtyLease as markDirectSshRemotePtyLeaseOperation,
   setSshRemotePtyLeasePendingKill as setSshRemotePtyLeasePendingKillOperation,
-  type SshPtyLeaseOperations
+  type MarkSshRemotePtyLeaseOptions,
+  markSshRemotePtyLeases as markSshRemotePtyLeasesOperation,
+  markSshRemotePtyLeasesAsync as markSshRemotePtyLeasesAsyncOperation,
+  markSshRemotePtyLeasesAttachedAsync as markSshRemotePtyLeasesAttachedAsyncOperation,
+  markSshRemotePtyLeasesForShutdown as markSshRemotePtyLeasesForShutdownOperation,
+  removeSshRemotePtyLease as removeSshRemotePtyLeaseOperation,
+  removeSshRemotePtyLeases as removeSshRemotePtyLeasesOperation,
+  type SshPtyLeaseOperations,
+  upsertSshRemotePtyLease as upsertSshRemotePtyLeaseOperation
 } from '../../leasing-ssh-ptys/ssh-pty-lease-operations'
+import {
+  reconcileSshRemotePtyLeasesForTarget as reconcileSshRemotePtyLeasesForTargetOperation,
+  supersedeSshRemotePtyLeasesForBoundPane as supersedeSshRemotePtyLeasesForBoundPaneOperation
+} from '../../leasing-ssh-ptys/ssh-pty-pane-supersession'
+import {
+  getSshPtyConsumerRecovery as getSshPtyConsumerRecoveryOperation,
+  removeSshPtyConsumerRecovery as removeSshPtyConsumerRecoveryOperation,
+  type SshPtyConsumerRecoveryOperations,
+  upsertSshPtyConsumerRecovery as upsertSshPtyConsumerRecoveryOperation
+} from '../../leasing-ssh-ptys/ssh-pty-consumer-recovery'
 import {
   clearSshRemotePtyBindingsForLeases as clearSshRemotePtyBindingsForLeasesOperation,
   clearSshRemotePtyBindingsForTarget as clearSshRemotePtyBindingsForTargetOperation,
@@ -20,11 +51,13 @@ import type { WriteFlushBarrierOperations } from '../profile-writing/write-flush
 import type { TerminalBindingRecoveryOperations } from '../terminal-bindings/terminal-binding-recovery'
 import type { WriteSchedulingOperations } from '../profile-writing/write-scheduling'
 import { scheduleSave } from '../profile-writing/write-scheduling'
+import {
+  runSshLeaseDurableMutation,
+  type SshLeaseDurableMutationRuntime
+} from './ssh-lease-durable-mutation'
 
-type SshLeaseRecoveryOperationsRuntime = Pick<
-  StoreRuntimeState,
-  'dirtyProfileStateDomains' | 'state'
->
+type SshLeaseRecoveryOperationsRuntime = SshLeaseDurableMutationRuntime &
+  Pick<StoreRuntimeState, 'protectedSecrets' | 'state'>
 
 const sshLeaseRecoveryOperationsContext = Symbol('SshLeaseRecoveryOperations')
 type SshLeaseRecoveryOperationsContext = {
@@ -51,13 +84,6 @@ export class SshLeaseRecoveryOperations {
     }
   }
 
-  getSshRemotePtyLeases(targetId?: string): SshRemotePtyLease[] {
-    return getSshRemotePtyLeasesOperation(
-      this[sshLeaseRecoveryOperationsContext].runtime.state,
-      targetId
-    )
-  }
-
   markSshRemotePtyLease(targetId: string, ptyId: string, evidence: PtyRetirementEvidence): void {
     markSshRemotePtyLeaseOperation(getSshPtyLeaseOperations(this), targetId, ptyId, evidence)
   }
@@ -75,12 +101,155 @@ export class SshLeaseRecoveryOperations {
     )
   }
 
+  getSshPtyConsumerRecovery(targetId: string): SshPtyConsumerRecovery | null {
+    return getSshPtyConsumerRecoveryOperation(getSshPtyConsumerRecoveryOperations(this), targetId)
+  }
+
+  async upsertSshPtyConsumerRecovery(record: SshPtyConsumerRecovery): Promise<void> {
+    await upsertSshPtyConsumerRecoveryOperation(getSshPtyConsumerRecoveryOperations(this), record)
+  }
+
+  async removeSshPtyConsumerRecovery(
+    targetId: string,
+    expectedClientInstanceId?: string
+  ): Promise<void> {
+    await removeSshPtyConsumerRecoveryOperation(
+      getSshPtyConsumerRecoveryOperations(this),
+      targetId,
+      expectedClientInstanceId
+    )
+  }
+
+  getSshRemotePtyLeases(targetId?: string): SshRemotePtyLease[] {
+    return getSshRemotePtyLeasesOperation(
+      this[sshLeaseRecoveryOperationsContext].runtime.state,
+      targetId
+    )
+  }
+
+  upsertSshRemotePtyLease(
+    lease: Omit<SshRemotePtyLease, 'createdAt' | 'updatedAt'> &
+      Partial<Pick<SshRemotePtyLease, 'createdAt' | 'updatedAt'>>
+  ): void {
+    upsertSshRemotePtyLeaseOperation(getSshPtyLeaseOperations(this), lease)
+  }
+
+  /**
+   * Re-run pane supersession from the binding rather than from an arriving lease. Spawn commits
+   * call this after their binding write so it does not matter whether the lease or the binding
+   * landed first; see `supersedeSshRemotePtyLeasesForBoundPane`.
+   */
+  supersedeSshRemotePtyLeasesForBoundPane(targetId: string, leafId: string): void {
+    supersedeSshRemotePtyLeasesForBoundPaneOperation(
+      getSshPtyLeaseOperations(this),
+      targetId,
+      leafId
+    )
+  }
+
+  /**
+   * Re-derive one reattachable lease per pane from each pane's current binding. Called on the
+   * connect path immediately before the reattach set is read; see
+   * `reconcileSshRemotePtyLeasesForTarget`.
+   */
+  reconcileSshRemotePtyLeasesForTarget(targetId: string): void {
+    reconcileSshRemotePtyLeasesForTargetOperation(getSshPtyLeaseOperations(this), targetId)
+  }
+
+  markSshRemotePtyLeases(targetId: string, state: SshRemotePtyLease['state']): void {
+    markSshRemotePtyLeasesOperation(getSshPtyLeaseOperations(this), targetId, state)
+  }
+
+  markSshRemotePtyLeasesForShutdown(targetId: string, state: SshRemotePtyLease['state']): void {
+    markSshRemotePtyLeasesForShutdownOperation(getSshPtyLeaseOperations(this), targetId, state)
+    this[sshLeaseRecoveryOperationsContext].runtime.dirtyProfileStateDomains?.add(
+      'sshRemotePtyLeases'
+    )
+  }
+
+  async markSshRemotePtyLeasesAsync(
+    targetId: string,
+    state: SshRemotePtyLease['state']
+  ): Promise<void> {
+    await markSshRemotePtyLeasesAsyncOperation(getSshPtyLeaseOperations(this), targetId, state)
+  }
+
+  async markSshRemotePtyLeasesAttachedAsync(
+    targetId: string,
+    ptyIds: readonly string[]
+  ): Promise<void> {
+    await markSshRemotePtyLeasesAttachedAsyncOperation(
+      getSshPtyLeaseOperations(this),
+      targetId,
+      ptyIds
+    )
+  }
+
+  markDirectSshRemotePtyLease(
+    targetId: string,
+    ptyId: string,
+    state: SshRemotePtyLease['state'],
+    options?: MarkSshRemotePtyLeaseOptions
+  ): void {
+    markDirectSshRemotePtyLeaseOperation(
+      getSshPtyLeaseOperations(this),
+      targetId,
+      ptyId,
+      state,
+      options
+    )
+  }
+
+  removeSshRemotePtyLease(targetId: string, ptyId: string): void {
+    removeSshRemotePtyLeaseOperation(getSshPtyLeaseOperations(this), targetId, ptyId)
+  }
+
   removeSshRemotePtyLeases(targetId: string): void {
     removeSshRemotePtyLeasesOperation(getSshPtyLeaseOperations(this), targetId)
   }
+
+  getSshRemotePtyKillIntents(targetId: string, now = Date.now()): SshPendingPtyKillEntry[] {
+    return getSshRemotePtyKillIntentsOperation(
+      this[sshLeaseRecoveryOperationsContext].runtime.state,
+      targetId,
+      now
+    )
+  }
+
+  recordSshRemotePtyKillIntent(targetId: string, ptyId: string, intent: SshPendingPtyKill): void {
+    recordSshRemotePtyKillIntentOperation(getSshPtyLeaseOperations(this), targetId, ptyId, intent)
+  }
+
+  clearSshRemotePtyKillIntent(targetId: string, ptyId: string): void {
+    clearSshRemotePtyKillIntentOperation(getSshPtyLeaseOperations(this), targetId, ptyId)
+  }
+
+  noteSshRemotePtyKillReplayAttempt(targetId: string, ptyId: string): void {
+    noteSshRemotePtyKillReplayAttemptOperation(getSshPtyLeaseOperations(this), targetId, ptyId)
+  }
+
+  pruneExpiredSshRemotePtyKillIntents(targetId: string, now = Date.now()): void {
+    pruneExpiredSshRemotePtyKillIntentsOperation(getSshPtyLeaseOperations(this), targetId, now)
+  }
 }
 
-function getSshPtyBindingCleanupOperations(
+export function getSshPtyConsumerRecoveryOperations(
+  owner: SshLeaseRecoveryOperations
+): SshPtyConsumerRecoveryOperations {
+  return {
+    state: owner[sshLeaseRecoveryOperationsContext].runtime.state,
+    protectedSecrets: owner[sshLeaseRecoveryOperationsContext].runtime.protectedSecrets,
+    runDurableMutation: (mutate) =>
+      runSshLeaseDurableMutation(
+        owner[sshLeaseRecoveryOperationsContext].runtime,
+        owner[sshLeaseRecoveryOperationsContext].flushBarriers,
+        'sshPtyConsumerRecoveries',
+        mutate
+      )
+  }
+}
+
+export function getSshPtyBindingCleanupOperations(
   owner: SshLeaseRecoveryOperations
 ): SshPtyBindingCleanupOperations {
   return {
@@ -95,7 +264,7 @@ function getSshPtyBindingCleanupOperations(
   }
 }
 
-function getSshPtyLeaseOperations(owner: SshLeaseRecoveryOperations): SshPtyLeaseOperations {
+export function getSshPtyLeaseOperations(owner: SshLeaseRecoveryOperations): SshPtyLeaseOperations {
   return {
     state: owner[sshLeaseRecoveryOperationsContext].runtime.state,
     toStoredPtyId: (targetId, ptyId) =>
@@ -124,6 +293,13 @@ function getSshPtyLeaseOperations(owner: SshLeaseRecoveryOperations): SshPtyLeas
         'sshRemotePtyLeases'
       )
       owner[sshLeaseRecoveryOperationsContext].flushBarriers.flush()
-    }
+    },
+    runDurableMutation: (mutate) =>
+      runSshLeaseDurableMutation(
+        owner[sshLeaseRecoveryOperationsContext].runtime,
+        owner[sshLeaseRecoveryOperationsContext].flushBarriers,
+        'sshRemotePtyLeases',
+        mutate
+      )
   }
 }

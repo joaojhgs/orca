@@ -1,3 +1,4 @@
+import { BROWSER_WEB_PROXY_METHODS } from './browser-web-proxy-rpc-methods'
 import { BROWSER_EXTENSION_METHODS } from './browser-extension-rpc-methods'
 import { defineMethod } from '../../core'
 import {
@@ -40,6 +41,7 @@ import { BROWSER_PROFILE_METHODS } from './browser-profile-rpc-methods'
 import { CertificateProceed } from '../../../../../shared/rpc-contract/browser/browser-core-params'
 
 export const BROWSER_CORE_METHODS = [
+  ...BROWSER_WEB_PROXY_METHODS,
   defineMethod({
     name: 'browser.snapshot',
     permission: 'workspace',

@@ -45,10 +45,10 @@ export class DirectRpcClient implements RpcClient {
   private livenessSession: RpcClientSocketSession | null = null
 
   constructor(
-    private readonly endpoint: string,
+    endpoint: string,
     private readonly deviceToken: string,
     serverPublicKeyB64: string,
-    private readonly options: ConnectOptions
+    options: ConnectOptions
   ) {
     this.connectionLog = new DirectConnectionLog(endpoint, options.onLog)
     this.reconnect = new RpcClientReconnectSchedule({

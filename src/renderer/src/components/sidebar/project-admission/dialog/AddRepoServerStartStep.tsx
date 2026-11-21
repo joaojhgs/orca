@@ -18,6 +18,7 @@ type AddRepoServerPathStartStepProps = {
   directEntry?: boolean
   onServerPathChange: (path: string) => void
   onAddServerPath: (kind: 'git' | 'folder') => void
+  onOpenSshStep?: () => void
   onOpenCloneStep: () => void
   onOpenCreateStep: () => void
 }
@@ -33,6 +34,7 @@ export function AddRepoServerPathStartStep({
   directEntry = false,
   onServerPathChange,
   onAddServerPath,
+  onOpenSshStep,
   onOpenCloneStep,
   onOpenCreateStep
 }: AddRepoServerPathStartStepProps): React.JSX.Element {
@@ -143,6 +145,12 @@ export function AddRepoServerPathStartStep({
             </span>
           </div>
 
+          {onOpenSshStep ? (
+            <Button type="button" variant="outline" disabled={disabled} onClick={onOpenSshStep}>
+              <Server />
+              {t('project.add.serverSshHosts', 'Browse SSH hosts')}
+            </Button>
+          ) : null}
           <button
             type="button"
             onClick={() => setPathEntryOpen(true)}

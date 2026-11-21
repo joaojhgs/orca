@@ -1,8 +1,16 @@
-import type {
-  SshConfigHostResolution,
-  SshTarget
+import {
+  DEFAULT_BOUNDED_SSH_RELAY_GRACE_PERIOD_SECONDS,
+  DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS,
+  MAX_SSH_RELAY_GRACE_PERIOD_SECONDS,
+  MIN_SSH_RELAY_GRACE_PERIOD_SECONDS,
+  type SshConfigHostResolution,
+  type SshRemoteRuntime,
+  type SshTarget
 } from '../../../../shared/remote-runtime/ssh/ssh-types'
+import { isRelayCliControlEnabled } from '../../../../shared/ssh-relay-cli-policy'
 import { isRemoteCliControlAllowed } from '../../../../shared/remote-runtime/ssh/ssh-remote-cli-control'
+
+export type SshRemoteRuntimeChoice = 'auto' | SshRemoteRuntime
 
 export type EditingTarget = {
   label: string
@@ -18,6 +26,9 @@ export type EditingTarget = {
   systemSshProxyConnectionReuse: boolean
   allowRemoteCliControl: boolean
   reconnectOnLaunch: boolean
+  relayGracePeriodSeconds: string
+  relayKeepAliveUntilReset: boolean
+  remoteRuntime: SshRemoteRuntimeChoice
 }
 
 export const EMPTY_FORM: EditingTarget = {
@@ -32,8 +43,11 @@ export const EMPTY_FORM: EditingTarget = {
   jumpHost: '',
   systemSshConnectionReuse: true,
   systemSshProxyConnectionReuse: false,
-  allowRemoteCliControl: true,
-  reconnectOnLaunch: true
+  allowRemoteCliControl: false,
+  reconnectOnLaunch: true,
+  relayGracePeriodSeconds: String(DEFAULT_BOUNDED_SSH_RELAY_GRACE_PERIOD_SECONDS),
+  relayKeepAliveUntilReset: DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS === 0,
+  remoteRuntime: 'auto'
 }
 
 export function getEditingTargetForSshTarget(target: SshTarget): EditingTarget {
@@ -51,8 +65,17 @@ export function getEditingTargetForSshTarget(target: SshTarget): EditingTarget {
     jumpHost: target.jumpHost ?? '',
     systemSshConnectionReuse: target.systemSshConnectionReuse !== false,
     systemSshProxyConnectionReuse: target.systemSshProxyConnectionReuse === true,
-    allowRemoteCliControl: isRemoteCliControlAllowed(target),
-    reconnectOnLaunch: target.reconnectOnLaunch !== false
+    allowRemoteCliControl:
+      target.orcadProvisioning || target.orcadFence
+        ? isRemoteCliControlAllowed(target)
+        : isRelayCliControlEnabled(target),
+    relayGracePeriodSeconds: String(
+      target.relayGracePeriodSeconds || DEFAULT_BOUNDED_SSH_RELAY_GRACE_PERIOD_SECONDS
+    ),
+    relayKeepAliveUntilReset:
+      (target.relayGracePeriodSeconds ?? DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS) === 0,
+    remoteRuntime: target.remoteRuntime ?? 'auto',
+    reconnectOnLaunch: target.reconnectOnLaunch ?? target.connectOnStartup ?? true
   }
 }
 
@@ -155,7 +178,9 @@ export function hasAdvancedConnectionValues(form: EditingTarget): boolean {
     form.jumpHost.trim().length > 0 ||
     !form.systemSshConnectionReuse ||
     !form.allowRemoteCliControl ||
-    !form.reconnectOnLaunch
+    !form.reconnectOnLaunch ||
+    !form.relayKeepAliveUntilReset ||
+    form.remoteRuntime !== 'auto'
   )
 }
 
@@ -173,7 +198,10 @@ export function isSshTargetFormDirty(current: EditingTarget, baseline: EditingTa
     current.systemSshConnectionReuse !== baseline.systemSshConnectionReuse ||
     current.systemSshProxyConnectionReuse !== baseline.systemSshProxyConnectionReuse ||
     current.allowRemoteCliControl !== baseline.allowRemoteCliControl ||
-    current.reconnectOnLaunch !== baseline.reconnectOnLaunch
+    current.reconnectOnLaunch !== baseline.reconnectOnLaunch ||
+    current.relayGracePeriodSeconds !== baseline.relayGracePeriodSeconds ||
+    current.relayKeepAliveUntilReset !== baseline.relayKeepAliveUntilReset ||
+    current.remoteRuntime !== baseline.remoteRuntime
   )
 }
 
@@ -280,4 +308,17 @@ function isValidPort(port: number): boolean {
 function isDefaultPortDraft(value: string): boolean {
   const trimmed = value.trim()
   return trimmed === '' || trimmed === '22'
+}
+
+export function parseRelayGracePeriodSeconds(draft: EditingTarget): number {
+  return draft.relayKeepAliveUntilReset ? 0 : Number.parseInt(draft.relayGracePeriodSeconds, 10)
+}
+
+export function isRelayGracePeriodValid(draft: EditingTarget, graceSeconds: number): boolean {
+  return (
+    draft.relayKeepAliveUntilReset ||
+    (!Number.isNaN(graceSeconds) &&
+      graceSeconds >= MIN_SSH_RELAY_GRACE_PERIOD_SECONDS &&
+      graceSeconds <= MAX_SSH_RELAY_GRACE_PERIOD_SECONDS)
+  )
 }

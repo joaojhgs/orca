@@ -15,6 +15,7 @@ import { isMobileBinaryPath, isSafeMobileRelativePath } from '../mobile-file-kin
 import {
   requireRuntimeFileProvider,
   runtimeFileRouteForTarget,
+  getDirectSshRuntimeFileProvider,
   type RuntimeLocalFileHost,
   type ResolvedRuntimeFileTarget
 } from '../file-target'
@@ -207,6 +208,10 @@ export class RuntimeFileSearch {
     const target = await this.host.resolveRuntimeFileTarget(worktreeSelector)
     const route = runtimeFileRouteForTarget(target)
     if (route.kind === 'ssh') {
+      const remote = getDirectSshRuntimeFileProvider(target)
+      if (remote) {
+        return remote.listFiles(target.worktree.path, options)
+      }
       return []
     }
     return listQuickOpenFiles(

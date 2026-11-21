@@ -42,3 +42,4 @@
 1 src/shared/shell/testing/fish-binary-requirement.ts
 1 src/shared/shell/launch/openssh-default-shell.ts
 1 src/shared/secure-storage/secure-file.ts
+1 src/main/startup/linux-headless-accessibility.ts # retained published fork 6685509715; one-shot private accessibility bus startup before serving

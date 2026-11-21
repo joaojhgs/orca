@@ -1,3 +1,4 @@
+import { consumeCodexResetCredit } from './runtime-account-reset-credit'
 import type { ClaudeAccountSwitchRunningSessions } from '../../../../shared/agent-accounts/claude/claude-account-switch-settings'
 import type { ClaudeAccountService } from '../../../claude-accounts/service'
 import { hasAppEnvironment } from '../../../../shared/app-lifecycle/app-environment'
@@ -41,8 +42,12 @@ import { HostAccountLaunchEnvState } from './host-account-launch-env-state'
 import { subscribeRuntimeAccountChanges } from './runtime-account-change-subscription'
 import { readRuntimeAccountsSnapshot } from './runtime-account-snapshot'
 import type { ManagedAccountNameProvider } from '../../../../shared/agent-accounts/managed-account-display-names'
+import type { AccountControlRequest } from '../../../../shared/rpc-contract/accounts/accounts-params'
+import type { GlobalSettings } from '../../../../shared/settings/global-settings-types'
+import { controlRuntimeAccount } from '../../runtime-account-control'
 
 export type RuntimeAccountServices = {
+  getSettings?: () => GlobalSettings
   claudeAccounts: ClaudeAccountService
   codexAccounts: CodexAccountService
   rateLimits: RateLimitService
@@ -76,6 +81,13 @@ export class RuntimeAccountController {
   constructor(
     private readonly onClaudeAccountSelected: ClaudeAccountSelectedHandler = async () => undefined
   ) {}
+
+  control(request: AccountControlRequest): Promise<unknown> {
+    if (request.operation === 'claude.select' && !request.runtime) {
+      return this.selectClaude(request.accountId, request)
+    }
+    return controlRuntimeAccount(this.requireServices(), request)
+  }
 
   setServices(services: RuntimeAccountServices): void {
     this.services = services
@@ -129,6 +141,10 @@ export class RuntimeAccountController {
 
   getClaudeAccountsSnapshot(): ClaudeRateLimitAccountsState {
     return this.requireServices().claudeAccounts.listAccounts()
+  }
+
+  getExecutionAccounts() {
+    return this.services?.rateLimits.getExecutionAccounts() ?? []
   }
 
   async getSnapshot(): Promise<AccountsSnapshot> {
@@ -245,27 +261,11 @@ export class RuntimeAccountController {
     return this.requireServices().codexAccounts.selectAccountForTarget(accountId, target)
   }
 
-  async consumeCodexResetCredit(
+  consumeCodexResetCredit(
     idempotencyKey: string,
     expectedScope: CodexResetCreditExpectedScope
   ): Promise<CodexRateLimitResetRpcResult> {
-    const { claudeAccounts, codexAccounts } = this.requireServices()
-    const result = await codexAccounts.consumeRateLimitResetCredit(idempotencyKey, expectedScope)
-    const snapshot = {
-      claude: claudeAccounts.listAccounts(),
-      codex: result.codex,
-      rateLimits: result.rateLimits
-    }
-    if ('status' in result) {
-      return {
-        status: result.status,
-        retryDisposition: result.retryDisposition,
-        reason: result.reason,
-        scope: result.scope,
-        snapshot
-      }
-    }
-    return { outcome: result.outcome, scope: result.scope, snapshot }
+    return consumeCodexResetCredit(this.requireServices(), idempotencyKey, expectedScope)
   }
 
   removeClaude(accountId: string): Promise<ClaudeRateLimitAccountsState> {

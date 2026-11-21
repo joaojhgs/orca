@@ -1,3 +1,4 @@
+import { materializeWorktreePushTargetRemoteSsh } from './materialize-worktree-push-target-ssh'
 import { ipcMain } from 'electron'
 import type { GitPushTarget } from '../../../../shared/worktree/types'
 import { gitFastForward, gitPull, gitPush } from '../../../git/remotes/remote'
@@ -10,6 +11,7 @@ import {
   materializeWorktreePushTargetRemote
 } from '../../worktrees/worktree-remote'
 import type { FilesystemHandlerContext } from '../filesystem-handler-context'
+import { requireFilesystemSshGitProvider } from '../source-control/filesystem-ssh-git-route'
 import { requireReachableGitRoute } from '../../../providers/execution-host-provider-dispatch'
 import { getConnectionExecutionHostId } from '../../../../shared/execution-host/execution-host'
 
@@ -31,6 +33,22 @@ export function registerGitRemoteBranchMutationHandlers(context: FilesystemHandl
     ): Promise<void> => {
       // Require literal true so malformed values such as string false cannot enable --set-upstream.
       const publish = args.publish === true
+      if (args.connectionId) {
+        const provider = requireFilesystemSshGitProvider(args.connectionId)
+        // Why: a fork remote deferred at create time (#17828) must exist before push.
+        const materializedPushTarget = args.pushTarget
+          ? await materializeWorktreePushTargetRemoteSsh(
+              provider,
+              args.worktreePath,
+              args.pushTarget,
+              store,
+              ipcGitWorktreeTarget(args)
+            )
+          : undefined
+        return provider.pushBranch(args.worktreePath, publish, materializedPushTarget, {
+          forceWithLease: args.forceWithLease === true
+        })
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
       const gitOptions = getLocalGitOptionsForRegisteredWorktree(
@@ -73,6 +91,19 @@ export function registerGitRemoteBranchMutationHandlers(context: FilesystemHandl
         pushTarget?: GitPushTarget
       }
     ): Promise<void> => {
+      if (args.connectionId) {
+        const provider = requireFilesystemSshGitProvider(args.connectionId)
+        const materializedPushTarget = args.pushTarget
+          ? await materializeWorktreePushTargetRemoteSsh(
+              provider,
+              args.worktreePath,
+              args.pushTarget,
+              store,
+              ipcGitWorktreeTarget(args)
+            )
+          : undefined
+        return provider.pullBranch(args.worktreePath, materializedPushTarget)
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
       const gitOptions = getLocalGitOptionsForRegisteredWorktree(
@@ -114,6 +145,19 @@ export function registerGitRemoteBranchMutationHandlers(context: FilesystemHandl
         pushTarget?: GitPushTarget
       }
     ): Promise<void> => {
+      if (args.connectionId) {
+        const provider = requireFilesystemSshGitProvider(args.connectionId)
+        const materializedPushTarget = args.pushTarget
+          ? await materializeWorktreePushTargetRemoteSsh(
+              provider,
+              args.worktreePath,
+              args.pushTarget,
+              store,
+              ipcGitWorktreeTarget(args)
+            )
+          : undefined
+        return provider.fastForwardBranch(args.worktreePath, materializedPushTarget)
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
       const gitOptions = getLocalGitOptionsForRegisteredWorktree(
@@ -150,6 +194,12 @@ export function registerGitRemoteBranchMutationHandlers(context: FilesystemHandl
       _event,
       args: { worktreePath: string; baseRef: string; connectionId?: string }
     ): Promise<void> => {
+      if (args.connectionId) {
+        return requireFilesystemSshGitProvider(args.connectionId).rebaseFromBase(
+          args.worktreePath,
+          args.baseRef
+        )
+      }
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
       const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
       const gitOptions = getLocalGitOptionsForRegisteredWorktree(

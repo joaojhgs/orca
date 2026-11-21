@@ -106,6 +106,14 @@ const NODE_RUNTIME_INCLUDE = [
   'src/main/runtime/rpc/methods/structured-sessions/attachments/structured-agent-session-visual.test.ts',
   // Bun resolves 'ws' to its built-in client, which bypasses the patched package.
   'src/main/runtime/rpc/transports/websocket/ws-empty-payload-frame-write.test.ts',
+  // Pauses the real Node ws socket to prove transport backpressure and cleanup.
+  'src/main/runtime/rpc/ws-transport.test.ts',
+  // Native PTY admission runs in the relay's deployed Node runtime.
+  'src/relay/relay-runtime-self-test.test.ts',
+  // Verifies Node's Windows path rewrite on a device path.
+  'src/relay/relay-primary-channel.test.ts',
+  // Stops libuv reads so the write failure is observed before EOF.
+  'src/relay/relay-reconnect-listener-peer-write-error.test.ts',
   'src/shared/remote-runtime/remote-runtime-client.test.ts',
   'src/shared/remote-runtime/remote-runtime-connect-bound.test.ts',
   'src/shared/remote-runtime/requests/remote-runtime-subscription-connect-bound.test.ts',

@@ -30,7 +30,7 @@ type RemoteStepProps = {
     environmentId: string
     label: string
     onTargetsChanged: () => void
-  }
+  } | null
 }
 
 export function RemoteStep({
@@ -74,7 +74,7 @@ export function RemoteStep({
         </DialogHeader>
         <RemoteFileBrowser
           targetId={selectedTargetId}
-          runtimeEnvironmentId={server.environmentId}
+          runtimeEnvironmentId={server?.environmentId}
           initialPath={remotePath || '~'}
           onSelect={(path) => {
             onRemotePathChange(path)
@@ -93,11 +93,13 @@ export function RemoteStep({
           {t('auto.components.sidebar.AddRepoRemoteStep.91b93a90a4', 'Open project on SSH host')}
         </DialogTitle>
         <DialogDescription>
-          {t(
-            'auto.components.sidebar.AddRepoRemoteStep.serverDescription',
-            'Choose an SSH host that {{server}} connects to, and enter the path to a Git repository on it.',
-            { server: server.label }
-          )}
+          {server
+            ? t(
+                'auto.components.sidebar.AddRepoRemoteStep.serverDescription',
+                'Choose an SSH host that {{server}} connects to, and enter the path to a Git repository on it.',
+                { server: server.label }
+              )
+            : t('project.add.directSshDescription', 'Choose an SSH host and a project path.')}
         </DialogDescription>
       </DialogHeader>
 
@@ -111,7 +113,7 @@ export function RemoteStep({
               {t(
                 'auto.components.sidebar.AddRepoRemoteStep.serverEmpty',
                 '{{server}} has no SSH hosts yet.',
-                { server: server.label }
+                { server: server?.label ?? t('project.add.desktop', 'This desktop') }
               )}
             </p>
           ) : (
@@ -131,22 +133,26 @@ export function RemoteStep({
               <HostListOverflowNote hiddenCount={targetRows.hiddenCount} />
             </div>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => setAddingServerHost(true)}
-          >
-            <Plus className="size-3.5" />
-            {t('auto.components.sidebar.AddRepoRemoteStep.serverAddHost', 'Add SSH host')}
-          </Button>
-          <AddServerSshHostDialog
-            environmentId={server.environmentId}
-            serverLabel={server.label}
-            open={addingServerHost}
-            onOpenChange={setAddingServerHost}
-            onSaved={server.onTargetsChanged}
-          />
+          {server ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setAddingServerHost(true)}
+              >
+                <Plus className="size-3.5" />
+                {t('auto.components.sidebar.AddRepoRemoteStep.serverAddHost', 'Add SSH host')}
+              </Button>
+              <AddServerSshHostDialog
+                environmentId={server.environmentId}
+                serverLabel={server.label}
+                open={addingServerHost}
+                onOpenChange={setAddingServerHost}
+                onSaved={server.onTargetsChanged}
+              />
+            </>
+          ) : null}
         </div>
 
         <div className="space-y-1">

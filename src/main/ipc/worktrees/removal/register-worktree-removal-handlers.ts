@@ -1,7 +1,12 @@
 import { ipcMain } from 'electron'
 import { getLocalWorktreeCatalogVersion } from '../../../workspaces/catalog/local-worktree-scan-generation'
 import type { RemoveWorktreeResult } from '../../../../shared/worktree/create-types'
-import { getRepoExecutionHostId } from '../../../../shared/execution-host/execution-host'
+import {
+  getRepoDialableSshTargetId,
+  getRepoExecutionHostId
+} from '../../../../shared/execution-host/execution-host'
+import { isFolderRepo } from '../../../../shared/repository/repo-kind'
+import { captureDirectSshWorktreeAuthority } from '../direct-ssh-worktree-authority'
 import { withWorktreeSpan } from '../../../observability/instrumentation'
 import { areWorktreePathsEqual } from '../../../git/worktrees/catalog/worktree-path-comparison'
 import { parseWorktreeId } from '../paths/worktree-logic'
@@ -70,6 +75,9 @@ export function registerWorktreeRemovalHandlers(context: WorktreeIpcContext): vo
 
     // Coalesce concurrent UI requests so only one operation touches Git and disk.
     const removal = withWorktreeSpan({ stage: 'remove', path: worktreePath }, async () => {
+      const connectionId = getRepoDialableSshTargetId(repo)
+      const ssh =
+        connectionId && !isFolderRepo(repo) ? captureDirectSshWorktreeAuthority(connectionId) : null
       const nestedPreservedBranches = args.approvedNestedWorktrees
         ? await removeApprovedNestedWorktrees({
             context,
@@ -77,7 +85,10 @@ export function registerWorktreeRemovalHandlers(context: WorktreeIpcContext): vo
             worktreePath,
             hostId: removalHostId,
             removalArgs: args,
-            remove
+            remove: (childArgs) => {
+              ssh?.assertCurrent()
+              return remove(childArgs)
+            }
           })
         : []
       const expectedCheckout = args.approvedNestedWorktrees?.find((item) =>
@@ -85,6 +96,7 @@ export function registerWorktreeRemovalHandlers(context: WorktreeIpcContext): vo
       )
       const executionArgs = expectedCheckout ? { ...args, expectedCheckout } : args
       const accept = async (): Promise<RemoveWorktreeResult> => {
+        ssh?.assertCurrent()
         // Another client may acquire removal while this request waits for acceptance.
         if (waitForPendingWorktreeRemoval(args.worktreeId, removalHostId)) {
           await waitForWorktreeRemovalAcceptance(args.worktreeId, removalHostId)
@@ -104,7 +116,7 @@ export function registerWorktreeRemovalHandlers(context: WorktreeIpcContext): vo
       let accepted: RemoveWorktreeResult
       let result: RemoveWorktreeResult
       try {
-        accepted = await (repo.connectionId
+        accepted = await (connectionId
           ? accept()
           : runSerializedWorktreeRemovalAcceptance(repo.path, accept))
         result = await finishAcceptedWorktreeRemoval(accepted, args.worktreeId, removalHostId)

@@ -1,6 +1,7 @@
 import { markUnreadFollowUpMail } from './worker-follow-up-lineage'
 import type { WorkerReportOutcome, WorkerReportSettlement } from '../orchestration-records'
 import type { OrchestrationDb } from '../orchestration-db'
+import { recordManagerOrchestrationEvent } from '../../../manager/manager-orchestration-event'
 import { settleActiveDispatchesForTask } from './dispatch-completion'
 import { getActiveDispatchForTask } from './task-dispatch-reconciliation'
 import {
@@ -254,6 +255,14 @@ export function settleWorkerReportInTransaction(
   recordAcceptedReportFact(this, params)
   markUnreadFollowUpMail(this, params.dispatchId)
   this.db.exec('RELEASE settle_worker_report')
+  recordManagerOrchestrationEvent(this, {
+    dispatchId: params.dispatchId,
+    eventId: `settlement:${params.dispatchId}:${params.outcome}`,
+    kind: 'dispatch-settled',
+    outcome: params.outcome,
+    occurredAt: Date.now(),
+    summary: params.result
+  })
   return { action: 'settled', outcome: params.outcome, duplicate: false }
 }
 

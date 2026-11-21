@@ -4,6 +4,13 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/class-names'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import type { EditingTarget } from './ssh-target-draft'
 import { useTranslate } from '@/i18n/use-translate'
@@ -144,6 +151,70 @@ export function SshHostAdvancedFields({
               />
             </div>
           ) : null}
+          <div className="space-y-1.5">
+            <Label htmlFor="ssh-relay-runtime">
+              {t('settings.ssh.relayRuntime', 'SSH relay runtime')}
+            </Label>
+            <Select
+              value={form.remoteRuntime}
+              disabled={disabled}
+              onValueChange={(value) =>
+                onFormChange((current) => ({
+                  ...current,
+                  remoteRuntime: value === 'legacy' || value === 'pinned-node' ? value : 'auto'
+                }))
+              }
+            >
+              <SelectTrigger id="ssh-relay-runtime">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">
+                  {t('settings.ssh.relayRuntimeAuto', 'Automatic')}
+                </SelectItem>
+                <SelectItem value="pinned-node">
+                  {t('settings.ssh.relayRuntimePinned', 'Orca Node')}
+                </SelectItem>
+                <SelectItem value="legacy">
+                  {t('settings.ssh.relayRuntimeLegacy', 'Host Node')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4 text-xs">
+              <Label htmlFor="ssh-relay-keepalive">
+                {t('settings.ssh.relayKeepAlive', 'Keep SSH terminals alive until reset')}
+              </Label>
+              <Switch
+                id="ssh-relay-keepalive"
+                checked={form.relayKeepAliveUntilReset}
+                disabled={disabled}
+                onCheckedChange={(value) =>
+                  onFormChange((current) => ({ ...current, relayKeepAliveUntilReset: value }))
+                }
+              />
+            </div>
+            {!form.relayKeepAliveUntilReset ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="ssh-relay-timeout">
+                  {t('settings.ssh.relayTimeout', 'SSH terminal timeout in seconds')}
+                </Label>
+                <Input
+                  id="ssh-relay-timeout"
+                  inputMode="numeric"
+                  value={form.relayGracePeriodSeconds}
+                  disabled={disabled}
+                  onChange={(event) =>
+                    onFormChange((current) => ({
+                      ...current,
+                      relayGracePeriodSeconds: event.target.value
+                    }))
+                  }
+                />
+              </div>
+            ) : null}
+          </div>
           {offerReconnectOnLaunch ? (
             <div className="flex items-start justify-between gap-4 py-1 text-xs">
               <div className="min-w-0 flex-1 space-y-0.5">
@@ -183,8 +254,8 @@ export function SshHostAdvancedFields({
               </Label>
               <p className="text-muted-foreground">
                 {t(
-                  'auto.components.settings.SshTargetForm.allowRemoteCliControlHelp',
-                  "On by default for new hosts. Agents and orca commands on this host can open, read and use Orca browser tabs on this desktop, only in this host's workspaces and only while it is connected. Tabs it controls show its name. Terminals started on this host by an older Orca also need this on to run orca orchestration commands. It cannot read your files, clipboard or cookies."
+                  'settings.ssh.relayCliControlDescription',
+                  'Agents and commands on this host can use Orca browser tabs in its workspaces while it is connected. Older terminals also need this permission for Orca orchestration.'
                 )}
               </p>
             </div>

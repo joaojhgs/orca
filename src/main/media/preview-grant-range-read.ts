@@ -1,3 +1,4 @@
+import { openSshPreviewRangeReader } from './ssh-file-preview'
 import { openLocalPreviewGrantFile } from './local-preview-grant-file'
 import {
   previewGrantForSender,
@@ -54,6 +55,19 @@ export async function readPreviewGrantRange(
         revokeGrant(token)
       }
       throw error
+    } finally {
+      lifetime.dispose()
+    }
+  }
+  if ('ssh' in grant.target) {
+    const lifetime = abortWhenRendererGone(sender)
+    try {
+      const reader = await openSshPreviewRangeReader(
+        grant.target.ssh,
+        grant.preview,
+        lifetime.signal
+      )
+      return await reader.read(offset, length)
     } finally {
       lifetime.dispose()
     }

@@ -52,7 +52,16 @@ export function deletePendingPtyData(session: PtyIpcSession, id: string): void {
 }
 
 export function clearPendingPtyData(session: PtyIpcSession): void {
+  for (const pending of session.pendingData.values()) {
+    if (pending.projectionAdmissionIds) {
+      session.sshOutputIntake?.transferProjections(
+        pending.projectionAdmissionIds,
+        'renderer-lifecycle-reset'
+      )
+    }
+  }
   session.pendingData.clear()
+  session.sourceCreditPendingPtys.clear()
 }
 
 export function canSendPtyDataToRenderer(
@@ -91,6 +100,7 @@ export function applyCumulativeAck(
   accounting.ackedChars = nextAckedChars
   if (acknowledged > 0) {
     accounting.lastAckAtMs = Date.now()
+    session.sshOutputIntake?.settleProjectionPrefix(id, acknowledged)
   }
   session.rendererInFlightTotalChars = Math.max(
     0,
@@ -174,6 +184,12 @@ export function writeOffLostRendererDelivery(
     // The snapshot covers pre-marker pending bytes; flushing them would paint twice.
     const pending = session.pendingData.get(id)
     if (pending) {
+      if (pending.projectionAdmissionIds) {
+        session.sshOutputIntake?.transferProjections(
+          pending.projectionAdmissionIds,
+          'renderer-delivery-writeoff'
+        )
+      }
       session.pendingDroppedChars += pending.data.length
       deletePendingPtyData(session, id)
       session.pendingOverflowMarkedPtys.delete(id)

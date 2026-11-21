@@ -16,7 +16,12 @@ function hostForLocalAction(host: string): string {
 }
 
 export function addressForPort(port: WorkspacePort): string {
-  // Prefer terminal-advertised origins over kernel binds; users expect custom hostnames in copied URLs.
+  if (port.connectionId && port.forwardedPort) {
+    return `127.0.0.1:${port.forwardedPort}`
+  }
+  // Why: when a dev server printed its own URL to the terminal, that origin
+  // (e.g. `local.getmontecarlo.com:3001`) is what the user actually wants in
+  // the clipboard, not the kernel bind `127.0.0.1:3001`.
   if (port.kind === 'workspace' && port.advertisedUrl) {
     try {
       const url = new URL(port.advertisedUrl)
@@ -29,6 +34,9 @@ export function addressForPort(port: WorkspacePort): string {
 }
 
 export function browserUrlForPort(port: WorkspacePort): string {
+  if (port.connectionId && port.forwardedPort) {
+    return `${port.protocol === 'https' ? 'https' : 'http'}://127.0.0.1:${port.forwardedPort}`
+  }
   if (port.kind === 'workspace' && port.advertisedUrl) {
     return port.advertisedUrl
   }

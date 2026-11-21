@@ -1,14 +1,20 @@
-import { BrowserWindow, Notification, ipcMain, powerMonitor } from 'electron'
+import { registerNotificationPermissionHandlers } from './notification-permission-ipc'
+import { app, BrowserWindow, Notification, ipcMain, powerMonitor } from 'electron'
+import { join } from 'node:path'
+import { resolveNotificationPolicyScope } from '../../notifications/notification-policy-scope'
+import { confirmNotificationRequest } from '../../notifications/agent-notification-eligibility'
+import { confirmNotificationDigestRelevance } from '../../notifications/notification-digest-relevance'
+import { agentHookServer } from '../../agent-hooks/server/agent-hook-server'
+import { agentHookGeneration } from '../../agent-hooks/agent-hook-generation'
+import type { NotificationDeliveryService } from '../../notifications/notification-delivery-service'
 import { readDesktopAwayState } from '../../notifications/desktop-away-state'
 import { closeDesktopNotification } from '../../notifications/desktop-notification'
 import type { Store } from '../../persistence/loading-store/store'
 import type {
   NotificationAttentionAcknowledgement,
-  NotificationDeliveryProbeResult,
   NotificationDismissResult,
   NotificationDispatchRequest,
   NotificationDispatchResult,
-  NotificationPermissionStatusResult,
   StructuredNotificationRead
 } from '../../../shared/notifications/notification-settings-types'
 import { isNotificationAttentionAcknowledgement } from '../../../shared/notifications/notification-settings-types'
@@ -26,78 +32,23 @@ import {
   type AnnouncedNotification
 } from '../../notifications/announced-notification-registry'
 import { registerNotificationSoundHandlers } from './notification-sound-ipc'
-import { openNotificationSystemSettings } from './notification-system-settings-link'
 import { isStructuredAttentionRead } from '../../../shared/agent-session/view/agent-session-attention'
 import { isAgentSessionExecutionLocation } from '../../../shared/agent-session/lifecycle/agent-session-record'
-import {
-  getLastObservedDeliveryOutcome,
-  hasTriggeredPermissionDialogThisSession,
-  probeNotificationDelivery,
-  recordNotificationDeliveryOutcome,
-  resetNotificationPermissionEvidence
-} from './notification-permission-probe'
+import { recordNotificationDeliveryOutcome } from './notification-permission-probe'
 
+let currentDeliveryService: NotificationDeliveryService | null = null
 let stopRuntimeAttentionEvents: (() => void) | undefined
 
-export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntimeService): void {
+export function registerNotificationHandlers(
+  store: Parameters<typeof sessionRepliesInSlack>[0] &
+    Pick<Store, 'getSettings' | 'getUI' | 'updateUI'> &
+    Pick<Store, 'getRepos' | 'getProjectHostSetups' | 'getFolderWorkspaces'>,
+  runtime?: OrcaRuntimeService
+): void {
+  currentDeliveryService?.dispose()
   ipcMain.removeHandler('notifications:getDesktopAwayState')
   ipcMain.handle('notifications:getDesktopAwayState', () => readDesktopAwayState(powerMonitor))
-  resetNotificationPermissionEvidence()
-
-  ipcMain.removeHandler('notifications:openSystemSettings')
-  ipcMain.removeHandler('notifications:getPermissionStatus')
-  ipcMain.removeHandler('notifications:probeDelivery')
-  ipcMain.handle('notifications:openSystemSettings', (): void => {
-    openNotificationSystemSettings()
-  })
-
-  // Keep the legacy status surface observational; native authorization is read by onboarding below.
-  const getPermissionStatus = (): NotificationPermissionStatusResult => ({
-    supported: Notification.isSupported(),
-    platform: process.platform,
-    requested: store.getUI().notificationPermissionRequested === true
-  })
-
-  ipcMain.handle('notifications:getPermissionStatus', getPermissionStatus)
-  ipcMain.handle(
-    'notifications:probeDelivery',
-    async (_event, args?: { force?: boolean }): Promise<NotificationDeliveryProbeResult> => {
-      // First-use permission onboarding is macOS-only.
-      if (process.platform !== 'darwin' || !Notification.isSupported()) {
-        return { state: 'unsupported', authoritative: false }
-      }
-      // Record prompting intent so startup registration cannot trigger a second prompt.
-      if (store.getUI().notificationPermissionRequested !== true) {
-        store.updateUI({ notificationPermissionRequested: true })
-      }
-      // Prefer silent native reads so System Settings changes are visible without probe banners.
-      const authorization = await readNotificationAuthorizationStatus()
-      if (authorization === 'authorized') {
-        recordNotificationDeliveryOutcome('delivered')
-        return { state: 'delivered', authoritative: true }
-      }
-      if (authorization === 'denied') {
-        recordNotificationDeliveryOutcome('failed')
-        return { state: 'blocked', authoritative: true }
-      }
-      if (authorization === 'not-determined') {
-        // Trigger the first-use presenter once, then report awaiting-decision.
-        if (!hasTriggeredPermissionDialogThisSession()) {
-          void probeNotificationDelivery()
-        }
-        return { state: 'awaiting-decision', authoritative: true }
-      }
-      // Without native evidence, cache scheduling probes within the session to avoid repeat banners.
-      const lastObservedDeliveryOutcome = getLastObservedDeliveryOutcome()
-      if (!args?.force && lastObservedDeliveryOutcome !== null) {
-        return {
-          state: lastObservedDeliveryOutcome === 'delivered' ? 'delivered' : 'blocked',
-          authoritative: false
-        }
-      }
-      return probeNotificationDelivery()
-    }
-  )
+  registerNotificationPermissionHandlers(store)
 
   const announced = createAnnouncedNotificationRegistry()
 
@@ -154,6 +105,11 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
       return { dismissed: 0 }
     }
     const retired = announced.takeAcknowledged(acknowledgement, executionHost)
+    currentDeliveryService?.retireDigest(
+      retired.map(({ id }) => id),
+      [],
+      []
+    )
     if (executionHost) {
       runtime?.retireNotificationAttention?.(acknowledgement, executionHost)
     }
@@ -214,6 +170,11 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
           runtime?.retireNotificationAttention?.({ reads: [read] }, read.executionHost)
         }
       }
+      currentDeliveryService?.retireDigest(
+        [...retired.keys()],
+        Array.isArray(paneKeys) ? paneKeys.filter((key) => typeof key === 'string') : [],
+        Array.isArray(reads) ? reads.filter(isStructuredAttentionRead) : []
+      )
       return {
         dismissed: retireAnnouncements(
           [...retired.values()],
@@ -224,6 +185,38 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
   )
 
   const deliveryService = createNotificationDeliveryService({
+    ...(typeof app?.getPath === 'function'
+      ? { desktopDigestPath: join(app.getPath('userData'), 'desktop-notification-digests.json') }
+      : {}),
+    readPolicyScope: (request) => {
+      const scope = resolveNotificationPolicyScope(
+        store,
+        request.worktreeId,
+        request.notificationScope
+      )
+      const matches = agentHookServer
+        .getEnrichedStatusSnapshot()
+        .filter((row) => row.paneKey === request.paneKey && row.worktreeId === request.worktreeId)
+      const row = matches.length === 1 ? matches[0] : undefined
+      return row && request.surface !== 'agent-session'
+        ? {
+            ...scope,
+            sessionId: row.providerSession?.id ?? row.paneKey,
+            sessionGeneration: agentHookGeneration(row)
+          }
+        : scope
+    },
+    confirmStopPoint: (request) =>
+      confirmNotificationRequest(request, () => agentHookServer.getEnrichedStatusSnapshot()),
+    confirmDigestRelevant: (request) =>
+      runtime
+        ? confirmNotificationDigestRelevance(runtime, {
+            ...request,
+            type: 'notification',
+            title: '',
+            body: ''
+          })
+        : confirmNotificationRequest(request, () => agentHookServer.getEnrichedStatusSnapshot()),
     readNotificationSettings: () => store.getSettings().notifications,
     findActiveWindow: () =>
       BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) ?? null,
@@ -276,6 +269,8 @@ export function registerNotificationHandlers(store: Store, runtime?: OrcaRuntime
       }
     }
   })
+
+  currentDeliveryService = deliveryService
 
   // A cleared remote prompt must also retire alerts forwarded to this desktop's phones.
   ipcMain.removeHandler('notifications:settleStructuredPrompts')

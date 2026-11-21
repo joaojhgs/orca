@@ -25,6 +25,8 @@ import { latestBridgeCallbacks } from './bridge-latest-callbacks'
 import { usePageAppPresence } from './use-page-app-presence'
 import type { BridgeHost, BridgeNavigateBackOutcome } from '../host-bridge/bridge-host-contract'
 import type { BridgeSessionBack } from '../host-bridge/bridge-host-back'
+import type { ManagerReceiptVerb } from '../bridge/bridge-manager-receipt-verbs'
+import { createNativeManagerReceiptVerbServer } from '../../manager/native-manager-receipt-verb-server'
 import type { BridgeNativeVerb } from '../bridge/native-capabilities/bridge-native-verbs'
 import type { BridgeErrorCapture } from '../bridge/protocol/bridge-error-capture'
 import type { MobileWebShellSessionState } from '../session/mobile-web-shell-session-contract'
@@ -100,7 +102,10 @@ export type MobileWebShellBridgeArgs = {
   onNavigate: (href: string, replace: boolean) => void
   onExternalLink: (url: string) => void
   onHaptic: (kind: BridgeHapticsKind) => void
-  serveNativeVerb: (verb: BridgeNativeVerb, params: unknown) => Promise<unknown>
+  serveNativeVerb: (
+    verb: Exclude<BridgeNativeVerb, ManagerReceiptVerb>,
+    params: unknown
+  ) => Promise<unknown>
   onNavigateBack: () => BridgeNavigateBackOutcome
   // Wait for host profile and storage before building the host, or its first init would mount a page against missing identity/preferences.
   snapshot: PageHostSnapshot | null
@@ -191,7 +196,13 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
           recordShellLifecycleLine(latest.hostId, line)
         }
       }),
-      ...latestBridgeCallbacks(argsRef)
+      ...latestBridgeCallbacks(
+        argsRef,
+        createNativeManagerReceiptVerbServer({
+          hostId: latest.hostId,
+          readClientIdentity: () => clientIdRef.current
+        })
+      )
     })
     hostRef.current = { sessionId, host }
     // Reset host-owned drop totals on rebuild so a new lower count cannot look like frames being recovered.
@@ -203,7 +214,7 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
       hostRef.current = null
       host.dispose()
     }
-  }, [buildId, client, framesWithoutHost, sessionId, snapshot])
+  }, [args.hostId, buildId, client, framesWithoutHost, sessionId, snapshot])
 
   useEffect(() => {
     const mounted = hostRef.current

@@ -113,7 +113,10 @@ export function registerHostCatalogHandlers(context: WorktreeIpcContext): void {
       }
       // Exact-owner lookup rejects contradictory runtime/connection ownership before destructive work.
       const repo = findExactRepoOwner(store, args?.repoId ?? '', requestedExecutionHostId)
-      if (!repo || (parsedHost.kind === 'ssh' && repo.connectionId !== parsedHost.targetId)) {
+      if (
+        !repo ||
+        (parsedHost.kind === 'ssh' && getRepoDialableSshTargetId(repo) !== parsedHost.targetId)
+      ) {
         return nothingForgotten
       }
       // Folder metadata is the workspace itself; a remote filesystem scan cannot prove it removed.

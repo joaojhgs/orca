@@ -4,6 +4,12 @@ import type { RuntimeAiVaultScanOptions } from '../../ai-vault/runtime-hosts/ai-
 import { resetLocalAiVaultScanProgressForTests } from '../../ai-vault/scan-lifecycle/ai-vault-local-scan-progress'
 
 vi.mock('electron', () => ({ app: { on: vi.fn() }, ipcMain: { handle: vi.fn() } }))
+vi.mock('../ssh/ssh-ai-vault-relay', () => ({
+  getActiveSshAiVaultHostInfo: vi.fn(),
+  getActiveSshAiVaultHostInfos: vi.fn(() => []),
+  requestActiveSshAiVaultSessionList: vi.fn(),
+  requestActiveSshAiVaultSessionTitles: vi.fn()
+}))
 
 const { _internals, registerAiVaultHandlers } = await import('./ai-vault')
 

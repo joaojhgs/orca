@@ -1,3 +1,4 @@
+import { isIP } from 'node:net'
 import { readAndroidDeviceSystemMetadata } from './android-device-system-metadata'
 import type { AndroidCommandRunner } from './android-command-runner'
 import type { AndroidSdkPaths } from './android-sdk-discovery'
@@ -9,8 +10,29 @@ export async function listRunningAdbDevices(
   runner: AndroidCommandRunner,
   sdk: AndroidSdkPaths
 ): Promise<AndroidAdbDevice[]> {
+  await connectRunningWaydroid(runner, sdk)
   const result = await runner(sdk.adb, adbDevicesArgs)
   return parseAdbDevices(result.stdout).filter((device) => device.state === 'device')
+}
+
+async function connectRunningWaydroid(
+  runner: AndroidCommandRunner,
+  sdk: AndroidSdkPaths
+): Promise<void> {
+  if (process.platform !== 'linux') {
+    return
+  }
+  const status = await runner('waydroid', ['status'], { timeoutMs: 3000 }).catch(() => null)
+  const ip = status?.stdout.match(/^IP address:\s*([^\s]+)$/m)?.[1]
+  if (
+    status?.code !== 0 ||
+    !/^Session:[ \t]*RUNNING[ \t]*$/m.test(status.stdout) ||
+    !ip ||
+    isIP(ip) !== 4
+  ) {
+    return
+  }
+  await runner(sdk.adb, ['connect', `${ip}:5555`], { timeoutMs: 3000 }).catch(() => {})
 }
 
 /** Every adb state, including emulators still booting ("offline"). Null when adb fails, so a
@@ -72,7 +94,7 @@ export async function listAndroidDevices(
 ): Promise<EmulatorDevice[]> {
   const [running, avds] = await Promise.all([
     listRunningAdbDevices(runner, sdk),
-    listAvdNames(runner, sdk)
+    listAvdNames(runner, sdk).catch(() => [])
   ])
   const runningAvdBySerial = await resolveRunningAvdNames(runner, sdk, running)
   const devices = mergeAndroidDevices(running, avds, runningAvdBySerial)

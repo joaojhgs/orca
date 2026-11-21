@@ -1,9 +1,11 @@
-import type { NativeChatMessage } from '../../../../../shared/native-chat/native-chat-types'
+import {
+  MOBILE_NATIVE_CHAT_DEFAULT_WINDOW,
+  pageForClient,
+  resumeIndex,
+  sanitizeAppendForClient
+} from './native-chat-rpc-transcript-page'
 import { recordMobileViewOpened } from '../../../../telemetry/mobile-client-telemetry'
-import type {
-  NativeChatTranscriptFrame,
-  NativeChatTranscriptPage
-} from '../../../../../shared/native-chat/transcript/streaming/native-chat-transcript-frames'
+import type { NativeChatTranscriptFrame } from '../../../../../shared/native-chat/transcript/streaming/native-chat-transcript-frames'
 import { resolveNativeChatTranscriptAgent } from '../../../../../shared/native-chat/native-chat-agent-support'
 import { subscribeNativeChatTranscript } from '../../../../native-chat/transcript-watch'
 import { readNativeChatTranscriptTail } from '../../../../native-chat/transcript-tail-reader'
@@ -12,82 +14,17 @@ import type {
   SubscribeNativeChatTranscriptArgs
 } from '../../../../native-chat/transcript-watching/transcript-watch-contract'
 import { nativeChatTranscriptPathOnExecutionHost } from '../../../../native-chat/transcript-filesystem/ssh-transcript-path'
-import { defineMethod, defineStreamingMethod, type RpcContext } from '../../core'
-import { sanitizeNativeChatRpcBlock } from './native-chat-rpc-block-sanitize'
+import { defineMethod, defineStreamingMethod } from '../../core'
+import { isRemoteTranscriptHost, remoteTranscriptProvider } from '../native-chat-transcript-host'
 import {
-  boundNativeChatRpcPageByBytes,
-  nativeChatRpcAppendBatches
-} from './native-chat-rpc-page-bounds'
+  readRemoteTranscriptTail,
+  subscribeRemoteTranscript
+} from '../../../../native-chat/remote-transcript-reader'
+import { nativeChatRpcAppendBatches } from './native-chat-rpc-page-bounds'
 import {
-  MOBILE_NATIVE_CHAT_MAX_WINDOW,
   NativeChatSession,
-  NativeChatUnsubscribe,
-  type NativeChatResumePoint
+  NativeChatUnsubscribe
 } from '../../../../../shared/rpc-contract/native-chat/native-chat-params'
-
-// Default to a small transcript tail for fast paired-client paint; clients page older history, while local IPC stays virtualized.
-const MOBILE_NATIVE_CHAT_DEFAULT_WINDOW = 40
-
-function sanitizeMessage(
-  message: NativeChatMessage,
-  clientKind: RpcContext['clientKind']
-): NativeChatMessage {
-  return {
-    ...message,
-    blocks: message.blocks.map((block) => sanitizeNativeChatRpcBlock(block, clientKind))
-  }
-}
-
-function sanitizeAppendForClient(
-  messages: readonly NativeChatMessage[],
-  clientKind: RpcContext['clientKind']
-): NativeChatMessage[] {
-  return messages.map((message) => sanitizeMessage(message, clientKind))
-}
-
-/** Window every RPC client by message count; apply mobile-only character clipping separately. */
-function windowTranscript(
-  messages: readonly NativeChatMessage[],
-  limit = MOBILE_NATIVE_CHAT_DEFAULT_WINDOW
-): NativeChatMessage[] {
-  const window = Math.min(Math.max(limit, 1), MOBILE_NATIVE_CHAT_MAX_WINDOW)
-  return messages.length > window ? messages.slice(-window) : messages.slice()
-}
-
-function pageForClient(
-  messages: readonly NativeChatMessage[],
-  hasMore: boolean,
-  beforeOffset: number,
-  clientKind: RpcContext['clientKind'],
-  limit = MOBILE_NATIVE_CHAT_DEFAULT_WINDOW,
-  agent?: string
-): NativeChatTranscriptPage {
-  const isOpenCode = resolveNativeChatTranscriptAgent(agent) === 'opencode'
-  const sanitized = (isOpenCode ? messages : windowTranscript(messages, limit)).map((message) =>
-    sanitizeMessage(message, clientKind)
-  )
-  return isOpenCode
-    ? boundNativeChatRpcPageByBytes(sanitized, hasMore, beforeOffset)
-    : { messages: sanitized, hasMore, beforeOffset }
-}
-
-/** Where the first page starts for a client holding `resumeAfter`; its offset and timestamp catch a rewritten file. */
-function resumeIndex(
-  messages: readonly NativeChatMessage[],
-  resumeAfter: NativeChatResumePoint | undefined,
-  agent: string
-): number {
-  // OpenCode rows can change after they are written, so holding the newest says nothing about the rest.
-  if (!resumeAfter || resolveNativeChatTranscriptAgent(agent) === 'opencode') {
-    return -1
-  }
-  return messages.findLastIndex(
-    (message) =>
-      message.id === resumeAfter.id &&
-      message.transcriptOrder === resumeAfter.transcriptOrder &&
-      (message.timestamp ?? null) === resumeAfter.timestamp
-  )
-}
 
 export const NATIVE_CHAT_METHODS = [
   defineMethod({
@@ -96,21 +33,34 @@ export const NATIVE_CHAT_METHODS = [
     params: NativeChatSession,
     handler: async (params, { runtime, clientKind, signal }) => {
       const limit = params.limit ?? MOBILE_NATIVE_CHAT_DEFAULT_WINDOW
-      const result = await readNativeChatTranscriptTail(
-        {
-          agent: params.agent,
-          sessionId: params.sessionId,
-          transcriptPath: nativeChatTranscriptPathOnExecutionHost(
-            runtime.getAgentProviderSessionRows(),
-            params.sessionId,
-            params.transcriptPath
-          ),
-          limit,
-          beforeOffset: params.beforeOffset,
-          sourceOrder: params.capabilities?.transcriptSourceOrder === 1
-        },
-        signal
-      )
+      const remoteProvider = isRemoteTranscriptHost(params.executionHostId)
+        ? remoteTranscriptProvider(params.executionHostId)
+        : null
+      const result = isRemoteTranscriptHost(params.executionHostId)
+        ? remoteProvider && params.transcriptPath
+          ? await readRemoteTranscriptTail({
+              provider: remoteProvider,
+              path: params.transcriptPath,
+              agent: params.agent,
+              limit,
+              beforeOffset: params.beforeOffset
+            })
+          : { error: 'Remote transcript unavailable' }
+        : await readNativeChatTranscriptTail(
+            {
+              agent: params.agent,
+              sessionId: params.sessionId,
+              transcriptPath: nativeChatTranscriptPathOnExecutionHost(
+                runtime.getAgentProviderSessionRows(),
+                params.sessionId,
+                params.transcriptPath
+              ),
+              limit,
+              beforeOffset: params.beforeOffset,
+              sourceOrder: params.capabilities?.transcriptSourceOrder === 1
+            },
+            signal
+          )
       return 'messages' in result
         ? {
             ...pageForClient(
@@ -166,6 +116,51 @@ export const NATIVE_CHAT_METHODS = [
         return
       }
       if (closed) {
+        return
+      }
+      if (isRemoteTranscriptHost(params.executionHostId)) {
+        const provider = remoteTranscriptProvider(params.executionHostId)
+        if (!provider || !params.transcriptPath) {
+          emit({
+            type: 'snapshot',
+            messages: [],
+            hasMore: false,
+            error: 'Remote transcript unavailable'
+          })
+          return
+        }
+        const stopRemote = await subscribeRemoteTranscript({
+          provider,
+          path: params.transcriptPath,
+          agent: params.agent,
+          limit,
+          onResult: (result, first) => {
+            if (!closed) {
+              emit({
+                type: first ? 'snapshot' : 'replacement',
+                ...pageForClient(
+                  result.messages,
+                  result.hasMore,
+                  result.beforeOffset,
+                  clientKind,
+                  limit,
+                  params.agent
+                ),
+                ...(result.lifecycle ? { lifecycle: result.lifecycle } : {})
+              })
+            }
+          },
+          onInitialError: (error) => {
+            if (!closed) {
+              emit({ type: 'snapshot', messages: [], hasMore: false, error })
+            }
+          }
+        })
+        if (closed) {
+          stopRemote()
+        } else {
+          unsubscribe = stopRemote
+        }
         return
       }
       const subscribeArgs: SubscribeNativeChatTranscriptArgs = {

@@ -214,6 +214,14 @@ export const VERIFY_CHECKS = [
     }
   },
   {
+    name: 'Hermes IPC broker',
+    args: ['--test', 'integrations/hermes-orca-manager/controller-ipc-broker.test.mjs'],
+    inputs: [
+      'integrations/hermes-orca-manager/controller-ipc-broker.mjs',
+      'integrations/hermes-orca-manager/controller-ipc-broker.test.mjs'
+    ]
+  },
+  {
     name: 'reliability gates',
     args: ['config/scripts/static-analysis/reliability-policy/check-reliability-gates.mjs'],
     inputs: ['config/reliability-gates.jsonc']
@@ -346,6 +354,10 @@ const TYPECHECK_INPUTS = [
   {
     config: 'config/tsconfig.tc.bot-evals.json',
     inputs: ['src/cli/', 'src/shared/', 'src/main/', 'cloud/packages/connector-contract/']
+  },
+  {
+    config: 'config/tsconfig.test.relay.json',
+    inputs: ['src/relay/', 'src/wsl-guest/', 'src/shared/', 'src/main/', 'src/cli/']
   },
   {
     config: 'src/packages/process-host/tsconfig.test.json',

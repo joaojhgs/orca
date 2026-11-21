@@ -1,3 +1,4 @@
+import { ExecutionAccountUsageRows } from '../../ExecutionAccountUsageRows'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
 import { AgentIcon } from '@/components/agent/icons/AgentIcon'
@@ -138,6 +139,7 @@ export function CursorAccountsSection(): React.JSX.Element {
           </a>
         }
       >
+        <ExecutionAccountUsageRows provider="cursor" />
         <div className="flex items-start gap-3 py-3">
           <ShieldCheck
             className={cn(

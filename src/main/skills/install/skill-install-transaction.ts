@@ -77,6 +77,7 @@ export type LocalSkillInstallInput = {
   wslDistro?: string
   signal?: AbortSignal
   lockTimeoutMs?: number
+  requirePackageOwnership?: boolean
 }
 
 export type LocalSkillInstallPreview = {
@@ -121,7 +122,8 @@ export async function previewLocalExtractedSkillPackage(
       canonicalPath,
       manifest: extracted.manifest,
       receipt,
-      filesystem: input.filesystem
+      filesystem: input.filesystem,
+      requirePackageOwnership: input.requirePackageOwnership
     })
   }
 }
@@ -170,7 +172,8 @@ export async function installLocalExtractedSkillPackage(
       canonicalPath,
       manifest: extracted.manifest,
       receipt: previous,
-      filesystem
+      filesystem,
+      requirePackageOwnership: input.requirePackageOwnership
     })
     let receipt = createSkillInstallReceipt({
       request: input,
@@ -227,7 +230,8 @@ export async function installLocalExtractedSkillPackage(
       canonicalPath,
       manifest: extracted.manifest,
       receipt: previous,
-      filesystem
+      filesystem,
+      requirePackageOwnership: input.requirePackageOwnership
     })
     if (JSON.stringify(commitState) !== JSON.stringify(state)) {
       await recoverSkillInstallTransaction(input.stateDirectory, canonicalPath, filesystem)

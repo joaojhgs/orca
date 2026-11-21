@@ -1,6 +1,7 @@
 import type {
   ArtifactCloudOperation,
   ArtifactCloudOptions,
+  ArtifactHostingStatus,
   ArtifactListItem,
   ArtifactListOptions,
   ArtifactListPage,
@@ -9,13 +10,25 @@ import type {
   ArtifactWriteRequest
 } from '../../../shared/artifacts/artifacts'
 import { SharingUnavailableOnHostError } from '../../../shared/remote-runtime/host-status/sharing-unavailable-on-host'
-import type { ArtifactCloudService } from '../../artifacts/artifact-cloud-service'
+import type { ArtifactService } from '../../artifacts/artifact-service-contract'
 
 export class RuntimeArtifactController {
-  private service: ArtifactCloudService | null = null
+  private service: ArtifactService | null = null
 
-  setService(service: ArtifactCloudService): void {
+  setService(service: ArtifactService): void {
     this.service = service
+  }
+
+  hostingStatus(): Promise<ArtifactHostingStatus> {
+    return (
+      this.requireService().hostingStatus?.() ??
+      Promise.resolve({
+        backend: 'cloud',
+        identity: 'cloud',
+        requiresCloudLogin: true,
+        sharingEnabled: false
+      })
+    )
   }
 
   hasService(): boolean {
@@ -54,7 +67,7 @@ export class RuntimeArtifactController {
     return this.requireService().delete(id, options)
   }
 
-  private requireService(): ArtifactCloudService {
+  private requireService(): ArtifactService {
     if (!this.service) {
       throw new SharingUnavailableOnHostError()
     }

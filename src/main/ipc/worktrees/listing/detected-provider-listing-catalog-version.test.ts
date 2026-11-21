@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Repo } from '../../../../shared/repository/repo-types'
 import type { GitWorktreeInfo } from '../../../../shared/worktree/types'
 
-const { listRepoWorktreesMock } = vi.hoisted(() => ({ listRepoWorktreesMock: vi.fn() }))
+const { listRepoWorktreesMock, getSshGitProvider } = vi.hoisted(() => ({
+  listRepoWorktreesMock: vi.fn(),
+  getSshGitProvider: vi.fn()
+}))
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn(), removeHandler: vi.fn() },
@@ -11,6 +14,7 @@ vi.mock('electron', () => ({
 vi.mock('../../../workspaces/catalog/repo-worktrees', () => ({
   listRepoWorktreesForDetectedScan: listRepoWorktreesMock
 }))
+vi.mock('../../../providers/ssh-git-dispatch', () => ({ getSshGitProvider }))
 vi.mock('../../../workspaces/execution-host/project-runtime-git-options', () => ({
   getLocalProjectWorktreeGitOptions: () => ({})
 }))
@@ -69,6 +73,7 @@ describe('the catalog version a listing carries', () => {
   beforeEach(() => {
     __resetDetectedWorktreeScanCacheForTests()
     listRepoWorktreesMock.mockReset()
+    getSshGitProvider.mockReset()
   })
 
   it('carries the metadata cursor it read with its metadata, not one advanced during the scan', async () => {
@@ -120,5 +125,37 @@ describe('the catalog version a listing carries', () => {
     } finally {
       setWorktreeCatalogRouteResolver(null)
     }
+  })
+
+  it('lists the direct SSH worktree catalog through the owning provider', async () => {
+    const repo = { ...localRepo, path: '/ssh/repo', executionHostId: 'ssh:relay' as const }
+    const branchPath = '/ssh/review'
+    const listWorktrees = vi
+      .fn()
+      .mockResolvedValue([worktreeAt(repo, repo.path), worktreeAt(repo, branchPath)])
+    getSshGitProvider.mockReturnValue({ listWorktrees })
+
+    const result = await listDetectedWorktreesForCapturedRepo(createStore(repo), repo, () => true)
+
+    expect(result).toMatchObject({
+      authoritative: true,
+      source: 'git',
+      worktrees: expect.arrayContaining([expect.objectContaining({ path: branchPath })])
+    })
+    expect(listWorktrees).toHaveBeenCalledWith(repo.path, { signal: undefined })
+    expect(listRepoWorktreesMock).not.toHaveBeenCalled()
+  })
+
+  it('discards an SSH listing completed by a replaced provider', async () => {
+    const repo = { ...localRepo, path: '/ssh/repo', executionHostId: 'ssh:relay' as const }
+    const listWorktrees = vi.fn(async () => {
+      getSshGitProvider.mockReturnValue({ listWorktrees: vi.fn() })
+      return [worktreeAt(repo, repo.path)]
+    })
+    getSshGitProvider.mockReturnValue({ listWorktrees })
+
+    await expect(
+      listDetectedWorktreesForCapturedRepo(createStore(repo), repo, () => true)
+    ).resolves.toBeNull()
   })
 })

@@ -1,3 +1,6 @@
+import { unrefTimer } from './agent-transition-timer'
+import { confirmNotificationRequest } from '../../notifications/agent-notification-eligibility'
+import { agentHookServer } from '../../agent-hooks/server/agent-hook-server'
 import { crewStatusRowChange } from '../orchestration/crew/crew-changes'
 import type { PairedDeviceAccountLookup } from '../rpc/server/pairing/device-entry'
 import { worktreesUnderHomes } from '../../bots/bot-handed-workspaces'
@@ -48,12 +51,6 @@ import {
   type TerminalAgentWorkspaceLabels
 } from '../push/notifications/terminal-agent-phone-push'
 
-function unrefTimer(run: () => void, delayMs: number): { cancel: () => void } {
-  const timer = setTimeout(run, delayMs)
-  timer.unref?.()
-  return { cancel: () => clearTimeout(timer) }
-}
-
 /** All hosts/builds own transition detection and windowless phone pushes. */
 export abstract class OrcaRuntimeWithAgentTransitions extends OrcaRuntimeWithWindowlessTerminalActivity {
   readonly agentTransitions = new AgentTransitionDetector({
@@ -77,6 +74,8 @@ export abstract class OrcaRuntimeWithAgentTransitions extends OrcaRuntimeWithWin
     translate: (key, fallback) =>
       getRuntimeDesktopSurface().translateNotification?.(key, fallback) ?? fallback,
     dispatch: (event) => this.mobileNotifications.dispatch(event),
+    confirmStopPoint: (request) =>
+      confirmNotificationRequest(request, () => agentHookServer.getEnrichedStatusSnapshot()),
     onClientEvent: (listener, options) => this.onClientEvent(listener, options),
     setTimer: unrefTimer,
     now: Date.now

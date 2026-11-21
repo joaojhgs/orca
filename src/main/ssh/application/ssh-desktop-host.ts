@@ -1,3 +1,5 @@
+export type RuntimeEnvironmentTransportInvalidator = (environmentId: string) => Promise<void> | void
+
 /** Native effects the SSH application needs from whichever process hosts the desktop windows. */
 export type SshDesktopHost = {
   /** Delivers an SSH event to the main window's document; false when no document can receive it. */
@@ -10,6 +12,8 @@ export type SshDesktopHost = {
   onHostResume(listener: () => void): () => void
   /** Retires a removed target's scoped browser storage. */
   clearTargetBrowserStorage(targetId: string): Promise<void>
+  /** Desktop subscriptions and browser routes are retired together with the runtime connection. */
+  loadRuntimeEnvironmentInvalidator?(): Promise<RuntimeEnvironmentTransportInvalidator>
 }
 
 const detachedHost: SshDesktopHost = {

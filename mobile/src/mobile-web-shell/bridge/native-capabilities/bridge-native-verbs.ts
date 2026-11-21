@@ -1,5 +1,10 @@
 import * as z from 'zod'
 import {
+  MANAGER_RECEIPT_VERBS,
+  managerReceiptParams,
+  managerReceiptResult
+} from '../bridge-manager-receipt-verbs'
+import {
   audioReadParamsSchema,
   audioReadResultSchema,
   audioStartParamsSchema,
@@ -38,6 +43,7 @@ export const BRIDGE_NATIVE_VERB_NAMES = [
   'native.audio.read',
   'native.audio.stop',
   'native.storage.read',
+  ...MANAGER_RECEIPT_VERBS,
   'native.pdf.view',
   'native.image.act',
   BRIDGE_SPEECH_VERB,
@@ -139,6 +145,10 @@ export const BRIDGE_NATIVE_VERBS: Readonly<Record<BridgeNativeVerb, BridgeNative
   'native.storage.read': {
     params: storageReadParamsSchema,
     result: storageReadResultSchema
+  },
+  'native.manager.receipt': {
+    params: managerReceiptParams,
+    result: managerReceiptResult
   },
   'native.pdf.view': {
     params: pdfViewParamsSchema,

@@ -1,5 +1,6 @@
 import type { TuiAgent } from '../../../../../shared/agent-launch/catalog/tui-agent'
 import type { StatusBarItem } from '../../../../../shared/ui-chrome/ui-chrome-types'
+import type { ExecutionAccountUsage } from '../../../../../shared/execution-observer'
 
 // Hide missing CLI items and toggles after detection; unknown detection preserves them to avoid cold-start flicker.
 const CLI_GATED_ITEMS: ReadonlySet<StatusBarItem> = new Set([
@@ -12,6 +13,27 @@ const CLI_GATED_ITEMS: ReadonlySet<StatusBarItem> = new Set([
   'zcode',
   'muse'
 ])
+
+export function withExecutionAgentIds(
+  detected: TuiAgent[] | null,
+  accounts: readonly ExecutionAccountUsage[] = []
+): TuiAgent[] | null {
+  if (detected === null) {
+    return null
+  }
+  const agents = new Set(detected)
+  for (const account of accounts) {
+    if (account.provider === 'opencode') {
+      agents.add('opencode')
+      if (account.providerId === 'zai-coding-plan') {
+        agents.add('zcode')
+      }
+    } else {
+      agents.add(account.provider)
+    }
+  }
+  return [...agents]
+}
 
 export function isStatusBarItemAvailable(
   id: StatusBarItem,

@@ -1,3 +1,4 @@
+import type * as SshTargetRegistry from '../../ssh/targets/ssh-target-registry'
 export * from './github-hosted-review-test-harness'
 export * from './gitlab-test-harness'
 import type * as WorktreeScanCacheModule from '../../git/worktrees/catalog/worktree-scan-cache'
@@ -266,7 +267,8 @@ vi.mock('../../pty/history/terminal-history-deletion', () => ({
   deleteWorktreeHistoryDir: deleteWorktreeHistoryDirMock
 }))
 
-vi.mock('../../ssh/targets/ssh-target-registry', () => ({
+vi.mock('../../ssh/targets/ssh-target-registry', async (importOriginal) => ({
+  ...(await importOriginal<typeof SshTargetRegistry>()),
   getSshConnectionManager: () => null,
   getRegisteredSshState: () => ({ remotePlatform: 'linux' })
 }))

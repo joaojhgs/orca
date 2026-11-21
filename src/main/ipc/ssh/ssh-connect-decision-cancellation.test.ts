@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const directConnectMocks = vi.hoisted(() => ({
+  connectDirectRelay: vi.fn(),
+  republishLiveDirectRelay: vi.fn()
+}))
+vi.mock('./ssh-direct-relay-connect', () => directConnectMocks)
+
 const mocks = await vi.hoisted(async () => {
   const { createSshIpcMocks } = await import('./ssh-ipc-module-mocks')
   return createSshIpcMocks()
@@ -21,7 +27,7 @@ vi.mock('./ssh-host-server-connect', () => mocks.hostServerConnect)
 vi.mock('../../ssh/connection/ssh-connection-manager', () => mocks.sshConnectionManager)
 vi.mock('../../ssh/protocol/ssh-channel-multiplexer', () => mocks.sshChannelMultiplexer)
 vi.mock('../../ssh/port-forwarding/ssh-port-forward', () => mocks.sshPortForward)
-vi.mock('../ssh/ssh-port-scanner', () => mocks.sshPortScanner)
+vi.mock('../../ssh/ssh-port-scanner', () => mocks.sshPortScanner)
 vi.mock(
   import('../../ssh/legacy-relay/bridge/legacy-relay-bridge-registry'),
   async (importOriginal) => ({
@@ -77,7 +83,8 @@ describe('a connect cancelled during its server decision', () => {
       label: 'Server',
       host: 'example.com',
       port: 22,
-      username: 'deploy'
+      username: 'deploy',
+      orcadFence: { environmentId: 'env-managed' }
     }
     const opened = { id: 'managed-transport' }
     vi.mocked(publishManagedServerConnect).mockClear()
@@ -109,6 +116,33 @@ describe('a connect cancelled during its server decision', () => {
   })
 })
 
+describe('direct SSH route selection', () => {
+  const harness = createSshIpcHarness(mocks)
+  beforeEach(harness.reset)
+
+  it('takes the direct relay route without starting a managed-server decision', async () => {
+    const target: SshTarget = {
+      id: 'ssh-direct',
+      label: 'Direct server',
+      host: 'example.com',
+      port: 22,
+      username: 'deploy'
+    }
+    const state = { targetId: target.id, status: 'connected', error: null, reconnectAttempt: 0 }
+    mockSshStore.getTarget.mockReturnValue(target)
+    vi.mocked(decideHostServer).mockClear()
+    directConnectMocks.connectDirectRelay.mockResolvedValueOnce(state)
+
+    await expect(connectTarget(target.id)).resolves.toEqual(state)
+
+    expect(directConnectMocks.connectDirectRelay).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({ targetId: target.id })
+    )
+    expect(decideHostServer).not.toHaveBeenCalled()
+  })
+})
+
 describe('a quiet retry of a bridged host move (#29626)', () => {
   const harness = createSshIpcHarness(mocks)
   const target: SshTarget = {
@@ -116,7 +150,8 @@ describe('a quiet retry of a bridged host move (#29626)', () => {
     label: 'Server',
     host: 'example.com',
     port: 22,
-    username: 'deploy'
+    username: 'deploy',
+    orcadFence: { environmentId: 'env-managed' }
   }
   const kept: SshManagedServerStatus = {
     kind: 'relay',

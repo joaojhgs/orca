@@ -3,18 +3,23 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
-import { runProcessSync } from '@orca/process-host'
 import { scanAstGrep } from '../../static-analysis/structural-scan/ast-grep-scan.mjs'
 import { resolvePullRequestDiffBase } from '../../git/pr-diff-base/git-pull-request-diff-base.mjs'
+import {
+  overlapsAddedLines,
+  parseAddedLineRanges
+} from '../../git/pr-diff-base/git-diff-line-ranges.mjs'
 import { resolveOxlintInvocation } from '../../tool-invocation/oxlint-cli-invocation.mjs'
 import { createExistingTypeAssertionMatcher } from '../../static-analysis/type-assertion-budget/existing-type-assertions.mjs'
+import { collectBaseSources, SOURCE_FILE_PATTERN } from './changed-code-baseline-sources.mjs'
 import {
   JS_PLUGINS_CONFIG,
   JS_PLUGIN_DISABLE_PATTERN,
   SECONDARY_SCAN_DISABLE_PATTERN
 } from './secondary-scan-directive-pattern.mjs'
 
-const SOURCE_FILE_PATTERN = /\.(?:[cm]?[jt]sx?)$/
+export { overlapsAddedLines, parseAddedLineRanges }
+
 const ROOT_CODE_QUALITY_IGNORED_PREFIXES = ['cloud/']
 const CASTING_RULE = 'typescript/consistent-type-assertions'
 const CASTING_DISABLE_PATTERN =
@@ -94,27 +99,6 @@ const SUPPRESSED_REACT_DOCTOR_DIAGNOSTICS = new Map([
     new Set(['mobile/src/session/use-mobile-session-startup.ts'])
   ]
 ])
-
-export function parseAddedLineRanges(diff) {
-  const ranges = []
-  const hunkPattern = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/
-  for (const line of diff.split(/\r?\n/)) {
-    const match = hunkPattern.exec(line)
-    if (!match) {
-      continue
-    }
-    const start = Number.parseInt(match[1], 10)
-    const count = match[2] === undefined ? 1 : Number.parseInt(match[2], 10)
-    if (count > 0) {
-      ranges.push({ start, end: start + count - 1 })
-    }
-  }
-  return ranges
-}
-
-export function overlapsAddedLines(startLine, endLine, ranges) {
-  return ranges.some((range) => startLine <= range.end && endLine >= range.start)
-}
 
 function runGit(root, args, options = {}) {
   return execFileSync('git', args, {
@@ -250,91 +234,6 @@ function diagnosticLineRange(root, filename, span) {
 // Split files mark moved code added; exempt diagnostic blocks already verbatim/contiguous in touched base files to avoid demanding unrelated edits.
 function normalizeSourceLine(line) {
   return line.replace(/\s+/g, ' ').trim()
-}
-
-function readBaseSourceBatch(root, comparisonBase, files) {
-  // Git 2.25 supports --batch; its newline protocol cannot represent newline paths.
-  if (files.some((file) => /[\r\n]/.test(`${comparisonBase}:${file}`))) {
-    return null
-  }
-  try {
-    const result = runProcessSync({
-      program: 'git',
-      args: ['cat-file', '--batch'],
-      cwd: root,
-      input: files.map((file) => `${comparisonBase}:${file}\n`).join(''),
-      captureStdoutAsBytes: true,
-      maxOutputBytes: 64 * 1024 * 1024,
-      timeoutMs: null
-    })
-    if (result.code !== 0 || !result.stdoutBytes) {
-      return null
-    }
-    const output = result.stdoutBytes
-    const sources = []
-    let offset = 0
-    for (const file of files) {
-      const end = output.indexOf(10, offset)
-      if (end === -1) {
-        return null
-      }
-      const header = output.subarray(offset, end).toString('utf8')
-      offset = end + 1
-      if (header === `${comparisonBase}:${file} missing`) {
-        continue
-      }
-      const match = /^[0-9a-f]{40}(?:[0-9a-f]{24})? blob (\d+)$/.exec(header)
-      if (!match) {
-        return null
-      }
-      const size = Number(match[1])
-      if (!Number.isSafeInteger(size) || output[offset + size] !== 10) {
-        return null
-      }
-      sources.push({ file, source: output.subarray(offset, offset + size).toString('utf8') })
-      offset += size + 1
-    }
-    return offset === output.length ? sources : null
-  } catch {
-    // Preserve per-file reads when a batch exceeds the output limit or cannot run.
-    return null
-  }
-}
-
-function collectBaseSources(root, comparisonBase, files = null) {
-  // Read all touched base paths including deletions/rename sources; split code may no longer exist under current paths.
-  const paths =
-    files ??
-    splitNullDelimited(
-      runGit(root, ['diff', '--name-only', '--no-renames', '-z', comparisonBase, '--'])
-    ).filter((file) => SOURCE_FILE_PATTERN.test(file))
-  const records = []
-  for (let start = 0; start < paths.length; start += 32) {
-    const batch = paths.slice(start, start + 32)
-    let sources = readBaseSourceBatch(root, comparisonBase, batch)
-    if (sources === null) {
-      sources = []
-      for (const file of batch) {
-        try {
-          const result = runProcessSync({
-            program: 'git',
-            args: ['show', `${comparisonBase}:${file}`],
-            cwd: root,
-            maxOutputBytes: 64 * 1024 * 1024,
-            timeoutMs: null
-          })
-          if (result.code === 0) {
-            sources.push({ file, source: result.stdout })
-          }
-        } catch {
-          // Failed source reads were already skipped by the per-file implementation.
-          continue
-        }
-      }
-    }
-    records.push(...sources)
-  }
-  return records
 }
 
 export function collectBaseLineBlocks(root, comparisonBase, files = null) {

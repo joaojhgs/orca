@@ -25,6 +25,36 @@ Use this skill to drive an app window through `orca computer`, in the background
 ORCA computer capabilities --json
 ```
 
+## Approved VNC desktops across hosts
+
+An agent on any connected SSH host can use the controller's approved VNC desktops,
+without a VPN or VNC client on its execution host. Use `computer desktops`, not
+the native `list-apps`/`get-app-state` commands, for this route:
+
+```text
+ORCA computer desktops --json
+ORCA computer desktop-screenshot --desktop <inventory-id> --json
+ORCA computer desktop-input --desktop <inventory-id> --action click --x 100 --y 200 --json
+ORCA computer desktop-input --desktop <inventory-id> --action key --key Ctrl+L --json
+ORCA computer desktop-input --desktop <inventory-id> --action type --text "hello" --json
+```
+
+Screenshots return `result.pngBase64`, source `width`/`height`, and actual PNG
+`imageWidth`/`imageHeight`. Large images are downscaled to fit the unchanged SSH
+relay. Convert image pixels to desktop pixels with `x * width / imageWidth` and
+`y * height / imageHeight`, rounding to integers. Decode the PNG on the
+calling host for its image viewer; no controller-local file path is returned.
+Coordinates are integer framebuffer pixels from that fresh screenshot, not the
+normalized Android coordinates. `desktop-input --help` describes move, click,
+scroll, drag, key chords, and typing. VNC has no accessibility tree.
+
+View-only targets reject input server-side. Targets are selected only by inventory
+id; callers cannot supply an IP, port, password, or shell command. Reconnect and
+rediscover after an authority error. Input reports `verification: unverified`;
+capture a new screenshot to inspect its effect. Do not automatically replay input
+after a timeout. Only one device request runs at a time to bound server memory and
+prevent interleaved input; a busy response means no input was started.
+
 ## Core Loop
 
 ```text

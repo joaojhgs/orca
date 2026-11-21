@@ -8,12 +8,11 @@ import type {
   LastCompletionIdentity
 } from './agent-completion-identity-store'
 import { isPiCompatibleAgentType } from '../../../../../shared/agent-launch/catalog/pi-agent-kind'
-import { AGENT_DONE_QUIET_MS } from '../../../../../shared/agent-status/lifecycle/agent-transitions'
+import { AGENT_NOTIFICATION_QUIET_MS } from '../../../../../shared/agent-notification-quiet-window'
 
 type CompletionSource = 'hook' | 'title' | 'process-exit'
 
 const COMPLETION_REPLAY_GUARD_MS = 1_000
-const HOOK_DONE_QUIET_MS = AGENT_DONE_QUIET_MS
 
 export type CompletionState = {
   currentTurn: number
@@ -270,7 +269,7 @@ export function createAgentCompletionNotificationController({
             : {})
         })
       }
-    }, HOOK_DONE_QUIET_MS)
+    }, AGENT_NOTIFICATION_QUIET_MS)
   }
 
   function clearPendingHookDone(): void {

@@ -53,7 +53,7 @@ type AddRepoDialogStepContentProps = {
   windowsDriveNotice?: ReactNode
   actionsDisabled?: boolean
   manualCreateParentEntry?: boolean
-  browseHostKind?: 'local' | 'runtime'
+  browseHostKind?: 'local' | 'runtime' | 'ssh'
   createDefaultParent: string
   createGitAvailability: GitAvailability
   createRuntimeParentStatus: 'idle' | 'checking' | 'failed'
@@ -157,7 +157,7 @@ export function AddRepoDialogStepContent({
     onOpenRemoteStep
   )
   // Server-owned SSH hosts need their paired server; return to Start if it disappears.
-  if (step === 'add' || (step === 'remote' && !serverSsh)) {
+  if (step === 'add') {
     return (
       <AddRepoLocalStartStep
         notice={windowsDriveNotice}
@@ -192,13 +192,14 @@ export function AddRepoDialogStepContent({
         directEntry={directEntry}
         onServerPathChange={onServerPathChange}
         onAddServerPath={onAddServerPath}
+        onOpenSshStep={serverSsh?.state === 'supported' ? onOpenRemoteStep : undefined}
         onOpenCloneStep={onOpenCloneStep}
         onOpenCreateStep={onOpenCreateStep}
       />
     )
   }
 
-  if (step === 'remote' && serverSsh) {
+  if (step === 'remote') {
     return (
       <RemoteStep
         sshTargets={sshTargets}

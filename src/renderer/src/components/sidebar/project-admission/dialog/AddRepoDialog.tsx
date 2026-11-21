@@ -334,13 +334,17 @@ export default React.memo(function AddRepoDialog({ hosted }: AddRepoDialogProps)
         hostSelector={<AddRepoHostSelectorSlot hostSelection={hostSelection} />}
         windowsDriveNotice={startStepNotice}
         actionsDisabled={!hostSelection.selectedHostId}
-        browseHostKind={hostSelection.selectedParsedHost?.kind === 'local' ? 'local' : 'runtime'}
+        browseHostKind={hostSelection.selectedParsedHost?.kind ?? 'local'}
         createDefaultParent={createDefaultParent}
         createGitAvailability={createGitAvailability}
         createRuntimeParentStatus={createRuntimeParentStatus}
         createParentDefaultPending={createParentDefaultPending}
         manualCreateParentEntry={isRuntimeEnvironmentActive}
-        onBrowse={() =>
+        onBrowse={() => {
+          if (hostSelection.selectedParsedHost?.kind === 'ssh') {
+            void handleOpenRemoteStep(hostSelection.selectedParsedHost.targetId)
+            return
+          }
           routeAddRepoBrowse(hostSelection.selectedParsedHost, {
             browseLocal: () => void handleBrowse(),
             browseRuntime: () => {
@@ -349,7 +353,7 @@ export default React.memo(function AddRepoDialog({ hosted }: AddRepoDialogProps)
             },
             browseWslHost
           })
-        }
+        }}
         onOpenCloneStep={() => {
           if (!hostSelection.selectedHostId) {
             return

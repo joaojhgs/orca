@@ -20,7 +20,8 @@ export function createLocalWorkerStartDispatch(
     existingTask,
     orchestrationMutation,
     helperCreator,
-    followUp
+    followUp,
+    serviceOrigin
   }: Parameters<typeof startLocalWorker>[0],
   {
     params,
@@ -46,6 +47,7 @@ export function createLocalWorkerStartDispatch(
 ) {
   const startOptions = {
     worktree: requestedWorktree,
+    ...(serviceOrigin ? { managerScope: serviceOrigin.scope } : {}),
     mode,
     resolvedWorktreeId: resolvedWorktreeId ?? null,
     name: params.name ?? null,
@@ -70,7 +72,9 @@ export function createLocalWorkerStartDispatch(
       : 'existing_worktree'
   }
   return db.createStartingWorkerDispatch({
-    creator: resolveDispatchCreator(runtime, params.from, callerSession),
+    creator: serviceOrigin
+      ? { kind: 'system' }
+      : resolveDispatchCreator(runtime, params.from, callerSession),
     maxDepth: runtime.getNestedWorkerMaxDepth(),
     requiredCreatorDispatchId: helperCreator?.id,
     taskId: existingTask?.id,

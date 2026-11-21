@@ -2,9 +2,14 @@ import { useCallback, useRef, useState } from 'react'
 import { useNativeChatPaneLifetimeEffect } from '../../pane/ownership/native-chat-pane-lifetime'
 import { Check, Copy } from 'lucide-react'
 import { cn } from '@/lib/class-names'
+import { copyNativeChatText } from '../../native-chat-clipboard'
 import { useTranslate } from '@/i18n/use-translate'
 
-/** Use Electron clipboard IPC for reliable copying in renderer contexts; show inline success without a toast. */
+/**
+ * Per-message copy affordance for the native chat. Copies the message's text to
+ * the clipboard and briefly swaps the icon to a check tint as success feedback —
+ * matching the app's other inline copy buttons. Failed writes show an error.
+ */
 export function NativeChatCopyButton({
   text,
   label: copyLabel,
@@ -30,8 +35,7 @@ export function NativeChatCopyButton({
   )
 
   const handleCopy = useCallback(async () => {
-    try {
-      await window.api.ui.writeClipboardText(text)
+    if (await copyNativeChatText(text)) {
       setCopied(true)
       if (resetTimerRef.current !== null) {
         window.clearTimeout(resetTimerRef.current)
@@ -40,8 +44,8 @@ export function NativeChatCopyButton({
         resetTimerRef.current = null
         setCopied(false)
       }, 1500)
-    } catch {
-      /* best-effort: clipboard can reject when unfocused */
+    } else {
+      setCopied(false)
     }
   }, [text])
 

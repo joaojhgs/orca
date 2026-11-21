@@ -1,7 +1,7 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { open, writeFile } from 'node:fs/promises'
-import { SshHostNotServedError } from '../../../providers/ssh-host-not-served-error'
+import { registerSshDownloadHandlers } from './ssh-download-handlers'
 import { sanitizeLocalDownloadFilename } from './local-download-filename'
 import { abortWhenRendererGone } from '../../renderer-requests/renderer-lifetime-abort'
 import type { FilesystemHandlerContext } from '../filesystem-handler-context'
@@ -25,23 +25,7 @@ function validateRequiredString(value: unknown, label: string): string {
 export function registerFilesystemDownloadHandlers(context: FilesystemHandlerContext): void {
   const { downloadSessions, closeDownloadSession } = context
 
-  ipcMain.handle(
-    'fs:downloadFile',
-    async (_event, args: { filePath?: string; connectionId?: string }): Promise<never> => {
-      validateRequiredString(args?.filePath, 'filePath')
-      const connectionId = validateRequiredString(args?.connectionId, 'connectionId')
-      throw new SshHostNotServedError(connectionId)
-    }
-  )
-
-  ipcMain.handle(
-    'fs:downloadFolder',
-    async (_event, args: { dirPath?: string; connectionId?: string }): Promise<never> => {
-      validateRequiredString(args?.dirPath, 'dirPath')
-      const connectionId = validateRequiredString(args?.connectionId, 'connectionId')
-      throw new SshHostNotServedError(connectionId)
-    }
-  )
+  registerSshDownloadHandlers()
 
   ipcMain.handle(
     'fs:saveDownloadedFile',

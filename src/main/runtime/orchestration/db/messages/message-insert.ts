@@ -13,6 +13,7 @@ import { ORCHESTRATION_UNBOUND_RUN_ID as UNBOUND_RUN_ID } from '../../../../../s
 import { MESSAGE_COLUMN_LIST } from '../row-column-lists'
 import { callerMailProvenance, type OrcaAuthoredMail } from './message-orca-provenance'
 import { recordMessageSenderDispatch } from './message-sender-dispatch'
+import { recordManagerMailEvent } from '../../../manager/manager-mail-event'
 
 const MESSAGE_INSERT_SAVEPOINT = 'message_insert_batch'
 const WORKER_DONE_MESSAGE_SAVEPOINT = 'worker_done_message_commit'
@@ -38,59 +39,63 @@ export type MessageInsert = {
 }
 
 export function insertMessage(this: OrchestrationDb, msg: MessageInsert): MessageRow {
-  // Unbound senders get a lazily created unbound Run; the legacy Run denotes pre-Runs data to skew probes.
-  const runId = msg.runId ?? UNBOUND_RUN_ID
-  if (msg.runId == null) {
-    this.db
-      .prepare(
-        `INSERT OR IGNORE INTO runs (id, objective, home_database, consumer_generation, legacy)
+  return runLifecycleWriteTransaction(this.db, 'message_insert_with_manager_wake', () => {
+    // Unbound senders get a lazily created unbound Run; the legacy Run denotes pre-Runs data to skew probes.
+    const runId = msg.runId ?? UNBOUND_RUN_ID
+    if (msg.runId == null) {
+      this.db
+        .prepare(
+          `INSERT OR IGNORE INTO runs (id, objective, home_database, consumer_generation, legacy)
          VALUES (?, 'Mail from terminals in no Run', 'this_database', 0, 0)`
-      )
-      .run(UNBOUND_RUN_ID)
-  }
-  const payload = callerMailProvenance(msg)
-  const deliveryContract = msg.deliveryContract ?? 'current_delivery'
-  this.requireRun(runId)
-  const id = msg.id ?? generateId('msg')
-  const type = msg.type ?? 'status'
-  // A heartbeat is never shown, so it names no one. Before the insert, whose trigger queues a peer Run's mail home with it.
-  if (msg.senderDispatchId && type !== 'heartbeat') {
-    recordMessageSenderDispatch(this, id, msg.senderDispatchId)
-  }
-  // Heartbeats only record liveness: store them handled so they never reach a mailbox or wake it.
-  const handled = type === 'heartbeat' ? 1 : 0
-  const stmt = this.db.prepare(`
+        )
+        .run(UNBOUND_RUN_ID)
+    }
+    const payload = callerMailProvenance(msg)
+    const deliveryContract = msg.deliveryContract ?? 'current_delivery'
+    this.requireRun(runId)
+    const id = msg.id ?? generateId('msg')
+    const type = msg.type ?? 'status'
+    // A heartbeat is never shown, so it names no one. Before the insert, whose trigger queues a peer Run's mail home with it.
+    if (msg.senderDispatchId && type !== 'heartbeat') {
+      recordMessageSenderDispatch(this, id, msg.senderDispatchId)
+    }
+    // Heartbeats only record liveness: store them handled so they never reach a mailbox or wake it.
+    const handled = type === 'heartbeat' ? 1 : 0
+    const stmt = this.db.prepare(`
     INSERT INTO messages (
       id, run_id, delivery_contract, from_handle, to_handle, subject, body,
       type, priority, thread_id, payload, sender_pane_key, answer_sender_snapshot, read, delivered_at
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 1 THEN datetime('now') END)
   `)
-  stmt.run(
-    id,
-    runId,
-    deliveryContract,
-    msg.from,
-    msg.to,
-    msg.subject,
-    msg.body ?? '',
-    type,
-    msg.priority ?? 'normal',
-    msg.threadId ?? null,
-    payload ?? null,
-    msg.senderPaneKey ?? null,
-    msg.answerSenderSnapshot ?? null,
-    handled,
-    handled
-  )
-  // Mail filed in a peer Run is queued home by trigger in this statement.
-  notifyPeerMailQueued(this.db)
-  return exposeMessageTimestamps(
-    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the column list names every column of the row type, and a missing one fails compilation.
-    this.db
-      .prepare(`SELECT ${MESSAGE_COLUMN_LIST} FROM messages WHERE id = ?`)
-      .get(id) as MessageRow
-  )
+    stmt.run(
+      id,
+      runId,
+      deliveryContract,
+      msg.from,
+      msg.to,
+      msg.subject,
+      msg.body ?? '',
+      type,
+      msg.priority ?? 'normal',
+      msg.threadId ?? null,
+      payload ?? null,
+      msg.senderPaneKey ?? null,
+      msg.answerSenderSnapshot ?? null,
+      handled,
+      handled
+    )
+    // Mail filed in a peer Run is queued home by trigger in this statement.
+    notifyPeerMailQueued(this.db)
+    const message = exposeMessageTimestamps(
+      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the column list names every column of the row type, and a missing one fails compilation.
+      this.db
+        .prepare(`SELECT ${MESSAGE_COLUMN_LIST} FROM messages WHERE id = ?`)
+        .get(id) as MessageRow
+    )
+    recordManagerMailEvent(this, message)
+    return message
+  })
 }
 
 export function insertMessages(this: OrchestrationDb, messages: MessageInsert[]): MessageRow[] {

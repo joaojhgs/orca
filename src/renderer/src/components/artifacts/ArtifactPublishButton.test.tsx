@@ -101,6 +101,19 @@ vi.mock('./artifact-link-actions', () => ({
 import { ArtifactPublishButton } from './ArtifactPublishButton'
 
 describe('ArtifactPublishButton', () => {
+  it('copies the selected Markdown layout without republishing or changing the artifact path', async () => {
+    mocks.getPublishedLink.mockResolvedValue('https://share.example/a/local-default/id/token')
+    const user = userEvent.setup()
+    render(<ArtifactPublishButton isMarkdown sourceKey="/repo/report.md" createRequest={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Share as artifact' }))
+    await user.click(await screen.findByRole('radio', { name: 'Centered A4' }))
+    await user.click(screen.getByRole('button', { name: 'Copy link' }))
+    expect(mocks.copyLink).toHaveBeenCalledWith(
+      'https://share.example/a/local-default/id/token?layout=a4',
+      { showSuccessToast: false }
+    )
+    expect(mocks.publish).not.toHaveBeenCalled()
+  })
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.publish.mockResolvedValue({
@@ -117,6 +130,19 @@ describe('ArtifactPublishButton', () => {
   })
 
   afterEach(cleanup)
+
+  it('allows approved local hosting without Cloud sign-in', async () => {
+    mocks.state.orcaProfileAuthStatus = {
+      state: 'local',
+      artifactHosting: { backend: 'local', identity: 'local-default', sharingEnabled: true }
+    }
+    const createRequest = vi.fn()
+    render(<ArtifactPublishButton sourceKey="/repo/report.md" createRequest={createRequest} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Share as artifact' }))
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Generate link' }))
+    expect(mocks.publish).toHaveBeenCalledWith(createRequest)
+    expect(mocks.connect).not.toHaveBeenCalled()
+  })
 
   it('requires explicit confirmation before publishing', async () => {
     const user = userEvent.setup()

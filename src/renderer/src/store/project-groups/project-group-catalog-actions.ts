@@ -1,3 +1,5 @@
+import { isWebClientLocation } from '@/app-shell/platform/web-client-location'
+import { getRepoExecutionHostId } from '../../../../shared/execution-host/execution-host'
 import type { StateCreator } from 'zustand'
 import {
   projectGroupHookTrustHost,
@@ -32,7 +34,10 @@ export function createProjectGroupCatalogActions(
       if (!isHostCatalogFenceCurrent(get, fence)) {
         return s
       }
-      const { projectGroups } = mergeFetchedProjectGroupCatalog(catalog, s.projectGroups)
+      const previous = isWebClientLocation()
+        ? s.projectGroups.filter((group) => getRepoExecutionHostId(group).startsWith('runtime:'))
+        : s.projectGroups
+      const { projectGroups } = mergeFetchedProjectGroupCatalog(catalog, previous)
       const validHookOwners = new Set(
         projectGroups.filter((group) => group.parentPath).map(projectGroupHookTrustKey)
       )
@@ -71,15 +76,17 @@ export function createProjectGroupCatalogActions(
 
     // Why: startup renders an all-host sidebar; replacing groups with only the active host leaves other hosts' repos visible but ungrouped.
     fetchProjectGroupsForAllHosts: async (options) => {
-      try {
-        const target = { kind: 'local' as const }
-        const fence = claimHostCatalogFence(get, 'project-groups', target)
-        applyCatalog(await fetchProjectGroupCatalogForTarget(target), fence)
-      } catch (err) {
-        console.error('Failed to fetch local project groups for all-host load:', err)
-      }
-      if (options?.remoteHosts === 'skip') {
-        return
+      if (!isWebClientLocation()) {
+        const target = { kind: 'local' } as const
+        try {
+          const fence = claimHostCatalogFence(get, 'project-groups', target)
+          applyCatalog(await fetchProjectGroupCatalogForTarget(target), fence)
+        } catch (err) {
+          console.error('Failed to fetch local project groups for all-host load:', err)
+        }
+        if (options?.remoteHosts === 'skip') {
+          return
+        }
       }
       await loadRuntimeHostCatalogs(get, 'project-groups', async (target, fence) => {
         try {

@@ -10,15 +10,29 @@ import {
 
 // Paired server accounts snapshots already carry usage; share that stream instead of polling providers here.
 
-const ACCOUNTS_REFRESH_TIMEOUT_MS = 30_000
+const ACCOUNTS_REFRESH_TIMEOUT_MS = 60_000
 const RESUBSCRIBE_DELAY_MS = 5_000
 
-export function fetchAccountsSnapshot(refreshUsage: boolean): Promise<ProviderAccountsSnapshot> {
-  return callRuntimeResult<ProviderAccountsSnapshot>(
+export async function fetchAccountsSnapshot(
+  refreshUsage: boolean
+): Promise<ProviderAccountsSnapshot> {
+  const owner = activeUsageOwner()
+  const snapshot = await callRuntimeResult<ProviderAccountsSnapshot>(
     'accounts.list',
     { refreshUsage },
     ACCOUNTS_REFRESH_TIMEOUT_MS
   )
+  if (activeUsageOwner() !== owner) {
+    throw new Error('The paired Orca server changed while usage was loading.')
+  }
+  return snapshot
+}
+
+function activeUsageOwner(): string | null {
+  const environment = requireActiveEnvironmentOrNull()
+  return environment
+    ? `${environment.id}:${environment.pairingRevision ?? environment.createdAt}`
+    : null
 }
 
 const listeners = new Set<(state: RateLimitState) => void>()
@@ -26,9 +40,11 @@ let stream: { unsubscribe: () => void } | null = null
 let streamStarting = false
 let resubscribeTimer: ReturnType<typeof setTimeout> | null = null
 let lastState: RateLimitState | null = null
+let lastStateOwner: string | null = null
 
 function publishRateLimits(state: RateLimitState): void {
   lastState = state
+  lastStateOwner = activeUsageOwner()
   for (const listener of listeners) {
     listener(state)
   }
@@ -70,12 +86,18 @@ function startStream(): void {
     return
   }
   streamStarting = true
+  const owner = activeUsageOwner()
   let handle: { unsubscribe: () => void } | null = null
   // Start in the promise chain: disconnected getClientForEnvironment throws synchronously, but streamStarting must reset for resubscribe.
   void Promise.resolve()
     .then(() =>
       getClientForEnvironment(environment).subscribe('accounts.subscribe', null, {
         onResponse: (response) => {
+          if (activeUsageOwner() !== owner) {
+            stopStream()
+            scheduleResubscribe()
+            return
+          }
           const state = response.ok ? readSnapshotRateLimits(response.result) : null
           // Why: a server whose snapshot predates usage publishes nothing, not empty bars.
           if (state) {
@@ -96,6 +118,11 @@ function startStream(): void {
     )
     .then((subscription) => {
       handle = subscription
+      if (activeUsageOwner() !== owner) {
+        subscription.unsubscribe()
+        scheduleResubscribe()
+        return
+      }
       stream = subscription
       if (listeners.size === 0) {
         stopStream()
@@ -127,16 +154,26 @@ async function readRateLimits(refreshUsage: boolean): Promise<RateLimitState> {
   } catch {
     // Why: a slow or unreachable server must not blank bars the stream already filled.
   }
-  return lastState ?? createEmptyRateLimitState()
+  return lastStateOwner === activeUsageOwner() && lastState
+    ? lastState
+    : createEmptyRateLimitState()
 }
 
 let pendingRefresh: Promise<RateLimitState> | null = null
+let pendingRefreshOwner: string | null = null
 
 // Share forced refresh slots; Accounts fires concurrent requests that wait for server provider fetches.
 function refreshRateLimits(): Promise<RateLimitState> {
-  pendingRefresh ??= readRateLimits(true).finally(() => {
-    pendingRefresh = null
-  })
+  const owner = activeUsageOwner()
+  if (!pendingRefresh || pendingRefreshOwner !== owner) {
+    pendingRefreshOwner = owner
+    const refresh = readRateLimits(true).finally(() => {
+      if (pendingRefresh === refresh) {
+        pendingRefresh = null
+      }
+    })
+    pendingRefresh = refresh
+  }
   return pendingRefresh
 }
 

@@ -4,6 +4,9 @@ import type { RuntimeTerminalSplit } from '../../../../shared/terminal/runtime/r
 import { OrcaRuntimeWithActivateManagedWorktree } from './workspace-activation'
 import type { WorktreeTerminalProvisioningHost } from './runtime-worktree-terminal-provisioning'
 import type { WorktreeStartupReadinessHost } from './runtime-worktree-startup-readiness'
+import { captureDirectSshWorktreeAuthority } from '../../../ipc/worktrees/direct-ssh-worktree-authority'
+import { prefetchRemoteWorktreeCreateBase } from '../../../ipc/worktrees/create/direct-ssh-worktree-git'
+import { resolveWorktreeCreateRoute } from '../../../workspaces/creation/worktree-create-execution-host-route'
 import { prefetchWorktreeCreateBase } from '../../../workspaces/creation/worktree-create-base-prefetch'
 import { prepareWorktreeCreateForRepo } from '../../../workspaces/creation/preparation/worktree-create-preparation'
 import { getWorktreeCreatePrefetchGitOptions } from '../../../workspaces/execution-host/project-runtime-git-options'
@@ -171,6 +174,15 @@ export abstract class OrcaRuntimeWithGetWorktreeTerminalProvisioningHost extends
     }
 
     const repo = await this.resolveRepoSelector(args.repoSelector)
+    const route = resolveWorktreeCreateRoute(repo)
+    if (route.kind === 'ssh') {
+      await prefetchRemoteWorktreeCreateBase(
+        captureDirectSshWorktreeAuthority(route.connectionId),
+        repo,
+        args
+      )
+      return
+    }
     const store = this.requireStore()
     await prefetchWorktreeCreateBase({
       repo,

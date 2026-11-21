@@ -1,3 +1,4 @@
+import type { SshChannelMultiplexer } from '../protocol/ssh-channel-multiplexer'
 import type { SshConnectionStore } from './ssh-connection-store'
 import type { SshConnectionManager } from '../connection/ssh-connection-manager'
 import type {
@@ -102,4 +103,32 @@ export function setSshConnectionManagerResolver(
 /** Null means no registered SSH stack, never a connection exit (docs/reference/ssh-execution-boundary.md). Resolve each call because handlers may replace the manager. */
 export function getSshConnectionManager(): SshConnectionManager | null {
   return registeredGetSshConnectionManager?.() ?? null
+}
+
+let registeredGetActiveMultiplexer:
+  | ((targetId: string) => SshChannelMultiplexer | undefined)
+  | null = null
+let registeredHasDirectSshAuthority: ((targetId: string) => boolean) | null = null
+
+export function setSshActiveMultiplexerResolver(
+  resolve: ((targetId: string) => SshChannelMultiplexer | undefined) | null
+): void {
+  registeredGetActiveMultiplexer = resolve
+}
+
+export function getActiveMultiplexer(targetId: string): SshChannelMultiplexer | undefined {
+  if (!registeredGetActiveMultiplexer) {
+    throw new Error('ssh_active_multiplexer_resolver_not_installed')
+  }
+  return registeredGetActiveMultiplexer(targetId)
+}
+
+export function setDirectSshAuthorityResolver(
+  resolve: ((targetId: string) => boolean) | null
+): void {
+  registeredHasDirectSshAuthority = resolve
+}
+
+export function hasRegisteredDirectSshAuthority(targetId: string): boolean {
+  return registeredHasDirectSshAuthority?.(targetId) ?? false
 }

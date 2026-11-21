@@ -81,7 +81,7 @@ export function createDroidSessionResumeState(
   )
 }
 
-async function parseDroidSessionLines(args: {
+export async function parseDroidSessionLines(args: {
   file: FileWithMtime
   lines: AsyncIterable<string> | Iterable<string>
   platform: NodeJS.Platform

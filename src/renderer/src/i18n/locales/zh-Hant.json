@@ -4302,7 +4302,6 @@
             "4f327c8b3d": "開啟 Markdown...",
             "3d5d6c960d": "新 Markdown",
             "fd2b42aaa3": "新的手機模擬器",
-            "b426bb2615": "轉到手機模擬器",
             "4833fb2cbe": "新瀏覽器分頁",
             "d364f3c8d4": "新終端機",
             "7c1313d237": "新終端機：",
@@ -5651,10 +5650,8 @@
         "SkillsSelectionHeader": {
           "exit": "退出選擇",
           "exitTooltip": "退出選擇 · Esc",
-          "title": "選擇要分享的技能",
           "selectAll": "選擇全部 {{count}} 項符合條件的技能",
-          "clear": "清除",
-          "deleteTitle": "選擇要刪除的技能"
+          "clear": "清除"
         },
         "SkillDetailDialog": {
           "agents": "代理程式",
@@ -6549,8 +6546,6 @@
                   "c709860596": "建立新專案",
                   "5f9ffac036": "複製遠端 Git 存放庫",
                   "7edb8ebe24": "從 URL 複製",
-                  "serverSshTitle": "此伺服器 SSH 主機上的專案",
-                  "serverSshAddOnThisComputer": "無法從伺服器使用。請在此電腦上新增 SSH 主機，以開啟其專案。",
                   "fb4fc5380e": "本機專案、Git 存放庫或包含多個存放庫的資料夾",
                   "2281fdc8c7": "瀏覽資料夾",
                   "runtimeBrowseDescription": "此主機上的現有 Git 存放庫或資料夾"
@@ -8994,7 +8989,6 @@
           "reconnectOnLaunch": "啟動時重新連線",
           "reconnectOnLaunchHelp": "關閉時，Orca 啟動後不會連線至此主機或透過此主機存取的任何 Orca 伺服器，直到手動連線為止。",
           "allowRemoteCliControl": "允許此主機控制其工作區中的 Orca 瀏覽器分頁",
-          "allowRemoteCliControlHelp": "新主機預設開啟。此主機上的代理程式和 orca 命令可以開啟、讀取和使用這臺電腦上的 Orca 瀏覽器分頁，僅限此主機的工作區，且僅在主機連線期間有效。它控制的分頁會顯示其名稱。此主機上由舊版 Orca 啟動的終端機也需要開啟此項，才能執行 orca 編排命令。它無法讀取你的檔案、剪貼簿或 Cookie。",
           "editTitle": "編輯 SSH 主機",
           "addTitle": "新增 SSH 主機",
           "editDescription": "更新此機器的連線詳情。變更將在下次連線時生效。",
@@ -12100,9 +12094,7 @@
           "title": "成品",
           "description": "與團隊分享 HTML 和 Markdown 檔案，並管理公開連結。",
           "howToTitle": "如何使用成品",
-          "howToDescription": "將 HTML 或 Markdown 檔案發布為公開連結，再與團隊分享。",
           "shareStepTitle": "選擇要分享的檔案",
-          "shareStepDescription": "開啟 HTML 或 Markdown 檔案並選擇「分享為成品」，或請代理程式分享。",
           "linkStepTitle": "複製公開連結",
           "linkStepDescription": "發布後，複製連結並分享給團隊。",
           "manageStepTitle": "在 Orca 中管理成品",
@@ -12113,12 +12105,8 @@
           "signInDescription": "使用 Orca 帳戶上傳成品並管理公開連結。",
           "signInAgain": "重新登入",
           "enableStepTitle": "啟用成品分享",
-          "enableStepWebDescription": "在主機裝置的 Orca 桌面應用程式中開啟「設定」→「成品」，並啟用發布。",
           "enableStepDescription": "開啟上方的「允許發布公開成品連結」。",
           "allowPublishing": "允許發布公開成品連結",
-          "allowPublishingWebDescription": "此設定僅限桌面版。請在主機裝置開啟「設定」→「成品」以變更。",
-          "allowPublishingDescription": "將 HTML 和 Markdown 檔案發布為連結。任何知道網址的人都能開啟；除非您從「成品」中刪除，否則現有連結仍會有效。",
-          "howToDescriptionDisabled": "啟用上方的成品分享，便可將 HTML 或 Markdown 檔案發布為公開連結。",
           "allowPublishingSearchDescription": "允許 Orca 將 HTML 和 Markdown 檔案發布為公開連結。",
           "keywordArtifacts": "成品",
           "keywordShare": "分享",
@@ -18492,17 +18480,6 @@
         "9a4c6b2d7e": "技能分享",
         "3d8e5f1b9c": "透過不公開列出的連結分享技能，並在你使用的任何電腦安裝。",
         "c5b3e8a17d": "登入 Orca"
-      },
-      "web": {
-        "preloadApi": {
-          "cursorAccounts": {
-            "hostOnly": "Cursor 登入詳情僅可在執行 Orca 的電腦上讀取。"
-          },
-          "accounts": {
-            "signInHostOnly": "只有在執行 Orca 的電腦上的桌面應用程式中，才能新增或重新登入帳戶。",
-            "claudeWslDefaultUnavailable": "將 WSL 帳戶切換回系統預設的功能僅可在桌面應用程式中使用。"
-          }
-        }
       },
       "TaskPageJiraSavedFilters": {
         "6c381858a1": "已儲存的篩選器",

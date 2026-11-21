@@ -1,5 +1,10 @@
 import { CrewChanges } from '../crew/crew-changes'
 import Database from '../../../sqlite/sync-database'
+import { ManagerEventJournal } from '../../manager/manager-event-journal'
+import { ManagerPrincipalStore } from '../../manager/manager-principal-store'
+import { ManagerRunOwnership } from '../../manager/manager-run-ownership'
+import { createManagerConversationTable } from '../../manager/manager-conversation-messages'
+import { createManagerDispatchWaitTable } from '../../manager/manager-dispatch-wait-store'
 import { attachOrchestrationDbMethods } from './attach-orchestration-db-methods'
 import type { MailHandBack } from './messages/helper-mailbox-hand-back'
 import { hardenOrchestrationDatabaseFiles } from './database-file-permissions'
@@ -29,6 +34,9 @@ import { UNRELEASED_MINTED_WORKER_TERMINAL_SQL } from './worker-terminal/worker-
 class OrchestrationDbCore {
   readonly crewChanges = new CrewChanges()
   db: Database.Database
+  readonly managerEvents: ManagerEventJournal
+  readonly managerPrincipals: ManagerPrincipalStore
+  readonly managerRuns: ManagerRunOwnership
 
   // Cache Dispatch emptiness to skip per-terminal queries on 16ms graph ticks for users without orchestration.
   hasAnyDispatchContextsCache: boolean | undefined
@@ -70,6 +78,11 @@ class OrchestrationDbCore {
     // Read before migrate, which drops the capture triggers it may need to rebuild around.
     const removedWorkCaptureWasIntact = isRemovedWorkCaptureIntact(this.db)
     migrate.call(this as unknown as OrchestrationDb)
+    this.managerEvents = new ManagerEventJournal(this.db)
+    this.managerPrincipals = new ManagerPrincipalStore(this.db)
+    this.managerRuns = new ManagerRunOwnership(this.db)
+    createManagerConversationTable(this.db)
+    createManagerDispatchWaitTable(this.db)
     refreshOutstandingDeliveryTrigger(this.db)
     installWorkerTerminalPriorOwnerIndex(this)
     for (const [table, columns] of [

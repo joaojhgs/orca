@@ -25,6 +25,11 @@ import type { RuntimeClient } from './runtime/client'
 import { COMMAND_SPECS } from './specs'
 import { resolveOrchestrationCliExecutable } from './orchestration/recovery/orchestration-recovery-command'
 import { refuseConflictingSessionCallerFlags } from './orchestration/identity/session-caller-flags'
+import { readSshBridgeCredential } from '../shared/ssh-bridge-credential-env'
+import {
+  refuseOwnerOnlySshBridgeCommand,
+  refuseSshBridgeEnvironmentRouting
+} from './dispatch/ssh-bridge-command-policy'
 import { ignoresRemoteSelection } from './dispatch/remote-selection-scope'
 import {
   isLocalEnvironmentSelector,
@@ -66,12 +71,18 @@ export async function main(
   }
   if (argv[0] === 'agent-teams-tmux') {
     configureExecutable?.(['agent-teams-tmux'])
+    if (refuseSpecialSshBridgeCommand('agent-teams-tmux')) {
+      return
+    }
     await runAgentTeamsTmuxShim(argv.slice(1))
     return
   }
   if (argv[0] === 'claude-teams') {
     if (argv.length === 2 && (argv[1] === '--help' || argv[1] === '-h')) {
       printHelp(COMMAND_SPECS, ['claude-teams'])
+      return
+    }
+    if (refuseSpecialSshBridgeCommand('claude-teams')) {
       return
     }
     await runClaudeTeams(argv.slice(1), cwd)
@@ -116,6 +127,7 @@ export async function main(
     configureExecutable?.(parsed.commandPath)
     const commandSpec = findCommandSpec(COMMAND_SPECS, parsed.commandPath)
     refuseConflictingSessionCallerFlags(commandSpec, parsed.flags)
+    refuseOwnerOnlySshBridgeCommand(parsed.commandPath, parsed.flags)
     await refuseLocalManagementSelector(parsed.commandPath, parsed.flags)
     const RuntimeClientClass = await loadRuntimeClientClass()
     // `--on` runs on the caller's own Orca, which reaches that server; an inherited selection never reroutes it.
@@ -169,12 +181,14 @@ export async function main(
                 ? { value: process.env.ORCA_ENVIRONMENT, label: 'ORCA_ENVIRONMENT' }
                 : null
         })
+    refuseSshBridgeEnvironmentRouting(hostEnvironmentId)
     // Stored host identities use ids, so canonicalize names before any downstream comparison.
     if (hostEnvironmentId !== null) {
       parsed.flags.set('host', `runtime:${hostEnvironmentId}`)
     }
     // null suppresses RuntimeClient's ORCA_PAIRING_CODE / ORCA_ENVIRONMENT default parameters.
-    const suppressed = ignoreRemoteSelection || explicitLocal ? null : undefined
+    const suppressed =
+      ignoreRemoteSelection || explicitLocal || readSshBridgeCredential() ? null : undefined
     // An explicit runtime host overrides an ambient pairing code.
     const remotePairingCode =
       hostEnvironmentId !== null ? null : typeof pairingCode === 'string' ? pairingCode : suppressed
@@ -230,6 +244,17 @@ function runsOnCallersOrca(
     ON_CALLERS_ORCA_COMMANDS.has(commandPath[1] ?? '') &&
     flags.has('on')
   )
+}
+
+function refuseSpecialSshBridgeCommand(command: string): boolean {
+  try {
+    refuseOwnerOnlySshBridgeCommand([command], new Map())
+    return false
+  } catch (error) {
+    reportCliError(error, false, { commandPath: [command] })
+    process.exitCode = cliErrorExitCode(error, [command])
+    return true
+  }
 }
 
 async function runClaudeTeams(argv: string[], cwd: string): Promise<void> {

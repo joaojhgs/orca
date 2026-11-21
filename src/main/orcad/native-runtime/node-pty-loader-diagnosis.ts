@@ -57,3 +57,7 @@ export function firstErrorLine(text: string): string {
   const errorLine = lines.find((candidate) => /^[A-Za-z]*(Error|Exception):/.test(candidate.trim()))
   return (errorLine ?? lines[0] ?? text).trim().slice(0, 400)
 }
+
+export function isFlattenedNodePtyLoaderMessage(message: string): boolean {
+  return /Failed to load native module: (?:conpty|pty)\.node(?:,|:|$)/.test(message)
+}

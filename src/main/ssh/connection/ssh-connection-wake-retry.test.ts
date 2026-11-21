@@ -93,7 +93,7 @@ describe('SshConnection retry after wake or network return', () => {
   })
 
   it('restores the retry budget on wake after the ladder is exhausted (#26888)', async () => {
-    const { conn } = recordStatuses()
+    const conn = new SshConnection(createTarget({ reconnectOnLaunch: false }), createCallbacks())
     await connectWithFakeTimers(conn)
     await spendLadderWhileAsleep(conn)
     const clientsBefore = clientInstances.length

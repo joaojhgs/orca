@@ -76,7 +76,8 @@ export function keepHiddenRowsBelowFolders<Row>(args: {
  * follow it there. */
 export function getSidebarFolderOccurrences(
   renderable: readonly RenderableFolderWorkspace[],
-  hiddenProjects: HiddenProjects = NO_HIDDEN_PROJECTS
+  hiddenProjects: HiddenProjects = NO_HIDDEN_PROJECTS,
+  projectGroupIdOf = (group: RenderableFolderWorkspace['projectGroup']): string => group.id
 ) {
   const sorted = [...renderable].sort((left, right) =>
     compareFolderWorkspacesForDisplay(left.folderWorkspace, right.folderWorkspace)
@@ -88,7 +89,7 @@ export function getSidebarFolderOccurrences(
   for (const pair of sorted) {
     const identity = getWorktreeHostIdentity(rowOf(pair))
     pairByIdentity.set(identity, pair)
-    groupIdByIdentity.set(identity, pair.projectGroup.id)
+    groupIdByIdentity.set(identity, projectGroupIdOf(pair.projectGroup))
   }
   const isFolder = (row: Worktree): boolean => pairByIdentity.has(getWorktreeHostIdentity(row))
   const folderRows = sorted.map(rowOf)
@@ -125,9 +126,9 @@ export function getSidebarFolderOccurrences(
     ) {
       const sectionItemsByGroupId = new Map<string, Worktree[]>()
       for (const pair of sorted) {
-        const items = sectionItemsByGroupId.get(pair.projectGroup.id) ?? []
+        const items = sectionItemsByGroupId.get(projectGroupIdOf(pair.projectGroup)) ?? []
         items.push(rowOf(pair))
-        sectionItemsByGroupId.set(pair.projectGroup.id, items)
+        sectionItemsByGroupId.set(projectGroupIdOf(pair.projectGroup), items)
       }
       const groupingRootByIdentity = new Map(displayRootByIdentity)
       const bound = new Set<Worktree>()

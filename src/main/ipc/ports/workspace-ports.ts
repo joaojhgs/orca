@@ -1,4 +1,9 @@
 import { BrowserWindow, ipcMain } from 'electron'
+import { currentRuntime } from '../ssh/ssh-ipc-context'
+import {
+  WorkspacePortScanParams,
+  WorkspacePortKillParams
+} from '../../../shared/rpc-contract/workspaces/workspace-ports-params'
 import type { Store } from '../../persistence/loading-store/store'
 import { advertisedUrlWatcher, type AdvertisedUrlWatcher } from '../../ports/advertised-url-watcher'
 import type {
@@ -48,6 +53,9 @@ export function registerWorkspacePortHandlers(
     'workspacePorts:scan',
     (_event, rawArgs?: unknown): Promise<WorkspacePortScanResult> => {
       const args = parseScanRequest(rawArgs)
+      if (args?.includeSsh && currentRuntime) {
+        return currentRuntime.scanWorkspacePorts(args.repoId, true)
+      }
       const worktrees = getStoreWorkspacePortProbes(store, args?.repoId)
       const key = JSON.stringify(
         worktrees
@@ -110,25 +118,17 @@ function parseScanRequest(value: unknown): WorkspacePortScanRequest | undefined 
   if (!value || typeof value !== 'object') {
     return undefined
   }
-  const repoId = (value as { repoId?: unknown }).repoId
-  return typeof repoId === 'string' && repoId.length > 0 ? { repoId } : undefined
+  const result = WorkspacePortScanParams.safeParse(value)
+  return result.success ? result.data : undefined
 }
 
 function parseKillRequest(value: unknown): WorkspacePortKillRequest | null {
-  if (!value || typeof value !== 'object') {
-    return null
-  }
-  const args = value as { repoId?: unknown; pid?: unknown; port?: unknown }
-  if (!Number.isSafeInteger(args.pid) || !Number.isSafeInteger(args.port)) {
-    return null
-  }
-  const pid = args.pid as number
-  const port = args.port as number
-  return {
-    ...(typeof args.repoId === 'string' && args.repoId.length > 0 ? { repoId: args.repoId } : {}),
-    pid,
-    port
-  }
+  const parsed = WorkspacePortKillParams.safeParse(value)
+  return parsed.success &&
+    Number.isSafeInteger(parsed.data.pid) &&
+    Number.isSafeInteger(parsed.data.port)
+    ? parsed.data
+    : null
 }
 
 function parseProbePageRequest(value: unknown): WorkspacePortPageProbeRequest | null {

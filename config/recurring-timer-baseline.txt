@@ -3,12 +3,13 @@
 # collector (file-wide). Not counted: destructuring off a global object, a self-rescheduling setTimeout (it must back off or pause while hidden).
 # This is a RATCHET: counts may only go DOWN.
 # Prune after removing intervals: pnpm check:recurring-timer-ratchet --prune
+1 src/cli/network/network-forward-local.ts # why: retained fork Loopback proxy lease heartbeat; closes with the listener and stops forwarding when its owner expires.
 1 src/cli/orchestration/messages/check-keepalive.ts
-1 src/cli/runtime/serve/updates/mac-app-update-bundle.ts
 1 src/cli/runtime/serve/supervision/serve-supervised-service.ts
+1 src/cli/runtime/serve/updates/mac-app-update-bundle.ts
 1 src/main/agent-hooks/server/server-opencode-binder.ts
-1 src/main/automations/observation/retained-run-reconciliation.ts
 1 src/main/automations/automation-service.ts
+1 src/main/automations/observation/retained-run-reconciliation.ts
 1 src/main/backend/backend-desktop-owner-watch.ts # why: Linux backend polls main's pid every 2 s and stops once main is gone; Node exposes no exit event for a non-child pid
 1 src/main/bots/bot-access-request-watch.ts
 1 src/main/browser/extensions/native-messaging/browser-extension-native-ports.ts
@@ -18,6 +19,7 @@
 1 src/main/codex-accounts/login/codex-login-session.ts
 1 src/main/codex/configuration/homes/codex-windows-sandbox-read-grant.ts
 1 src/main/composio/composio-upkeep.ts
+1 src/main/computer/vnc-agent-control.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 1 src/main/crash-reporting/memory/pre-gone-host-memory.ts
 1 src/main/crash-reporting/process-exits/process-gone-diagnostics.ts
 1 src/main/daemon/admission/host-terminal-ledger.ts
@@ -38,26 +40,34 @@
 1 src/main/native-chat/agent-session-wire/host/structured-agent-session-lease-renewer.ts
 1 src/main/native-chat/agent-session-wire/recovery/structured-agent-session-usage-limit-continue.ts
 1 src/main/native-chat/agent-session-wire/termination/structured-agent-session-idle-sweep.ts
+1 src/main/native-chat/remote-transcript-reader.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 1 src/main/notifications/desktop-presence-reporter.ts
+1 src/main/notifications/notification-digest-queue.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 1 src/main/orca-profiles/orca-server-sign-in.ts
 1 src/main/orcad/browser-providers/orcad-browser-install-park.ts
 1 src/main/orcad/diagnostics/orcad-event-loop-watchdog.ts
-1 src/main/orcad/instance-lock/orcad-lock-clone-machine.ts
 1 src/main/orcad/host-lifecycle/managed-stop/orcad-stop-request-listener.ts
+1 src/main/orcad/instance-lock/orcad-lock-clone-machine.ts
 1 src/main/plugins/catalog/plugin-auto-updater.ts
 1 src/main/plugins/catalog/plugin-kill-list-service.ts
-1 src/main/plugins/installation/plugin-git-repository.ts
 1 src/main/plugins/development/plugin-service-housekeeping.ts
+1 src/main/plugins/installation/plugin-git-repository.ts
+1 src/main/rate-limits/execution-account-usage-service.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 1 src/main/rate-limits/service/service-polling.ts
 1 src/main/remote-policies/release-asset-policy-live-update.ts
 1 src/main/runtime/agent-state-rules/agent-state-rules-live-update.ts
-1 src/main/runtime/mobile-cloud-relay/desktop-relay-service.ts
+1 src/main/runtime/manager/manager-dispatch-wait-recovery.ts # retained published fork 6685509715; imports/types only, frozen existing debt
+1 src/main/runtime/manager/manager-question-notifications.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 3 src/main/runtime/mobile-cloud-relay/control-channel/relay-control-liveness.ts
+1 src/main/runtime/mobile-cloud-relay/desktop-relay-service.ts
+1 src/main/runtime/rpc/agent-forward-websocket-bridge.ts # retained published fork 6685509715; imports/types only, frozen existing debt
+1 src/main/runtime/rpc/cdp-websocket-bridge.ts # why: retained fork Active stream authorization heartbeat; closes on revoked policy/authority and clears on socket close.
+1 src/main/runtime/rpc/desktop-vnc-websocket-bridge.ts # why: retained fork Active stream authorization heartbeat; detects externally changed policy and clears on socket close.
 1 src/main/runtime/rpc/methods/orchestration/messaging/check-run.ts
 1 src/main/runtime/rpc/mobile/mobile-socket-wiring.ts
-1 src/main/runtime/rpc/transports/websocket/remote-runtime-server-heartbeat.ts
 1 src/main/runtime/rpc/server/runtime-metadata-ownership-watch.ts
 1 src/main/runtime/rpc/transports/unix-socket-transport.ts
+1 src/main/runtime/rpc/transports/websocket/remote-runtime-server-heartbeat.ts
 1 src/main/runtime/sidebar-inputs/workspace-rows/paired-server-rows-producer.ts
 1 src/main/runtime/terminal/input/agent-prompt-permission-hold.ts
 1 src/main/runtime/terminal/output/terminal-derived-agent-facts.ts
@@ -78,22 +88,22 @@
 1 src/renderer/src/components/browser-pane/host-guest/viewport/browser-client-page-position-driver.ts
 1 src/renderer/src/components/contextual-tours/use-contextual-tour.ts
 1 src/renderer/src/components/feature-tips/FeatureTipRotatingSlot.tsx
-1 src/renderer/src/components/right-sidebar/plugin-panels/health/plugin-panel-watchdog.ts
 1 src/renderer/src/components/maintenance/terminal-daemon/SeveredTerminalDaemonBanner.tsx
 1 src/renderer/src/components/maintenance/terminal-daemon/StalledTerminalDaemonBanner.tsx
+1 src/renderer/src/components/right-sidebar/plugin-panels/health/plugin-panel-watchdog.ts
 1 src/renderer/src/components/sidebar/workspace-card/activity/prompt-cache-countdown-clock.ts
-1 src/renderer/src/components/status-bar/resources/use-resource-memory-snapshot.ts
 1 src/renderer/src/components/status-bar/host-connections/use-runtime-host-resources.ts
+1 src/renderer/src/components/status-bar/resources/use-resource-memory-snapshot.ts
 1 src/renderer/src/components/tab-bar/strip/tab-strip-drag-scroll.ts
 1 src/renderer/src/components/terminal-pane/pty-transport/delivery/terminal-delivery-watchdog.ts
 1 src/renderer/src/components/terminal-pane/pty-transport/remote-runtime/recovery/RemoteRuntimeRecoveryCard.tsx
 1 src/renderer/src/components/terminal-pane/render-health/terminal-render-desync-sentinel.ts
-1 src/renderer/src/lib/window-activity/use-now.ts
-1 src/renderer/src/lib/agent-session/hibernation/agent-hibernation-coordinator.ts
 1 src/renderer/src/diagnostics/crash-reporting/crash-diagnostics.ts
+1 src/renderer/src/lib/agent-session/hibernation/agent-hibernation-coordinator.ts
+1 src/renderer/src/lib/window-activity/use-now.ts
 1 src/renderer/src/lib/window-activity/window-visibility-interval.ts
 1 src/renderer/src/runtime/agent-orchestration/worker-auto-close.ts
 1 src/renderer/src/runtime/hosts/wsl/wsl-refused-read-watch.ts
+1 src/shared/agent-hook-listener/presence/tmux-agent-hook-owner.ts
 1 src/shared/remote-runtime/control/remote-runtime-shared-control-app-heartbeat.ts
 1 src/shared/remote-runtime/remote-runtime-socket-liveness.ts
-1 src/shared/agent-hook-listener/presence/tmux-agent-hook-owner.ts

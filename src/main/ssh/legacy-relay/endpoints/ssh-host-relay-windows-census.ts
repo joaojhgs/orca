@@ -11,7 +11,7 @@ import {
 } from './ssh-host-relay-windows-inventory'
 import { countRelayPtysOverBridge } from './ssh-relay-endpoint-pty-count'
 import { execCommand } from '../../remote-exec/remote-exec-command'
-import { relaySocketNameForInstanceId } from './ssh-relay-instance-id'
+import { relaySocketNameForInstanceId } from '../../ssh-relay-instance-id'
 import { windowsRelayConnectCommand } from './ssh-relay-windows-launch-command'
 import { listRemoteInstallBaseDirsCommand } from '../../../managed-server/install/remote-install-gc-listing-command'
 import { joinRemotePath, type RemoteHostPlatform } from '../../remote-host/ssh-remote-platform'

@@ -1,2 +1,3 @@
-/** Skills and published links share page scrolling/search but use separate inventories. */
-export type SkillsPageView = 'skills' | 'shared'
+/** The page lists either the skills on this machine or the links you published
+ *  from them. Both are inventories, so they share the page's scroll and search. */
+export type SkillsPageView = 'skills' | 'shared' | 'library'

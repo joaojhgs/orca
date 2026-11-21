@@ -42,9 +42,16 @@ export function terminalChatTranscriptIdentity(
   sourceIdentity: string,
   agent: string | null,
   sessionId: string | null,
-  transcriptPath: string | null
+  transcriptPath: string | null,
+  executionHostId?: string | null
 ): string {
-  return encodeNativeChatTranscriptIdentity([sourceIdentity, agent, sessionId, transcriptPath])
+  return encodeNativeChatTranscriptIdentity([
+    sourceIdentity,
+    agent,
+    sessionId,
+    transcriptPath,
+    ...(executionHostId ? [executionHostId] : [])
+  ])
 }
 
 export function structuredChatTranscriptIdentity(
@@ -74,7 +81,8 @@ export function storedTabChatTranscriptIdentity(
         source,
         resolution.agent,
         resolution.sessionId,
-        resolution.transcriptPath
+        resolution.transcriptPath,
+        resolution.connectionId
       )
 }
 

@@ -1,4 +1,4 @@
-import type { ArtifactCloudService } from '../../artifacts/artifact-cloud-service'
+import type { ArtifactService } from '../../artifacts/artifact-service-contract'
 import type {
   ArtifactCloudOperation,
   ArtifactCloudOptions,
@@ -12,7 +12,11 @@ import type {
 import { LegacyWorkerTerminalSurface } from '../orchestration/terminal-authority/legacy-worker-terminal-surface'
 
 export abstract class RuntimeArtifactOperations extends LegacyWorkerTerminalSurface {
-  setArtifactService(service: ArtifactCloudService): void {
+  getArtifactHostingStatus() {
+    return this.artifacts.hostingStatus()
+  }
+
+  setArtifactService(service: ArtifactService): void {
     this.artifacts.setService(service)
   }
 

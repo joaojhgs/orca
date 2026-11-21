@@ -14,6 +14,20 @@ const cliEntry =
 
 handOffToSessionCli()
 
+if (
+  process.argv.includes('serve') &&
+  existsSync(path.join(repoRoot, 'out', 'renderer', 'web-index.html'))
+) {
+  const projection = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, 'config', 'scripts', 'project-renderer-web-client.mjs')],
+    { stdio: 'inherit', env: process.env }
+  )
+  if (projection.status !== 0) {
+    process.exit(projection.status ?? 1)
+  }
+}
+
 if (!existsSync(cliEntry)) {
   console.error("orca-dev: CLI not built yet. Run 'pnpm run build:cli' first.")
   process.exit(1)

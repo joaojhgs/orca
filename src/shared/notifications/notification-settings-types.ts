@@ -12,6 +12,11 @@ import type { AgentSessionFailureFact } from '../agent-session/failures/agent-se
 import type { AgentTurnOutcome } from '../agent-status/lifecycle/agent-turn-outcome'
 import type { ExecutionHostId } from '../execution-host/execution-host'
 import type { NotificationSourceId } from './notification-source'
+import type {
+  NotificationScopePolicy,
+  NotificationPolicyScope,
+  NotificationPolicyKind
+} from '../notification-scope-policy'
 
 export type NotificationSettings = {
   enabled: boolean
@@ -37,6 +42,7 @@ export type NotificationSettings = {
   customSoundVolume: number
   /** Desktop opt-outs stored only on this client, per configured source and work reached through it; new sources notify. */
   mutedNotificationSourceIds: NotificationSourceId[]
+  scopePolicy?: NotificationScopePolicy
   /** Off silences every notification from a workspace the sidebar's Filters switches hide. Local only. */
   notifyHiddenWorkspaces: boolean
 }
@@ -119,10 +125,14 @@ export type NotificationDispatchRequest = {
   structuredOrigin?: StructuredAttentionOrigin
   /** The execution host already pushed this to its paired phones, so main must not fan it out again. */
   mobileDeliveredByHost?: boolean
+  notificationScope?: NotificationPolicyScope
+  notificationKind?: NotificationPolicyKind
 }
 
 export type NotificationDispatchResult = {
   delivered: boolean
+  /** An explicit server-side silence decision also vetoes renderer custom sounds. */
+  silent?: boolean
   /** Why delivery was skipped (set when delivered is false); 'blocked-by-system' = macOS would silently swallow it. */
   reason?:
     | 'disabled'
@@ -134,6 +144,9 @@ export type NotificationDispatchResult = {
     | 'not-displayed'
     | 'blocked-by-system'
     | 'invalid-request'
+    | 'policy-muted'
+    | 'digest-queued'
+    | 'digest-unavailable'
     | 'already-read'
 }
 

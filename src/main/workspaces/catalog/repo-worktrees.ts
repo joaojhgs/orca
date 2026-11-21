@@ -10,9 +10,15 @@ import { listWorktreesStrict } from '../../git/worktrees/catalog/worktree-listin
 import { isFolderRepo } from '../../../shared/repository/repo-kind'
 import {
   getRepoExecutionHostId,
-  LOCAL_EXECUTION_HOST_ID
+  getRepoRoutingConnectionId,
+  isRepoOnCatalogHost
 } from '../../../shared/execution-host/execution-host'
 import { resolveGitRouteForHost } from '../../providers/execution-host-provider-dispatch'
+import { getSshGitProvider } from '../../providers/ssh-git-dispatch'
+import {
+  getSshProviderAuthority,
+  isCurrentSshProviderAuthority
+} from '../../ssh/connection/authority/ssh-provider-authority'
 import { areWorktreePathsEqual } from '../../git/worktrees/catalog/worktree-path-comparison'
 import { WorktreeCatalogUnavailableError } from '../../../shared/worktree/catalog/worktree-catalog-availability'
 
@@ -27,9 +33,7 @@ function hasLocalRepoWorktreeListOptions(options: LocalRepoWorktreeListOptions |
 
 export function isRepoRoot(repos: Repo[], resolvedTarget: string): boolean {
   return repos.some(
-    (repo) =>
-      getRepoExecutionHostId(repo) === LOCAL_EXECUTION_HOST_ID &&
-      areWorktreePathsEqual(repo.path, resolvedTarget)
+    (repo) => isRepoOnCatalogHost(repo) && areWorktreePathsEqual(repo.path, resolvedTarget)
   )
 }
 
@@ -59,22 +63,6 @@ export async function listRepoWorktreesForDetectedScan(
   return listRoutedRepoWorktrees(repo, options, listWorktreesSharedStrictAllowingTrueEmpty)
 }
 
-function assertLocalGitRoute(repo: Repo): void {
-  const route = resolveGitRouteForHost(getRepoExecutionHostId(repo))
-  if (route.kind === 'runtime') {
-    // Nested runtime SSH targets belong to the server's namespace.
-    throw new WorktreeCatalogUnavailableError(
-      `Worktree catalog unavailable for ${repo.path}: host ${route.hostId} is not reachable from this process.`
-    )
-  }
-  if (route.kind === 'ssh') {
-    // An unreachable host is not an empty catalog; callers would prune live worktrees.
-    throw new WorktreeCatalogUnavailableError(
-      `Worktree catalog unavailable for ${repo.path}: SSH connection "${route.connectionId}" is not connected.`
-    )
-  }
-}
-
 async function listRoutedRepoWorktrees(
   repo: Repo,
   options: LocalRepoWorktreeListOptions | undefined,
@@ -86,7 +74,34 @@ async function listRoutedRepoWorktrees(
   if (isFolderRepo(repo)) {
     return [createFolderWorktree(repo)]
   }
-  assertLocalGitRoute(repo)
+  const route = resolveGitRouteForHost(getRepoExecutionHostId(repo))
+  if (
+    route.kind === 'runtime' ||
+    (route.kind === 'local' && !isRepoOnCatalogHost(repo)) ||
+    (route.kind === 'ssh' && getRepoRoutingConnectionId(repo) !== route.connectionId)
+  ) {
+    throw new WorktreeCatalogUnavailableError(
+      `Worktree catalog unavailable for ${repo.path}: host ${route.hostId} is not reachable from this process.`
+    )
+  }
+  if (route.kind === 'ssh') {
+    options?.signal?.throwIfAborted()
+    const provider = getSshGitProvider(route.connectionId)
+    const sshConnection = `Worktree catalog unavailable for ${repo.path}: SSH connection "${route.connectionId}"`
+    if (!provider) {
+      throw new WorktreeCatalogUnavailableError(`${sshConnection} is not connected.`)
+    }
+    const authority = getSshProviderAuthority(route.connectionId)
+    const worktrees = await provider.listWorktrees(repo.path, { signal: options?.signal })
+    options?.signal?.throwIfAborted()
+    if (
+      getSshGitProvider(route.connectionId) !== provider ||
+      !isCurrentSshProviderAuthority(authority)
+    ) {
+      throw new WorktreeCatalogUnavailableError(`${sshConnection} changed during listing.`)
+    }
+    return worktrees
+  }
   const worktrees = hasLocalRepoWorktreeListOptions(options)
     ? await listLocal(repo.path, options)
     : await listLocal(repo.path)
@@ -98,21 +113,14 @@ export async function listRepoWorktreeGraph(
   repo: Repo,
   options?: LocalRepoWorktreeListOptions
 ): Promise<GitWorktreeInfo[]> {
-  if (isFolderRepo(repo)) {
-    return [createFolderWorktree(repo)]
-  }
-  assertLocalGitRoute(repo)
-  const worktrees = hasLocalRepoWorktreeListOptions(options)
-    ? await listWorktreeGraph(repo.path, options)
-    : await listWorktreeGraph(repo.path)
-  return preserveFolderUpgradeWorktreePath(repo, worktrees)
+  return listRoutedRepoWorktrees(repo, options, listWorktreeGraph)
 }
 
 export async function listLocalRepoWorktreesStrict(
   repo: Repo,
   options?: LocalRepoWorktreeListOptions
 ): Promise<GitWorktreeInfo[]> {
-  if (getRepoExecutionHostId(repo) !== LOCAL_EXECUTION_HOST_ID) {
+  if (!isRepoOnCatalogHost(repo)) {
     throw new Error('Cannot list worktrees for a remote repository')
   }
   if (isFolderRepo(repo)) {

@@ -2,13 +2,15 @@ import type { RuntimeRpcResponse } from '../../../../../../shared/remote-runtime
 import { isRecoverableRemoteRuntimeConnectionError } from '../../../../../../shared/remote-runtime/remote-runtime-client-error-classification'
 import {
   encodeTerminalStreamFrame,
-  type TerminalStreamOpcode
+  encodeTerminalStreamJson,
+  TerminalStreamOpcode
 } from '../../../../../../shared/terminal/stream/terminal-stream-protocol'
 import {
   recordE2eRemoteStreamFrame,
   recordE2eRemoteTransportSubscribe,
   unsubscribeRuntimeEnvironmentForE2e
 } from '../diagnostics/remote-runtime-terminal-e2e-control'
+import { CONTROL_STREAM_ID } from '../frames/remote-terminal-multiplex-event'
 import { disposeRemoteTerminalStreamState } from '../remote-terminal-stream-disposal'
 import type { RemoteRuntimeMultiplexedTerminalState } from '../remote-terminal-stream-state'
 import type { RuntimeEnvironmentSubscriptionHandle } from '../../../rpc/subscriptions/runtime-environment-subscription-handle'
@@ -26,6 +28,7 @@ export abstract class RemoteRuntimeTerminalMultiplexerBase {
   protected readyResolver: (() => void) | null = null
   protected readyRejecter: ((error: Error) => void) | null = null
   protected ready = false
+  protected transportInterrupted = false
   protected nextStreamId = 1
   protected nextSnapshotRequestId = 1
 
@@ -109,7 +112,15 @@ export abstract class RemoteRuntimeTerminalMultiplexerBase {
                 this.failConnection(Object.assign(new Error(error.message), { code: error.code }))
               }
             },
-            onClose: () => this.handleClose('Remote Orca runtime closed the connection.')
+            onClose: () => this.handleClose('Remote Orca runtime closed the connection.'),
+            onTransportInterrupted: () => {
+              this.ready = false
+              this.transportInterrupted = true
+            },
+            onTransportReplayed: () => {
+              this.ready = false
+              this.transportInterrupted = true
+            }
           }
         )
         .then((subscription) => {
@@ -134,6 +145,34 @@ export abstract class RemoteRuntimeTerminalMultiplexerBase {
     })
     this.connectPromise = connectPromise
     return this.connectPromise
+  }
+
+  protected sendStreamSubscription(stream: RemoteRuntimeMultiplexedTerminalState): boolean {
+    return this.sendFrame(
+      CONTROL_STREAM_ID,
+      TerminalStreamOpcode.Subscribe,
+      encodeTerminalStreamJson({
+        streamId: stream.streamId,
+        terminal: stream.terminal,
+        client: stream.client,
+        viewport: stream.viewport,
+        capabilities: {
+          ackOutput: 1,
+          ackOutputSourceRanges: 1,
+          outputPause: 1,
+          outputPauseDropNotice: 1,
+          ...(stream.reportsPaneVisibility ? { paneVisibility: 1 } : {}),
+          writeUnavailable: 1,
+          ...(stream.client.type === 'desktop'
+            ? { desktopViewportClaims: 1, endpointLossNotice: 1 }
+            : {}),
+          ...(stream.inputSessionId ? { inputAck: 1 } : {}),
+          ...(stream.reportsOutputCadence ? { outputCadence: 1 } : {})
+        },
+        ...(stream.inputSessionId ? { inputSessionId: stream.inputSessionId } : {}),
+        ...(stream.outputCadence !== 'focused' ? { outputCadence: stream.outputCadence } : {})
+      })
+    )
   }
 
   protected sendFrame(

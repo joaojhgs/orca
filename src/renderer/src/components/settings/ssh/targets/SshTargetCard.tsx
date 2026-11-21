@@ -1,10 +1,22 @@
 import { useCallback, useRef, useState } from 'react'
-import { Loader2, MoreHorizontal, Pencil, PlugZap, Trash2 } from 'lucide-react'
+import {
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  PlugZap,
+  RefreshCw,
+  Server,
+  Terminal,
+  Trash2
+} from 'lucide-react'
 import type {
   SshConnectionState,
   SshConnectionStatus,
   SshTarget
 } from '../../../../../../shared/remote-runtime/ssh/ssh-types'
+import { toast } from 'sonner'
+import { isWebClientLocation } from '@/app-shell/platform/web-client-location'
+import { SshDestructiveActionDialog } from './SshDestructiveActionDialog'
 import { Badge } from '../../../ui/badge'
 import { Button } from '../../../ui/button'
 import { Checkbox } from '../../../ui/checkbox'
@@ -17,6 +29,7 @@ import {
 } from '../../../ui/dropdown-menu'
 import { isConnectingSshStatus } from '../../../../ssh/ssh-connection-recoverability'
 import type { SshTargetBusyAction } from './ssh-target-action-state'
+import { runSshTargetRelayAction, type SshTargetRelayAction } from './ssh-target-relay-actions'
 import { sshIdentityFileName } from './ssh-target-list-model'
 import { isManagedServerSshHost } from './SshManagedHostRemoveDialog'
 import {
@@ -106,7 +119,9 @@ export function SshTargetCard({
   const status: SshConnectionStatus = state?.status ?? 'disconnected'
   const [actionInFlight, setActionInFlight] = useState<'connect' | 'disconnect' | null>(null)
   const [serverDialog, setServerDialog] = useState<SshTargetServerDialog | null>(null)
-  const hasActionInFlight = actionInFlight !== null || busyAction !== undefined
+  const [relayDialog, setRelayDialog] = useState<SshTargetRelayAction | null>(null)
+  const [relayBusy, setRelayBusy] = useState(false)
+  const hasActionInFlight = actionInFlight !== null || busyAction !== undefined || relayBusy
   const removeInFlight = busyAction === 'remove'
   const mountedRef = useRef(true)
   const endpoint = target.username
@@ -115,6 +130,40 @@ export function SshTargetCard({
   const keyName = sshIdentityFileName(target.identityFile)
   const servedByOrcaServer =
     isManagedServerSshHost(target) || state?.managedServer?.kind === 'managed'
+
+  const relayControls = !servedByOrcaServer && !isWebClientLocation()
+  const relayActionLabel =
+    relayDialog === 'move'
+      ? t('settings.ssh.relayMoveAction', 'Move to managed server')
+      : relayDialog === 'terminate'
+        ? t('settings.ssh.relayTerminateAction', 'End SSH terminals')
+        : t('settings.ssh.relayResetAction', 'Reset SSH relay')
+
+  const handleRelayAction = (): void => {
+    if (!relayControls || !relayDialog || hasActionInFlight || isConnectingSshStatus(status)) {
+      return
+    }
+    setRelayBusy(true)
+    void runSshTargetRelayAction(relayDialog, target.id)
+      .then((outcome) => {
+        if (outcome === 'moved') {
+          onServerChanged?.()
+        } else if (outcome === 'unverified') {
+          toast.warning(t('settings.ssh.relayUnverified', 'Some terminals could not be verified.'))
+        }
+        if (mountedRef.current) {
+          setRelayDialog(null)
+        }
+      })
+      .catch((error: unknown) =>
+        toast.error(error instanceof Error ? error.message : String(error))
+      )
+      .finally(() => {
+        if (mountedRef.current) {
+          setRelayBusy(false)
+        }
+      })
+  }
 
   const handleCardRef = useCallback((node: HTMLDivElement | null): void => {
     // Root attachment guards async completions after card removal without a passive effect.
@@ -283,6 +332,31 @@ export function SshTargetCard({
               <Pencil />
               {t('auto.components.settings.SshTargetCard.edit', 'Edit…')}
             </DropdownMenuItem>
+            {relayControls ? (
+              <>
+                <DropdownMenuItem
+                  disabled={hasActionInFlight || isConnectingSshStatus(status)}
+                  onSelect={() => setRelayDialog('reset')}
+                >
+                  <RefreshCw />
+                  {t('settings.ssh.relayResetMenu', 'Reset SSH relay…')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={hasActionInFlight || isConnectingSshStatus(status)}
+                  onSelect={() => setRelayDialog('terminate')}
+                >
+                  <Terminal />
+                  {t('settings.ssh.relayTerminateMenu', 'End SSH terminals…')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={hasActionInFlight || isConnectingSshStatus(status)}
+                  onSelect={() => setRelayDialog('move')}
+                >
+                  <Server />
+                  {t('settings.ssh.relayMoveMenu', 'Move to managed server…')}
+                </DropdownMenuItem>
+              </>
+            ) : null}
             <SshTargetServerMenuItems
               target={target}
               state={state}
@@ -301,6 +375,32 @@ export function SshTargetCard({
         </DropdownMenu>
       </div>
 
+      <SshDestructiveActionDialog
+        open={relayDialog !== null}
+        title={relayActionLabel}
+        description={
+          relayDialog === 'move'
+            ? t('settings.ssh.relayMoveDescription', 'Move this host to a managed Orca server.')
+            : relayDialog === 'terminate'
+              ? t(
+                  'settings.ssh.relayTerminateDescription',
+                  'End remote Orca terminals on this host.'
+                )
+              : t(
+                  'settings.ssh.relayResetDescription',
+                  'Disconnect this host and reset its relay. Running terminals may end.'
+                )
+        }
+        targetLabel={target.label}
+        actionLabel={relayActionLabel}
+        isBusy={relayBusy}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRelayDialog(null)
+          }
+        }}
+        onConfirm={handleRelayAction}
+      />
       <SshTargetServerDialogs
         target={target}
         state={state}

@@ -86,3 +86,8 @@ export function formatWindowsBreakawayLaunchReport(
 ): string {
   return `${contract.reportMarker} ${JSON.stringify(report)}`
 }
+
+export const RELAY_WINDOWS_BREAKAWAY_CONTRACT: WindowsBreakawayLaunchContract = {
+  argsFlag: '--relay-args',
+  reportMarker: 'ORCA_RELAY_LAUNCH'
+}

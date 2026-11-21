@@ -1,110 +1,55 @@
+import { installWindowVisibilityInterval } from '@/lib/window-activity/window-visibility-interval'
 import { translate } from '@/i18n/i18n'
 import type { PreloadApi } from '../../../../../preload/api-types'
+import type { AccountControlRequest } from '../../../../../shared/rpc-contract/accounts/accounts-params'
 import type {
   ClaudeRateLimitAccountsState,
   CodexRateLimitAccountsState
 } from '../../../../../shared/agent-accounts/managed-account-types'
 import { callRuntimeResult } from '../../runtime/client/web-runtime-calls'
+import { requireActiveEnvironmentOrNull } from '../../runtime/client/web-runtime-session'
 import { fetchAccountsSnapshot } from './web-rate-limits-api'
 import { renameUnsupportedOnOldHost } from '@/runtime/provider-accounts/observations/runtime-provider-accounts-client'
 
-export function createMiniMaxCredentialsApi(): NonNullable<
-  Partial<PreloadApi>['minimaxCredentials']
-> {
-  // Nulls, not 'sealed': MiniMax credentials live on the desktop host, so this bridge
-  // stores nothing and has no protection to claim either way.
-  const notConfigured = {
-    configured: false,
-    cookieConfigured: false,
-    apiKeyConfigured: false,
-    cookieProtection: null,
-    apiKeyProtection: null
-  }
-  const unsupportedError = new Error('MiniMax cookie storage is only available in the desktop app.')
+const control = <T>(request: AccountControlRequest, timeout = 60_000): Promise<T> =>
+  callRuntimeResult<T>('accounts.control', request, timeout)
+
+export function createMiniMaxCredentialsApi(): PreloadApi['minimaxCredentials'] {
   return {
-    getStatus: () => Promise.resolve(notConfigured),
-    saveCookie: () => Promise.reject(unsupportedError),
-    clearCookie: () => Promise.resolve(notConfigured),
-    saveApiKey: () => Promise.reject(unsupportedError),
-    clearApiKey: () => Promise.resolve(notConfigured)
+    getStatus: () => control({ operation: 'minimax.status' }),
+    saveCookie: (secret) => control({ operation: 'minimax.saveCookie', secret }),
+    clearCookie: () => control({ operation: 'minimax.clearCookie' }),
+    saveApiKey: (secret) => control({ operation: 'minimax.saveApiKey', secret }),
+    clearApiKey: () => control({ operation: 'minimax.clearApiKey' })
+  }
+}
+
+export function createCursorAccountsApi(): PreloadApi['cursorAccounts'] {
+  return { getStatus: () => control({ operation: 'cursor.status' }) }
+}
+
+export function createGrokAccountsApi(): PreloadApi['grokAccounts'] {
+  return { getStatus: () => control({ operation: 'grok.status' }) }
+}
+
+export function createOpenCodeGoCredentialsApi(): PreloadApi['opencodeGoCredentials'] {
+  return {
+    getStatus: () => control({ operation: 'opencodeGo.status' }),
+    saveApiKey: (secret) => control({ operation: 'opencodeGo.saveApiKey', secret }),
+    clearApiKey: () => control({ operation: 'opencodeGo.clearApiKey' })
   }
 }
 
 export function createZcodePlanCredentialsApi(): PreloadApi['zcodePlanCredentials'] {
-  const status = {
-    detailsUnavailable: true,
-    apiKeyConfigured: false,
-    zcodeCliConfigured: false,
-    apiKeyProtection: null
-  }
-  const unsupported = () =>
-    Promise.reject(
-      new Error(
-        'GLM Coding Plan keys can only be changed in the desktop app on the computer running Orca.'
-      )
-    )
   return {
-    getStatus: () => Promise.resolve(status),
-    saveApiKey: unsupported,
-    clearApiKey: unsupported
-  }
-}
-
-export function createCursorAccountsApi(): NonNullable<Partial<PreloadApi>['cursorAccounts']> {
-  // Cursor auth is host-owned and unreadable here; claiming signed-out would contradict the host-provided usage meter.
-  return {
-    getStatus: () =>
-      Promise.resolve({
-        signedIn: false,
-        email: null,
-        displayName: null,
-        credentialSource: null,
-        planType: null,
-        tokenFresh: false,
-        error: translate(
-          'auto.components.web.preloadApi.cursorAccounts.hostOnly',
-          'Cursor sign-in details are only readable on the computer running Orca.'
-        )
-      })
-  }
-}
-
-export function createOpenCodeGoCredentialsApi(): PreloadApi['opencodeGoCredentials'] {
-  const notConfigured = { apiKeyConfigured: false }
-  return {
-    getStatus: () => Promise.resolve(notConfigured),
-    saveApiKey: () =>
-      Promise.reject(new Error('OpenCode Go key storage is only available in the desktop app.')),
-    clearApiKey: () => Promise.resolve(notConfigured)
-  }
-}
-
-export function createGrokAccountsApi(): NonNullable<Partial<PreloadApi>['grokAccounts']> {
-  const unsigned = {
-    signedIn: false,
-    email: null,
-    teamId: null,
-    tokenFresh: false,
-    error: null
-  }
-  return {
-    getStatus: () => Promise.resolve(unsigned)
+    getStatus: () => control({ operation: 'zcodePlan.status' }),
+    saveApiKey: (secret) => control({ operation: 'zcodePlan.saveApiKey', secret }),
+    clearApiKey: () => control({ operation: 'zcodePlan.clearApiKey' })
   }
 }
 
 // Why: select/remove await provider usage refreshes on the server; give an applied switch room.
 const ACCOUNT_MUTATION_TIMEOUT_MS = 30_000
-
-function rejectHostOnlySignIn(): Promise<never> {
-  return Promise.reject(
-    new Error(
-      translate(
-        'auto.components.web.preloadApi.accounts.signInHostOnly',
-        'Adding or re-signing an account is only available in the desktop app on the computer running Orca.'
-      )
-    )
-  )
-}
 
 function servingHostLabel(): string {
   return translate(
@@ -113,20 +58,15 @@ function servingHostLabel(): string {
   )
 }
 
-// Paired server owns accounts; list/select/remove use accounts.* RPCs, while sign-in requires the host login flow.
+// Account mutations run on the paired server.
 export function createClaudeAccountsApi(): PreloadApi['claudeAccounts'] {
   return {
     list: async () => (await fetchAccountsSnapshot(false)).claude,
-    add: rejectHostOnlySignIn,
-    cancelPendingLogin: () => Promise.resolve(false),
-    reauthenticate: rejectHostOnlySignIn,
+    add: (args) => control({ operation: 'claude.add', ...args }, 600_000),
+    cancelPendingLogin: () => control({ operation: 'claude.cancelLogin' }),
+    reauthenticate: (args) => control({ operation: 'claude.reauthenticate', ...args }, 600_000),
     waitForSignInLink: () => Promise.resolve(null),
-    remove: ({ accountId }) =>
-      callRuntimeResult<ClaudeRateLimitAccountsState>(
-        'accounts.removeClaude',
-        { accountId },
-        ACCOUNT_MUTATION_TIMEOUT_MS
-      ),
+    remove: (args) => callRuntimeResult('accounts.removeClaude', args, ACCOUNT_MUTATION_TIMEOUT_MS),
     rename: ({ accountId, displayName }) =>
       callRuntimeResult<ClaudeRateLimitAccountsState>(
         'accounts.renameClaude',
@@ -135,43 +75,52 @@ export function createClaudeAccountsApi(): PreloadApi['claudeAccounts'] {
       ).catch((error: unknown) => {
         throw renameUnsupportedOnOldHost(error, servingHostLabel())
       }),
-    select: ({ accountId, runtime }) => {
-      // No targeted Claude select RPC; null would clear host lane, while concrete account IDs identify their lane.
-      if (runtime === 'wsl' && accountId === null) {
-        return Promise.reject(
-          new Error(
-            translate(
-              'auto.components.web.preloadApi.accounts.claudeWslDefaultUnavailable',
-              'Switching a WSL lane back to the system default is only available in the desktop app.'
-            )
-          )
-        )
-      }
-      return callRuntimeResult<ClaudeRateLimitAccountsState>(
-        'accounts.selectClaude',
-        // This window's switcher moves running sessions itself; the host window must not too.
-        { accountId, movesRunningSessions: true },
-        ACCOUNT_MUTATION_TIMEOUT_MS
-      )
-    }
+    select: (args) => control({ operation: 'claude.select', ...args, movesRunningSessions: true })
   }
 }
 
 export function createCodexAccountsApi(): PreloadApi['codexAccounts'] {
   return {
     list: async () => (await fetchAccountsSnapshot(false)).codex,
-    add: rejectHostOnlySignIn,
-    cancelPendingLogin: () => Promise.resolve(false),
-    // Host browser owns login; web has no pending URL or changes to publish.
-    getPendingLoginUrl: () => Promise.resolve(null),
-    onPendingLoginUrlChanged: () => () => {},
-    reauthenticate: rejectHostOnlySignIn,
-    remove: ({ accountId }) =>
-      callRuntimeResult<CodexRateLimitAccountsState>(
-        'accounts.removeCodex',
-        { accountId },
-        ACCOUNT_MUTATION_TIMEOUT_MS
-      ),
+    add: (args) => control({ operation: 'codex.add', ...args }, 600_000),
+    cancelPendingLogin: () => control({ operation: 'codex.cancelLogin' }),
+    getPendingLoginUrl: () => control({ operation: 'codex.pendingLoginUrl' }),
+    onPendingLoginUrlChanged: (callback) => {
+      const owner = requireActiveEnvironmentOrNull()?.id
+      if (!owner) {
+        return () => {}
+      }
+      let disposed = false
+      let pending = false
+      let previous: string | null | undefined
+      const poll = async (): Promise<void> => {
+        if (pending || disposed || requireActiveEnvironmentOrNull()?.id !== owner) {
+          return
+        }
+        pending = true
+        try {
+          const url = await control<string | null>({ operation: 'codex.pendingLoginUrl' })
+          if (!disposed && requireActiveEnvironmentOrNull()?.id === owner && url !== previous) {
+            previous = url
+            callback(url)
+          }
+        } catch {
+          /* The owning connection reports transport failures. */
+        } finally {
+          pending = false
+        }
+      }
+      const stopPolling = installWindowVisibilityInterval({
+        intervalMs: 2000,
+        run: () => void poll()
+      })
+      return () => {
+        disposed = true
+        stopPolling()
+      }
+    },
+    reauthenticate: (args) => control({ operation: 'codex.reauthenticate', ...args }, 600_000),
+    remove: (args) => callRuntimeResult('accounts.removeCodex', args, ACCOUNT_MUTATION_TIMEOUT_MS),
     rename: ({ accountId, displayName }) =>
       callRuntimeResult<CodexRateLimitAccountsState>(
         'accounts.renameCodex',
@@ -180,23 +129,23 @@ export function createCodexAccountsApi(): PreloadApi['codexAccounts'] {
       ).catch((error: unknown) => {
         throw renameUnsupportedOnOldHost(error, servingHostLabel())
       }),
-    // Why: a WSL lane needs the targeted RPC, or a null selection would clear the host lane.
-    select: ({ accountId, runtime, wslDistro }) =>
-      runtime === 'wsl'
-        ? callRuntimeResult<CodexRateLimitAccountsState>(
+    select: (args) =>
+      args.runtime
+        ? callRuntimeResult(
             'accounts.selectCodexForTarget',
-            { accountId, target: { runtime: 'wsl', wslDistro: wslDistro ?? null } },
+            {
+              accountId: args.accountId,
+              target: { runtime: args.runtime, wslDistro: args.wslDistro ?? null }
+            },
             ACCOUNT_MUTATION_TIMEOUT_MS
           )
-        : callRuntimeResult<CodexRateLimitAccountsState>(
+        : callRuntimeResult(
             'accounts.selectCodex',
-            { accountId },
+            { accountId: args.accountId },
             ACCOUNT_MUTATION_TIMEOUT_MS
           ),
-    // PTY host owns launch-account records; return no stale panes instead of rejecting the sweep.
-    listStalePanes: () => Promise.resolve([]),
-    // No web-owned lane records; empty results let every pane use derivation.
-    listRecordedPaneLanes: () => Promise.resolve({}),
-    forgetStalePanes: () => Promise.resolve()
+    listStalePanes: (args) => control({ operation: 'codex.stalePanes', ...args }),
+    listRecordedPaneLanes: (args) => control({ operation: 'codex.recordedPaneLanes', ...args }),
+    forgetStalePanes: (args) => control({ operation: 'codex.forgetStalePanes', ...args })
   }
 }

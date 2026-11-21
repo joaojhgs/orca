@@ -1,12 +1,16 @@
 import { createNotificationStreamFilter } from './notification-stream-policy'
 import { defineStreamingMethod, defineMethod, type RpcContext } from '../../core'
 import type { OrcaRuntimeService } from '../../../orca-runtime'
+import { notificationPolicyTargets } from '../../../../notifications/notification-policy-targets'
+import { agentHookServer } from '../../../../agent-hooks/server/agent-hook-server'
 import {
   NotificationGetMissedSinceParams,
   NotificationRegisterPushParams,
   NotificationReportDesktopPresenceParams,
   NotificationUnsubscribeParams,
-  NotificationsSubscribeParams
+  NotificationsSubscribeParams,
+  NotificationPolicyTargetsParams,
+  NotificationPolicyUpdateParams
 } from '../../../../../shared/rpc-contract/notifications/notifications-params'
 
 // Use a per-process counter so same-millisecond subscriptions cannot collide.
@@ -33,15 +37,54 @@ export function reportDesktopPresence(
 
 // Legacy callers retain filtered socket alerts; push clients opt into the full event stream.
 export const NOTIFICATION_METHODS = [
+  defineMethod({
+    name: 'notifications.policyRead',
+    permission: 'settings-write',
+    params: null,
+    handler: (_params, { runtime }) => runtime.getNotificationPolicy()
+  }),
+  defineMethod({
+    name: 'notifications.policyUpdate',
+    permission: 'settings-write',
+    params: NotificationPolicyUpdateParams,
+    handler: (params, { runtime }) =>
+      runtime.updateNotificationPolicy(params.policy, params.expectedRevision)
+  }),
+  defineMethod({
+    name: 'notifications.policyDevices',
+    permission: 'settings-write',
+    params: null,
+    handler: (_params, { deviceSelf }) => ({
+      devices: deviceSelf?.listNotificationPolicyDevices?.() ?? []
+    })
+  }),
+  defineMethod({
+    name: 'notifications.policyTargets',
+    permission: 'settings-write',
+    params: NotificationPolicyTargetsParams,
+    handler: (params, { runtime }) => {
+      const rows = notificationPolicyTargets(runtime, agentHookServer.getEnrichedStatusSnapshot())
+      const end = params.offset + params.limit
+      return { targets: rows.slice(params.offset, end), nextOffset: end < rows.length ? end : null }
+    }
+  }),
   defineStreamingMethod({
     name: 'notifications.subscribe',
     permission: 'workspace',
     params: NotificationsSubscribeParams,
-    handler: async (params, { runtime, connectionId }, emit) => {
+    handler: async (params, { runtime, connectionId, pairedDeviceId, clientKind }, emit) => {
       const shouldEmit = createNotificationStreamFilter(params?.includeDesktopSuppressed)
       await new Promise<void>((resolve) => {
         const unsubscribe = runtime.onNotificationDispatched((event) => {
-          if (shouldEmit(event)) {
+          if (
+            shouldEmit(event) &&
+            (runtime.allowsMobileNotificationDelivery?.(
+              event,
+              pairedDeviceId,
+              clientKind === 'runtime' ? 'desktop' : 'mobile'
+            ) ??
+              true)
+          ) {
             emit(event)
           }
         })
@@ -78,11 +121,18 @@ export const NOTIFICATION_METHODS = [
     permission: 'workspace',
     params: NotificationGetMissedSinceParams,
     // Runtime sequence/epoch is authoritative for notifications missed while the socket was reaped.
-    handler: async (params, { runtime }) => {
+    handler: async (params, { runtime, pairedDeviceId, clientKind }) => {
       const missed = runtime.getMissedNotificationsSince(params.lastSeenSeq, params.epoch)
       return {
         notifications: missed.filter(
-          createNotificationStreamFilter(params.includeDesktopSuppressed)
+          (event) =>
+            createNotificationStreamFilter(params.includeDesktopSuppressed)(event) &&
+            (runtime.allowsMobileNotificationDelivery?.(
+              event,
+              pairedDeviceId,
+              clientKind === 'runtime' ? 'desktop' : 'mobile'
+            ) ??
+              true)
         ),
         epoch: runtime.getMobileNotificationEpoch(),
         ...(params.deliveredPushes

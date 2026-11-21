@@ -1,7 +1,7 @@
 import type * as ExecCommandModule from '../../remote-exec/remote-exec-command'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SshConnection } from '../../connection/ssh-connection'
-import { relaySocketNameForInstanceId } from './ssh-relay-instance-id'
+import { relaySocketNameForInstanceId } from '../../ssh-relay-instance-id'
 import { windowsRelayPipePathsForSocketName } from './ssh-relay-endpoints'
 import { getRemoteHostPlatform, joinRemotePath } from '../../remote-host/ssh-remote-platform'
 

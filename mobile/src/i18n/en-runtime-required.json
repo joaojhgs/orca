@@ -261,6 +261,10 @@
         "title": "Webhook"
       }
     },
+    "goal": {
+      "checks_one": "{{count}} check",
+      "checks_other": "{{count}} checks"
+    },
     "mcp": {
       "status": {
         "tools_one": "{{count}} tool",
@@ -351,10 +355,6 @@
     "turnStatus": {
       "seconds_one": "{{count}}s",
       "seconds_other": "{{count}}s"
-    },
-    "goal": {
-      "checks_one": "{{count}} check",
-      "checks_other": "{{count}} checks"
     }
   },
   "components": {

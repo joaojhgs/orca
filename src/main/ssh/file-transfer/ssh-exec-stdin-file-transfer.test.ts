@@ -12,10 +12,11 @@ import {
 import { chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Duplex } from 'node:stream'
+import { Duplex, Readable } from 'node:stream'
 import { afterEach, describe, expect, it } from 'vitest'
 import { spawnProcess } from '@orca/process-host'
 import type { SshConnection } from '../connection/ssh-connection'
+import { execCommand } from '../remote-exec/remote-exec-command'
 import {
   uploadDirectoryViaExecStdin,
   uploadFileViaExecStdin,
@@ -37,8 +38,17 @@ function tempDir(): string {
 }
 
 /** An ssh2-shaped exec channel over a local `/bin/sh -c`, so the real writer and shell run. */
-function localShellConnection(rewrite: (command: string) => string = (c) => c): SshConnection {
+function localShellConnection(
+  rewrite: (command: string) => string = (c) => c,
+  separateStdin = false
+): SshConnection {
   const conn = {
+    usesSystemSshTransport: () => separateStdin,
+    execWithClosedStdin: async (command: string) => {
+      const channel = await conn.exec(command)
+      channel.stdin.end()
+      return channel
+    },
     exec: async (command: string) => {
       const child = spawnProcess({ program: '/bin/sh', args: ['-c', rewrite(command)] })
       const channel = new Duplex({
@@ -68,7 +78,7 @@ function localShellConnection(rewrite: (command: string) => string = (c) => c): 
         channel.emit('close', code)
       })
       return Object.assign(channel, {
-        stdin: channel,
+        stdin: separateStdin ? child.stdin : channel,
         stderr: child.stderr,
         close: () => child.kill('SIGKILL')
       })
@@ -79,6 +89,42 @@ function localShellConnection(rewrite: (command: string) => string = (c) => c): 
 }
 
 describe.skipIf(process.platform === 'win32')('exec-stdin writer through a real shell', () => {
+  it.each([false, true])(
+    'delivers buffered input with separate stdin=%s',
+    async (separateStdin) => {
+      const payload = 'literal $HOME; `uname`; quotes "\' and Unicode λ\n'
+      expect(
+        await execCommand(localShellConnection(undefined, separateStdin), 'cat', { input: payload })
+      ).toBe(payload)
+      expect(
+        await execCommand(localShellConnection(undefined, separateStdin), 'cat', {
+          input: Buffer.from(payload)
+        })
+      ).toBe(payload)
+    }
+  )
+
+  it('sends EOF for empty input and preserves the configurable output tail', async () => {
+    expect(await execCommand(localShellConnection(), 'cat', { input: '' })).toBe('')
+    expect(
+      await execCommand(localShellConnection(), 'cat', { input: 'abcdef', maxOutputChars: 3 })
+    ).toBe('def')
+  })
+
+  it('rejects simultaneous streamed and buffered input before executing', async () => {
+    const stdin = Readable.from(['stream'])
+    await expect(
+      execCommand(localShellConnection(), 'exit 99', { stdin, input: 'buffer' })
+    ).rejects.toThrow('Specify either SSH command stdin or input, not both')
+    stdin.destroy()
+  })
+
+  it.each([0, -1, 1.5, 16 * 1024 * 1024 + 1])('rejects output limit %s', async (limit) => {
+    await expect(
+      execCommand(localShellConnection(), 'exit 99', { maxOutputChars: limit })
+    ).rejects.toThrow('Invalid SSH command output limit')
+  })
+
   it('leaves no file behind when the host receives fewer bytes than were sent', async () => {
     const dir = tempDir()
     const local = join(dir, 'payload.bin')

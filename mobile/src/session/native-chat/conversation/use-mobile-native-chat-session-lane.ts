@@ -75,7 +75,8 @@ export function useMobileNativeChatSessionLane({
     sourceIdentity,
     agent: structured ? null : agent,
     sessionId: structured ? null : sessionId,
-    transcriptPath: structured ? null : (resolution?.transcriptPath ?? null)
+    transcriptPath: structured ? null : (resolution?.transcriptPath ?? null),
+    executionHostId: structured ? null : (resolution?.connectionId ?? null)
   })
   const structuredSession = useMobileStructuredAgentSession({
     itemLink,

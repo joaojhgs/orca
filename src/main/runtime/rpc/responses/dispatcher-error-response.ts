@@ -1,4 +1,5 @@
 import { BranchSwitchLandedWithWarningError } from '../../../git/worktrees/checkout/branch-switch'
+import { ManagerAuthorityError } from '../../manager/manager-authority-error'
 import { mapBrowserError } from './browser-error-response'
 import { ZodError } from 'zod'
 import {
@@ -34,6 +35,9 @@ export function mapDispatcherError(
   meta: RpcEnvelopeMeta,
   error: unknown
 ): RpcResponse {
+  if (error instanceof ManagerAuthorityError) {
+    return errorResponse(request.id, meta, error.code, error.message)
+  }
   if (request.method === 'git.checkout' && error instanceof BranchSwitchLandedWithWarningError) {
     return errorResponse(request.id, meta, 'runtime_error', error.message, {
       outcome: 'landed-with-warning'

@@ -60,10 +60,14 @@ export function recheckWhenManagedFenceClears(target: SshTarget, environmentId: 
 }
 
 /** Failed server setup must leave connecting/setting-up state and publish the actionable error. */
-export function publishHostServerDecisionFailure(targetId: string, error: unknown): void {
+export function publishHostServerDecisionFailure(
+  targetId: string,
+  error: unknown,
+  publish = broadcastSshState
+): void {
   const failure = error instanceof Error ? error : new Error(String(error))
   clearSshHostServerStatus(targetId)
-  broadcastSshState(targetId, {
+  publish(targetId, {
     targetId,
     status: isAuthError(failure) ? 'auth-failed' : 'error',
     error: isSshSessionStartFailure(failure) ? describeSshConnectFailure(failure) : failure.message,

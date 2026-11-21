@@ -12,7 +12,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
 import { useIntlLocale, useTranslate, type Translate } from '@/i18n/use-translate'
-import type { SkillCloudOwnedShare } from '../../../../../shared/skills/sharing/skill-cloud-contract'
+import type { OwnedSkillShare } from './use-owned-skill-shares'
 import { skillCountLabel } from '../presentation/skill-display-labels'
 import { isSkillBundleVersion } from './skill-share-version-summary'
 import { uiDateTimeFormat } from '@/i18n/ui-intl-formatters'
@@ -30,13 +30,14 @@ function createdLabel(createdAt: string, t: Translate = translate, intlLocale?: 
     : uiDateTimeFormat(CREATED_OPTIONS, intlLocale).format(parsed)
 }
 
-/** Fetch package membership only on expansion because the shares endpoint omits it; avoid one request per collapsed link. */
-function useShareContents(share: SkillCloudOwnedShare): {
+/** The shares endpoint carries no membership, so the skill list is fetched from
+ *  the package only when a row is opened — 50 links must not mean 50 requests. */
+function useShareContents(share: OwnedSkillShare): {
   names: string[] | null
   failed: boolean
   load: () => void
 } {
-  const [names, setNames] = useState<string[] | null>(null)
+  const [names, setNames] = useState<string[] | null>(share.names ?? null)
   const [failed, setFailed] = useState(false)
 
   const load = (): void => {
@@ -71,7 +72,7 @@ export function SkillSharedLinkRow({
   onRevoke,
   onDeleted
 }: {
-  share: SkillCloudOwnedShare
+  share: OwnedSkillShare
   busy: boolean
   onRevoke: () => void
   onDeleted: () => void
@@ -178,34 +179,40 @@ export function SkillSharedLinkRow({
                   {t('auto.components.settings.shareSkills.unshare', 'Unshare')}
                 </TooltipContent>
               </Tooltip>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    className="shrink-0"
-                    disabled={busy}
-                    aria-label={t(
-                      'auto.components.skills.SkillSharedLinkRow.moreActions',
-                      'More actions for {{name}}',
-                      { name: share.name }
-                    )}
-                  >
-                    <MoreHorizontal />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {/* Deleting the published package is more destructive than unsharing, so keep it in the nested menu. */}
-                  <DropdownMenuItem variant="destructive" onSelect={() => setConfirming('delete')}>
-                    <Trash2 />
-                    {t(
-                      'auto.components.skills.SkillSharedLinkRow.deletePackage',
-                      'Delete from the Cloud'
-                    )}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {!share.names ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      className="shrink-0"
+                      disabled={busy}
+                      aria-label={t(
+                        'auto.components.skills.SkillSharedLinkRow.moreActions',
+                        'More actions for {{name}}',
+                        { name: share.name }
+                      )}
+                    >
+                      <MoreHorizontal />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {/* Why: unsharing only closes the link; this removes the
+                      published copy itself, so it stays one level down. */}
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => setConfirming('delete')}
+                    >
+                      <Trash2 />
+                      {t(
+                        'auto.components.skills.SkillSharedLinkRow.deletePackage',
+                        'Delete from the Cloud'
+                      )}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
             </>
           )}
         </div>

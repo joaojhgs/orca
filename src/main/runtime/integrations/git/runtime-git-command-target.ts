@@ -15,6 +15,8 @@ import type {
   createLocalGitProvider,
   LocalGitProvider
 } from '../../../providers/git/local-provider'
+import type { SshGitProvider } from '../../../providers/ssh-git-provider'
+import { requireSshGitProvider } from '../../../providers/ssh-git-dispatch'
 import { SshHostNotServedError } from '../../../providers/ssh-host-not-served-error'
 import type { CommitMessageAgentEnvironmentResolvers } from '../../../text-generation/execution/commit-message-agent-environment'
 import type { PullRequestLinkedIssueMeta } from '../../../source-control/pull-request-linked-issue'
@@ -56,7 +58,7 @@ export type RuntimeGitCommandHost = {
 /** Dispatch only hosts this process serves. runtime:<env> targets belong to that server's nested SSH namespace; local lookup could dial a same-named wrong host. */
 export type RuntimeGitRoute =
   | { kind: 'local'; createProvider: typeof createLocalGitProvider }
-  /** An SSH target this process does not serve; it fails or reports unavailable, never runs here. */
+  /** An SSH target in this process’s namespace; dispatch requires a live direct provider. */
   | { kind: 'ssh'; connectionId: string }
 
 export function runtimeGitRouteForTarget(target: RuntimeGitTarget): RuntimeGitRoute {
@@ -82,8 +84,17 @@ export function requireLocalRuntimeGitRoute(
   return route
 }
 
-/** A provider for the target's own host; an `ssh:` host and a `runtime:` host both throw. */
-export function requireRuntimeGitProvider(target: RuntimeGitTarget): LocalGitProvider {
+/** A provider for the target’s own host. Runtime-host routes are refused above. */
+export function requireRuntimeGitProvider(
+  target: RuntimeGitTarget
+): LocalGitProvider | SshGitProvider {
+  const route = runtimeGitRouteForTarget(target)
+  return route.kind === 'ssh'
+    ? requireSshGitProvider(route.connectionId)
+    : requireRuntimeLocalGitProvider(target)
+}
+
+export function requireRuntimeLocalGitProvider(target: RuntimeGitTarget): LocalGitProvider {
   return requireLocalRuntimeGitRoute(target).createProvider({
     ...localGitOptionsForTarget(target),
     getSharedLinkPaths: () => (target.repo ? getWorktreeSharedLinkPaths(target.repo) : [])

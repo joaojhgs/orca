@@ -7,6 +7,8 @@ import type { NotificationSettings } from '../../../shared/notifications/notific
 import type { PersistedState } from '../../../shared/orca-profiles/persisted-state-types'
 import { getDefaultNotificationSettings } from '../../../shared/notifications/notification-settings-defaults'
 import { normalizeVisibleExecutionHostIds } from '../../../shared/execution-host/execution-host'
+import { normalizeNotificationScopePolicy } from '../../../shared/notification-scope-policy'
+import { isDeepStrictEqual } from 'node:util'
 import {
   getDefaultOnboardingState,
   ONBOARDING_FINAL_STEP,
@@ -47,6 +49,7 @@ export function normalizeNotificationSettings(value: unknown): NotificationSetti
   // Validate fields individually: spreading disk JSON can admit truthy strings and invalid paths.
   const booleanOr = (raw: unknown, fallback: boolean): boolean =>
     typeof raw === 'boolean' ? raw : fallback
+  const scopePolicy = normalizeNotificationScopePolicy(candidate.scopePolicy)
   return {
     enabled: booleanOr(candidate.enabled, defaults.enabled),
     agentTaskComplete: booleanOr(candidate.agentTaskComplete, defaults.agentTaskComplete),
@@ -63,6 +66,7 @@ export function normalizeNotificationSettings(value: unknown): NotificationSetti
         ? candidate.customSoundPath
         : defaults.customSoundPath,
     customSoundVolume,
+    ...(scopePolicy ? { scopePolicy } : {}),
     mutedNotificationSourceIds: normalizeMutedNotificationSourceIds(
       candidate.mutedNotificationSourceIds
     ),
@@ -83,6 +87,9 @@ function normalizeMutedNotificationSourceIds(
 }
 
 function sameNotificationSettingValue(raw: unknown, normalized: unknown): boolean {
+  if (normalized && typeof normalized === 'object' && !Array.isArray(normalized)) {
+    return isDeepStrictEqual(raw, normalized)
+  }
   if (Array.isArray(normalized)) {
     return (
       Array.isArray(raw) &&
@@ -105,6 +112,13 @@ export function persistedNotificationSettingsRepaired(
     return true
   }
   const raw = value as Record<string, unknown>
+  if (
+    'scopePolicy' in raw &&
+    raw.scopePolicy !== undefined &&
+    normalized.scopePolicy === undefined
+  ) {
+    return true
+  }
   return Object.entries(normalized).some(
     ([key, normalizedValue]) => !sameNotificationSettingValue(raw[key], normalizedValue)
   )

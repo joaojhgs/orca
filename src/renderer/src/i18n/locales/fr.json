@@ -4153,7 +4153,6 @@
             "4f327c8b3d": "Ouvrir un Markdown...",
             "3d5d6c960d": "Nouveau Markdown",
             "fd2b42aaa3": "Nouvel émulateur mobile",
-            "b426bb2615": "Aller à l'émulateur mobile",
             "4833fb2cbe": "Nouvel onglet de navigateur",
             "d364f3c8d4": "Nouveau terminal",
             "7c1313d237": "Nouveau terminal :",
@@ -5621,10 +5620,8 @@
         "SkillsSelectionHeader": {
           "exit": "Quitter la sélection",
           "exitTooltip": "Quitter la sélection · Esc",
-          "title": "Sélectionner les skills à partager",
           "selectAll": "Sélectionner les {{count}} éligibles",
-          "clear": "Effacer",
-          "deleteTitle": "Sélectionner les skills à supprimer"
+          "clear": "Effacer"
         },
         "SkillDetailDialog": {
           "agents": "Agents",
@@ -6584,8 +6581,6 @@
                   "c709860596": "Créer un nouveau projet",
                   "5f9ffac036": "Cloner un dépôt Git distant",
                   "7edb8ebe24": "Cloner depuis une URL",
-                  "serverSshTitle": "Projet sur un hôte SSH de ce serveur",
-                  "serverSshAddOnThisComputer": "Indisponible depuis un serveur. Ajoutez l’hôte SSH sur cet ordinateur pour ouvrir ses projets.",
                   "fb4fc5380e": "Projet local, dépôt Git ou dossier contenant plusieurs dépôts",
                   "2281fdc8c7": "Parcourir le dossier",
                   "runtimeBrowseDescription": "Dépôt Git existant ou dossier sur cette machine"
@@ -9064,7 +9059,6 @@
           "reconnectOnLaunch": "Se reconnecter au lancement",
           "reconnectOnLaunchHelp": "Si désactivé, Orca laisse cet hôte, et tout serveur Orca joint par son intermédiaire, déconnecté au démarrage jusqu'à ce que vous le connectiez.",
           "allowRemoteCliControl": "Autoriser cet hôte à contrôler les onglets du navigateur Orca dans ses espaces de travail",
-          "allowRemoteCliControlHelp": "Activé par défaut pour les nouveaux hôtes. Les agents et commandes orca de cet hôte peuvent ouvrir, lire et utiliser des onglets du navigateur Orca sur ce bureau, uniquement dans les espaces de travail de cet hôte et uniquement tant qu'il est connecté. Les onglets qu'il contrôle affichent son nom. Les terminaux lancés sur cet hôte par une ancienne version d'Orca ont aussi besoin de cette option pour exécuter les commandes d'orchestration orca. Il ne peut pas lire vos fichiers, votre presse-papiers ni vos cookies.",
           "addHost": "Ajouter un hôte",
           "proxyConnectionReuse": "Réutiliser une seule connexion proxy",
           "proxyConnectionReuseHelp": "Connexions plus rapides via des hôtes ProxyCommand ou ProxyJump lents. Activez-le uniquement si votre ssh_config ne dépend pas de règles Match ou %h propres à chaque hôte.",
@@ -12219,9 +12213,7 @@
           "title": "Artefacts",
           "description": "Partagez des fichiers HTML et Markdown avec votre équipe et gérez leurs liens publics.",
           "howToTitle": "Comment utiliser Artifacts",
-          "howToDescription": "Publiez des fichiers HTML ou Markdown sous forme de liens publics, puis partagez-les avec votre équipe.",
           "shareStepTitle": "Choisir un fichier à partager",
-          "shareStepDescription": "Ouvrez un fichier HTML ou Markdown et sélectionnez Partager comme artifact, ou demandez à un agent de le partager.",
           "linkStepTitle": "Copier le lien public",
           "linkStepDescription": "Après publication, copiez le lien et envoyez-le à votre équipe.",
           "manageStepTitle": "Gérer dans Orca",
@@ -12232,12 +12224,8 @@
           "signInDescription": "Utilisez votre compte Orca pour téléverser des artifacts et gérer leurs liens publics.",
           "signInAgain": "Se reconnecter",
           "enableStepTitle": "Activer le partage d'artifacts",
-          "enableStepWebDescription": "Ouvrez Paramètres → Artifacts dans l'app Orca de bureau sur l'appareil hôte et activez la publication.",
           "enableStepDescription": "Activez « Autoriser la publication de liens d'artifacts publics » ci-dessus.",
           "allowPublishing": "Autoriser la publication de liens d'artifacts publics",
-          "allowPublishingWebDescription": "Bureau uniquement. Ouvrez Paramètres → Artifacts sur l'appareil hôte pour modifier ce paramètre.",
-          "allowPublishingDescription": "Publiez des fichiers HTML et Markdown sous forme de liens ouvrables par quiconque possède l'URL. Les liens existants demeurent jusqu'à leur suppression dans Artifacts.",
-          "howToDescriptionDisabled": "Activez le partage d'artifacts ci-dessus pour publier des fichiers HTML ou Markdown sous forme de liens publics.",
           "allowPublishingSearchDescription": "Autoriser Orca à publier des fichiers HTML et Markdown sous forme de liens publics.",
           "keywordArtifacts": "artefacts",
           "keywordShare": "partager",
@@ -18774,17 +18762,6 @@
         "9a4c6b2d7e": "Partage de compétences",
         "3d8e5f1b9c": "Partagez vos compétences derrière un lien non répertorié et installez-les sur n'importe quelle machine que vous utilisez.",
         "c5b3e8a17d": "Connectez-vous à Orca"
-      },
-      "web": {
-        "preloadApi": {
-          "cursorAccounts": {
-            "hostOnly": "Les détails de connexion Cursor ne sont lisibles que sur l'ordinateur qui exécute Orca."
-          },
-          "accounts": {
-            "signInHostOnly": "L'ajout ou la reconnexion d'un compte n'est disponible que dans l'application de bureau sur l'ordinateur qui exécute Orca.",
-            "claudeWslDefaultUnavailable": "Revenir d'un contexte WSL à la valeur par défaut du système n'est disponible que dans l'application de bureau."
-          }
-        }
       },
       "TaskPageJiraSavedFilters": {
         "6c381858a1": "Filtres enregistrés",

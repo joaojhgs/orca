@@ -3,6 +3,8 @@ import type { Server as HttpsServer } from 'node:https'
 import type { WebSocket, WebSocketServer } from 'ws'
 import type { RemoteRuntimeServerHeartbeat } from './remote-runtime-server-heartbeat'
 
+const MAX_UNAUTHENTICATED_MESSAGE_BYTES = 1024 * 1024
+
 type WebSocketMessagePayload = string | Uint8Array<ArrayBufferLike>
 export type WebSocketMessageHandler = {
   bivarianceHack(
@@ -34,7 +36,15 @@ export function attachNodeWebSocketLifecycle(args: {
   let finalized = false
   const onPong = (): void => args.heartbeat.notePong(ws)
   const onMessage = (data: WebSocket.RawData, isBinary: boolean): void => {
-    // Every inbound frame proves life, including frames during active requests.
+    // Paired artifact payloads use the shared frame budget; handshake messages keep their old cap.
+    if (
+      !args.clientIds.has(ws) &&
+      messagePayloadByteLength(data) > MAX_UNAUTHENTICATED_MESSAGE_BYTES
+    ) {
+      ws.close(1009, 'Unauthenticated message too large')
+      return
+    }
+    // Why: any inbound frame counts as proof of life, so an actively-talking client isn't reaped mid-request.
     args.heartbeat.noteAlive(ws)
     const message =
       typeof data === 'string' ? data : isBinary ? toBinaryPayload(data) : data.toString()
@@ -95,6 +105,15 @@ export function attachNodeWebSocketLifecycle(args: {
     // Pre-auth timeout owns unauthenticated sockets; start probes after E2EE binds identity to avoid handshake control frames.
     args.heartbeat.start(() => args.clientIds.keys())
   }
+}
+
+function messagePayloadByteLength(data: WebSocket.RawData | string): number {
+  if (typeof data === 'string') {
+    return Buffer.byteLength(data)
+  }
+  return Array.isArray(data)
+    ? data.reduce((total, part) => total + part.byteLength, 0)
+    : data.byteLength
 }
 
 function toBinaryPayload(data: Exclude<WebSocket.RawData, string>): Uint8Array {

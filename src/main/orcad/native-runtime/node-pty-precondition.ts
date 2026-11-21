@@ -47,7 +47,7 @@ type NodePtyProbeOutcome =
   | { kind: 'unanswered'; detail: string }
   | { kind: 'unexplained'; detail: string }
 
-function readNodePtyProbeOutcome(
+export function readNodePtyProbeOutcome(
   result: Pick<ProcessResult, 'code' | 'signal' | 'stdout' | 'stderr' | 'timedOut'>
 ): NodePtyProbeOutcome {
   const stdout = result.stdout

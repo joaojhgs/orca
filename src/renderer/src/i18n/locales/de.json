@@ -4383,7 +4383,6 @@
             "4f327c8b3d": "Markdown öffnen…",
             "3d5d6c960d": "Neue Markdown-Datei erstellen",
             "fd2b42aaa3": "Neuen Mobilgeräte-Emulator erstellen",
-            "b426bb2615": "Zum Mobilgeräte-Emulator wechseln",
             "4833fb2cbe": "Neuen Browser-Tab öffnen",
             "d364f3c8d4": "Neues Terminal öffnen",
             "7c1313d237": "Neues Terminal:",
@@ -5789,10 +5788,8 @@
         "SkillsSelectionHeader": {
           "exit": "Auswahlmodus beenden",
           "exitTooltip": "Auswahlmodus beenden · Esc",
-          "title": "Skills zum Teilen auswählen",
           "selectAll": "Alle {{count}} geeigneten Skills auswählen",
-          "clear": "Auswahl aufheben",
-          "deleteTitle": "Skills zum Löschen auswählen"
+          "clear": "Auswahl aufheben"
         },
         "SkillDetailDialog": {
           "agents": "Agenten",
@@ -6716,8 +6713,6 @@
                   "c709860596": "Neues Projekt erstellen",
                   "5f9ffac036": "Entferntes Git-Repository klonen",
                   "7edb8ebe24": "Von URL klonen",
-                  "serverSshTitle": "Projekt auf dem SSH-Host dieses Servers",
-                  "serverSshAddOnThisComputer": "Von einem Server aus nicht verfügbar. Den SSH-Host auf diesem Computer hinzufügen, um seine Projekte zu öffnen.",
                   "fb4fc5380e": "Lokales Projekt, Git-Repo oder Ordner mit mehreren Repos",
                   "2281fdc8c7": "Ordner auswählen",
                   "runtimeBrowseDescription": "Vorhandenes Git-Repository oder Ordner auf diesem Host"
@@ -9170,7 +9165,6 @@
           "reconnectOnLaunch": "Beim Start erneut verbinden",
           "reconnectOnLaunchHelp": "Wenn deaktiviert, bleiben dieser Host und alle darüber erreichbaren Orca-Server beim Start getrennt, bis eine Verbindung hergestellt wird.",
           "allowRemoteCliControl": "Diesem Host erlauben, Orca-Browser-Tabs in seinen Arbeitsbereichen zu steuern",
-          "allowRemoteCliControlHelp": "Für neue Hosts standardmäßig aktiviert. Agents und orca-Befehle auf diesem Host können Orca-Browser-Tabs auf diesem Desktop öffnen, lesen und verwenden – nur in den Arbeitsbereichen dieses Hosts und nur bei bestehender Verbindung. Tabs, die er steuert, zeigen seinen Namen. Terminals, die auf diesem Host von einer älteren Orca-Version gestartet wurden, benötigen diese Option ebenfalls, um orca-Orchestrierungsbefehle auszuführen. Er kann weder Ihre Dateien noch Zwischenablage oder Cookies lesen.",
           "editTitle": "SSH-Host bearbeiten",
           "addTitle": "SSH-Host hinzufügen",
           "editDescription": "Verbindungsdaten für diesen Rechner aktualisieren. Änderungen gelten ab der nächsten Verbindung.",
@@ -12276,9 +12270,7 @@
           "title": "Artefakte",
           "description": "HTML- und Markdown-Dateien mit dem Team teilen und ihre öffentlichen Links verwalten.",
           "howToTitle": "Artefakte verwenden",
-          "howToDescription": "HTML- oder Markdown-Dateien als öffentliche Links veröffentlichen und mit dem Team teilen.",
           "shareStepTitle": "Datei zum Teilen auswählen",
-          "shareStepDescription": "Eine HTML- oder Markdown-Datei öffnen und „Als Artefakt teilen“ auswählen oder einen Agenten bitten, sie zu teilen.",
           "linkStepTitle": "Öffentlichen Link kopieren",
           "linkStepDescription": "Nach der Veröffentlichung den Link kopieren und an das Team senden.",
           "manageStepTitle": "In Orca verwalten",
@@ -12289,12 +12281,8 @@
           "signInDescription": "Mit dem Orca-Konto Artefakte hochladen und ihre öffentlichen Links verwalten.",
           "signInAgain": "Erneut anmelden",
           "enableStepTitle": "Teilen von Artefakten aktivieren",
-          "enableStepWebDescription": "In der Orca-Desktop-App auf dem Host-Gerät „Einstellungen → Artefakte“ öffnen und die Veröffentlichung aktivieren.",
           "enableStepDescription": "Oben „Veröffentlichung öffentlicher Artefakt-Links erlauben“ aktivieren.",
           "allowPublishing": "Veröffentlichung öffentlicher Artefakt-Links erlauben",
-          "allowPublishingWebDescription": "Nur in der Desktop-App verfügbar. Auf dem Host-Gerät „Einstellungen → Artefakte“ öffnen, um diese Einstellung zu ändern.",
-          "allowPublishingDescription": "HTML- und Markdown-Dateien als Links veröffentlichen, die alle mit der URL öffnen können. Bestehende Links bleiben erhalten, bis sie unter „Artefakte“ gelöscht werden.",
-          "howToDescriptionDisabled": "Oben das Teilen von Artefakten aktivieren, um HTML- oder Markdown-Dateien als öffentliche Links zu veröffentlichen.",
           "allowPublishingSearchDescription": "Orca erlauben, HTML- und Markdown-Dateien als öffentliche Links zu veröffentlichen.",
           "keywordArtifacts": "Artefakte",
           "keywordShare": "teilen",
@@ -18744,17 +18732,6 @@
         "9a4c6b2d7e": "Teilen von Skills",
         "3d8e5f1b9c": "Skills über einen nicht gelisteten Link teilen und auf allen verwendeten Computern installieren.",
         "c5b3e8a17d": "Bei Orca anmelden"
-      },
-      "web": {
-        "preloadApi": {
-          "cursorAccounts": {
-            "hostOnly": "Cursor-Anmeldedaten können nur auf dem Computer gelesen werden, auf dem Orca läuft."
-          },
-          "accounts": {
-            "signInHostOnly": "Das Hinzufügen eines Kontos oder die erneute Anmeldung ist nur in der Desktop-App auf dem Computer möglich, auf dem Orca läuft.",
-            "claudeWslDefaultUnavailable": "Das Zurücksetzen einer WSL-Umgebung auf den Systemstandard ist nur in der Desktop-App möglich."
-          }
-        }
       },
       "TaskPageJiraSavedFilters": {
         "6c381858a1": "Gespeicherte Filter",

@@ -15,6 +15,7 @@
 6 src/main/ai-vault/scanners/opencode/sqlite/session-scanner-opencode-sqlite.ts
 6 src/main/ai-vault/scanners/opencode2/session-scanner-opencode2-sqlite-list.ts
 10 src/main/ai-vault/scanners/opencode2/session-scanner-opencode2-sqlite.ts
+20 src/main/artifacts/local-artifact-store.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 47 src/main/bots/bot-group-store.ts
 18 src/main/bots/bot-work-store.ts
 5 src/main/browser-passwords/browser-password-chromium-import.ts
@@ -82,6 +83,9 @@
 2 src/main/persistence/profile-state/recovery/profile-state-section-repair.ts
 4 src/main/rate-limits/providers/opencode-go/opencode-go-api-key-source.ts
 2 src/main/runtime/agent-session/records/agent-session-record-lineage.ts
+31 src/main/runtime/manager/manager-event-journal.ts # retained published fork 6685509715; imports/types only, frozen existing debt
+21 src/main/runtime/manager/manager-principal-store.ts # retained published fork 6685509715; imports/types only, frozen existing debt
+15 src/main/runtime/manager/manager-run-ownership.ts # retained published fork 6685509715; imports/types only, frozen existing debt
 23 src/main/runtime/orchestration/db/dispatch-context/presentation-completion-source.ts
 6 src/main/runtime/orchestration/db/dispatch-row-writer.ts
 1 src/main/runtime/orchestration/db/federation/federated-stub-home-run-backfill.ts

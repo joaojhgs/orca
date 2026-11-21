@@ -1,3 +1,4 @@
+import { claimSshPaneLease } from '../pane/ssh-pane-lease-claim'
 import { readTerminalStartFailure } from '../../../../shared/terminal/pty/lifecycle/terminal-start-failure'
 import type { PtySpawnSizeSeed } from './spawn-options-assembly'
 import { isValidTerminalTabId } from '../../../../shared/workspace-layout/terminal-surfaces/terminal-tab-id'
@@ -154,7 +155,7 @@ export async function commitPtySpawn(input: PtySpawnCommitInput): Promise<PtySpa
       result,
       result.id,
       registration.worktreeId,
-      null,
+      state.args.connectionId ?? null,
       // Validate pane identity so throttled mobile creation retains its live PTY surface (#7587).
       typeof tabId === 'string' &&
         isValidTerminalTabId(tabId) &&
@@ -204,6 +205,14 @@ export async function commitPtySpawn(input: PtySpawnCommitInput): Promise<PtySpa
     )
     state.pendingRegistrationPtyId = null
   }
+  claimSshPaneLease({
+    store: registration.store,
+    connectionId: state.args.connectionId,
+    ptyId: result.id,
+    worktreeId: registration.worktreeId ?? undefined,
+    tabId: state.args.tabId,
+    leafId: state.metadataLeafId ?? undefined
+  })
   return publishCommittedPtySpawn(input)
 }
 
@@ -226,7 +235,7 @@ async function commitAdoptedAgentSession(
     adoptedResult,
     result.id,
     surface.worktreeId,
-    null,
+    state.args.connectionId ?? null,
     {
       tabId: surface.tabId,
       leafId: surface.leafId,

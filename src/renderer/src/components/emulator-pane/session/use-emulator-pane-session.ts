@@ -74,7 +74,8 @@ export function useEmulatorPaneSession({
     sendGesture,
     sendRotate,
     visualOrientation,
-    resetVisualOrientation
+    resetVisualOrientation,
+    syncVisualOrientationFromStream
   } = useEmulatorPaneControls(worktreeId, refreshStreamKey)
 
   const applySession = useCallback(
@@ -307,6 +308,7 @@ export function useEmulatorPaneSession({
     sendButton,
     sendGesture,
     sendRotate,
+    syncVisualOrientationFromStream,
     visualOrientation,
     displayName: formatSimulatorTabLabel(view.displayName, t),
     streamKey: streamKey ?? undefined

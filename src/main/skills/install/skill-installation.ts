@@ -48,7 +48,8 @@ export function skillInstallLocalInput(input: SkillInstallServiceInput): LocalSk
     conflictResolution: input.conflictResolution,
     filesystem: input.filesystem,
     wslDistro: input.wslDistro,
-    signal: input.signal
+    signal: input.signal,
+    requirePackageOwnership: input.requirePackageOwnership
   }
 }
 

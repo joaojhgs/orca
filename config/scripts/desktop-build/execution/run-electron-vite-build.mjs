@@ -18,13 +18,22 @@ const electronViteCli = path.join(path.dirname(electronVitePackageJson), 'bin', 
 // Reserve OS memory on smaller hosts; release renderer builds have OOMed GitHub macOS runners.
 const nodeOptions = appendBuildOldSpaceOption(process.env.NODE_OPTIONS)
 
-const child = spawn(process.execPath, [electronViteCli, 'build', ...process.argv.slice(2)], {
-  stdio: 'inherit',
-  env: {
-    ...withRolldownThreadLimit(process.env),
-    NODE_OPTIONS: nodeOptions
+const child = spawn(
+  process.execPath,
+  [
+    electronViteCli,
+    'build',
+    ...(process.env.ORCA_BUILD_OUTPUT_DIR ? ['--outDir', process.env.ORCA_BUILD_OUTPUT_DIR] : []),
+    ...process.argv.slice(2)
+  ],
+  {
+    stdio: 'inherit',
+    env: {
+      ...withRolldownThreadLimit(process.env),
+      NODE_OPTIONS: nodeOptions
+    }
   }
-})
+)
 
 child.on('exit', async (code, signal) => {
   if (signal) {
@@ -38,6 +47,14 @@ child.on('exit', async (code, signal) => {
 
   // Check boot graph only after renderer target completes; parallel main/preload targets must not read half-written renderer output.
   const target = process.env.ORCA_ELECTRON_VITE_TARGET
+  if (!target || target === 'main') {
+    try {
+      await import('../../build-execution-observer.mjs')
+    } catch (error) {
+      console.error(error)
+      process.exit(1)
+    }
+  }
   const builtRenderer =
     (!target || target === 'renderer') && fs.existsSync(path.join(RENDERER_BUILD_DIR, 'index.html'))
   if (!target || target === 'preload') {

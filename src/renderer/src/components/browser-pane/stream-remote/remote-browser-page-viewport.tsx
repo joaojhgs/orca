@@ -3,6 +3,7 @@ import { useRuntimeEnvironmentCapability } from '@/runtime/rpc/compatibility/use
 import { BROWSER_CERTIFICATE_TRUST_RUNTIME_CAPABILITY } from '../../../../../shared/browser/runtime/browser-runtime-capabilities'
 import { Globe, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/class-names'
 import { useTranslate } from '@/i18n/use-translate'
 import { isBlankBrowserUrl } from '@/lib/browser/palette/browser-palette-search'
 import type {
@@ -39,6 +40,7 @@ export function RemoteBrowserPageViewport({
   frameMetadata,
   busy,
   markup,
+  directWebUrl,
   browserTab,
   remoteError,
   streamStatus,
@@ -68,6 +70,7 @@ export function RemoteBrowserPageViewport({
   frameMetadata: BrowserScreencastFrameMetadata | null
   busy: boolean
   markup: MarkupModeController
+  directWebUrl?: string | null
   browserTab: BrowserPageState
   remoteError: string | null
   streamStatus: RemoteBrowserStreamStatus
@@ -122,6 +125,9 @@ export function RemoteBrowserPageViewport({
   const remoteFailureUrl = loadError?.validatedUrl ?? browserTab.url
   const remoteFailureExternalUrl = resolveRemoteFailureExternalUrl(remoteFailureUrl)
   const showRemoteFailureOverlay = Boolean(loadError) && !isBlankBrowserUrl(remoteFailureUrl)
+  const directPreviewVisible = Boolean(
+    directWebUrl && !markup.isActive && !showRemoteFailureOverlay
+  )
 
   return (
     <div
@@ -142,15 +148,26 @@ export function RemoteBrowserPageViewport({
           />
         </div>
       ) : null}
+      {directWebUrl && directPreviewVisible ? (
+        <iframe
+          title={t('browser.workspaceWebPreview', 'Workspace web preview')}
+          src={directWebUrl}
+          className="absolute inset-0 h-full w-full border-0"
+        />
+      ) : null}
       {frameUrl ? (
         <img
           data-testid="remote-browser-frame"
           ref={imageRef}
           src={frameUrl}
           alt=""
-          tabIndex={0}
+          tabIndex={directPreviewVisible ? -1 : 0}
+          aria-hidden={directPreviewVisible}
           style={remoteFrameStyle}
-          className="absolute top-0 left-0 max-w-none cursor-default bg-white outline-none"
+          className={cn(
+            'absolute top-0 left-0 max-w-none cursor-default bg-white outline-none',
+            directPreviewVisible && 'pointer-events-none opacity-0'
+          )}
           onPointerDown={handleRemotePointerDown}
           onPointerMove={handleRemotePointerMove}
           onPointerUp={handleRemotePointerUp}
@@ -159,7 +176,7 @@ export function RemoteBrowserPageViewport({
           onPaste={handleRemoteScreenshotPaste}
           draggable={false}
         />
-      ) : (
+      ) : directPreviewVisible ? null : (
         <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
           <div className="flex max-w-sm flex-col items-center gap-2">
             {busy ? (

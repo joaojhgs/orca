@@ -43,6 +43,19 @@ function uiForCaller(
     : ui
 }
 
+import {
+  ArtifactPublishingApprovalRequestParams,
+  ArtifactPublishingApprovalCheckParams
+} from '../../../../../shared/rpc-contract/artifact-publishing-approval-params'
+
+function approvalOwner(context: RpcContext): string {
+  const owner = context.pairedDeviceId ?? context.clientId
+  if (context.clientKind !== 'runtime' || !owner) {
+    throw new Error('Publishing approval requests require a paired full-runtime client.')
+  }
+  return owner
+}
+
 export const CLIENT_UI_METHODS = [
   defineMethod({
     name: 'ui.getJiraQuickFilters',
@@ -90,6 +103,24 @@ export const CLIENT_UI_METHODS = [
     params: AgentLaunchSettingsMutation,
     handler: async (params, { runtime }) => ({
       settings: await runtime.mutateClientAgentLaunchSettings(params)
+    })
+  }),
+  defineMethod({
+    name: 'settings.requestArtifactPublishingApproval',
+    permission: 'workspace',
+    params: ArtifactPublishingApprovalRequestParams,
+    handler: (params, context) =>
+      context.runtime.requestArtifactPublishingApproval(params.enabled, approvalOwner(context))
+  }),
+  defineMethod({
+    name: 'settings.checkArtifactPublishingApproval',
+    permission: 'workspace',
+    params: ArtifactPublishingApprovalCheckParams,
+    handler: async (params, context) => ({
+      status: await context.runtime.checkArtifactPublishingApproval(
+        params.requestId,
+        approvalOwner(context)
+      )
     })
   }),
   defineMethod({

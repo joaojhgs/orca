@@ -59,6 +59,32 @@ describe('AndroidEmulatorBackend', () => {
     runner = defaultRunner()
   })
 
+  it('uses landscape-native rotation mapping for Waydroid-sized displays', async () => {
+    runner.mockImplementation(async (binary: string, args: readonly string[]) => {
+      const a = args.join(' ')
+      if (binary === SDK.adb && a === 'devices -l') {
+        return ok(RUNNING_ADB)
+      }
+      if (binary === SDK.adb && a === '-s emulator-5554 shell wm size') {
+        return ok('Physical size: 1280x768')
+      }
+      return ok('')
+    })
+
+    await backend(runner).rotate('emulator-5554', 'portrait')
+
+    expect(runner).toHaveBeenCalledWith(SDK.adb, [
+      '-s',
+      'emulator-5554',
+      'shell',
+      'settings',
+      'put',
+      'system',
+      'user_rotation',
+      '1'
+    ])
+  })
+
   it('boots a shutdown AVD once for concurrent callers and waits for its serial', async () => {
     let bootStarted = false
     vi.mocked(spawn).mockImplementation(() => {

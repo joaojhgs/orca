@@ -18,6 +18,7 @@ import {
   OWNER_RPC_CALLER_SCOPE,
   type RpcCallerScope
 } from '../callers/rpc-caller-scope'
+import { bindRpcCallToCallerScope } from '../ssh-bridge-host-binding'
 import {
   needsOrchestrationCallerResolution,
   resolveOrchestrationSessionCaller,
@@ -83,7 +84,26 @@ export function admitRpcRequest<M extends RpcMethod | RpcStreamingMethod>(
         )
       )
     }
-    return { method, request, caller, params: parsedParams.value }
+    const admitted = {
+      method,
+      request,
+      caller,
+      params: parsedParams.value,
+      filterResult: undefined
+    }
+    const binding = bindRpcCallToCallerScope(
+      callerScope,
+      runtime,
+      request.method,
+      parsedParams.value
+    )
+    return binding
+      ? binding.then((bound) =>
+          bound.kind === 'denied'
+            ? reject(errorResponse(request.id, meta, 'forbidden', bound.message))
+            : { ...admitted, filterResult: bound.filterResult }
+        )
+      : admitted
   }
   if (peer) {
     return admitResolved(peer)

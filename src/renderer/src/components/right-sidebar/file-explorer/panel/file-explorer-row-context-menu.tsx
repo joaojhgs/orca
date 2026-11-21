@@ -13,6 +13,7 @@ import {
   ListCollapse,
   Pencil,
   Search,
+  Share2,
   SquareTerminal,
   Trash2
 } from 'lucide-react'
@@ -23,6 +24,7 @@ import {
   ContextMenuSeparator,
   ContextMenuShortcut
 } from '@/components/ui/context-menu'
+import { ContextMenuGroup } from '@/components/ui/context-menu'
 import { useAppStore } from '@/store/index'
 import { useShortcutLabel } from '@/lib/keyboard/useShortcutLabel'
 import { detectLanguage } from '../../../../../../shared/editor-language/editor-language-detect'
@@ -51,7 +53,7 @@ import { fileExplorerNodeTabRelativePath } from '../tree/file-explorer-directory
 
 const isMac = navigator.userAgent.includes('Mac')
 
-type FileExplorerRowContextMenuProps = Pick<
+type FileExplorerRowContextMenuProps = { onShareArtifact?: () => void } & Pick<
   FileExplorerRowProps,
   | 'node'
   | 'isExpanded'
@@ -97,7 +99,8 @@ export function FileExplorerRowContextMenu({
   onOpenInTerminal,
   onRequestDelete,
   onCollapseFolderSubtree,
-  onFindInFolder
+  onFindInFolder,
+  onShareArtifact
 }: FileExplorerRowContextMenuProps): React.JSX.Element {
   const t = useTranslate()
   const openMarkdownPreview = useAppStore((s) => s.openMarkdownPreview)
@@ -147,6 +150,19 @@ export function FileExplorerRowContextMenu({
       onPointerUpCapture={preventSecondaryMenuSelection}
       onCloseAutoFocus={(e) => e.preventDefault()}
     >
+      {onShareArtifact &&
+      !node.isDirectory &&
+      selectionSize <= 1 &&
+      node.operationOwner?.kind !== 'unresolved' &&
+      /\.(md|markdown|mdown|pdf|html?)$/i.test(node.path) ? (
+        <ContextMenuGroup>
+          <ContextMenuItem onSelect={onShareArtifact}>
+            <Share2 />
+            {t('artifacts.share.action', 'Share as artifact')}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+        </ContextMenuGroup>
+      ) : null}
       <ContextMenuItem
         disabled={writesBlocked}
         onSelect={() => onStartNew('file', targetDir, targetDepth)}

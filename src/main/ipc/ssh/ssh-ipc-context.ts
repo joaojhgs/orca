@@ -1,3 +1,4 @@
+import type { BrowserWindow } from 'electron'
 import type { Store } from '../../persistence/loading-store/store'
 import type { SshConnectionManager } from '../../ssh/connection/ssh-connection-manager'
 import type { SshPortForwardManager } from '../../ssh/port-forwarding/ssh-port-forward'
@@ -22,4 +23,10 @@ export function setPersistedStore(next: Store | null): void {
 
 export function setCurrentRuntime(next: OrcaRuntimeService | undefined): void {
   currentRuntime = next
+}
+
+export let getCurrentMainWindow: () => BrowserWindow | null = () => null
+
+export function setCurrentGetMainWindow(resolve: () => BrowserWindow | null): void {
+  getCurrentMainWindow = resolve
 }

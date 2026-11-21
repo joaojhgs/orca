@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { selectWorktreesByRepo } from '@/store/workspaces/catalog/workspace-record-fields'
+import { useEffect, useMemo, useState } from 'react'
 import type {
   ArtifactCloudOperation,
   ArtifactListItem
@@ -17,6 +18,8 @@ import {
   ArtifactsPageErrorBanner
 } from './ArtifactsPageStates'
 import { artifactAccountIdentity, useArtifactPagination } from './useArtifactPagination'
+import { artifactProjectRoots } from './artifact-project-groups'
+import { getPairedWebClientEnvironmentId } from '@/app-shell/platform/paired-web-client-host'
 
 const LOCAL_RUNTIME = { kind: 'local' } as const
 
@@ -28,13 +31,29 @@ export default function ArtifactsPage(): React.JSX.Element {
   const openSettingsPage = useAppStore((state) => state.openSettingsPage)
   const openSettingsTarget = useAppStore((state) => state.openSettingsTarget)
   const settings = useAppStore((state) => state.settings)
+  const repos = useAppStore((state) => state.repos)
+  const projects = useAppStore((state) => state.projects)
+  const setups = useAppStore((state) => state.projectHostSetups)
+  const worktreesByRepo = useAppStore(selectWorktreesByRepo)
+  const pairedEnvironmentId = useAppStore(getPairedWebClientEnvironmentId)
+  const projectRoots = useMemo(
+    () =>
+      artifactProjectRoots({
+        repos: repos ?? [],
+        projects: projects ?? [],
+        setups: setups ?? [],
+        worktrees: Object.values(worktreesByRepo ?? {}).flat(),
+        localHostId: pairedEnvironmentId ? `runtime:${pairedEnvironmentId}` : null
+      }),
+    [repos, projects, setups, worktreesByRepo, pairedEnvironmentId]
+  )
   const updateSettings = useAppStore((state) => state.updateSettings)
   const confirm = useConfirmationDialog()
   // Claim publishing is blocked only after settings load; sharing requires explicit capability opt-in.
   const publishingBlocked = settings ? settings.artifactSharingEnabled !== true : false
   const [deleting, setDeleting] = useState<{ identity: string; slug: string } | null>(null)
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
-  const signedIn = authStatus?.state === 'connected'
+  const signedIn = Boolean(artifactAccountIdentity(authStatus))
   const needsReconnect = authStatus?.state === 'reconnect-required'
   const openAccountSettings = (): void => {
     openSettingsTarget({ pane: 'orca-account', repoId: null })
@@ -211,6 +230,7 @@ export default function ArtifactsPage(): React.JSX.Element {
         />
       ) : (
         <ArtifactCollection
+          projectRoots={projectRoots}
           artifacts={artifacts}
           deletingId={deletingId}
           selectedSlug={selectedSlug}

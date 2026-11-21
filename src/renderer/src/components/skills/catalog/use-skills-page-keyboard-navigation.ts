@@ -40,7 +40,7 @@ export function useSkillsPageKeyboardNavigation({
         exitSelection()
         return
       }
-      if (view === 'shared') {
+      if (view === 'shared' || view === 'library') {
         exitSharedLinks()
         return
       }

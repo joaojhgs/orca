@@ -1,12 +1,17 @@
+import type { RuntimeClientTarget } from '@/runtime/runtime-rpc-client'
 import { useTranslate } from '@/i18n/use-translate'
 import { BotSharedLinksList } from '../../bots/sharing/BotSharedLinksList'
 import { SkillSharedLinksView } from '../../skills/sharing/SkillSharedLinksView'
 import { useOwnedSkillShares } from '../../skills/sharing/use-owned-skill-shares'
 
 /** Settings → Shared links: every link the owner published, bots beside skills. */
-export function SharedLinksSettingsPane(): React.JSX.Element {
+export function SharedLinksSettingsPane({
+  owner
+}: {
+  owner: RuntimeClientTarget | null
+}): React.JSX.Element {
   const t = useTranslate()
-  const skillShares = useOwnedSkillShares()
+  const skillShares = useOwnedSkillShares(owner, true)
   return (
     <div className="space-y-6">
       <section className="space-y-2">

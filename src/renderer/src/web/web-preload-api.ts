@@ -12,7 +12,6 @@ import {
 } from './preload-api/agents/web-agent-accounts-api'
 import { createWebAgentStatusApi } from './preload-api/agents/web-agent-status-api'
 import { createWebAiVaultApi } from './preload-api/agents/web-ai-vault-api'
-import { createRuntimeUsageProviderApi } from '../runtime/usage-analytics/runtime-usage-provider-api'
 import { createWebAppApi } from './preload-api/app/web-app-api'
 import { createBrowserApi, createEmulatorApi } from './preload-api/browser/web-browser-api'
 import { createCliApi } from './preload-api/host-capabilities/web-cli-api'
@@ -31,13 +30,14 @@ import {
 } from './preload-api/host-capabilities/web-host-capability-api'
 import { createWebKeybindingsApi } from './preload-api/keybindings/web-keybindings-api'
 import { createMacosTccPromptsApi } from './preload-api/host-capabilities/web-macos-tcc-api'
-import { createEmptyMemorySnapshot } from './preload-api/diagnostics/web-memory-api'
+import { createWebMemoryApi } from './preload-api/diagnostics/web-memory-api'
 import { createWebMobileApi } from './preload-api/host-capabilities/web-mobile-api'
 import { createWebNativeChatApi } from './preload-api/agents/web-native-chat-api'
 import { createNotificationsApi } from './preload-api/app/web-notifications-api'
 import { createWebOnboardingApi } from './preload-api/app/web-onboarding-api'
 import { createWebOrcaProfilesApi } from './preload-api/app/web-orca-profiles-api'
 import { createWebPlatformApi } from './preload-api/host-capabilities/web-platform-api'
+import { createWebProjectGroupsApi } from './preload-api/web-project-groups-api'
 import { createWebPluginsApi } from './preload-api/host-capabilities/web-plugins-api'
 import { createRateLimitsApi } from './preload-api/agents/web-rate-limits-api'
 import { createReposApi } from './preload-api/workspaces/web-repositories-api'
@@ -56,9 +56,11 @@ import { createPtyApi, createSshApi } from './preload-api/host-capabilities/web-
 import { createWebUiApi } from './preload-api/preferences/web-ui-api'
 import { createUpdaterApi } from './preload-api/app/web-updater-api'
 import { createWebWorkspacePortsApi } from './preload-api/host-capabilities/web-workspace-ports-api'
+import { createWebUsageAnalyticsApi } from './preload-api/web-usage-analytics-api'
 import { createWebLinkPreviewApi } from './preload-api/browser/web-link-preview-api'
 import { createWebWorkspaceSessionApi } from './preload-api/workspaces/web-workspace-session-api'
 import { createWorktreesApi } from './preload-api/workspaces/web-worktrees-api'
+import { createWebWorkspaceCleanupApi } from './preload-api/web-workspace-cleanup-api'
 import { readStoredWebRuntimeEnvironment } from './pairing/web-runtime-environment'
 
 export function installWebPreloadApi(): void {
@@ -82,6 +84,7 @@ function createWebPreloadApi(): Omit<Partial<PreloadApi>, 'settings' | 'plugins'
     ...createWebOrcaProfilesApi(),
     ...createWebE2EApi(),
     ...createWebSettingsApi(),
+    ...createWebUsageAnalyticsApi(),
     keybindings: createWebKeybindingsApi(),
     ui: createWebUiApi(),
     plugins: createWebPluginsApi(),
@@ -94,6 +97,7 @@ function createWebPreloadApi(): Omit<Partial<PreloadApi>, 'settings' | 'plugins'
     speech: createWebSpeechApi(),
     runtimeEnvironments: createRuntimeEnvironmentsApi(),
     repos: createReposApi(),
+    projectGroups: createWebProjectGroupsApi(),
     worktrees: createWorktreesApi(),
     fs: createFileApi(),
     git: createGitApi(),
@@ -114,20 +118,15 @@ function createWebPreloadApi(): Omit<Partial<PreloadApi>, 'settings' | 'plugins'
           firstEventAt: null
         }))
     },
-    memory: {
-      getSnapshot: () => Promise.resolve(createEmptyMemorySnapshot()),
-      // The web client reads no local host, so it has nothing to warn about.
-      readPerfNoticeSignals: () => Promise.resolve(null),
-      countHiddenBrowserPages: () => Promise.resolve(0),
-      // Browser pages have no native-window veto; document visibility owns admission.
-      resourceWindowVisible: () => Promise.resolve(true),
-      onResourceWindowVisibility: () => () => {}
+    memory: createWebMemoryApi(),
+    workspaceCleanup: createWebWorkspaceCleanupApi(),
+    workspaceSpace: {
+      analyze: () => callRuntimeResult('workspaceSpace.analyze', undefined, 10 * 60_000),
+      cancel: () => callRuntimeResult<boolean>('workspaceSpace.cancel'),
+      getCachedAnalysis: () => Promise.resolve(null),
+      onProgress: () => () => {}
     },
     aiVault: createWebAiVaultApi(),
-    claudeUsage: createRuntimeUsageProviderApi(callRuntimeResult, 'claudeUsage'),
-    codexUsage: createRuntimeUsageProviderApi(callRuntimeResult, 'codexUsage'),
-    openCodeUsage: createRuntimeUsageProviderApi(callRuntimeResult, 'openCodeUsage'),
-    museUsage: createRuntimeUsageProviderApi(callRuntimeResult, 'museUsage'),
     preflight: createPreflightApi(),
     notifications: createNotificationsApi(),
     rateLimits: createRateLimitsApi(),

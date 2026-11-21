@@ -55,6 +55,8 @@ export type OrcaProfileAuthStatus = {
   capabilities?: OrcaCloudCapabilities
   credentialError?: string
   setupMessage?: string
+  /** Artifact hosting is independent of an optional Cloud account. */
+  artifactHosting?: { backend: 'local'; identity: string; requiresCloudLogin: false }
 }
 
 export type OrcaProfileSummary = {
@@ -348,7 +350,6 @@ export function getOrcaProfileBrowserSessionPartition(
   if (profileId === DEFAULT_LOCAL_ORCA_PROFILE_ID) {
     return `${LEGACY_ORCA_BROWSER_SESSION_PARTITION_PREFIX}${browserSessionProfileId}`
   }
-  return `persist:orca-profile-${getOrcaProfileBrowserPartitionSegment(
-    profileId
-  )}-browser-session-${browserSessionProfileId}`
+  const segment = getOrcaProfileBrowserPartitionSegment(profileId)
+  return `persist:orca-profile-${segment}-browser-session-${browserSessionProfileId}`
 }

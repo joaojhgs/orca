@@ -30,6 +30,12 @@ import { navigateResourceSessionToTab } from './resource-session-navigation'
 import { requiresKillConfirmation } from './resource-session-kill-confirmation'
 import { resolveResourceManagerWorktreeTarget } from './resource-manager-worktree-target'
 
+function killResourceSession(id: string, runtimeOwnerEnvironmentId?: string): Promise<void> {
+  return runtimeOwnerEnvironmentId
+    ? window.api.pty.kill(id, { runtimeOwnerEnvironmentId })
+    : window.api.pty.kill(id)
+}
+
 export function useResourceUsageActions({
   setCollapsedRepos,
   setCollapsedWorktrees,
@@ -166,7 +172,7 @@ export function useResourceUsageActions({
         // Why: await the kill before refreshing, else the refresh re-reads the daemon list before the kill lands and re-adds the row.
         void (async () => {
           try {
-            await window.api.pty.kill(session.sessionId)
+            await killResourceSession(session.sessionId, session.runtimeOwnerEnvironmentId)
             removeSession(session.sessionId, session.incarnationId)
           } catch {
             setActionError(
@@ -195,7 +201,9 @@ export function useResourceUsageActions({
       return
     }
     setActionError(null)
-    const results = await Promise.allSettled(orphans.map((s) => window.api.pty.kill(s.id)))
+    const results = await Promise.allSettled(
+      orphans.map((s) => killResourceSession(s.id, s.runtimeOwnerEnvironmentId))
+    )
     removeSessions(orphans.filter((_session, index) => results[index]?.status === 'fulfilled'))
     if (results.some((result) => result.status === 'rejected')) {
       setActionError(
@@ -216,7 +224,7 @@ export function useResourceUsageActions({
     setKilling(true)
     setActionError(null)
     try {
-      await window.api.pty.kill(target.sessionId)
+      await killResourceSession(target.sessionId, target.runtimeOwnerEnvironmentId)
       removeSession(target.sessionId, target.incarnationId)
     } catch {
       setActionError(

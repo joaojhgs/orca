@@ -70,6 +70,58 @@ describe('fetchZcodeRateLimits', () => {
   })
 })
 
+describe('OpenCode Z.ai credentials', () => {
+  it('uses explicit OpenCode credentials without falling back to another CLI account', async () => {
+    writeConfig()
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: { limits: [{ type: 'TOKENS_LIMIT', unit: 3, number: 5, percentage: 10 }] }
+        })
+      )
+    )
+    const result = await fetchZcodeRateLimits({ configPath, openCodeApiKey: 'opencode-key' })
+    expect(result.status).toBe('ok')
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.z.ai/api/monitor/usage/quota/limit',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'opencode-key' })
+      })
+    )
+    expect(result.usageMetadata?.credentialSource).toBe('OpenCode Z.ai credentials')
+    expect(JSON.stringify(result)).not.toContain('opencode-key')
+  })
+
+  it('rejects unusable OpenCode credentials instead of probing the CLI account', async () => {
+    writeConfig()
+    const result = await fetchZcodeRateLimits({ configPath, openCodeApiKey: 'bad\r\nkey' })
+    expect(result.status).toBe('error')
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('keeps saved-plan precedence when an unused OpenCode key is invalid', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: { limits: [{ type: 'TOKENS_LIMIT', unit: 3, number: 5, percentage: 10 }] }
+        })
+      )
+    )
+    const result = await fetchZcodeRateLimits({
+      configPath,
+      planCredential: { apiKey: 'plan-key', baseUrl: 'https://api.z.ai' },
+      openCodeApiKey: 'bad\r\nkey'
+    })
+    expect(result.status).toBe('ok')
+    expect(fetch).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'plan-key' }) })
+    )
+  })
+})
+
 describe('quota credential privacy', () => {
   it.each(['network', 'response'])('redacts a credential echoed by a %s error', async (kind) => {
     writeConfig()

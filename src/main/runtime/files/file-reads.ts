@@ -12,6 +12,7 @@ import { joinWorktreeRelativePath } from './paths/runtime-relative-paths'
 import { truncateMobileFilePreview } from '../terminal/artifacts/artifact-integrity'
 import {
   requireLocalRuntimeFileRoute,
+  getDirectSshRuntimeFileProvider,
   requireRuntimeFileProvider,
   resolveFileExplorerPath,
   resolveFileExplorerPaths
@@ -44,7 +45,6 @@ import type {
   DocPreviewFileChunk,
   DocPreviewFileTarget
 } from '../../../shared/document-preview/doc-preview-file-access'
-import type { LocalFilesystemProvider } from '../../providers/filesystem/local-provider'
 
 const CHAT_IMAGE_ACCESS: LocalFileAccess = { kind: 'chat-image' }
 
@@ -60,7 +60,6 @@ export class RuntimeFileReads {
     const store = this.host.requireStore()
     const target = await this.host.resolveRuntimeFileTarget(worktreeSelector)
     const { worktree } = target
-    requireLocalRuntimeFileRoute(target)
     if (!isSafeMobileRelativePath(relativePath)) {
       throw new Error('invalid_relative_path')
     }
@@ -69,7 +68,12 @@ export class RuntimeFileReads {
     }
 
     const filePath = joinWorktreeRelativePath(worktree.path, relativePath)
-    const content = await readLocalMobileFile(filePath, store)
+    const provider = getDirectSshRuntimeFileProvider(target)
+    const remote = await provider?.readFile(filePath, { maxTextBytes: MOBILE_FILE_READ_MAX_BYTES })
+    if (remote?.isBinary) {
+      throw new Error('binary_file')
+    }
+    const content = remote?.content ?? (await readLocalMobileFile(filePath, store))
     const truncated = truncateMobileFilePreview(content)
 
     return {
@@ -87,7 +91,14 @@ export class RuntimeFileReads {
     maxContentBytes?: number
   ): Promise<RuntimeFilePreviewResult> {
     const target = await resolveFileExplorerPath(this.host, worktreeSelector, relativePath)
-    requireLocalRuntimeFileRoute(target)
+    const provider = getDirectSshRuntimeFileProvider(target)
+    if (provider) {
+      const remote = await provider.readFile(target.path, {
+        maxTextBytes: MOBILE_FILE_READ_MAX_BYTES,
+        maxBinaryBytes: binaryPreviewMaxBytes(maxContentBytes)
+      })
+      return assertPreviewWithinTransportBudget(remote, maxContentBytes)
+    }
     const filePath = await resolveRuntimeAuthorizedPath(target.path, this.host.requireStore())
     const mimeType = RUNTIME_PREVIEWABLE_BINARY_MIME_TYPES[extname(filePath).toLowerCase()]
     const buffer = await readPreviewBytes(
@@ -155,6 +166,9 @@ export class RuntimeFileReads {
       implicitRootRelativePath,
       authorizedRootRelativePaths
     )
+    if (!provider.readDocPreviewFileChunk) {
+      throw new Error('Secure document preview chunks require a newer SSH relay')
+    }
     return provider.readDocPreviewFileChunk({ ...target, media }, offset, length)
   }
 
@@ -164,7 +178,10 @@ export class RuntimeFileReads {
     entryRelativePath: string,
     implicitRootRelativePath: string | null,
     authorizedRootRelativePaths: string[]
-  ): Promise<{ target: DocPreviewFileTarget; provider: LocalFilesystemProvider }> {
+  ): Promise<{
+    target: DocPreviewFileTarget
+    provider: ReturnType<typeof requireRuntimeFileProvider>
+  }> {
     const relativePaths = [
       '',
       entryRelativePath,
@@ -198,7 +215,14 @@ export class RuntimeFileReads {
     length: number
   ): Promise<RuntimeFileReadChunkResult> {
     const target = await resolveFileExplorerPath(this.host, worktreeSelector, relativePath)
-    requireLocalRuntimeFileRoute(target)
+    const provider = getDirectSshRuntimeFileProvider(target)
+    if (provider) {
+      if (!provider.readFileRange) {
+        throw new Error('File range reads require a newer SSH relay')
+      }
+      const { bytes, bytesRead } = await provider.readFileRange(target.path, offset, length)
+      return { contentBase64: bytes.toString('base64'), bytesRead, eof: bytesRead < length }
+    }
     const filePath = await resolveRuntimeAuthorizedPath(target.path, this.host.requireStore())
     return readLocalFileRange(filePath, offset, length)
   }

@@ -4,10 +4,13 @@ import type { ProjectGroup } from '../../project/groups/project-group-types'
 import type { ProjectSectionEntry, ProjectSectionRepo } from './project-section-grouping'
 import type { Repo } from '../../repository/repo-types'
 import type { ProjectOrderBy } from '../../ui-chrome/ui-chrome-types'
+import { getEffectiveProjectGroupManualRank } from '../../project/groups/project-groups'
 import {
-  getDistinctProjectGroups,
-  getEffectiveProjectGroupManualRank
-} from '../../project/groups/project-groups'
+  getWorktreeExecutionHostId,
+  LOCAL_EXECUTION_HOST_ID,
+  type ExecutionHostId
+} from '../../execution-host/execution-host'
+import { createSidebarProjectGroupIndex } from './project-group-owner-index'
 import {
   compareRecentRank,
   createRecentRankLookup,
@@ -36,14 +39,21 @@ export function walkProjectGroupTree<V extends GroupedProjectEntry>(
     folderCountByGroupId: ReadonlyMap<string, number>
     projectOrderBy: ProjectOrderBy
     repoOrder: ReadonlyMap<string, number> | undefined
+    defaultHostId?: ExecutionHostId
   },
   visit: ProjectGroupTreeVisitor<V>
 ): void {
   const { entries, projectGroups, folderCountByGroupId, projectOrderBy, repoOrder } = args
+  const defaultHostId = args.defaultHostId ?? LOCAL_EXECUTION_HOST_ID
+  const index = createSidebarProjectGroupIndex(projectGroups, defaultHostId)
 
   const groupByProjectGroupId = new Map<string | null, [string, V][]>()
   for (const entry of entries) {
-    const projectGroupId = entry[1].repo?.projectGroupId ?? null
+    const repo = entry[1].repo
+    const group = repo?.projectGroupId
+      ? index.resolve(repo.projectGroupId, getWorktreeExecutionHostId({}, repo, defaultHostId))
+      : undefined
+    const projectGroupId = group ? index.sectionId(group) : null
     const list = groupByProjectGroupId.get(projectGroupId) ?? []
     list.push(entry)
     groupByProjectGroupId.set(projectGroupId, list)
@@ -67,12 +77,12 @@ export function walkProjectGroupTree<V extends GroupedProjectEntry>(
     })
   }
 
-  const projectGroupsById = new Map(projectGroups.map((group) => [group.id, group]))
   const childGroupsByParentId = new Map<string | null, ProjectGroup[]>()
-  // Why distinct: membership is id-keyed, so a same-id copy's header would sit empty (#30045).
-  for (const group of getDistinctProjectGroups(projectGroups)) {
-    const parentId =
-      group.parentGroupId && projectGroupsById.has(group.parentGroupId) ? group.parentGroupId : null
+  for (const group of index.groups) {
+    const parent = group.parentGroupId
+      ? index.resolve(group.parentGroupId, index.owner(group))
+      : undefined
+    const parentId = parent ? index.sectionId(parent) : null
     const children = childGroupsByParentId.get(parentId) ?? []
     children.push(group)
     childGroupsByParentId.set(parentId, children)
@@ -92,30 +102,24 @@ export function walkProjectGroupTree<V extends GroupedProjectEntry>(
     const folderWorkspaceCount = folderCountByGroupId.get(groupId) ?? 0
     const children = childGroupsByParentId.get(groupId) ?? []
     return children.reduce(
-      (count, child) => count + getProjectGroupSubtreeCount(child.id),
+      (count, child) => count + getProjectGroupSubtreeCount(index.sectionId(child)),
       directCount + folderWorkspaceCount
     )
   }
 
   const walkProjectGroup = (projectGroup: ProjectGroup, depth: number): void => {
-    const repoEntries = sortRepoEntriesWithinGroup(groupByProjectGroupId.get(projectGroup.id) ?? [])
-    if (visit.group(projectGroup, depth, getProjectGroupSubtreeCount(projectGroup.id))) {
+    const id = index.sectionId(projectGroup)
+    const repoEntries = sortRepoEntriesWithinGroup(groupByProjectGroupId.get(id) ?? [])
+    if (visit.group(projectGroup, depth, getProjectGroupSubtreeCount(id))) {
       visit.projects(withRepoSectionDisplayLabels(repoEntries), depth + 1)
-      for (const childGroup of childGroupsByParentId.get(projectGroup.id) ?? []) {
+      for (const childGroup of childGroupsByParentId.get(id) ?? []) {
         walkProjectGroup(childGroup, depth + 1)
       }
     }
-    groupByProjectGroupId.delete(projectGroup.id)
+    groupByProjectGroupId.delete(id)
   }
 
-  const remainingRepoEntries = [...(groupByProjectGroupId.get(null) ?? [])]
-  for (const [projectGroupId, list] of groupByProjectGroupId) {
-    if (projectGroupId === null || projectGroupsById.has(projectGroupId)) {
-      continue
-    }
-    // Keep repos visible while host project-group metadata is still loading.
-    remainingRepoEntries.push(...list)
-  }
+  const remainingRepoEntries = groupByProjectGroupId.get(null) ?? []
   const rootEntries: ({ projectGroup: ProjectGroup } | { repoEntry: [string, V] })[] = [
     ...(childGroupsByParentId.get(null) ?? []).map((projectGroup) => ({ projectGroup })),
     ...withRepoSectionDisplayLabels(sortRepoEntriesWithinGroup(remainingRepoEntries)).map(

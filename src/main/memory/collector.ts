@@ -13,6 +13,7 @@ import { getLocalDaemonPid } from './local-daemon-pid'
 import { enumerateHostProcesses } from './host-process-index'
 import { claimPtyProcessTrees } from './pty-process-trees'
 import type { ProcIndex } from './process-index'
+import { collectResourceHosts } from './remote-resource-host-snapshots'
 import {
   createEmptyWorktreeMemoryBucket,
   pushAppMemoryHistory,
@@ -210,6 +211,7 @@ async function runSnapshot(store: MemorySnapshotStore): Promise<MemorySnapshot> 
     app: { ...appBuckets, history: readAppMemoryHistory() },
     worktrees,
     host,
+    hosts: await collectResourceHosts(store, host, worktrees, appBuckets),
     processMemoryMetric: processIndex.memoryMetric,
     ...snapshotCommitFields(
       processIndex.hasPrivateMemory,

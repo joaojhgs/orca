@@ -58,3 +58,8 @@ export function decodeRemotePowerShellScript(command: string): string {
   )?.[1]
   return payload ? gunzipSync(Buffer.from(payload, 'base64')).toString('utf-8') : script
 }
+
+export {
+  quotePowerShellLiteral as powerShellLiteral,
+  quotePowerShellNativeArgument as powerShellNativeArg
+} from '../../../shared/shell/launch/powershell-native-argument'

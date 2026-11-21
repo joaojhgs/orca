@@ -1,5 +1,10 @@
 import { OrcaRuntimeWithStateFields } from '../construction/runtime-construction'
 import {
+  readNotificationPolicy,
+  writeNotificationPolicy
+} from '../../notifications/notification-policy-persistence'
+import type { NotificationScopePolicy } from '../../../shared/notification-scope-policy'
+import {
   persistClientHostedBrowserPages,
   rehydrateClientHostedBrowserPages
 } from '../browser/client-pages/client-hosted-browser-page-persistence'
@@ -228,6 +233,26 @@ export abstract class OrcaRuntimeWithPtyForegroundProcessReads extends OrcaRunti
 
   getClientSettings() {
     return this.clientSettings.get()
+  }
+
+  getNotificationPolicy() {
+    return readNotificationPolicy(this.requireStore())
+  }
+
+  getManagerEventPolicy(): NotificationScopePolicy | undefined {
+    return this.store?.getSettings().notifications?.scopePolicy
+  }
+
+  updateNotificationPolicy(policy: NotificationScopePolicy, expectedRevision: string) {
+    return writeNotificationPolicy(this.requireStore(), policy, expectedRevision)
+  }
+
+  requestArtifactPublishingApproval(enabled: boolean, owner: string) {
+    return this.clientSettings.artifactPublishingApproval.request(enabled, owner)
+  }
+
+  checkArtifactPublishingApproval(requestId: string, owner: string) {
+    return this.clientSettings.artifactPublishingApproval.check(requestId, owner)
   }
 
   async updateClientSettings(updates: RuntimeClientSettingsUpdate) {

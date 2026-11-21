@@ -13,6 +13,7 @@ import {
   normalizeRuntimeGitRelativePath,
   requireLocalRuntimeGitRoute,
   requireRuntimeGitProvider,
+  requireRuntimeLocalGitProvider,
   type RuntimeGitCommandHost
 } from './runtime-git-command-target'
 
@@ -140,7 +141,7 @@ export class RuntimeGitDiffCommands {
     knownHeadOid?: string
   ): Promise<GitBlameResult> {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
-    return requireRuntimeGitProvider(target).getBlame(
+    return requireRuntimeLocalGitProvider(target).getBlame(
       target.worktree.path,
       normalizeRuntimeGitRelativePath(filePath),
       knownHeadOid

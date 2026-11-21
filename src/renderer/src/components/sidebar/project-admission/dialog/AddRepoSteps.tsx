@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store/index'
+import { callRuntimeRpc } from '@/runtime/rpc/calls/runtime-rpc-call'
+import type { Repo } from '../../../../../../shared/repository/repo-types'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import { addRuntimeSshRepo } from '@/runtime/hosts/ssh/runtime-ssh-target-management'
 import { connectRuntimeEnvironmentSshTarget } from '@/runtime/hosts/ssh/runtime-environment-ssh-state'
@@ -49,13 +51,17 @@ export function useRemoteRepo(
 
   const handleOpenRemoteStep = useCallback(
     async (preferredTargetId?: string | null) => {
-      if (!serverEnvironmentId) {
-        return
-      }
       const gen = ++remoteGenRef.current
       setStep('remote')
       try {
-        const withState = await loadServerSshTargets(serverEnvironmentId)
+        const withState = serverEnvironmentId
+          ? await loadServerSshTargets(serverEnvironmentId)
+          : await Promise.all(
+              (await window.api.ssh.listTargets()).map(async (target) => ({
+                ...target,
+                state: (await window.api.ssh.getState({ targetId: target.id })) ?? undefined
+              }))
+            )
         if (gen !== remoteGenRef.current) {
           return
         }
@@ -85,7 +91,7 @@ export function useRemoteRepo(
   const serverSshStates = useAppStore((s) =>
     serverEnvironmentId
       ? s.sshStateByEnvironment.get(serverEnvironmentId)?.connectionStates
-      : undefined
+      : s.sshConnectionStates
   )
   // Derive display from pushed server SSH state while the step remains open.
   const displayedSshTargets = useMemo(
@@ -95,11 +101,10 @@ export function useRemoteRepo(
 
   const handleConnectTarget = useCallback(
     async (targetId: string) => {
-      if (!serverEnvironmentId) {
-        return
-      }
       try {
-        const state = await connectRuntimeEnvironmentSshTarget(serverEnvironmentId, targetId)
+        const state = serverEnvironmentId
+          ? await connectRuntimeEnvironmentSshTarget(serverEnvironmentId, targetId)
+          : await window.api.ssh.connect({ targetId })
         if (state) {
           setSshTargets((prev) => prev.map((t) => (t.id === targetId ? { ...t, state } : t)))
           setSelectedTargetId((curr) => (state.status === 'connected' ? (curr ?? targetId) : curr))
@@ -116,7 +121,7 @@ export function useRemoteRepo(
   )
 
   const handleAddRemoteRepo = useCallback(async () => {
-    if (!serverEnvironmentId || !selectedTargetId || !remotePath.trim()) {
+    if (!selectedTargetId || !remotePath.trim()) {
       return
     }
 
@@ -125,13 +130,14 @@ export function useRemoteRepo(
     setIsAddingRemote(true)
     setRemoteError(null)
     try {
-      const addedRepo = await addRuntimeSshRepo(serverEnvironmentId, {
-        connectionId: selectedTargetId,
-        remotePath: trimmedRemotePath
-      })
-      const { alreadyPresent, repo } = upsertAddedRepoWithProjectHostSetup(addedRepo, {
-        runtimeEnvironmentId: serverEnvironmentId
-      })
+      const args = { connectionId: selectedTargetId, remotePath: trimmedRemotePath }
+      const addedRepo = serverEnvironmentId
+        ? await addRuntimeSshRepo(serverEnvironmentId, args)
+        : (await callRuntimeRpc<{ repo: Repo }>({ kind: 'local' }, 'repo.addRemote', args)).repo
+      const { alreadyPresent, repo } = upsertAddedRepoWithProjectHostSetup(
+        addedRepo,
+        serverEnvironmentId ? { runtimeEnvironmentId: serverEnvironmentId } : undefined
+      )
 
       if (alreadyPresent) {
         useAppStore.getState().clearOrcaHookTrustForRepo(repo.id)
@@ -145,7 +151,10 @@ export function useRemoteRepo(
         { description: repo.displayName }
       )
       // The repo is persisted; a non-authoritative SSH refresh must not strand the dialog.
-      const ownerOptions = worktreeRefreshOptions(serverEnvironmentId)
+      const ownerOptions = worktreeRefreshOptions(
+        serverEnvironmentId,
+        serverEnvironmentId ? undefined : selectedTargetId
+      )
       await fetchWorktrees(repo.id, ownerOptions)
       if (!mountedRef.current || gen !== remoteGenRef.current) {
         return

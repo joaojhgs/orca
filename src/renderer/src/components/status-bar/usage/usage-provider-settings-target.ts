@@ -12,6 +12,7 @@ export function getUsageProviderAccountsSectionId(
     case 'gemini':
       return 'accounts-gemini'
     case 'opencode-go':
+    case 'opencode':
       return 'accounts-opencode-go'
     case 'minimax':
       return 'accounts-minimax'

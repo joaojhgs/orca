@@ -2,7 +2,7 @@ import { ipcMain, shell } from 'electron'
 import { lstat, rm, writeFile } from 'node:fs/promises'
 import type { SshMutationExpectation } from '../../../../shared/remote-runtime/ssh/ssh-types'
 import { assertSshMutationExpectation } from '../../../ssh/connection/authority/ssh-connection-generation'
-import { SshHostNotServedError } from '../../../providers/ssh-host-not-served-error'
+import { requireSshFilesystemProvider } from '../../../providers/ssh-filesystem-dispatch'
 import { tryDeleteWslUncPath } from '../../../wsl/filesystem/wsl-unc-delete'
 import type { LocalFileAccess } from '../../../../shared/file-access/local-file-access'
 import {
@@ -13,13 +13,17 @@ import { isENOENT } from '../../../filesystem/local-file-io/filesystem-path-cont
 import { registerFilesystemMutationHandlers } from './filesystem-mutations'
 import { registerAgentSessionAttachmentUploadHandlers } from '../../agent-attachments/agent-session-attachment-upload-ipc'
 import type { FilesystemHandlerContext } from '../filesystem-handler-context'
-import type {
-  FileWriteDiskPrecondition,
-  FileWriteResult
+import {
+  FILE_WRITE_OK,
+  type FileWriteDiskPrecondition,
+  type FileWriteResult
 } from '../../../../shared/file-write/file-write-disk-precondition'
 import { writeLocalTextFileWithDiskPrecondition } from '../../../filesystem/local-file-io/local-disk-write-precondition'
 import { replaceLocalFileBytesIfUnchanged } from '../../../filesystem/local-file-io/local-disk-bytes-replace'
-import type { FileBytesWritePrecondition } from '../../../../shared/file-write/file-bytes-write'
+import {
+  FILE_BYTES_SAVE_UPDATE_REQUIRED_MESSAGE,
+  type FileBytesWritePrecondition
+} from '../../../../shared/file-write/file-bytes-write'
 import { windowsFsPath } from '../../../wsl/filesystem/wsl-unc-drive-fs-path'
 import { TRASH_DELETE_FAILED_MESSAGE } from '../../../../shared/file-access/trash-delete-failure'
 
@@ -44,8 +48,16 @@ export function registerFilesystemWriteHandlers(context: FilesystemHandlerContex
         args.expectedSshConnectionGeneration,
         args.expectedExecutionHostId
       )
-      if (args.connectionId) {
-        throw new SshHostNotServedError(args.connectionId)
+      if (args.connectionId != null) {
+        const provider = requireSshFilesystemProvider(args.connectionId)
+        if (args.diskPrecondition) {
+          if (!provider.writeFileIfUnchanged) {
+            throw new Error('Reconnect the SSH target to update Orca before saving this file.')
+          }
+          return provider.writeFileIfUnchanged(args.filePath, args.content, args.diskPrecondition)
+        }
+        await provider.writeFile(args.filePath, args.content)
+        return FILE_WRITE_OK
       }
       const filePath = await resolveLocalWriteRequestPath(args.filePath, args.access, store)
       try {
@@ -80,11 +92,12 @@ export function registerFilesystemWriteHandlers(context: FilesystemHandlerContex
         args.expectedSshConnectionGeneration,
         args.expectedExecutionHostId
       )
-      if (args.connectionId) {
-        throw new SshHostNotServedError(args.connectionId)
-      }
       if (!(args.bytes instanceof Uint8Array)) {
         throw new Error('Missing file content')
+      }
+      if (args.connectionId != null) {
+        requireSshFilesystemProvider(args.connectionId)
+        throw new Error(FILE_BYTES_SAVE_UPDATE_REQUIRED_MESSAGE)
       }
       const filePath = await resolveLocalWriteRequestPath(args.filePath, args.access, store)
       return replaceLocalFileBytesIfUnchanged(
@@ -112,8 +125,11 @@ export function registerFilesystemWriteHandlers(context: FilesystemHandlerContex
         args.expectedSshConnectionGeneration,
         args.expectedExecutionHostId
       )
-      if (args.connectionId) {
-        throw new SshHostNotServedError(args.connectionId)
+      if (args.connectionId != null) {
+        return requireSshFilesystemProvider(args.connectionId).deletePath(
+          args.targetPath,
+          args.recursive
+        )
       }
       // Delete the symlink entry, not a realpath target that may be outside allowed roots.
       const targetPath = await resolveDesktopAuthorizedPath(args.targetPath, store, {

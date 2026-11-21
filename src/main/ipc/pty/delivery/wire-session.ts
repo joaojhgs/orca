@@ -72,8 +72,8 @@ export function wirePtyIpcSession(session: PtyIpcSession): void {
   session.setPendingPtyData = (id, pending) => setPendingPtyData(session, id, pending)
   session.clearDispatcherReadyWatchdog = () => clearDispatcherReadyWatchdog(session)
   session.armDispatcherReadyWatchdog = () => armDispatcherReadyWatchdog(session)
-  session.acceptPtyDataForRenderer = (payload, outputSeq) =>
-    acceptPtyDataForRenderer(session, payload, outputSeq)
+  session.acceptPtyDataForRenderer = (payload, outputSeq, projection) =>
+    acceptPtyDataForRenderer(session, payload, outputSeq, projection)
   session.sendPtyExitToRenderer = (payload) => sendPtyExitToRenderer(session, payload)
   session.sendPtySpawnedToRenderer = (id) => sendPtySpawnedToRenderer(session, id)
   session.requestSerializedBuffer = (ptyId, opts) => requestSerializedBuffer(session, ptyId, opts)
@@ -125,6 +125,9 @@ export function wirePtyIpcSession(session: PtyIpcSession): void {
     session.producerFlowControl.releaseAll()
     session.clearDeliveryResyncProbe()
     session.deliveryResyncUnansweredWarnLogged = false
+    for (const id of session.rendererDeliveryAccountingByPty.keys()) {
+      session.sshOutputIntake?.transferPtyProjections(id, 'renderer-lifecycle-reset')
+    }
     session.rendererDeliveryAccountingByPty.clear()
     session.rendererInFlightTotalChars = 0
     session.clearPendingPtyData()

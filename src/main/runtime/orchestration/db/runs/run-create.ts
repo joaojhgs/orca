@@ -3,6 +3,7 @@ import { generateId } from '../generated-id'
 import type { OrchestrationDb } from '../orchestration-db'
 import type { OrcaSessionId } from '../../../../../shared/agent-session/identity/orca-session-address'
 import { mailboxAddressOf } from '../../addressing/orchestration-caller-identity'
+import { runLifecycleWriteTransaction } from '../lifecycle-write-transaction-runner'
 
 type RunCoordinatorParams = {
   objective: string
@@ -14,15 +15,14 @@ type RunCoordinatorParams = {
 
 export function createRun(this: OrchestrationDb, params: RunCoordinatorParams): RunRow {
   const id = generateId('run')
-  this.db.exec('BEGIN IMMEDIATE')
-  try {
+  return runLifecycleWriteTransaction(this.db, 'run_create', () => {
     this.insertRunRow(id, params)
-    this.db.exec('COMMIT')
-  } catch (error) {
-    this.db.exec('ROLLBACK')
-    throw error
-  }
-  return this.getRun(id) as RunRow
+    const run = this.getRun(id)
+    if (!run) {
+      throw new Error('Created Run is missing')
+    }
+    return run
+  })
 }
 
 /** Writes a Run bound to its coordinator inside the caller's transaction. */

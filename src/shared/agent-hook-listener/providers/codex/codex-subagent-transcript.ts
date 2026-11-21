@@ -131,8 +131,10 @@ function beginCodexTranscriptReconcile(
   if (state.parent.filePath === normalizedPath) {
     return { path: normalizedPath, changed: false }
   }
-  for (const id of state.subagents.keys()) {
-    finishCodexSubagent(roster, id)
+  for (const [id, child] of roster) {
+    if (state.subagents.has(id) || (state.parent.filePath && child.state === 'idle')) {
+      finishCodexSubagent(roster, id)
+    }
   }
   state.parent = { filePath: normalizedPath, offset: 0, carry: '' }
   state.rootTurn = { interrupted: false }
@@ -161,7 +163,7 @@ export function applyCodexParentTranscript(
       : (readApprovalsReviewer(parentRecords) ?? state.approvalsReviewer)
   // Hook-only and restored children may predate the bounded parent transcript read.
   for (const [id, child] of roster) {
-    if (!state.subagents.has(id)) {
+    if (child.state !== 'idle' && !state.subagents.has(id)) {
       state.subagents.set(id, { offset: 0, carry: '', startedAt: child.startedAt })
     }
   }
@@ -181,7 +183,9 @@ export function applyCodexParentTranscript(
       continue
     }
     if (activity.kind === 'interrupted') {
-      finishCodexSubagent(roster, activity.id)
+      finishCodexSubagent(roster, activity.id, {
+        transcriptPath: state.subagents.get(activity.id)?.filePath
+      })
       state.subagents.delete(activity.id)
       continue
     }
@@ -242,7 +246,7 @@ export function applyCodexChildTranscripts(
       }
     }
     changed = true
-    finishCodexSubagent(roster, id)
+    finishCodexSubagent(roster, id, { transcriptPath: tracked.filePath })
     state.subagents.delete(id)
   }
   return changed

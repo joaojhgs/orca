@@ -109,7 +109,7 @@ export default function GrabConfirmationSheet({
   payload: BrowserGrabPayload
   onCopy: () => void
   onCopyScreenshot: (() => void) | null
-  onAttach: () => void
+  onAttach: (() => void) | null
   onCancel: () => void
 }): React.JSX.Element {
   const t = useTranslate()
@@ -262,10 +262,12 @@ export default function GrabConfirmationSheet({
             {t('auto.components.browser.pane.GrabConfirmationSheet.7095e98362', 'Copy Screenshot')}
           </Button>
         ) : null}
-        <Button size="sm" className="gap-1.5" onClick={onAttach}>
-          <MessageSquarePlus className="size-3.5" />
-          {t('auto.components.browser.pane.GrabConfirmationSheet.314a0aaa5b', 'Attach to AI')}
-        </Button>
+        {onAttach ? (
+          <Button size="sm" className="gap-1.5" onClick={onAttach}>
+            <MessageSquarePlus className="size-3.5" />
+            {t('auto.components.browser.pane.GrabConfirmationSheet.314a0aaa5b', 'Attach to AI')}
+          </Button>
+        ) : null}
       </div>
     </div>
   )

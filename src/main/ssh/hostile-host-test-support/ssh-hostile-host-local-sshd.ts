@@ -6,13 +6,17 @@ import { join, posix } from 'node:path'
 import { runProcess, spawnProcess } from '@orca/process-host'
 import {
   forbiddenToolShimScript,
-  forbiddenToolsFor,
+  FORBIDDEN_TOOLS,
   type LocalSshdHostileHostCell
 } from './ssh-hostile-host-cells'
 
-export type LocalSshdHostileHostTarget = {
+type LocalSshdCellSetup = Pick<LocalSshdHostileHostCell, 'id' | 'host' | 'extraForbiddenTools'>
+
+export type LocalSshdHostileHostTarget<
+  TCell extends LocalSshdCellSetup = LocalSshdHostileHostCell
+> = {
   kind: 'local-sshd'
-  cell: LocalSshdHostileHostCell
+  cell: TCell
   host: string
   port: number
   username: string
@@ -84,9 +88,9 @@ function freeLoopbackPort(): Promise<number> {
   })
 }
 
-export async function startLocalSshdTarget(
-  cell: LocalSshdHostileHostCell
-): Promise<LocalSshdHostileHostTarget> {
+export async function startLocalSshdTarget<TCell extends LocalSshdCellSetup>(
+  cell: TCell
+): Promise<LocalSshdHostileHostTarget<TCell>> {
   // Keep sockets under /tmp: macOS sun_path is limited to104 bytes.
   const tempDir = await mkdtemp(join(await realpath('/tmp'), 'orca-hh-'))
   try {
@@ -105,7 +109,7 @@ export async function startLocalSshdTarget(
         mode: 0o755
       }
     )
-    for (const tool of forbiddenToolsFor(cell)) {
+    for (const tool of [...FORBIDDEN_TOOLS, ...(cell.extraForbiddenTools ?? [])]) {
       await symlink('orca-forbidden-tool', join(shimDir, tool))
     }
     await run('ssh-keygen', ['-t', 'ed25519', '-N', '', '-q', '-f', identityFile])
@@ -162,7 +166,9 @@ async function waitForNoProcessMatching(pattern: string, timeoutMs: number): Pro
   return false
 }
 
-export async function stopLocalSshdTarget(target: LocalSshdHostileHostTarget): Promise<void> {
+export async function stopLocalSshdTarget(
+  target: LocalSshdHostileHostTarget<LocalSshdCellSetup>
+): Promise<void> {
   if (target.sshd.exitCode === null && target.sshd.signalCode === null) {
     const exited = new Promise((resolve) => target.sshd.once('exit', resolve))
     target.sshd.kill('SIGTERM')

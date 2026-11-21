@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.cli.json",
+  "include": [
+    "../src/cli/skills/skill-library.ts",
+    "../src/cli/skills/skill-library.test.ts",
+    "../src/cli/specs/skill-library.ts",
+    "../src/shared/skill-library-contract.ts"
+  ],
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "noEmit": true
+  }
+}

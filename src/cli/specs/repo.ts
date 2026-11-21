@@ -1,6 +1,8 @@
 import type { CommandSpec } from '../discovery/command-spec'
 import { CLI_GLOBAL_FLAGS as GLOBAL_FLAGS } from '../../shared/cli/cli-argument-boundary'
 
+import { REPO_ADD_COMMAND_SPEC } from './repo-add'
+
 export const REPO_COMMAND_SPECS: CommandSpec[] = [
   {
     path: ['repo', 'list'],
@@ -8,17 +10,7 @@ export const REPO_COMMAND_SPECS: CommandSpec[] = [
     usage: 'orca repo list [--json]',
     allowedFlags: [...GLOBAL_FLAGS]
   },
-  {
-    path: ['repo', 'add'],
-    summary: 'Add a project to Orca by filesystem path',
-    usage: 'orca repo add --path <path> [--kind git|folder] [--json]',
-    allowedFlags: [...GLOBAL_FLAGS, 'path', 'kind'],
-    notes: [
-      'Defaults to git. Use --kind folder for an ordinary directory, including a parent of separate Git repositories; worktrees attached to a folder workspace appear in its Source Control panel, one section each.',
-      'With --environment, --path must be an absolute path on that Orca server.'
-    ],
-    examples: ['orca repo add --path /abs/path/to/folder --kind folder --json']
-  },
+  REPO_ADD_COMMAND_SPEC,
   {
     path: ['repo', 'show'],
     summary: 'Show one registered repo',

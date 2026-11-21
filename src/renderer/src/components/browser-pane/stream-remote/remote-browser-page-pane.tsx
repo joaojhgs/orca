@@ -43,6 +43,7 @@ import {
 } from './remote-browser-page-context-menu'
 import { RemoteBrowserPageToolbar } from './remote-browser-page-toolbar'
 import { RemoteBrowserPageViewport } from './remote-browser-page-viewport'
+import { useRemoteBrowserDirectWeb } from '../remote-browser-direct-web'
 import { useRemoteBrowserPageAnnotate } from './use-remote-browser-page-annotate'
 
 export function RemoteBrowserPagePane({
@@ -230,7 +231,8 @@ export function RemoteBrowserPagePane({
     annotateTools,
     annotateBanner,
     annotateOverlays,
-    pagePointerOwned
+    pagePointerOwned,
+    grabIdle
   } = useRemoteBrowserPageAnnotate({
     browserTab,
     workspaceId,
@@ -253,6 +255,8 @@ export function RemoteBrowserPagePane({
     lifecycle,
     inputQueue
   })
+
+  const directWeb = useRemoteBrowserDirectWeb(runtimeEnvironmentId, browserTab.url)
 
   const {
     getRemoteImagePoint,
@@ -392,6 +396,7 @@ export function RemoteBrowserPagePane({
         frameMetadata={frameMetadata}
         busy={busy}
         markup={markup}
+        directWebUrl={grabIdle ? directWeb.url : null}
         browserTab={browserTab}
         remoteError={remoteError}
         streamStatus={streamStatus}

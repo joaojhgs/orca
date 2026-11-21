@@ -5,7 +5,7 @@ import { selectFloatingWorkspaceHasUnread } from '../../../store/workspaces/floa
 import type { ProviderRateLimits } from '../../../../../shared/agent-usage/rate-limits/rate-limit-types'
 import { normalizeUsagePercentageDisplay } from '../../../../../shared/agent-usage/display/usage-percentage-display'
 import { normalizeStatusBarUsageMode } from '../../../../../shared/status-bar/status-bar-usage-mode'
-import { isStatusBarItemAvailable } from './status-bar-agent-gating'
+import { isStatusBarItemAvailable, withExecutionAgentIds } from './status-bar-agent-gating'
 import { getVisibleUsageProvider, isUsageEmptyState } from './status-bar-provider-visibility'
 import {
   getUsageProviderAccountsSectionId,
@@ -50,7 +50,10 @@ export function useStatusBarController(floatingTerminalOpen: boolean) {
   // Why: gate per-CLI bars on PATH detection so an uninstalled agent isn't shown a noisy empty bar (auto re-shows when installed).
   const localDetectedAgentIds = useAppStore((s) => s.detectedAgentIds)
   // Why: PATH detection describes this viewer, not the remote host whose bars are shown.
-  const detectedAgentIds = remoteOwned ? null : localDetectedAgentIds
+  const detectedAgentIds = withExecutionAgentIds(
+    remoteOwned ? null : localDetectedAgentIds,
+    rateLimits.executionAccounts
+  )
   const ensureDetectedAgents = useAppStore((s) => s.ensureDetectedAgents)
   // Why: pet segment is driven purely by experimentalPet, not statusBarItems, to avoid double-toggling the surface (see design doc).
   const petEnabled = useAppStore((s) => s.settings?.experimentalPet === true)
@@ -114,6 +117,8 @@ export function useStatusBarController(floatingTerminalOpen: boolean) {
   const usageSettings = {
     ...(remoteOwned ? {} : settings),
     antigravityUsageConfigured,
+    antigravityAuthConfigured:
+      rateLimits.executionAccounts?.some((account) => account.provider === 'antigravity') === true,
     minimaxCookieConfigured: rateLimits.minimaxCookieConfigured,
     minimaxApiKeyConfigured: rateLimits.minimaxApiKeyConfigured,
     opencodeGoApiKeyConfigured: rateLimits.opencodeGoApiKeyConfigured,
@@ -171,6 +176,12 @@ export function useStatusBarController(floatingTerminalOpen: boolean) {
   // OpenCode Go usage can use web credentials independently of CLI detection.
   const visibleOpencodeGo = getVisibleUsageProvider('opencode-go', opencodeGo, usageSettings)
   const showOpencodeGo = visibleOpencodeGo !== null && statusBarItems.includes('opencode-go')
+  const executionAccounts = rateLimits.executionAccounts?.filter((account) =>
+    statusBarItems.some(
+      (item) => item === (account.provider === 'opencode' ? 'opencode-go' : account.provider)
+    )
+  )
+  const hasExecutionAccounts = Boolean(executionAccounts?.length)
   const showSsh = statusBarItems.includes('ssh')
   const showResourceUsage = statusBarItems.includes('resource-usage')
   const showPorts = statusBarItems.includes('ports')
@@ -179,6 +190,7 @@ export function useStatusBarController(floatingTerminalOpen: boolean) {
     floatingTerminalEnabled && floatingTerminalTriggerLocation === 'status-bar'
   // Why: meter-only children (excludes resource-usage) so the % display callout anchors to a real meter cluster.
   const hasVisibleUsageMeters =
+    hasExecutionAccounts ||
     showClaude ||
     showCodex ||
     showGemini ||
@@ -192,7 +204,7 @@ export function useStatusBarController(floatingTerminalOpen: boolean) {
     showMuse
   const anyVisible = hasVisibleUsageMeters || showResourceUsage
   // Why: include Settings so durable managed accounts count — a configured user isn't shown the empty state while snapshots hydrate.
-  const isEmptyUsageState = isUsageEmptyState(rateLimits, usageSettings)
+  const isEmptyUsageState = !hasExecutionAccounts && isUsageEmptyState(rateLimits, usageSettings)
   // Why: one-time nudge — once dismissed, stays hidden even if providers reconnect later.
   const showEmptyUsageCta = isEmptyUsageState && !usageEmptyStateDismissed
   const anyFetching =
@@ -269,6 +281,7 @@ export function useStatusBarController(floatingTerminalOpen: boolean) {
   }
 
   return {
+    executionAccounts,
     antigravityAccounts: rateLimits.antigravityAccounts,
     anyFetching,
     anyVisible,

@@ -17,7 +17,18 @@ const RUNTIME_METHOD_NAMES: Record<string, string> = {
   browserSetViewport: 'browser.viewport',
   browserSetGeolocation: 'browser.geolocation',
   browserConsoleLog: 'browser.console',
-  browserNetworkLog: 'browser.network'
+  browserNetworkLog: 'browser.network',
+  browserGrabSetMode: 'browser.grab.setMode',
+  browserGrabAwait: 'browser.grab.await',
+  browserGrabCancel: 'browser.grab.cancel',
+  browserGrabCaptureSelection: 'browser.grab.captureSelection',
+  browserGrabExtractHover: 'browser.grab.extractHover',
+  browserGrabViewportBridge: 'browser.grab.viewportBridge',
+  browserGrabWatch: 'browser.grab.watch',
+  browserSetGrabMode: 'browser.grab.setMode',
+  browserAwaitGrabSelection: 'browser.grab.awaitSelection',
+  browserCancelGrab: 'browser.grab.cancel',
+  browserCaptureSelectionScreenshot: 'browser.grab.captureScreenshot'
 }
 
 export function electronSidecarRuntimeMethodName(browserMethod: string): string {

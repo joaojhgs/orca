@@ -8,7 +8,7 @@ export type AddRepoLocalStartActionHandlers = {
   onOpenCloneStep: () => void
   onOpenRemoteStep: () => void
   onOpenCreateStep: () => void
-  browseHostKind?: 'local' | 'runtime'
+  browseHostKind?: 'local' | 'runtime' | 'ssh'
   /** A paired server is selected, whose own SSH hosts the dialog explains instead of offering. */
   offersServerSshHosts?: boolean
 }
@@ -41,35 +41,29 @@ export function getAddRepoLocalStartActions(
     icon: FolderOpen,
     title: t('auto.components.sidebar.add.repo.local.start.actions.2281fdc8c7', 'Browse folder'),
     description:
-      browseHostKind === 'runtime'
-        ? t(
-            'auto.components.sidebar.add.repo.local.start.actions.runtimeBrowseDescription',
-            'Existing Git repository or folder on this host'
-          )
-        : t(
-            'auto.components.sidebar.add.repo.local.start.actions.fb4fc5380e',
-            'Local project, Git repo, or folder with many repos'
-          ),
+      browseHostKind === 'ssh'
+        ? t('project.add.sshBrowseDescription', 'Existing project or folder on this SSH host')
+        : browseHostKind === 'runtime'
+          ? t(
+              'auto.components.sidebar.add.repo.local.start.actions.runtimeBrowseDescription',
+              'Existing Git repository or folder on this host'
+            )
+          : t(
+              'auto.components.sidebar.add.repo.local.start.actions.fb4fc5380e',
+              'Local project, Git repo, or folder with many repos'
+            ),
     onClick: onBrowse
   }
 
-  // Server-owned SSH projects need their own managed servers; explain that route instead of enabling unsupported adds.
-  const remote = offersServerSshHosts
-    ? {
-        kind: 'remote' as const,
-        icon: Monitor,
-        title: t(
-          'auto.components.sidebar.add.repo.local.start.actions.serverSshTitle',
-          "Project on this server's SSH host"
-        ),
-        description: t(
-          'auto.components.sidebar.add.repo.local.start.actions.serverSshAddOnThisComputer',
-          'Not available from a server. Add the SSH host on this computer to open its projects.'
-        ),
-        disabled: true,
-        onClick: onOpenRemoteStep
-      }
-    : null
+  const remote = {
+    kind: 'remote' as const,
+    icon: Monitor,
+    title: t('auto.components.sidebar.AddRepoRemoteStep.91b93a90a4', 'Open project on SSH host'),
+    description: offersServerSshHosts
+      ? t('project.add.sshServerDescription', 'Browse SSH hosts registered with this server')
+      : t('project.add.sshDesktopDescription', 'Browse SSH hosts registered with this desktop'),
+    onClick: onOpenRemoteStep
+  }
   const clone = {
     kind: 'clone' as const,
     icon: Globe,
@@ -94,7 +88,7 @@ export function getAddRepoLocalStartActions(
     onClick: onOpenCreateStep
   }
 
-  const secondaryActions = remote ? [clone, remote, create] : [clone, create]
+  const secondaryActions = browseHostKind === 'ssh' ? [] : [clone, remote, create]
 
   return { primaryAction, secondaryActions }
 }

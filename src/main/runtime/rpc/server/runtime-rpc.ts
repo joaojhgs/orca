@@ -1,4 +1,5 @@
 // Why: the single security boundary for the bundled CLI — auth-token enforcement, metadata publication, transport orchestration.
+import { createPairingAdministration } from '../../mobile-pairing-administration'
 import { RuntimeRpcMobilePairing } from './runtime-rpc-mobile-pairing'
 import { publishHostDescriptor } from '../../hosts/platform-probe/host-descriptor'
 import type { OrcaRuntimeRpcServerOptions } from './runtime-rpc-pairing-types'
@@ -12,6 +13,10 @@ export type RuntimeRpcClientActivity = {
 export class OrcaRuntimeRpcServer extends RuntimeRpcMobilePairing {
   constructor(options: OrcaRuntimeRpcServerOptions) {
     super(options)
+    this.pairingAdministration = createPairingAdministration(
+      this,
+      options.advertisedPairingAddress ?? options.serveNetworkSources?.pairingAddress ?? undefined
+    )
   }
 
   /** Why: test-only seam — runs one ownership check instead of waiting out the poll interval. */

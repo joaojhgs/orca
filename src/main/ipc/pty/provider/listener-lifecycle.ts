@@ -33,6 +33,12 @@ export let rendererDidStartNavigationHandler:
   | null = null
 
 // Provider replacement must rebind listeners or output stays attached to the disposed adapter.
+export let sshOutputIntakeCleanup: (() => void) | null = null
+
+export function setSshOutputIntakeCleanup(cleanup: (() => void) | null): void {
+  sshOutputIntakeCleanup = cleanup
+}
+
 export let rebindProviderListeners: (() => void) | null = null
 
 export function rebindLocalProviderListeners(): void {

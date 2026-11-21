@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { HostedReviewProvider } from '../../shared/source-control/hosted-review/hosted-review-contracts'
+import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
+import { joinWorktreeRelativePath } from '../runtime/files/paths/runtime-relative-paths'
 
 const PULL_REQUEST_TEMPLATE_CANDIDATES = [
   '.github/pull_request_template.md',
@@ -41,11 +43,21 @@ export async function readHostedReviewTemplate(
   connectionId?: string | null,
   provider?: HostedReviewProvider | null
 ): Promise<string> {
-  if (connectionId) {
+  const providerForHost = connectionId ? getSshFilesystemProvider(connectionId) : undefined
+  if (connectionId && !providerForHost) {
     return ''
   }
   for (const relativeCandidate of getTemplateCandidates(provider)) {
     try {
+      if (providerForHost) {
+        const result = await providerForHost.readFile(
+          joinWorktreeRelativePath(repoPath, relativeCandidate)
+        )
+        if (result.isBinary) {
+          continue
+        }
+        return result.content
+      }
       return await readFile(join(repoPath, relativeCandidate), 'utf8')
     } catch {
       // Try the next conventional hosted-review template path.

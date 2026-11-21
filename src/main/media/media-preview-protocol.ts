@@ -23,6 +23,7 @@ import { remoteFilePath } from '../../shared/file-access/remote-file-locator'
 import { resolveLocalFileRequestPath } from '../ipc/filesystem/access/local-file-access-resolution'
 import { openLocalRegularFile } from '../filesystem/local-file-io/local-regular-file-read'
 import { abortWhenRendererGone } from '../ipc/renderer-requests/renderer-lifetime-abort'
+import { openSshPreviewRangeReader } from './ssh-file-preview'
 import { createMediaRangeResponse } from './media-range-response'
 import {
   REMOTE_PREVIEW_UPDATE_REQUIRED_MESSAGE,
@@ -43,7 +44,8 @@ import {
   type LocalPreviewTarget,
   type PreviewGrant,
   type PreviewSender,
-  type PreviewUrl
+  type PreviewUrl,
+  type SshPreviewTarget
 } from './preview-grant-registry'
 
 export { revokeRemoteFilePreviewGrants } from './preview-grant-registry'
@@ -201,6 +203,31 @@ async function handleRemotePreviewRequest(
   }
 }
 
+async function serveSshMediaPreview(
+  request: Request,
+  grant: PreviewGrant,
+  target: SshPreviewTarget
+): Promise<Response> {
+  const controller = new AbortController()
+  const cancel = () => controller.abort()
+  if (request.signal.aborted) {
+    cancel()
+  } else {
+    request.signal.addEventListener('abort', cancel, { once: true })
+  }
+  const close = async (): Promise<void> => {
+    request.signal.removeEventListener('abort', cancel)
+    cancel()
+  }
+  try {
+    const reader = await openSshPreviewRangeReader(target.ssh, grant.preview, controller.signal)
+    return await createMediaRangeResponse(request, grant.mimeType, { ...reader, close })
+  } catch {
+    await close()
+    return new Response(null, { status: 404 })
+  }
+}
+
 export async function handleMediaPreviewRequest(request: Request): Promise<Response> {
   const url = new URL(request.url)
   const token = url.hostname === 'file' ? url.pathname.slice(1) : ''
@@ -215,8 +242,10 @@ export async function handleMediaPreviewRequest(request: Request): Promise<Respo
   if ('remote' in target) {
     return handleRemotePreviewRequest(request, token, grant)
   }
+  if ('ssh' in target) {
+    return serveSshMediaPreview(request, grant, target)
+  }
   try {
-    // This process cannot serve SSH filesystems.
     if (target.connectionId) {
       return new Response(null, { status: 404 })
     }

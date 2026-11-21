@@ -9,6 +9,7 @@ import type {
   SshTargetCreateInput,
   SshTarget,
   SshTargetUpdateInput,
+  SshTerminateSessionsResult,
   PortForwardEntry,
   UnrestoredPortForward,
   EnrichedDetectedPort
@@ -54,6 +55,19 @@ export const sshApi = {
 
   disconnect: (args: { targetId: string }): Promise<void> =>
     ipcRenderer.invoke('ssh:disconnect', args),
+
+  terminateSessions: (args: {
+    targetId: string
+    forRemoval?: boolean
+  }): Promise<SshTerminateSessionsResult> => ipcRenderer.invoke('ssh:terminateSessions', args),
+
+  resetRelay: (args: { targetId: string }): Promise<void> =>
+    ipcRenderer.invoke('ssh:resetRelay', args),
+
+  moveToManagedServer: (args: {
+    targetId: string
+  }): Promise<{ outcome: 'moved'; environmentId: string } | { outcome: 'stayed' }> =>
+    ipcRenderer.invoke('ssh:moveToManagedServer', args),
 
   getState: async (args: { targetId: string }): Promise<SshConnectionState | null> => {
     const state: unknown = await ipcRenderer.invoke('ssh:getState', args)

@@ -43,6 +43,12 @@ import type { RuntimeDesktopWindowStatus } from '../../../shared/remote-runtime/
 import { BotShareClient } from '../../bots/sharing/bot-share-client'
 import { skillPackageDownloadOrigins } from '../../skills/runtime-transfer/skill-client-mediated-transfer'
 import { join } from 'node:path'
+import { app } from 'electron'
+import {
+  configureExecutionAccountUsage,
+  configureForkRuntimePolicy,
+  configureLocalArtifactHosting
+} from '../../runtime/construction/fork-runtime-services'
 import {
   AgentStatusObservedPaneIdentities,
   recordObservedAgentStatusPaneIdentity
@@ -140,6 +146,7 @@ export function initializeMainProcessRuntime(
   deps.registerCleanup(disposeIssueLinkTitleFill)
   bindTerminalPaneStatusLifecycle(runtime, store)
   core.runtime = runtime
+  deps.registerCleanup(configureForkRuntimePolicy(runtime, store))
   providePairedDesktopComputerName(() => runtime.readMachineName())
   installDesktopWorkspaceVmWaker(runtime, () => userDataPath)
   runtime.attachAgentStatusStore(agentHookServer)
@@ -179,12 +186,19 @@ export function configureRuntimeServices(
     throw new Error('Account services must be initialized before runtime wiring')
   }
   configureDesktopCloudServices(runtime, () => store.getSettings(), userDataPath)
+  app.once('will-quit', configureLocalArtifactHosting(runtime, store, userDataPath))
+  app.once('will-quit', configureExecutionAccountUsage(store, rateLimits))
   runtime.setBotShareClient(BotShareClient.forProfile(userDataPath), {
     temporaryRoot: join(userDataPath, 'bot-share-downloads'),
     allowedOrigins: skillPackageDownloadOrigins(!isPackaged),
     requireHttps: isPackaged
   })
-  runtime.setAccountServices({ claudeAccounts, codexAccounts, rateLimits })
+  runtime.setAccountServices({
+    claudeAccounts,
+    codexAccounts,
+    rateLimits,
+    getSettings: () => store.getSettings()
+  })
   installWslOrcadAccountShim(store)
   runtime.setCommitMessageAgentEnvironmentResolvers({
     // Resolve every Codex launch through runtime-home, including default-account hooks/auth.

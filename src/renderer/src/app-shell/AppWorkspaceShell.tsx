@@ -1,4 +1,4 @@
-import { memo, Suspense, useCallback, useRef } from 'react'
+import { memo, Suspense, useCallback, useEffect, useRef } from 'react'
 import { lazyWithRetry as lazy } from '@/app-shell/startup/lazy-with-retry'
 import { useTranslate } from '@/i18n/use-translate'
 import { useAppStore } from '@/store/index'
@@ -137,6 +137,12 @@ function HandToBotMount(): React.JSX.Element | null {
 
 function ActivePage({ layout }: { layout: AppChromeLayout }): React.JSX.Element {
   const { activeView, hasActiveWorktree, activePendingCreationId, creationLayoutActive } = layout
+  const returnToTerminal = useAppStore((state) => state.openManagerPage)
+  useEffect(() => {
+    if (activeView === 'manager') {
+      returnToTerminal()
+    }
+  }, [activeView, returnToTerminal])
   return (
     <>
       {activeView === 'settings' ? <Settings /> : null}
@@ -224,6 +230,7 @@ export function AppWorkspaceShell(props: {
               {/* Automations/artifacts own their headers; another titlebar would leave an empty stripe. */}
               {layout.stackedSidebarOpen &&
               layout.activeView !== 'automations' &&
+              layout.activeView !== 'manager' &&
               layout.activeView !== 'artifacts' ? (
                 <div className="titlebar">{titlebarMainStrip}</div>
               ) : null}

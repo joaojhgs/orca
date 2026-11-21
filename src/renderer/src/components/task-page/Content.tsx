@@ -8,6 +8,7 @@ import { TaskPageGitHubList } from './github/listing/List'
 import { TaskPageGitLabTodoList } from './gitlab/TodoList'
 import { TaskPageGitLabItemList } from './gitlab/ItemList'
 import { TaskPageJiraContent } from './jira/Content'
+import { MulticaTaskSourcePanel } from '../MulticaTaskSourcePanel'
 export function TaskPageContent({
   model
 }: {
@@ -75,6 +76,8 @@ export function TaskPageContent({
     <TaskPageGitLabTodoList model={model} />
   ) : taskSource === 'gitlab' ? (
     <TaskPageGitLabItemList model={model} />
+  ) : taskSource === 'multica' ? (
+    <MulticaTaskSourcePanel />
   ) : (
     <TaskPageJiraContent model={model} />
   )

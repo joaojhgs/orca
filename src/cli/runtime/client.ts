@@ -1,10 +1,11 @@
 import { reenterPackagedElectron } from './app-launch/packaged-cli-interpreter'
+import { readOptionalManagerCredential } from '../manager/manager-credential'
+import { readSshBridgeCredential } from '../../shared/ssh-bridge-credential-env'
 import { randomUUID } from 'node:crypto'
 import type {
   CliStatusResult,
   RuntimeStatus
 } from '../../shared/remote-runtime/session-graph/runtime-session-contracts'
-import { runtimeHostConnectionState } from '../../shared/remote-runtime/host-status/runtime-host-connection-state'
 import {
   isDurableMutation,
   isOrchestrationMutation,
@@ -16,7 +17,7 @@ import { openLocalOrca } from './app-launch/open-local-orca'
 import { getDefaultUserDataPath, readMetadata } from './profile/metadata'
 import { getCliStatus, getOfflineRuntimeAdmission } from './status/status'
 import type { OfflineRuntimeAdmission } from './status/status'
-import { projectRemoteAppStatus } from '../../shared/remote-runtime/session-graph/cli-app-status-projection'
+import { projectRemoteCliStatus } from './status/remote-cli-status'
 import { sendRequest } from './connection/transport'
 import { attachMutationRecovery, isRequestUnsent } from './connection/client-error-recovery'
 import { RuntimeClientError, RuntimeRpcFailureError } from './connection/types'
@@ -97,6 +98,12 @@ export class RuntimeClient {
     params?: unknown,
     options?: RuntimeCallOptions
   ): Promise<RuntimeRpcSuccess<TResult>> {
+    if (this.remoteSelected && (readOptionalManagerCredential() || readSshBridgeCredential())) {
+      throw new RuntimeClientError(
+        'incompatible_runtime',
+        'Scoped service credentials require the runtime socket and cannot use an owner/device pairing.'
+      )
+    }
     const effectiveTimeoutMs = options?.timeoutMs ?? this.resolveMethodTimeoutMs(method, params)
     const orchestrationMutation = isOrchestrationMutation(method, params)
     const terminalPromptMutation = isTerminalPromptMutation(method, params)
@@ -228,43 +235,13 @@ export class RuntimeClient {
     return Math.max(requestTimeout.artifactMethodTimeoutMs(method), this.requestTimeoutMs)
   }
 
-  async getCliStatus(): Promise<RuntimeRpcSuccess<CliStatusResult>> {
+  async getCliStatus(timeoutMs?: number): Promise<RuntimeRpcSuccess<CliStatusResult>> {
     if (this.remoteSelected) {
-      const response = await this.call<RuntimeStatus>('status.get')
+      const response = await this.call<RuntimeStatus>('status.get', undefined, { timeoutMs })
       this.remoteCompat.noteVerifiedStatus(response.result)
-      const graphState = response.result.graphStatus
-      return {
-        id: response.id,
-        ok: true,
-        result: {
-          target: {
-            kind: 'environment',
-            environment: this.environmentSelector ?? 'pairing-code'
-          },
-          app: projectRemoteAppStatus(response.result),
-          runtime: {
-            state: graphState === 'ready' ? 'ready' : 'graph_not_ready',
-            reachable: true,
-            connectionState: runtimeHostConnectionState({
-              hasStatusEntry: true,
-              status: response.result
-            }),
-            runtimeId: response.result.runtimeId,
-            ...(response.result.appVersion ? { appVersion: response.result.appVersion } : {}),
-            ...(response.result.remoteUpdateSupport
-              ? { remoteUpdateSupport: response.result.remoteUpdateSupport }
-              : {}),
-            ...(response.result.capabilities ? { capabilities: response.result.capabilities } : {}),
-            ...(response.result.degradations ? { degradations: response.result.degradations } : {})
-          },
-          graph: {
-            state: graphState
-          }
-        },
-        _meta: response._meta
-      }
+      return projectRemoteCliStatus(response, this.environmentSelector)
     }
-    return getCliStatus(this.userDataPath)
+    return getCliStatus(this.userDataPath, timeoutMs)
   }
 
   async getOfflineRuntimeAdmission(): Promise<OfflineRuntimeAdmission> {

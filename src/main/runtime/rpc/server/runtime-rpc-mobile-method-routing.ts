@@ -1,3 +1,4 @@
+import { SKILL_LIBRARY_RPC_METHODS } from '../../../../shared/skill-library-contract'
 import { MOBILE_AGENT_SESSION_RPC_METHODS } from './runtime-rpc-mobile-agent-session-methods'
 import { PAIRED_DESKTOP_METHODS } from './runtime-rpc-mobile-paired-desktop-methods'
 import { MOBILE_BOT_RPC_METHODS } from './runtime-rpc-mobile-bot-methods'
@@ -8,6 +9,17 @@ import { DEFAULT_SCOPE_HOST_METHODS } from './runtime-rpc-mobile-tracker-methods
 export type MobileRpcMethodRoute = 'execution-host' | 'paired-desktop' | 'default-scope-host'
 
 export const EXECUTION_HOST_METHODS = [
+  ...SKILL_LIBRARY_RPC_METHODS,
+  // A selected server owns its notification rules, targets and device overrides.
+  'notifications.policyRead',
+  'notifications.policyTargets',
+  'notifications.policyUpdate',
+  'notifications.policyDevices',
+  'manager.conversationCreate',
+  'manager.conversationShow',
+  'manager.conversationSend',
+  'manager.conversationsList',
+  'manager.principalsList',
   // Signing in/out needs the same power as running commands on the host (workspace).
   'orcaAccount.selectOrg',
   'orcaAccount.signIn.cancel',

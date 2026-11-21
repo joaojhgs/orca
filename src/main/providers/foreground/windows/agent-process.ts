@@ -56,7 +56,7 @@ export function shouldInspectWindowsAgentForeground(fallbackProcess: string): bo
 export async function resolveWindowsAgentForegroundProcessWithAvailability(
   shellPid: number,
   fallbackProcess: string,
-  options: AgentForegroundResolutionOptions
+  options: AgentForegroundResolutionOptions = {}
 ): Promise<WindowsAgentForegroundResolution> {
   const inventory = await queryWindowsPaneProcessInventory(shellPid, {
     ...(options.fresh === true ? { fresh: true } : {}),

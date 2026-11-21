@@ -1,0 +1,110 @@
+import type { OrcaRuntimeService } from '../orca-runtime'
+import { managerMayObserve } from '../../../shared/manager-event-contract'
+import { ManagerDispatchPolicySchema } from '../../../shared/manager-dispatch-capacity-contract'
+import { agentHookServer } from '../../agent-hooks/server/agent-hook-server'
+import { managerWorkspaceScope } from './manager-hook-scope'
+import { ManagerAuthorityError, ManagerCapacityUnavailableError } from './manager-authority-error'
+import { selectManagerDispatchAccount } from './manager-dispatch-usage'
+import { assertManagerDispatchCapacity } from './manager-dispatch-capacity'
+import { readManagerTaskRequirements } from './manager-completion-evidence'
+import type { ManagerResourceSample } from './manager-dispatch-resource-sample'
+import { isWorkerDispatchTaskStartable } from '../orchestration/worker-dispatch-task-eligibility'
+
+export type ManagerCapacityTarget = {
+  runId: string
+  taskId: string
+  workspaceId: string
+  agent: string
+  model?: string
+  workClass: 'edit' | 'build'
+  retryOf?: string
+}
+
+/** Shared admission/readiness check; only the worker-start authority can actually launch. */
+export function checkManagerWorkerCapacity(
+  runtime: OrcaRuntimeService,
+  principalId: string,
+  target: ManagerCapacityTarget,
+  sample: ManagerResourceSample
+) {
+  const db = runtime.getOrchestrationDb()
+  if (!db.db.isTransaction) {
+    throw new Error('Capacity check requires a transaction')
+  }
+  const principal = db.managerPrincipals.authorize(principalId, 'worker:start')
+  const run = db.getRun(target.runId)
+  db.managerRuns.requireOwnedRun(principalId, run, principal.grant.scope)
+  const scope = managerWorkspaceScope(
+    target.workspaceId,
+    sample.executionHostId,
+    runtime.listRepos(),
+    runtime.listProjectHostSetups(),
+    runtime.listFolderWorkspaces()
+  )
+  const task = db.getTask(target.taskId)
+  if (
+    !task ||
+    task.run_id !== target.runId ||
+    !isWorkerDispatchTaskStartable(db, task, target.retryOf) ||
+    !scope ||
+    !managerMayObserve(principal.grant.scope, scope)
+  ) {
+    throw new ManagerAuthorityError('manager_forbidden', 'Task or placement is no longer eligible')
+  }
+  const requirements = readManagerTaskRequirements(db, target.taskId)
+  const checks =
+    requirements?.role === 'verification'
+      ? readManagerTaskRequirements(db, requirements.verifiesTaskId)
+      : requirements
+  if (target.workClass === 'edit' && checks?.role === 'work' && checks.tests.length) {
+    throw new ManagerAuthorityError(
+      'manager_forbidden',
+      'A Task with requested test commands must reserve build capacity'
+    )
+  }
+  const policy = ManagerDispatchPolicySchema.parse(principal.grant.dispatchPolicy ?? {})
+  const account = selectManagerDispatchAccount(
+    runtime.getExecutionAccounts(),
+    { ...target, executionHostId: sample.executionHostId },
+    policy,
+    Date.now()
+  )
+  const reservation = {
+    executionHostId: sample.executionHostId,
+    accountId: account?.id ?? `unobserved:${sample.executionHostId}:${target.agent}`,
+    workClass: target.workClass,
+    memoryBytes: target.workClass === 'edit' ? policy.editMemoryBytes : policy.buildMemoryBytes,
+    observedAt: sample.observedAt
+  }
+  const count = db.db
+    .prepare(`SELECT COUNT(*) AS count FROM worker_dispatches w
+    JOIN dispatch_contexts d ON d.id = w.dispatch_id JOIN manager_run_ownership o ON o.run_id = d.run_id
+    WHERE o.principal_id = ? AND w.state IN ('starting', 'ready', 'start_unknown', 'stopping', 'stop_unknown')`)
+    .get(principalId)
+  if (
+    !count ||
+    typeof count !== 'object' ||
+    !('count' in count) ||
+    typeof count.count !== 'number'
+  ) {
+    throw new Error('Worker capacity is unconfirmed')
+  }
+  if (count.count >= (principal.grant.maxActiveWorkers ?? 2)) {
+    throw new ManagerCapacityUnavailableError(
+      'Manager active-worker capacity reached; reconcile before launching'
+    )
+  }
+  // Workspaces may host multiple sessions; capacity belongs to hosts and accounts, not checkouts.
+  const statuses = agentHookServer.getEnrichedStatusSnapshot()
+  assertManagerDispatchCapacity(
+    db,
+    reservation,
+    account,
+    sample,
+    policy,
+    statuses,
+    Date.now(),
+    target.agent
+  )
+  return { reservation, scope, run }
+}

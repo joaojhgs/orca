@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { ProfilePreferences } from '../persistence/loading-store/profile-preferences/profile-preferences'
 import type { RuntimeConstructionDependencies } from '../runtime/construction/runtime-construction-dependencies'
+import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import type { GlobalSettings } from '../../shared/settings/global-settings-types'
 import { DeviceRegistry } from '../runtime/rpc/server/pairing/device-registry'
 import { RuntimeMobileNotificationController } from '../runtime/push/notifications/runtime-mobile-notification-controller'
@@ -42,6 +43,9 @@ const state = vi.hoisted(() => {
     removeSettingsListener: vi.fn(),
     startDaemon: vi.fn(async () => {}),
     stopDaemon: vi.fn(async () => {}),
+    disposeSkillUploadSessions: vi.fn<OrcaRuntimeService['disposeSkillUploadSessions']>(
+      async () => {}
+    ),
     browserProvider: vi.fn(async () => null),
     register: vi.fn(async () => ({ ok: true, registrationId: 'headless-registration' })),
     send: vi.fn(async () => ({ ok: true, results: [] })),
@@ -130,6 +134,14 @@ vi.mock('../runtime/agent-state-rules/agent-state-rules-live-update', () => ({
 }))
 vi.mock('../daemon/providers/lifecycle/daemon-provider-state', () => ({
   daemonOwnsFreshPersistentPtys: () => false
+}))
+// These runtime startup services use a full Store and have separate coverage.
+vi.mock('../backend/core-runtime-ssh-activation', () => ({
+  activateBackendSsh: async () => {}
+}))
+vi.mock('../runtime/construction/fork-runtime-services', () => ({
+  configureForkRuntimePolicy: () => () => {},
+  configureLocalArtifactHosting: () => () => {}
 }))
 vi.mock('../ipc/pty/register-headless-runtime', () => ({
   registerHeadlessPtyRuntime: async () => {}
@@ -230,6 +242,7 @@ vi.mock('../runtime/orca-runtime', () => ({
     async installPendingOrcadMigrationShellHistory() {}
     async stopLegacyWorkerTerminalRecovery() {}
     async closeNotificationDismissals() {}
+    disposeSkillUploadSessions = state.disposeSkillUploadSessions
     flushPaneGrids() {
       return null
     }
@@ -344,6 +357,9 @@ it('serves the startup profile and starts and stops its push dispatch', async ()
   const phone = state.registry.addDevice('headless-phone', 'mobile')
   const { startOrcad } = await import('./host-runtime/orcad-entry')
   const host = await startOrcad({ noPairing: true, json: true })
+  state.disposeSkillUploadSessions.mockImplementationOnce(async () => {
+    expect(state.rpcStarted).toBe(false)
+  })
   try {
     const [store] = runs.runtimeArgs[0] ?? []
     expect(store).toBe(runs.profileStore)
@@ -378,6 +394,7 @@ it('serves the startup profile and starts and stops its push dispatch', async ()
   expect(state.onSettingsChanged).toHaveBeenCalledOnce()
   expect(state.removeSettingsListener).toHaveBeenCalledOnce()
   await host.stop()
+  expect(state.disposeSkillUploadSessions).toHaveBeenCalledOnce()
   expect(state.removeSettingsListener).toHaveBeenCalledOnce()
   const phoneAfterStop = {
     deviceId: 'phone-after-stop',

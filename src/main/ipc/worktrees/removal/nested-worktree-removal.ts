@@ -1,14 +1,14 @@
 import type { Repo } from '../../../../shared/repository/repo-types'
-import type { ExecutionHostId } from '../../../../shared/execution-host/execution-host'
+import {
+  getRepoDialableSshTargetId,
+  type ExecutionHostId
+} from '../../../../shared/execution-host/execution-host'
 import type { GitWorktreeInfo } from '../../../../shared/worktree/types'
 import type { RemoveWorktreeResult } from '../../../../shared/worktree/create-types'
 import { isFolderRepo } from '../../../../shared/repository/repo-kind'
 import { listWorktreesStrict } from '../../../git/worktrees/catalog/worktree-listing'
 import { getLocalProjectWorktreeGitOptions } from '../../../workspaces/execution-host/project-runtime-git-options'
-import {
-  SshHostNotServedError,
-  SSH_WORKTREE_REMOVAL_NOT_SERVED_MESSAGE
-} from '../../../providers/ssh-host-not-served-error'
+import { captureDirectSshWorktreeAuthority } from '../direct-ssh-worktree-authority'
 import { resolveWorktreeRemovalHomeForHost } from '../../../workspaces/removal/worktree-removal-execution-host-route'
 import {
   getNestedWorktreeRemovalPlan,
@@ -29,18 +29,17 @@ export async function previewNestedWorktreeRemoval(
     throw new Error('Nested worktree deletion is only available for Git workspaces.')
   }
   assertRemovalHostMatchesRepoRow(repo, repo.id, hostId)
-  if (repo.connectionId) {
-    throw new SshHostNotServedError(repo.connectionId, SSH_WORKTREE_REMOVAL_NOT_SERVED_MESSAGE)
-  }
-  const worktrees = await listWorktreesStrict(
-    repo.path,
-    getLocalProjectWorktreeGitOptions(context.store, repo)
-  )
+  const connectionId = getRepoDialableSshTargetId(repo)
+  const ssh = connectionId ? captureDirectSshWorktreeAuthority(connectionId) : null
+  const worktrees = ssh
+    ? await ssh.provider.listWorktrees(repo.path)
+    : await listWorktreesStrict(repo.path, getLocalProjectWorktreeGitOptions(context.store, repo))
+  ssh?.assertCurrent()
   return getNestedWorktreeRemovalPlan({
     repoPath: repo.path,
     worktreePath,
     worktrees,
-    home: resolveWorktreeRemovalHomeForHost(hostId)
+    home: ssh?.removalHome() ?? resolveWorktreeRemovalHomeForHost(hostId)
   })
 }
 

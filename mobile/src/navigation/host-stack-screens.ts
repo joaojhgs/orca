@@ -1,4 +1,5 @@
 import { translate } from '../i18n/mobile-i18n'
+import { HOST_MANAGER_ROUTE } from './host-stack-navigation'
 
 // Keep native/page stack declarations in sync.
 export const HOST_STACK_SCREENS = [
@@ -24,6 +25,12 @@ export const HOST_STACK_SCREENS = [
     name: '[hostId]/tasks',
     get title() {
       return translate('navigation.hostStackScreens.tasks', 'Tasks')
+    }
+  },
+  {
+    name: HOST_MANAGER_ROUTE,
+    get title() {
+      return translate('navigation.hostStackScreens.manager', 'Manager')
     }
   },
   {

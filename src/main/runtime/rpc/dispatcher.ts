@@ -1,3 +1,4 @@
+import { routeDispatcherBrowserCall } from './dispatcher-browser-route'
 import {
   buildRegistry,
   isStreamingMethod,
@@ -10,8 +11,8 @@ import {
   type RpcStreamingMethod
 } from './core'
 import { guardedRpcCallContext, rpcCallContext } from './rpc-call-context'
-
-import { successResponse } from './responses/rpc-response'
+import type { SshBridgeResultFilter } from './ssh-bridge-host-binding'
+import { errorResponse, successResponse } from './responses/rpc-response'
 import { withoutMethodsThisHostDoesNotServe } from './methods/terminal/session-terminal-scrollback'
 import { emulatorProbe, emulatorProbeError } from '../../emulator/emulator-probe'
 import type { OrcaRuntimeService } from '../orca-runtime'
@@ -45,6 +46,18 @@ type AdmittedUnaryCall = {
   method: RpcMethod
   params: unknown
   caller: OrchestrationEntryCaller | undefined
+}
+
+function scopedResult(
+  request: RpcRequest,
+  meta: RpcEnvelopeMeta,
+  result: unknown,
+  filter?: SshBridgeResultFilter
+): RpcResponse {
+  const scoped = filter?.(result)
+  return scoped?.kind === 'denied'
+    ? errorResponse(request.id, meta, 'forbidden', scoped.message)
+    : successResponse(request.id, meta, scoped?.result ?? result)
 }
 
 export class RpcDispatcher {
@@ -90,7 +103,12 @@ export class RpcDispatcher {
         await featureWait
       }
       options?.beforeInvoke?.()
-      return successResponse(request.id, meta, await this.invokeUnary(admission, options))
+      return scopedResult(
+        request,
+        meta,
+        await this.invokeUnary(admission, options),
+        admission.filterResult
+      )
     } catch (error) {
       options?.onHandlerError?.(error)
       if (probeEmulator) {
@@ -133,7 +151,7 @@ export class RpcDispatcher {
       reply(admission.rejected)
       return
     }
-    const { method, request, params, caller } = admission
+    const { method, request, params, caller, filterResult } = admission
     const featureWait = rpcMethodFeatureWait(
       resolveOrcadFeatureRequirement(method.requires, params),
       [options?.signal, options?.connectionSignal]
@@ -150,7 +168,7 @@ export class RpcDispatcher {
     if (!isStreamingMethod(method)) {
       try {
         const result = await this.invokeUnary({ method, request, params, caller }, options)
-        reply(successResponse(request.id, meta, result))
+        reply(scopedResult(request, meta, result, filterResult))
       } catch (error) {
         reply(mapDispatcherError(request, meta, error))
       }
@@ -206,29 +224,9 @@ export class RpcDispatcher {
   ): Promise<unknown> {
     const { runtime, orchestrationMutations, legacyOrchestration, pinnedCallerScope: scope } = this
     const context = guardedRpcCallContext(runtime, request, options, scope, caller, params)
-    // Runtime test fakes may omit client-hosted browser routing.
-    const clientHostedBrowser = await (runtime.routeClientHostedBrowserRpc?.(
-      request.method,
-      params,
-      context.caller
-    ) ?? { handled: false as const })
-    if (clientHostedBrowser.handled) {
-      recordRuntimeFeatureInteraction(
-        runtime,
-        request.method,
-        clientHostedBrowser.result,
-        undefined,
-        request.params
-      )
-      return clientHostedBrowser.result
-    }
-    const desktopBrowser = await (runtime.routeDesktopBrowserBridgeRpc?.(
-      request.method,
-      params,
-      context
-    ) ?? { handled: false as const })
-    if (desktopBrowser.handled) {
-      return desktopBrowser.result
+    const browser = await routeDispatcherBrowserCall(runtime, request, params, context)
+    if (browser.handled) {
+      return browser.result
     }
 
     // A paired Orca is never a legacy caller, so its calls reach only the declared access check.

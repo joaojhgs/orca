@@ -16,7 +16,7 @@ vi.mock('./ssh-host-server-connect', () => mocks.hostServerConnect)
 vi.mock('../../ssh/connection/ssh-connection-manager', () => mocks.sshConnectionManager)
 vi.mock('../../ssh/protocol/ssh-channel-multiplexer', () => mocks.sshChannelMultiplexer)
 vi.mock('../../ssh/port-forwarding/ssh-port-forward', () => mocks.sshPortForward)
-vi.mock('../ssh/ssh-port-scanner', () => mocks.sshPortScanner)
+vi.mock('../../ssh/ssh-port-scanner', () => mocks.sshPortScanner)
 vi.mock(
   '../../../shared/remote-runtime/host-store/runtime-environment-store',
   async (importOriginal) => ({
@@ -47,7 +47,8 @@ const target: SshTarget = {
   label: 'Server',
   host: 'example.com',
   port: 22,
-  username: 'deploy'
+  username: 'deploy',
+  orcadFence: { environmentId: 'env-managed' }
 }
 const managedServer = {
   id: 'env-managed',

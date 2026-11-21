@@ -24,6 +24,8 @@ import {
   localGitOptionsForTarget,
   requireLocalRuntimeGitRoute,
   requireRuntimeGitProvider,
+  requireRuntimeLocalGitProvider,
+  runtimeGitRouteForTarget,
   type RuntimeGitCommandHost,
   type RuntimeGitTarget
 } from './runtime-git-command-target'
@@ -79,7 +81,7 @@ export class RuntimeGitStatusCommands {
 
   async getRuntimeGitRefs(worktreeSelector: string, query?: string) {
     const target = await resolveGatedGitTarget(this.host, worktreeSelector)
-    return requireRuntimeGitProvider(target).getHistoryRefs(target.worktree.path, query)
+    return requireRuntimeLocalGitProvider(target).getHistoryRefs(target.worktree.path, query)
   }
 
   async getRuntimeGitHistory(
@@ -125,8 +127,15 @@ export class RuntimeGitStatusCommands {
     detached = false
   ): Promise<RuntimeGitCheckoutResult> {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
-    const provider = requireRuntimeGitProvider(target)
     const worktreePath = target.worktree.path
+    const route = runtimeGitRouteForTarget(target)
+    if (route.kind === 'ssh' && !detached) {
+      const provider = requireRuntimeGitProvider(target)
+      await provider.checkoutBranch(worktreePath, branch)
+      this.host.recordBranchSwitched?.(target.worktree, false)
+      return { ok: true, branch }
+    }
+    const provider = requireRuntimeLocalGitProvider(target)
     const checkoutTarget = detached ? branch.toLowerCase() : branch
     const result = await switchBranchGuarded(
       worktreePath,
@@ -151,7 +160,7 @@ export class RuntimeGitStatusCommands {
     branchTarget: BranchSwitchTarget
   ): Promise<RuntimeGitSwitchResult> {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
-    const provider = requireRuntimeGitProvider(target)
+    const provider = requireRuntimeLocalGitProvider(target)
     const path = target.worktree.path
     try {
       const result = await switchBranchGuarded(

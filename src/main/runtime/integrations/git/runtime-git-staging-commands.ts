@@ -5,6 +5,7 @@ import type {
 import {
   normalizeRuntimeGitRelativePath,
   requireRuntimeGitProvider,
+  requireRuntimeLocalGitProvider,
   type RuntimeGitCommandHost
 } from './runtime-git-command-target'
 import type { ConflictResolution } from '../../../../shared/source-control/listing/source-control-entry-actions'
@@ -26,7 +27,7 @@ export class RuntimeGitStagingCommands {
   ): Promise<{ ok: true }> {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
     const relativePath = normalizeRuntimeGitRelativePath(filePath)
-    await requireRuntimeGitProvider(target).resolveConflict(
+    await requireRuntimeLocalGitProvider(target).resolveConflict(
       target.worktree.path,
       relativePath,
       resolution

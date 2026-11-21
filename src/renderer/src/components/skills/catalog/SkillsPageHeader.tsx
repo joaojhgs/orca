@@ -26,6 +26,7 @@ export function SkillsPageHeader({
   onStartDelete,
   onInstallFromLink,
   onManageInstalls,
+  onOpenLibrary,
   onOpenSharedLinks
 }: {
   skillCount: number
@@ -40,6 +41,7 @@ export function SkillsPageHeader({
   onStartDelete: () => void
   onInstallFromLink: () => void
   onManageInstalls: () => void
+  onOpenLibrary: () => void
   onOpenSharedLinks: () => void
 }): React.JSX.Element {
   const t = useTranslate()
@@ -84,6 +86,10 @@ export function SkillsPageHeader({
             ) : null}
           </div>
         </div>
+        <Button type="button" variant="outline" size="sm" onClick={onOpenLibrary}>
+          <BookOpen />
+          {t('auto.components.skills.SkillsPage.localLibrary', 'Local library')}
+        </Button>
         <Button type="button" size="sm" onClick={onStartShare}>
           <Share2 className="size-3.5" />
           {t('auto.components.skills.SkillShareSelectionControls.01c5a15e02', 'Share skills')}

@@ -22,7 +22,7 @@ vi.mock('../../wsl/discovery/distro-catalog', () => ({
   hasCachedWslDistros: vi.fn(() => false)
 }))
 
-vi.mock('../ssh/ssh', () => ({
+vi.mock('../ssh/ssh-ai-vault-relay', () => ({
   getActiveSshAiVaultHostInfo: vi.fn(),
   getActiveSshAiVaultHostInfos: vi.fn(() => []),
   requestActiveSshAiVaultSessionList: vi.fn(),

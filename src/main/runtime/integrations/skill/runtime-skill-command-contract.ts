@@ -17,6 +17,7 @@ import type {
 } from '../../../../shared/skills/sharing/skill-upload-session-contract'
 import type { SkillUploadSessionService } from '../../../skills/runtime-upload/skill-upload-session-service'
 import type { RuntimeSkillCommands } from './runtime-skill-command-surface'
+import type { getRuntimeSkillLibrary, skillLibraryWorkspaces } from '../../runtime-skill-library'
 import type {
   SkillCloudDownloadGrant,
   SkillCloudOperation,
@@ -44,6 +45,8 @@ import type {
   LocalBundledSkillPlanRequest
 } from '../../../../shared/skills/bundled/bundled-skill-plan'
 export type RuntimeSkillCommandSurface = {
+  getLocalSkillLibrary(): ReturnType<typeof getRuntimeSkillLibrary>
+  listSkillLibraryWorkspaces(): ReturnType<typeof skillLibraryWorkspaces>
   setSkillCloudService(service: SkillCloudService): void
   assertAgentSkillSharingAllowed(): void
   publishDiscoveredSkillsFromAgent(

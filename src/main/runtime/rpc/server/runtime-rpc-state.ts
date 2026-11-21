@@ -40,6 +40,7 @@ import { DeclaredDesktopClients } from './pairing/declared-desktop-clients'
 import { AuthenticatedSourceRecorder } from './network-source-policy-store'
 import type { ServeNetworkSourceOptions } from './serve-network-source-policy'
 import type { WebSocketSourceGuard } from '../transports/websocket/source-admission/ws-network-source-guard'
+import type { PairingAdministrationApi } from '../../mobile-pairing-administration'
 
 export class RuntimeRpcState {
   protected readonly runtime: OrcaRuntimeService
@@ -56,6 +57,7 @@ export class RuntimeRpcState {
   protected readonly serveNetworkSources: ServeNetworkSourceOptions | null
   protected webSocketSourceGuard: WebSocketSourceGuard | null = null
   protected readonly webClientRoot: string | undefined
+  protected pairingAdministration?: PairingAdministrationApi
   // Track actual WS bind host for pairing exposure transitions (STA-2370).
   protected wsBoundHost: string | null = null
   // Share one pending rebind across concurrent pairing offers (STA-2370).

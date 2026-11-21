@@ -8,7 +8,11 @@ import { fetchClaudeOAuthUsage } from './claude-oauth-usage-request'
 import { classifyClaudeOAuthUsageError } from './claude-usage-error-classification'
 import { OAuthUsageError } from './claude-oauth-usage-error'
 import type { ClaudeRateLimitFetchOptions } from './claude-usage-fetch-options'
-import { abortedClaudeRateLimitResult, makeClaudeUsageResult } from './claude-usage-result'
+import {
+  abortedClaudeRateLimitResult,
+  makeClaudeUsageResult,
+  metadataForClaudeUsageAttempt
+} from './claude-usage-result'
 import { CLAUDE_PROFILE_MISSING_MESSAGE } from '../../../../shared/agent-accounts/claude/claude-profile-routing'
 
 /** Usage observes the account; only a user-started Claude process may refresh its login. */
@@ -29,10 +33,11 @@ export async function fetchActiveClaudeRateLimits(
   const credentials = await readClaudeOAuthCredentials(
     resolveClaudeOAuthCredentialReadOptions(options?.authPreparation)
   )
-  const metadata = {
-    credentialSource: credentials.source,
-    authProvenance: options?.authPreparation?.provenance ?? 'system'
-  }
+  const metadata = metadataForClaudeUsageAttempt({
+    attemptedSources: [],
+    oauthCredentials: credentials,
+    authPreparation: options?.authPreparation
+  })
   // System Default without login may be an API-key/non-Claude user, not a signed-out account.
   if (
     !credentials.token &&
@@ -68,7 +73,10 @@ export async function fetchActiveClaudeRateLimits(
           ...(credentials.planType ? { planType: credentials.planType } : {}),
           usageMetadata: {
             ...usage.usageMetadata,
-            ...metadata,
+            credentialSource: metadata.credentialSource,
+            authProvenance: metadata.authProvenance,
+            executionCredentialRevision: metadata.executionCredentialRevision,
+            attemptedSources: ['oauth'],
             ...(options?.authPreparation?.readingAccount
               ? { readingAccount: options.authPreparation.readingAccount }
               : {})

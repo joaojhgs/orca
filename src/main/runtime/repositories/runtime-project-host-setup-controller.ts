@@ -15,7 +15,7 @@ import type {
 import type { Repo } from '../../../shared/repository/repo-types'
 import {
   getRepoExecutionHostId,
-  getSshTargetIdForExecutionHost,
+  toSshExecutionHostId,
   parseExecutionHostId,
   type ExecutionHostId
 } from '../../../shared/execution-host/execution-host'
@@ -25,7 +25,6 @@ import {
   type RepositoryMetadataOwner
 } from '../../workspaces/catalog/imported-folder-project-link'
 import { invalidateAuthorizedRootsCache } from '../../ipc/worktrees/removal/registered-worktree-roots-cache'
-import { SshHostNotServedError } from '../../providers/ssh-host-not-served-error'
 import { runWorktreeChangeInvalidators } from '../../ipc/worktrees/listing/worktree-change-invalidators'
 import { prepareLocalWorktreeRootForRepo } from '../../workspaces/creation/worktree-root-preparation'
 import { updateProjectHostSetupWithProvenKind } from '../../workspaces/catalog/folder-repo-git-conversion'
@@ -46,14 +45,18 @@ import { assertNoProjectWorktreeCreate } from '../../workspaces/creation/worktre
 import { releaseWorktreeCreatePreparationsForRepo } from '../../workspaces/creation/preparation/worktree-create-preparation-project-removal'
 import {
   findProjectHostSetup,
-  SERVER_SSH_PROJECT_ADD_UNAVAILABLE_MESSAGE,
   type ProjectHostSetupTarget
 } from '../../../shared/project/host-setup/project-host-setup-target'
 
 type RuntimeProjectHostSetupDependencies = RepositoryMetadataOwner & {
   getStore: () => RuntimeStore | null
   listRepos: () => Repo[]
-  addRepo: (path: string, kind: 'folder' | 'git', hostId: ExecutionHostId) => Promise<Repo>
+  addRepo: (
+    path: string,
+    kind: 'folder' | 'git',
+    hostId: ExecutionHostId,
+    displayName?: string
+  ) => Promise<Repo>
   cloneRepo: (args: ProjectHostSetupCloneArgs) => Promise<Repo>
   invalidateResolvedWorktrees: () => void
   invalidateWorktreeScan: (repoId: string) => void
@@ -69,10 +72,6 @@ function assertCloneHostIsSupported(hostId: ExecutionHostId | null | undefined):
   throw new Error(
     'Cloning onto an SSH host is not supported. Clone the repository on the host, then set the project up from that existing folder.'
   )
-}
-
-function sshTargetNotServedError(connectionId: string): SshHostNotServedError {
-  return new SshHostNotServedError(connectionId, SERVER_SSH_PROJECT_ADD_UNAVAILABLE_MESSAGE)
 }
 
 export class RuntimeProjectHostSetupController {
@@ -129,10 +128,6 @@ export class RuntimeProjectHostSetupController {
     }
     const kind = args.kind === 'folder' ? 'folder' : 'git'
     const knownRepoIds = new Set(this.deps.listRepos().map((repo) => repo.id))
-    const sshTargetId = getSshTargetIdForExecutionHost(args.hostId)
-    if (sshTargetId) {
-      throw sshTargetNotServedError(sshTargetId)
-    }
     const repo = await this.deps.addRepo(args.path, kind, args.hostId)
     const repoWasCreated = !knownRepoIds.has(repo.id)
     // Stored remotes may predate user-added ones; probe current Git state.
@@ -143,12 +138,18 @@ export class RuntimeProjectHostSetupController {
     return this.completeSetup(args, repo, repoWasCreated, folderRemote)
   }
 
-  /** Keep repo.addRemote registered for older clients, but refuse unserved SSH targets with guidance for adding them on the right host. */
-  addSshRepo(args: { connectionId: string }): Promise<Repo> {
-    if (!this.deps.getStore()) {
-      throw new Error('runtime_unavailable')
-    }
-    throw new SshHostNotServedError(args.connectionId, SERVER_SSH_PROJECT_ADD_UNAVAILABLE_MESSAGE)
+  addSshRepo(args: {
+    connectionId: string
+    remotePath: string
+    displayName?: string
+    kind?: 'git' | 'folder'
+  }): Promise<Repo> {
+    return this.deps.addRepo(
+      args.remotePath,
+      args.kind ?? 'git',
+      toSshExecutionHostId(args.connectionId),
+      args.displayName
+    )
   }
 
   async setupClone(args: ProjectHostSetupCloneArgs): Promise<ProjectHostSetupResult> {

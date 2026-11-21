@@ -1,3 +1,8 @@
+import { MANAGER_RUNTIME_CAPABILITIES } from '../../manager-event-contract'
+import { PREVIEW_RUNTIME_CAPABILITIES } from '../../preview-runtime-capabilities'
+import { SKILL_LIBRARY_RUNTIME_CAPABILITIES } from '../../skill-library-contract'
+export { MANAGER_EVENTS_RUNTIME_CAPABILITY } from '../../manager-event-contract'
+export { AI_VAULT_EXECUTION_HOSTS_CAPABILITY } from '../../ai-vault/contracts/ai-vault-runtime-capabilities'
 import {
   PROJECT_GROUP_UPDATE_MANY_RUNTIME_CAPABILITY,
   PROJECT_ROOT_ORDER_RUNTIME_CAPABILITY
@@ -50,6 +55,8 @@ import {
 // changed field meaning (units/nullability), framing or auth; optional fields, new methods and ignorable events are additive.
 // Raise minimum client/server versions to refuse unsupported peers; never require equal app versions.
 
+export const BROWSER_DESIGN_MODE_RUNTIME_CAPABILITY = 'browser.design-mode.v1' as const
+
 export const RUNTIME_PROTOCOL_VERSION = 3
 export const MIN_COMPATIBLE_RUNTIME_CLIENT_VERSION = 2
 export const MIN_COMPATIBLE_RUNTIME_SERVER_VERSION = 2
@@ -75,6 +82,11 @@ export const SAVED_RESUME_ORIGIN_RUNTIME_CAPABILITY =
 export const RUNTIME_CAPABILITIES = /* @__PURE__ */ (() =>
   [
     ...EMULATOR_RUNTIME_CAPABILITIES,
+    ...MANAGER_RUNTIME_CAPABILITIES,
+    ...PREVIEW_RUNTIME_CAPABILITIES,
+    ...SKILL_LIBRARY_RUNTIME_CAPABILITIES,
+    'pairing.administration.v1',
+    'network.agentForward.v1',
     SAVED_RESUME_ORIGIN_RUNTIME_CAPABILITY,
     ...HOST_RUNTIME_CAPABILITIES,
     ...DEVICE_KEY_RUNTIME_CAPABILITIES,

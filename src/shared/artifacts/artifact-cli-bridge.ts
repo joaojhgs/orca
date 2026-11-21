@@ -7,7 +7,7 @@ export function sshArtifactSourceKey(targetId: string, sourceKey: string): strin
 export type RemoteArtifactInput = {
   sourceKey: string
   fileName: string
-  contentType?: 'text/html' | 'text/markdown'
+  contentType?: 'text/html' | 'text/markdown' | 'application/pdf'
 }
 
 export function normalizeRemoteArtifactInput(value: unknown): RemoteArtifactInput | null {
@@ -20,7 +20,8 @@ export function normalizeRemoteArtifactInput(value: unknown): RemoteArtifactInpu
     !input.sourceKey ||
     typeof input.fileName !== 'string' ||
     !input.fileName ||
-    (input.contentType !== undefined && !['text/html', 'text/markdown'].includes(input.contentType))
+    (input.contentType !== undefined &&
+      !['text/html', 'text/markdown', 'application/pdf'].includes(input.contentType))
   ) {
     return null
   }

@@ -11,6 +11,7 @@ export type UsageProviderSettings = Pick<
 > & {
   // Antigravity setup is a checked item plus PATH detection; agy usage needs no Gemini OAuth.
   antigravityUsageConfigured: boolean
+  antigravityAuthConfigured?: boolean
   // Why: MiniMax/Grok sign-in live on disk, not in settings; main sets these each poll.
   minimaxCookieConfigured: boolean
   minimaxApiKeyConfigured: boolean
@@ -63,6 +64,7 @@ export function hasUsageProviderSettings(
     (settings?.codexManagedAccounts?.length ?? 0) > 0 ||
     (settings?.claudeManagedAccounts?.length ?? 0) > 0 ||
     settings?.geminiCliOAuthEnabled === true ||
+    settings?.antigravityAuthConfigured === true ||
     Boolean(settings?.opencodeSessionCookie?.trim()) ||
     settings?.opencodeGoApiKeyConfigured === true ||
     settings?.antigravityUsageConfigured === true ||
@@ -97,8 +99,10 @@ export function hasUsageProviderSettingsForProvider(
     )
   }
   if (providerId === 'antigravity') {
-    // The agy probe needs only the PATH-gated checked item, independent of Gemini OAuth.
-    return settings.antigravityUsageConfigured === true
+    // Why: remote credentials remain configured even when agy is not installed on the controller.
+    return (
+      settings.antigravityAuthConfigured === true || settings.antigravityUsageConfigured === true
+    )
   }
   if (providerId === 'minimax') {
     return settings.minimaxCookieConfigured === true || settings.minimaxApiKeyConfigured === true

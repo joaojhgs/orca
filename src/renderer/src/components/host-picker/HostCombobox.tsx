@@ -130,6 +130,12 @@ export function HostCombobox({
           aria-expanded={open}
           aria-label={ariaLabel}
           disabled={disabled}
+          onKeyDown={(event) => {
+            if (!disabled && !open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+              event.preventDefault()
+              changeOpen(true)
+            }
+          }}
           className={cn(inline ? 'min-w-0 shrink' : 'w-full justify-between', className)}
         >
           {selected?.triggerContent ?? (

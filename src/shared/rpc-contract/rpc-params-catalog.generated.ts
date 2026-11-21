@@ -3,11 +3,7 @@
 import type { z } from 'zod'
 import { AntigravityChatAuthConfigSchema } from '../agent-accounts/antigravity/antigravity-chat-auth-config'
 import { HostAccountLaunchEnvParams } from '../agent-launch/startup/host-account-launch-env'
-import {
-  AiVaultSearchRequestSchema,
-  AiVaultSearchStatusRequestSchema,
-  AiVaultSetSearchEnabledParamsSchema
-} from '../ai-vault/search/ai-vault-search-contract'
+import { AiVaultSetSearchEnabledParamsSchema } from '../ai-vault/search/ai-vault-search-contract'
 import { UsageCallParams } from '../backend/backend-service-contract'
 import {
   BotGroupCreate,
@@ -38,8 +34,11 @@ import {
   DesktopBrowserBridgeResultChunkParams,
   DesktopBrowserBridgeResultParams
 } from '../browser/client-hosting/desktop-browser-bridge-protocol'
+import { CdpBrowserParams, CdpControlParams, CdpTargetsParams } from '../cdp-relay-contract'
+import { LocalSkillPublishParams, LocalSkillRevokeParams } from '../local-skill-sharing'
 import { MobileWebBundleChunkParamsSchema } from '../mobile-web-bundle/bundle-rpc-contract'
 import { MobileWebBundleLocaleCatalogParamsSchema } from '../mobile-web-bundle/locale-catalog-contract'
+import { NetworkForwardRoutesParams, NetworkForwardTicketParams } from '../network-forward-contract'
 import { OrcadMigrationBlobChunkRequestSchema } from '../orcad-migration/orcad-migration-blob-transfer'
 import { OrcadMigrationSnapshotChunkRequestSchema } from '../orcad-migration/orcad-migration-scrollback'
 import {
@@ -64,6 +63,7 @@ import {
 } from '../remote-runtime/relay/mobile-relay-credential-contract'
 import { MobileRelayHostWorktreesParamsSchema } from '../remote-runtime/relay/mobile-relay-hosts-contract'
 import {
+  AccountControlParams,
   AccountsUnsubscribeParams,
   AddClaudeFromConfigDirParams,
   AddCodexFromHomeParams,
@@ -109,8 +109,14 @@ import {
   AiVaultListSessionsParams,
   AiVaultPrepareSessionHandoffParams,
   AiVaultPrepareSessionResumeParams,
+  AiVaultSearchSessionsParams,
+  AiVaultSearchStatusParams,
   AiVaultSessionTitlesParams
 } from './ai-vault/ai-vault-params'
+import {
+  ArtifactPublishingApprovalCheckParams,
+  ArtifactPublishingApprovalRequestParams
+} from './artifact-publishing-approval-params'
 import {
   ArtifactsDeleteParams,
   ListOptions,
@@ -234,6 +240,11 @@ import {
   BotToolsList
 } from './bots-tools-params'
 import { BotWorkForget, BotWorkList } from './bots-work-params'
+import {
+  BrowserWebProxyOpen,
+  GrabAwaitSelection,
+  GrabCaptureScreenshot
+} from './browser-grab-params'
 import { CertificateProceed, PageZoom, Reload } from './browser/browser-core-params'
 import { ExtensionList, ExtensionReload } from './browser/browser-extension-params'
 import { MouseClick } from './browser/browser-extras-params'
@@ -320,6 +331,8 @@ import {
 } from './clipboard/clipboard-params'
 import {
   ComputerCapabilitiesParams,
+  ComputerDesktopStreamTicketParams,
+  ComputerDesktopTargetsParams,
   ComputerPermissionsStatusParams
 } from './computer/computer-params'
 import {
@@ -346,6 +359,7 @@ import {
   ConnectorSlackMirrorSet,
   ConnectorSlackMirrorStatus
 } from './connectors/connector-params'
+import { DiagnosticsSessionsParams } from './diagnostics-params'
 import {
   AttachParams as AttachParamsOfEmulatorParams,
   AxParams,
@@ -609,9 +623,47 @@ import {
 } from './linear/linear-params'
 import { CreateProject } from './linear/linear-project-create-params'
 import { LinkPreviewGetParams } from './link-preview/link-preview-params'
+import {
+  ManagerConversationCreateParams,
+  ManagerConversationListParams,
+  ManagerConversationPostParams,
+  ManagerConversationReadParams,
+  ManagerConversationSendParams,
+  ManagerConversationShowParams
+} from './manager-conversation-params'
+import {
+  ManagerCheckpointParams,
+  ManagerClaimParams,
+  ManagerEventsReadParams,
+  ManagerEventsWaitParams,
+  ManagerIssueParams,
+  ManagerMailboxAckParams,
+  ManagerMailboxCheckParams,
+  ManagerQuestionAnswerParams,
+  ManagerReleaseParams,
+  ManagerRenewParams,
+  ManagerRevokeParams,
+  ManagerRunCreateParams,
+  ManagerRunListParams,
+  ManagerRunShowParams,
+  ManagerSessionGuideParams,
+  ManagerSessionReadParams,
+  ManagerSnapshotParams,
+  ManagerTaskCreateParams,
+  ManagerTaskListParams,
+  ManagerTaskShowParams,
+  ManagerUpdateGrantParams,
+  ManagerWorkerGuideParams,
+  ManagerWorkerReadParams,
+  ManagerWorkerShowParams,
+  ManagerWorkerStartParams
+} from './manager-params'
+import { MulticaListIssues, MulticaListProjects } from './multica-params'
 import { NativeChatSession, NativeChatUnsubscribe } from './native-chat/native-chat-params'
 import {
   NotificationGetMissedSinceParams,
+  NotificationPolicyTargetsParams,
+  NotificationPolicyUpdateParams,
   NotificationRegisterPushParams,
   NotificationReportDesktopPresenceParams,
   NotificationUnsubscribeParams,
@@ -688,6 +740,10 @@ import {
 } from './orchestration/orchestration-worker-release-schemas-params'
 import { WorkerStartParams } from './orchestration/orchestration-worker-start-params'
 import { WorkerDispatchParams as WorkerDispatchParamsOfOrchestrationWorkerStopParams } from './orchestration/orchestration-worker-stop-params'
+import {
+  PairingAdministrationDeviceParams,
+  PairingAdministrationQrParams
+} from './pairing-administration-params'
 import {
   PluginCatalogAddParams,
   PluginCatalogRemoveParams,
@@ -953,6 +1009,7 @@ import {
   TerminalUpdateViewport
 } from './terminal/terminal-viewport-schemas-params'
 import { UpdaterCheckParams } from './updater/updater-params'
+import { UsageAnalyticsParams } from './usage-analytics-params'
 import {
   WebhookCallShow,
   WebhookCalls,
@@ -966,6 +1023,7 @@ import {
   WebhookSecret,
   WebhooksList
 } from './webhooks-params'
+import { WorkspaceCleanupControlParams } from './workspace-cleanup-params'
 import {
   WorkspaceCleanupCodexHistoryDiskUsageParams,
   WorkspaceCleanupPreviewParams,
@@ -1020,6 +1078,17 @@ import { WorktreeAdoptProvisionedRoot } from './workspaces/worktree-provisioned-
 import { RepoIconDataUrlsParams } from '../sidebar-list/catalog/repo-icon-data-urls-contract'
 import { SidebarInputsReadParams } from '../sidebar-list/feed/sidebar-inputs-feed-contract'
 import {
+  SkillLibraryAssignParams,
+  SkillLibraryAssignmentParams,
+  SkillLibraryDiscoverParams,
+  SkillLibraryImportParams,
+  SkillLibraryPreviewParams,
+  SkillLibraryReconcileParams,
+  SkillLibraryVersionParams,
+  SkillLibraryVersionPreviewParams
+} from '../skill-library-contract'
+import { SkillLibraryLinkParams } from '../skill-library-link-contract'
+import {
   BundledSkillAutoUpdateRequestSchema,
   BundledSkillExecuteRequestSchema,
   BundledSkillPlanRequestSchema
@@ -1037,6 +1106,7 @@ import {
   SkillUploadChunkRequestSchema,
   SkillUploadCommitRequestSchema
 } from '../skills/sharing/skill-upload-session-contract'
+import { ComputerDesktopActionParams } from '../vnc-agent-contract'
 
 // Why: the host parses params with these schemas, so a client that matches this map
 // matches the dispatcher. Clients must import it for types only — parsing a params
@@ -1062,6 +1132,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'accounts.beginClaudeSignIn': BeginClaudeSignInParams,
   'accounts.cancelClaudeSignIn': FinishClaudeSignInParams,
   'accounts.consumeCodexResetCredit': ConsumeCodexResetCreditParams,
+  'accounts.control': AccountControlParams,
   'accounts.finishClaudeSignIn': FinishClaudeSignInParams,
   'accounts.hostSignInCancel': HostAccountSignInFlowParams,
   'accounts.hostSignInStart': HostAccountSignInStartParams,
@@ -1086,6 +1157,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'accounts.setHostLaunchEnv': HostAccountLaunchEnvParams,
   'accounts.subscribe': null,
   'accounts.unsubscribe': AccountsUnsubscribeParams,
+  'accounts.usage': null,
   'accounts.zcodePlanClearApiKey': null,
   'accounts.zcodePlanCredentialsStatus': null,
   'accounts.zcodePlanSaveApiKey': UsageCredentialApiKeyParams,
@@ -1165,11 +1237,13 @@ export const RPC_PARAMS_BY_METHOD = {
   'aiVault.prepareSessionHandoff': AiVaultPrepareSessionHandoffParams,
   'aiVault.prepareSessionResume': AiVaultPrepareSessionResumeParams,
   'aiVault.resolveSessionTitles': AiVaultSessionTitlesParams,
-  'aiVault.searchSessions': AiVaultSearchRequestSchema,
-  'aiVault.searchStatus': AiVaultSearchStatusRequestSchema,
+  'aiVault.searchSessions': AiVaultSearchSessionsParams,
+  'aiVault.searchStatus': AiVaultSearchStatusParams,
   'aiVault.setSearchEnabled': AiVaultSetSearchEnabledParamsSchema,
+  'artifacts.authStatus': null,
   'artifacts.delete': ArtifactsDeleteParams,
   'artifacts.getPublishedLink': SourceRequest,
+  'artifacts.hostingStatus': null,
   'artifacts.list': ListOptions,
   'artifacts.publish': WriteRequest,
   'artifacts.share': WriteRequest,
@@ -1360,7 +1434,9 @@ export const RPC_PARAMS_BY_METHOD = {
   'browser.get': Get,
   'browser.goto': Goto,
   'browser.grab.await': GrabAwait,
+  'browser.grab.awaitSelection': GrabAwaitSelection,
   'browser.grab.cancel': BrowserTarget,
+  'browser.grab.captureScreenshot': GrabCaptureScreenshot,
   'browser.grab.captureSelection': GrabCaptureSelection,
   'browser.grab.extractHover': BrowserTarget,
   'browser.grab.setMode': GrabSetMode,
@@ -1427,14 +1503,21 @@ export const RPC_PARAMS_BY_METHOD = {
   'browser.upload': Upload,
   'browser.viewport': Viewport,
   'browser.wait': Wait,
+  'browser.webProxyOpen': BrowserWebProxyOpen,
   'browser.zoom': PageZoom,
   'clipboard.abortImageUpload': AbortImageUpload,
   'clipboard.appendImageUploadChunk': AppendImageUploadChunk,
   'clipboard.commitImageUpload': CommitImageUpload,
   'clipboard.saveImageAsTempFile': SaveImageAsTempFile,
   'clipboard.startImageUpload': StartImageUpload,
+  'computer.browserControl': CdpControlParams,
+  'computer.browserTargets': CdpTargetsParams,
+  'computer.browserTicket': CdpBrowserParams,
   'computer.capabilities': ComputerCapabilitiesParams,
   'computer.click': Click,
+  'computer.desktopAction': ComputerDesktopActionParams,
+  'computer.desktopStreamTicket': ComputerDesktopStreamTicketParams,
+  'computer.desktopTargets': ComputerDesktopTargetsParams,
   'computer.drag': DragOfComputerSchemasParams,
   'computer.getAppState': ComputerObserveTarget,
   'computer.hotkey': Hotkey,
@@ -1460,6 +1543,8 @@ export const RPC_PARAMS_BY_METHOD = {
   'desktopBrowserBridge.result': DesktopBrowserBridgeResultParams,
   'desktopBrowserBridge.resultChunk': DesktopBrowserBridgeResultChunkParams,
   'diagnostics.memory': null,
+  'diagnostics.sessions': DiagnosticsSessionsParams,
+  'emulator.agentScreenshot': AxParams,
   'emulator.attach': AttachParamsOfEmulatorParams,
   'emulator.availability': EmulatorAvailabilityParams,
   'emulator.ax': AxParams,
@@ -1475,6 +1560,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'emulator.logcat': LogcatParams,
   'emulator.permissions': PermissionsParams,
   'emulator.rotate': RotateParams,
+  'emulator.screenshot': AxParams,
   'emulator.shutdown': ShutdownParams,
   'emulator.syncKeyboardLayout': ListParams,
   'emulator.tap': TapParams,
@@ -1795,6 +1881,42 @@ export const RPC_PARAMS_BY_METHOD = {
   'managedServer.status': ManagedServerSelector,
   'managedServer.stop': ManagedServerSelector,
   'managedServer.update': ManagedServerUpdate,
+  'manager.consumerClaim': ManagerClaimParams,
+  'manager.consumerRelease': ManagerReleaseParams,
+  'manager.consumerRenew': ManagerRenewParams,
+  'manager.conversationCreate': ManagerConversationCreateParams,
+  'manager.conversationPost': ManagerConversationPostParams,
+  'manager.conversationRead': ManagerConversationReadParams,
+  'manager.conversationSend': ManagerConversationSendParams,
+  'manager.conversationShow': ManagerConversationShowParams,
+  'manager.conversationsList': ManagerConversationListParams,
+  'manager.eventsCheckpoint': ManagerCheckpointParams,
+  'manager.eventsRead': ManagerEventsReadParams,
+  'manager.eventsWait': ManagerEventsWaitParams,
+  'manager.issue': ManagerIssueParams,
+  'manager.mailboxAck': ManagerMailboxAckParams,
+  'manager.mailboxCheck': ManagerMailboxCheckParams,
+  'manager.placements': ManagerSnapshotParams,
+  'manager.principalsList': ManagerConversationListParams,
+  'manager.questionAnswer': ManagerQuestionAnswerParams,
+  'manager.resources': ManagerSnapshotParams,
+  'manager.revoke': ManagerRevokeParams,
+  'manager.runCreate': ManagerRunCreateParams,
+  'manager.runList': ManagerRunListParams,
+  'manager.runShow': ManagerRunShowParams,
+  'manager.sessionGuide': ManagerSessionGuideParams,
+  'manager.sessionList': ManagerSnapshotParams,
+  'manager.sessionRead': ManagerSessionReadParams,
+  'manager.snapshot': ManagerSnapshotParams,
+  'manager.taskCreate': ManagerTaskCreateParams,
+  'manager.taskList': ManagerTaskListParams,
+  'manager.taskShow': ManagerTaskShowParams,
+  'manager.updateGrant': ManagerUpdateGrantParams,
+  'manager.usage': ManagerSnapshotParams,
+  'manager.workerGuide': ManagerWorkerGuideParams,
+  'manager.workerRead': ManagerWorkerReadParams,
+  'manager.workerShow': ManagerWorkerShowParams,
+  'manager.workerStart': ManagerWorkerStartParams,
   'markdown.readTab': ActivateTab,
   'markdown.saveTab': SaveMarkdownTab,
   'mobileRelay.hosts.list': null,
@@ -1805,11 +1927,20 @@ export const RPC_PARAMS_BY_METHOD = {
   'mobileWeb.bundle.localeCatalog': MobileWebBundleLocaleCatalogParamsSchema,
   'mobileWeb.bundle.manifest': null,
   'mobileWeb.bundle.range': MobileWebBundleChunkParamsSchema,
+  'multica.listIssues': MulticaListIssues,
+  'multica.listProjects': MulticaListProjects,
+  'multica.listWorkspaces': null,
   'nativeChat.readSession': NativeChatSession,
   'nativeChat.subscribe': NativeChatSession,
   'nativeChat.unsubscribe': NativeChatUnsubscribe,
   'network.browserTunnel': BrowserNetworkTunnelAttachParams,
+  'network.forwardRoutes': NetworkForwardRoutesParams,
+  'network.forwardTicket': NetworkForwardTicketParams,
   'notifications.getMissedSince': NotificationGetMissedSinceParams,
+  'notifications.policyDevices': null,
+  'notifications.policyRead': null,
+  'notifications.policyTargets': NotificationPolicyTargetsParams,
+  'notifications.policyUpdate': NotificationPolicyUpdateParams,
   'notifications.registerPush': NotificationRegisterPushParams,
   'notifications.reportDesktopPresence': NotificationReportDesktopPresenceParams,
   'notifications.subscribe': NotificationsSubscribeParams,
@@ -1890,6 +2021,13 @@ export const RPC_PARAMS_BY_METHOD = {
   'orchestration.workerStop': WorkerDispatchParamsOfOrchestrationWorkerStopParams,
   'orchestration.workerTerminalUserInput': OrchestrationWorkerSubjectParams,
   'orchestration.workerTranscript': WorkerTranscriptParams,
+  'pairing.admin.getPairingQR': PairingAdministrationQrParams,
+  'pairing.admin.isWebSocketReady': null,
+  'pairing.admin.listDevices': null,
+  'pairing.admin.listNetworkInterfaces': null,
+  'pairing.admin.listRuntimeAccessGrants': null,
+  'pairing.admin.revokeDevice': PairingAdministrationDeviceParams,
+  'pairing.admin.revokeRuntimeAccess': PairingAdministrationDeviceParams,
   'pairing.createOffer': PairingCreateOfferParamsSchema,
   'pairing.delegatedMobileDevice.sync': DelegatedMobileDeviceSyncParamsSchema,
   'pairing.exchangeTicket': ExchangePairingTicketParamsSchema,
@@ -1995,11 +2133,13 @@ export const RPC_PARAMS_BY_METHOD = {
   'session.tabs.unsubscribe': SessionTabsUnsubscribe,
   'session.tabs.unsubscribeAll': SessionTabsUnsubscribeAllParams,
   'session.tabs.updatePaneLayout': UpdatePaneLayout,
+  'settings.checkArtifactPublishingApproval': ArtifactPublishingApprovalCheckParams,
   'settings.get': null,
   'settings.getAgentLaunch': null,
   'settings.getTerminalQuickCommands': null,
   'settings.mutateAgentLaunch': AgentLaunchSettingsMutation,
   'settings.mutateNativeChatSessionOptions': NativeChatSessionOptionsMutation,
+  'settings.requestArtifactPublishingApproval': ArtifactPublishingApprovalRequestParams,
   'settings.update': SettingsUpdate,
   'settings.updatePRBotAuthorOverride': PRBotAuthorOverrideUpdate,
   'settings.updateTerminalQuickCommands': TerminalQuickCommandsUpdate,
@@ -2025,6 +2165,19 @@ export const RPC_PARAMS_BY_METHOD = {
   'skills.getInstallProgress': SkillsGetInstallProgressParams,
   'skills.install': SkillInstallRequestSchema,
   'skills.installBundle': SkillBundleInstallRequestSchema,
+  'skills.library.assign': SkillLibraryAssignParams,
+  'skills.library.deleteVersion': SkillLibraryVersionParams,
+  'skills.library.discover': SkillLibraryDiscoverParams,
+  'skills.library.discoverUrl': SkillLibraryLinkParams,
+  'skills.library.import': SkillLibraryImportParams,
+  'skills.library.list': null,
+  'skills.library.listShares': null,
+  'skills.library.preview': SkillLibraryPreviewParams,
+  'skills.library.previewVersion': SkillLibraryVersionPreviewParams,
+  'skills.library.reconcile': SkillLibraryReconcileParams,
+  'skills.library.revokeShare': LocalSkillRevokeParams,
+  'skills.library.share': LocalSkillPublishParams,
+  'skills.library.unassign': SkillLibraryAssignmentParams,
   'skills.listManagedInstalls': null,
   'skills.planBundledOrca': BundledSkillPlanRequestSchema,
   'skills.previewDelete': SkillDeleteRequestSchema,
@@ -2118,6 +2271,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'updater.download': null,
   'updater.getStatus': null,
   'updater.install': null,
+  'usage.analytics': UsageAnalyticsParams,
   'usage.call': UsageCallParams,
   'webhooks.call': WebhookCallShow,
   'webhooks.calls': WebhookCalls,
@@ -2131,6 +2285,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'webhooks.sample': WebhookSample,
   'webhooks.secret': WebhookSecret,
   'workspaceCleanup.codexHistoryDiskUsage': WorkspaceCleanupCodexHistoryDiskUsageParams,
+  'workspaceCleanup.control': WorkspaceCleanupControlParams,
   'workspaceCleanup.preview': WorkspaceCleanupPreviewParams,
   'workspaceCleanup.releaseCodexHistoryDiskUsage':
     WorkspaceCleanupReleaseCodexHistoryDiskUsageParams,
@@ -2143,6 +2298,8 @@ export const RPC_PARAMS_BY_METHOD = {
   'workspacePorts.probePage': WorkspacePortProbePageParams,
   'workspacePorts.scan': WorkspacePortScanParams,
   'workspacePorts.scanHost': WorkspacePortScanHostParams,
+  'workspaceSpace.analyze': null,
+  'workspaceSpace.cancel': null,
   'worktree.activate': WorktreeActivate,
   'worktree.adoptProvisionedRoot': WorktreeAdoptProvisionedRoot,
   'worktree.archive': WorktreeArchive,

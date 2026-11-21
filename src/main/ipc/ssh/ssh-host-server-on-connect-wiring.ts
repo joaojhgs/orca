@@ -189,3 +189,5 @@ export function hostServerOnConnectDeps(userDataPath: string): HostServerOnConne
     }
   }
 }
+
+export { installLegacyRelayBridgeApplication } from '../../ssh/legacy-relay/bridge/legacy-relay-bridge-application'
