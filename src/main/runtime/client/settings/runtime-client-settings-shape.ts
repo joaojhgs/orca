@@ -39,6 +39,7 @@ export type RuntimeClientSettings = Pick<
   | 'artifactSharingEnabled'
   | 'worktreeVisibilityDefaults'
   | 'agentSkillSharingEnabled'
+  | 'pluginSystemEnabled'
   | 'machineName'
   | 'nativeChatPermissionMode'
   | 'nativeChatQueueFollowUps'

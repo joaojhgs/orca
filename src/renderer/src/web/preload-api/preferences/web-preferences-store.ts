@@ -165,6 +165,14 @@ export async function getRuntimeBackedStoredSettings(): Promise<GlobalSettings> 
         result.settings.prBotAuthorOverrides
       )
     }
+    if (
+      currentEnvironment?.id === requestedEnvironment.id &&
+      (currentEnvironment.pairingRevision ?? currentEnvironment.createdAt) ===
+        (requestedEnvironment.pairingRevision ?? requestedEnvironment.createdAt) &&
+      typeof result.settings.pluginSystemEnabled === 'boolean'
+    ) {
+      runtimeSettings.pluginSystemEnabled = result.settings.pluginSystemEnabled
+    }
     Object.assign(runtimeSettings, runtimeChatPermissionSetting(result.settings))
     chatSettings.publish(requestedEnvironment, result.settings)
     // Read-only host capability; a host without a sharing service omits it, which must not keep a stale local grant.

@@ -28,6 +28,35 @@ describe('web settings preload API', () => {
     })
   })
 
+  it('follows the host plugin switch instead of a stale browser preference', async () => {
+    let enabled = true
+    vi.doMock('../../runtime/client/web-runtime-client', () => ({
+      WebRuntimeClient: class {
+        call(): Promise<RuntimeRpcResponse<unknown>> {
+          return Promise.resolve({
+            id: 'plugin-settings-read',
+            ok: true,
+            result: { settings: { pluginSystemEnabled: enabled } },
+            _meta: { runtimeId: 'runtime-1' }
+          })
+        }
+        close(): void {}
+      }
+    }))
+    const globals = installBrowserGlobals('Linux')
+    writeStoredRuntimeEnvironment(globals.storage)
+    globals.storage.setItem('orca.web.settings.v1', JSON.stringify({ pluginSystemEnabled: false }))
+    const { installWebPreloadApi } = await import('../../web-preload-api')
+    installWebPreloadApi()
+    await expect(globals.window.api.settings.get()).resolves.toMatchObject({
+      pluginSystemEnabled: true
+    })
+    enabled = false
+    await expect(globals.window.api.settings.get()).resolves.toMatchObject({
+      pluginSystemEnabled: false
+    })
+  })
+
   it('keeps a completed settings merge when the paired host is removed mid-read', async () => {
     let resolveSettings!: (value: RuntimeRpcResponse<unknown>) => void
     const settingsRead = new Promise<RuntimeRpcResponse<unknown>>(

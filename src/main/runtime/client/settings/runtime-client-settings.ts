@@ -135,6 +135,7 @@ export class RuntimeClientSettingsController {
       ...(this.sharingServices?.skills() === false
         ? {}
         : { agentSkillSharingEnabled: isAgentSkillSharingEnabled(settings) }),
+      pluginSystemEnabled: settings.pluginSystemEnabled !== false,
       machineName: settings.machineName ?? '',
       // A paired browser dictates through this host, which refuses unless these allow it.
       voice: {
