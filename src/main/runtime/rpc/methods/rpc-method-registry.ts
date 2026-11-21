@@ -1,3 +1,4 @@
+import { PLUGIN_MANAGEMENT_METHODS } from './plugins/plugin-management'
 import { BROWSER_GRAB_COMPAT_METHODS } from './browser-grab'
 import { NETWORK_FORWARD_METHODS } from './network-forward'
 import { MULTICA_METHODS } from './multica'
@@ -251,6 +252,7 @@ const SERVICE_RPC_METHODS = [
   ...WORKSPACE_PORT_METHODS,
   ...LINK_PREVIEW_METHODS,
   ...PLUGIN_METHODS,
+  ...PLUGIN_MANAGEMENT_METHODS,
   ...PLUGIN_VIEW_METHODS,
   ...PLUGIN_DEV_EMIT_METHODS,
   ...PLUGIN_DEV_REQUEST_METHODS,

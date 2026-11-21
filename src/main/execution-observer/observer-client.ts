@@ -1,6 +1,9 @@
 import { quotePowerShellLiteral as powerShellLiteral } from '../../shared/shell/launch/powershell-native-argument'
 import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import {
+  currentWorkerEntryLayout,
+  resolveWorkerThreadEntryPath
+} from '../worker-threads/worker-thread-entry-path'
 import { z } from 'zod'
 import {
   executionCredentialSchema,
@@ -26,7 +29,12 @@ import {
 
 export class ExecutionObserverClient {
   private bundle: Promise<string> | null = null
-  constructor(private readonly bundlePath = join(__dirname, 'execution-observer.cjs')) {}
+  constructor(
+    private readonly bundlePath = resolveWorkerThreadEntryPath(
+      currentWorkerEntryLayout(__dirname),
+      'execution-observer.cjs'
+    )
+  ) {}
 
   async observe(request: ExecutionObserverRequest, connection?: SshConnection): Promise<unknown> {
     this.bundle ??= readFile(this.bundlePath, 'utf8').catch((error) => {

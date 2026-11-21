@@ -26,6 +26,8 @@ import type { PtyProcessInspection } from './pty-process-inspection'
 import { spawnWithTerminalRuntimeRepair, type TerminalRepairHook } from './ssh-pty-spawn-repair'
 import { createSshPtyProviderRpcOperations } from './ssh-pty-provider-rpc-operations'
 import { createSshPtyProcessLister } from './ssh-pty-process-list'
+import { remoteResourceSnapshotSchema } from '../memory/remote-resource-snapshot-schema'
+import type { RemoteResourceSnapshot } from '../memory/remote-resource-provider-registry'
 import {
   installSshPtyLegacyRelayDelegation,
   type SshPtyLegacyRelayRouting
@@ -121,6 +123,12 @@ export class SshPtyProvider implements IPtyProvider {
   }
 
   getConnectionId = (): string => this.connectionId
+
+  async getResourceSnapshot(): Promise<RemoteResourceSnapshot> {
+    return remoteResourceSnapshotSchema.parse(
+      await this.mux.request('resource.snapshot', undefined, { timeoutMs: 5_000 })
+    )
+  }
 
   canProvideAuthoritativeBufferSnapshot = (_id: string): boolean => false
 

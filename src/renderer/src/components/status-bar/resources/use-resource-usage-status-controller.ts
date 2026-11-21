@@ -39,6 +39,7 @@ import { useResourcePtyActions } from './pty/use-resource-pty-actions'
 import { useResourceMemorySnapshot } from './use-resource-memory-snapshot'
 import { trackResourceManagerOpen } from './resource-manager-open-request'
 import { useTranslate } from '@/i18n/use-translate'
+import { isWebClientLocation } from '@/app-shell/platform/web-client-location'
 
 let lastSelectedResourceTab: 'resources' | 'ptys' = 'resources'
 
@@ -73,7 +74,11 @@ export function useResourceUsageStatusController() {
   const ptyViewActive = windowVisible && open && selectedTab === 'ptys'
   const viewActive = resourceViewActive || ptyViewActive
   const fetchSnapshot = useResourceMemorySnapshot(resourceViewActive)
-  const localPtyInventory = useResourceSessionInventory(workspaceSessionReady, ptyViewActive, true)
+  const localPtyInventory = useResourceSessionInventory(
+    workspaceSessionReady,
+    ptyViewActive,
+    !isWebClientLocation()
+  )
   const ptyActions = useResourcePtyActions(localPtyInventory)
   const [sortOption, setSortOption] = useState<SortOption>('memory')
   const [collapsedRepos, setCollapsedRepos] = useState<Set<string>>(new Set())

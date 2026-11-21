@@ -1327,10 +1327,7 @@ export class SshRelaySession {
       collect: async () => {
         let snapshot: RemoteResourceSnapshot
         try {
-          // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: resource.snapshot is the relay's typed resource response; older relays take the compatibility path below.
-          snapshot = (await mux.request('resource.snapshot', undefined, {
-            timeoutMs: 5_000
-          })) as RemoteResourceSnapshot
+          snapshot = await ptyProvider.getResourceSnapshot()
         } catch (error) {
           if (!isMethodNotFoundError(error)) {
             throw error

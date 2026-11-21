@@ -26332,7 +26332,11 @@
       "selectAll": "Select all terminals",
       "selectAllShort": "Select all",
       "endSelected": "End selected ({{count}})",
-      "selectNamed": "Select {{terminal}}"
+      "selectNamed": "Select {{terminal}}",
+      "connectedHostsCount": "{{count}} Orca PTYs across connected hosts",
+      "connectedHostsCount_one": "{{count}} Orca PTY across connected hosts",
+      "connectedHostsCount_other": "{{count}} Orca PTYs across connected hosts",
+      "noOrcaPtys": "No Orca PTYs"
     },
     "resources": "Resources",
     "ptys": "PTYs",

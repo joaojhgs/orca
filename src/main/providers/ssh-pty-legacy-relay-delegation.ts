@@ -11,6 +11,7 @@ import { toAppSshPtyId, toRelaySshPtyId } from './ssh-pty-id'
 import type { SshPtyProvider } from './ssh-pty-provider'
 import type { SshPtyAttachResult } from './ssh-pty-session-reattach'
 import type { PtySpawnOptions, PtySpawnResult } from './types'
+import type { RemoteResourceWorktree } from '../memory/remote-resource-provider-registry'
 import { writeRefused } from '../../shared/terminal/pty/lifecycle/pty-write-settlement'
 
 export type SshPtyLegacyRelayRouting = {
@@ -106,6 +107,7 @@ export function installSshPtyLegacyRelayDelegation(
     pauseProducer: provider.pauseProducer.bind(provider),
     resumeProducer: provider.resumeProducer.bind(provider),
     listProcesses: provider.listProcesses,
+    getResourceSnapshot: provider.getResourceSnapshot.bind(provider),
     write: provider.write,
     writeWithSettlement: provider.writeWithSettlement,
     resize: provider.resize,
@@ -251,5 +253,40 @@ export function installSshPtyLegacyRelayDelegation(
         )
     ])
     return [...current, ...previous.flat()]
+  }
+  provider.getResourceSnapshot = async () => {
+    const previousProviders = routing.servedProviders()
+    const [current, ...previous] = await Promise.all([
+      own.getResourceSnapshot(),
+      ...previousProviders.map(async (legacy) => {
+        const snapshot = await legacy.getResourceSnapshot()
+        return snapshot.worktrees
+          .map((worktree) => ({
+            ...worktree,
+            sessions: worktree.sessions.filter(
+              (session) =>
+                routed(toAppSshPtyId(provider.getConnectionId(), session.sessionId)) === legacy
+            )
+          }))
+          .filter((worktree) => worktree.sessions.length > 0)
+      })
+    ])
+    const worktrees = new Map<string | null, RemoteResourceWorktree>()
+    const seen = new Set<string>()
+    for (const worktree of [...current.worktrees, ...previous.flat()]) {
+      const row = worktrees.get(worktree.worktreeId) ?? {
+        worktreeId: worktree.worktreeId,
+        sessions: []
+      }
+      for (const session of worktree.sessions) {
+        if (seen.has(session.sessionId)) {
+          continue
+        }
+        seen.add(session.sessionId)
+        row.sessions.push(session)
+      }
+      worktrees.set(worktree.worktreeId, row)
+    }
+    return { ...current, worktrees: [...worktrees.values()] }
   }
 }

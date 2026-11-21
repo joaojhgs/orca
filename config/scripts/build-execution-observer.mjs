@@ -13,6 +13,21 @@ await build({
   banner: { js: "__filename = require('node:path').resolve('.orca-execution-observer.cjs');" },
   plugins: [
     {
+      name: 'observer-cursor-sqlite-reader',
+      setup(builder) {
+        // The observer already runs in an isolated process; SSH caches carry no desktop worker files.
+        builder.onResolve({ filter: /foreign-sqlite-reader-spawn$/ }, () => ({
+          path: 'cursor-profile',
+          namespace: 'observer-reader'
+        }))
+        builder.onLoad({ filter: /.*/, namespace: 'observer-reader' }, () => ({
+          contents: `import { readCursorProfile } from ${JSON.stringify(resolve('src/main/foreign-sqlite-readers/readers/cursor-profile.ts'))}; export async function readCursorDesktopProfile(path) { return readCursorProfile(path); }`,
+          loader: 'js',
+          resolveDir: resolve('.')
+        }))
+      }
+    },
+    {
       name: 'observer-node-network',
       setup(builder) {
         builder.onResolve({ filter: /^electron$/ }, () => ({

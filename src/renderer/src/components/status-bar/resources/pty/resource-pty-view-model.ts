@@ -54,6 +54,7 @@ export type ResourcePtyGroup = {
 }
 
 export function buildResourcePtyRows(args: {
+  includeRemote?: boolean
   sessions: readonly PtyListedSession[]
   bindings: ResourceSessionBindingInputs
   worktrees: readonly Worktree[]
@@ -64,13 +65,14 @@ export function buildResourcePtyRows(args: {
   const repoById = new Map(args.repos.map((repo) => [repo.id, repo]))
   const localRepos = new Map(
     args.repos
-      .filter((repo) => getRepoExecutionHostId(repo) === 'local')
+      .filter((repo) => args.includeRemote || getRepoExecutionHostId(repo) === 'local')
       .map((repo) => [repo.id, repo])
   )
   const worktrees = new Map(
     args.worktrees
       .filter(
         (workspace) =>
+          args.includeRemote ||
           getWorktreeExecutionHostId(
             workspace,
             workspace.repoId ? repoById.get(workspace.repoId) : undefined
@@ -82,6 +84,7 @@ export function buildResourcePtyRows(args: {
     args.worktrees
       .filter(
         (workspace) =>
+          !args.includeRemote &&
           getWorktreeExecutionHostId(
             workspace,
             workspace.repoId ? repoById.get(workspace.repoId) : undefined
@@ -104,7 +107,9 @@ export function buildResourcePtyRows(args: {
   const bindings = buildResourceSessionBindingIndex({
     ...args.bindings,
     tabsByWorktree,
-    deferredSshSessionIdsByTabId: {},
+    deferredSshSessionIdsByTabId: args.includeRemote
+      ? args.bindings.deferredSshSessionIdsByTabId
+      : {},
     ptyIdsByTabId,
     terminalLayoutsByTabId
   })
@@ -112,7 +117,8 @@ export function buildResourcePtyRows(args: {
     args.projectGroups
       .filter(
         (group) =>
-          !group.connectionId && (!group.executionHostId || group.executionHostId === 'local')
+          args.includeRemote ||
+          (!group.connectionId && (!group.executionHostId || group.executionHostId === 'local'))
       )
       .map((group) => [group.id, group.name])
   )

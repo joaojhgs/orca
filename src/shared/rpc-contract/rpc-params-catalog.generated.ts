@@ -47,6 +47,7 @@ import {
   WorkerApprovalsUnsubscribeParams
 } from '../orchestration/orchestration-crew'
 import { PeerRunCancelParams } from '../orchestration/remote-owned-wire'
+import { PluginManagementParams } from '../plugins/plugin-management-contract'
 import {
   OrcadDeclareClientParamsSchema,
   OrcadPeerDesktopsParamsSchema
@@ -2048,6 +2049,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'plugins.install': PluginInstallParams,
   'plugins.invokeCommand': PluginInvokeCommandParams,
   'plugins.list': null,
+  'plugins.management': PluginManagementParams,
   'plugins.open': PluginOpenParams,
   'plugins.panelAction': PluginsPanelActionParams,
   'plugins.readPanelEntry': PluginReadPanelEntryParams,
@@ -2059,6 +2061,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'plugins.shotChrome': PluginShotChromeParams,
   'plugins.shotEditor': PluginShotEditorParams,
   'plugins.shotReplay': PluginShotReplayParams,
+  'plugins.subscribe': null,
   'plugins.uninstall': PluginUninstallParams,
   'plugins.update': PluginUpdateParams,
   'preflight.check': PreflightCheck,

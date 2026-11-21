@@ -17,6 +17,7 @@ import { PluginSettingsOverview } from './PluginSettingsOverview'
 import { PluginsAlphaNotice } from './PluginsAlphaNotice'
 import { PluginsSectionDescription } from './PluginsSectionDescription'
 import { getPluginsSectionPresentation } from '../../settings/plugins/plugins-search'
+import { hasRuntimeRpcErrorCode } from '../../../../../shared/remote-runtime/rpc/runtime-rpc-error-code'
 import { SettingsSection } from '../../settings/section-layout/SettingsSection'
 import { usePluginLogs } from '../state/use-plugin-logs'
 import { usePluginMarketplaceLifecycle } from '../state/use-plugin-marketplace-lifecycle'
@@ -263,7 +264,11 @@ export function PluginsSettingsSection({
       }
     } catch (cause) {
       if (mountedRef.current) {
-        setPluginListError(cause)
+        if (hasRuntimeRpcErrorCode(cause, 'approval_required')) {
+          review.show(plugin.pluginKey)
+        } else {
+          setPluginListError(cause)
+        }
       }
     } finally {
       clearBusy(plugin.pluginKey)

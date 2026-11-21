@@ -335,3 +335,51 @@ describe('SshPtyProvider delegation to an earlier build relay', () => {
     )
   })
 })
+
+describe('resource samples across preserved relays', () => {
+  it('includes served older sessions and excludes terminals owned by another client', async () => {
+    const { provider, currentMux, legacyMux, served } = setup()
+    served.add(HELD)
+    const host = {
+      totalMemory: 1024,
+      freeMemory: 256,
+      availableMemory: 512,
+      availableMemorySource: 'proc-meminfo',
+      usedMemory: 512,
+      memoryUsagePercent: 50,
+      cpuCoreCount: 2,
+      loadAverage1m: 0
+    }
+    currentMux.request.mockResolvedValue({
+      host,
+      worktrees: [
+        {
+          worktreeId: 'repo::/workspace',
+          sessions: [{ sessionId: 'pty2:new:1', paneKey: null, pid: 101, cpu: 1, memory: 4096 }]
+        }
+      ]
+    })
+    legacyMux.request.mockResolvedValue({
+      host,
+      worktrees: [
+        {
+          worktreeId: 'repo::/workspace',
+          sessions: [
+            { sessionId: 'pty2:old:1', paneKey: null, pid: 102, cpu: 2, memory: 8192 },
+            { sessionId: 'pty2:old:2', paneKey: null, pid: 103, cpu: 4, memory: 16384 }
+          ]
+        }
+      ]
+    })
+    const snapshot = await provider.getResourceSnapshot()
+    expect(snapshot.worktrees).toEqual([
+      {
+        worktreeId: 'repo::/workspace',
+        sessions: [
+          { sessionId: 'pty2:new:1', paneKey: null, pid: 101, cpu: 1, memory: 4096 },
+          { sessionId: 'pty2:old:1', paneKey: null, pid: 102, cpu: 2, memory: 8192 }
+        ]
+      }
+    ])
+  })
+})

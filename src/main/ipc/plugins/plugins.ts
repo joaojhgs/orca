@@ -1,3 +1,5 @@
+import { registerPluginManagementIpc } from './plugin-management-ipc'
+import type { PluginManagementMethod } from '../../../shared/plugins/plugin-management-contract'
 import { ipcMain } from 'electron'
 import { z } from 'zod'
 import type { Store } from '../../persistence/loading-store/store'
@@ -98,26 +100,29 @@ export function registerPluginHandlers(
 ): void {
   // All handlers must await startup discovery to avoid returning a pre-discovery empty list.
   ipcMain.handle('plugins:list', async () => listPluginsForClients(pluginService))
-  ipcMain.handle('plugins:getInstalledManifest', async (_event, args: unknown) => {
+  registerPluginManagementIpc('getInstalledManifest', async (args: unknown) => {
     const { pluginKey } = logsArgsSchema.parse(args)
     return readInstalledPluginManifest(pluginService, pluginKey)
   })
-  const handleContentPacks = (channel: string, read: (arg: unknown) => unknown): void => {
-    ipcMain.handle(channel, async (_event, arg: unknown) => {
+  const handleContentPacks = (
+    channel: PluginManagementMethod,
+    read: (arg: unknown) => unknown
+  ): void => {
+    registerPluginManagementIpc(channel, async (arg: unknown) => {
       await pluginService.whenReady()
       return read(arg)
     })
   }
   const { contentPacks } = pluginService
-  handleContentPacks('plugins:listLanguagePacks', () => contentPacks.languagePacks.list())
-  handleContentPacks('plugins:listThemes', () => contentPacks.themes.list())
-  handleContentPacks('plugins:listTerminalThemes', () => contentPacks.terminalThemes.list())
-  handleContentPacks('plugins:listIconThemes', () => contentPacks.iconThemes.list())
-  handleContentPacks('plugins:loadIconTheme', (id) =>
+  handleContentPacks('listLanguagePacks', () => contentPacks.languagePacks.list())
+  handleContentPacks('listThemes', () => contentPacks.themes.list())
+  handleContentPacks('listTerminalThemes', () => contentPacks.terminalThemes.list())
+  handleContentPacks('listIconThemes', () => contentPacks.iconThemes.list())
+  handleContentPacks('loadIconTheme', (id) =>
     typeof id === 'string' ? contentPacks.iconThemes.load(id) : null
   )
-  handleContentPacks('plugins:listSyntaxes', () => contentPacks.syntaxes.list())
-  handleContentPacks('plugins:loadSyntax', (id) =>
+  handleContentPacks('listSyntaxes', () => contentPacks.syntaxes.list())
+  handleContentPacks('loadSyntax', (id) =>
     typeof id === 'string' ? contentPacks.syntaxes.load(id) : null
   )
   ipcMain.handle('plugins:consent', async (_event, args: unknown) => {
@@ -205,11 +210,11 @@ export function registerPluginHandlers(
     return pluginService.invokeCommand(parsed.pluginKey, parsed.commandId, parsed.args, startBy)
   })
 
-  ipcMain.handle('plugins:resolveGitSource', async (_event, args: unknown) =>
+  registerPluginManagementIpc('resolveGitSource', async (args: unknown) =>
     resolvePluginGitSource(resolveGitSourceArgsSchema.parse(args))
   )
 
-  ipcMain.handle('plugins:install', async (_event, args: unknown) => {
+  registerPluginManagementIpc('install', async (args: unknown) => {
     await pluginService.whenReady()
     const parsed = parsePluginInstallArgs(args)
     const pluginsDir = getUserPluginsDir(pluginService.options.userDataPath)

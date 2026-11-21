@@ -131,22 +131,18 @@ export function buildRemoteSettingsSections(
       searchEntries: getExperimentalPaneSearchEntries(),
       group: 'experimental'
     },
-    ...(showDesktopOnlySettings
-      ? [
-          {
-            id: 'plugins',
-            title: t('auto.hooks.useSettingsNavigationMetadata.pluginsTitle', 'Plugins'),
-            description: t(
-              'auto.hooks.useSettingsNavigationMetadata.pluginsDescription',
-              'Install and manage Orca plugins (Alpha).'
-            ),
-            icon: Blocks,
-            searchEntries: getPluginsPaneSearchEntries(),
-            group: 'experimental',
-            badge: getPluginsSectionPresentation(t).badge
-          }
-        ]
-      : [])
+    {
+      id: 'plugins',
+      title: t('auto.hooks.useSettingsNavigationMetadata.pluginsTitle', 'Plugins'),
+      description: t(
+        'auto.hooks.useSettingsNavigationMetadata.pluginsDescription',
+        'Install and manage Orca plugins (Alpha).'
+      ),
+      icon: Blocks,
+      searchEntries: getPluginsPaneSearchEntries(),
+      group: 'experimental',
+      badge: getPluginsSectionPresentation(t).badge
+    }
   ]
 }
 

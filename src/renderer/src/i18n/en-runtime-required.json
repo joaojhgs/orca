@@ -2893,6 +2893,9 @@
   },
   "resourceManager": {
     "pty": {
+      "connectedHostsCount": "{{count}} Orca PTYs across connected hosts",
+      "connectedHostsCount_one": "{{count}} Orca PTY across connected hosts",
+      "connectedHostsCount_other": "{{count}} Orca PTYs across connected hosts",
       "localOwnedCount_one": "{{count}} Orca PTY on this computer",
       "localOwnedCount_other": "{{count}} Orca PTYs on this computer"
     }
