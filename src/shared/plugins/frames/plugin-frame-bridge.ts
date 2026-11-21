@@ -83,7 +83,7 @@ export type PluginPanelActionCall = z.infer<typeof panelActionCallSchema>
  * Where a desktop frame loads as an isolated `<webview>` guest (plugin-frame-guest.ts). `dev`: a
  * development folder's, whose URL changes on every save (components panels hot reload then).
  */
-export type PluginFrameGuest = { partition: string; url: string; dev?: true }
+export type PluginFrameGuest = { partition: string; url: string; dev?: true; web?: true }
 
 export type PluginFrameEntry = {
   html: string

@@ -1,5 +1,5 @@
-import { defineMethod, type RpcContext } from '../../core'
-import type { PluginFrameEntry } from '../../../../../shared/plugins/frames/plugin-frame-bridge'
+import { bindRpcPanelOwner } from './plugin-frame-owner'
+import { defineMethod } from '../../core'
 import { listPluginsForClients } from '../../../../plugins/discovery/plugin-client-list'
 import type { PluginHostListEntry } from '../../../../../shared/plugins/plugin-list-entry'
 import type { PluginService } from '../../../../plugins/plugin-service'
@@ -10,7 +10,6 @@ import {
   PluginDevUnloadParams,
   PluginGetLogsParams,
   PluginInvokeCommandParams,
-  PluginReadPanelEntryParams,
   PluginRestartParams,
   PluginRpcConsentParams,
   PluginSetEnabledParams,
@@ -87,17 +86,6 @@ async function listEntryForRpc(pluginKey: string | null): Promise<PluginHostList
 
 async function listForRpc(): Promise<PluginHostListEntry[]> {
   return listPluginsForClients(requirePluginService())
-}
-
-function rpcPanelOwner(context: RpcContext): string {
-  // Bind bearer sessions to individual paired connections, even for sibling sockets of one device.
-  return `runtime:${context.connectionId ?? context.clientId ?? 'local'}`
-}
-
-function bindRpcPanelOwner(service: PluginService, context: RpcContext): string {
-  const ownerKey = rpcPanelOwner(context)
-  service.panels.bindOwnerSignal(ownerKey, context.signal)
-  return ownerKey
 }
 
 export const PLUGIN_METHODS = [
@@ -292,22 +280,6 @@ export const PLUGIN_METHODS = [
       return {
         outcome: await service.panels.execute(bindRpcPanelOwner(service, context), params)
       }
-    }
-  }),
-  defineMethod({
-    name: 'plugins.readPanelEntry',
-    permission: 'workspace',
-    params: PluginReadPanelEntryParams,
-    handler: async (params, context): Promise<PluginFrameEntry | null> => {
-      const service = requirePluginService()
-      await service.whenReady()
-      const ownerKey = bindRpcPanelOwner(service, context)
-      const entry = await service.panels.open(ownerKey, params.pluginKey, params.panelId)
-      if (context.signal?.aborted) {
-        service.panels.revokeOwner(ownerKey)
-        return null
-      }
-      return entry
     }
   }),
   defineMethod({

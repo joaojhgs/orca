@@ -1,3 +1,4 @@
+import { BROWSER_FRAME_GUARD } from './plugin-browser-frame-guard'
 import { EDITOR_METHODS, FRAME_EVENTS, type PluginFrameTheme } from './plugin-frame-bridge'
 import { PLUGIN_ERROR_CODES, PLUGIN_PROTOCOL_VERSION } from './plugin-protocol'
 import { PLUGIN_DECLARATIVE_POST_GLOBAL, PLUGIN_FRAME_TRANSPORT_GLOBAL } from './plugin-frame-guest'
@@ -37,13 +38,16 @@ export type PluginFrameSurface = 'panel' | 'editor'
 
 /** How the frame script reaches the host: `window.parent` (srcdoc iframe) or the guest preload;
  *  a declarative host page also gets Orca's boot script a way to post `ui.*` events. */
-type FrameTransport = 'parent' | 'guest' | 'declarative-guest'
+type FrameTransport = 'parent' | 'guest' | 'declarative-guest' | 'declarative-parent'
 
 /** The frozen `window.orca` every frame gets before plugin code runs: the public frame API.
  *  The envelope underneath is internal. `api` and `has` start from this host's table, so they work
  *  synchronously; `hello` confirms them and carries the theme. */
 function frameApiScript(surface: PluginFrameSurface, transport: FrameTransport): string {
-  const methods = pluginFrameMethodsFor(surface, transport !== 'parent')
+  const methods = pluginFrameMethodsFor(
+    surface,
+    transport === 'guest' || transport === 'declarative-guest'
+  )
   const config = JSON.stringify({
     protocol: PLUGIN_PROTOCOL_VERSION,
     surface,
@@ -62,8 +66,14 @@ function frameApiScript(surface: PluginFrameSurface, transport: FrameTransport):
     // A save dialog waits on the person, so gesture methods get a long deadline.
     userDeadlineMs: 30 * 60_000,
     userMethodList: Object.values(PLUGIN_FRAME_USER_METHODS),
-    transportGlobal: transport === 'parent' ? null : PLUGIN_FRAME_TRANSPORT_GLOBAL,
-    declarativePost: transport === 'declarative-guest' ? PLUGIN_DECLARATIVE_POST_GLOBAL : null
+    transportGlobal:
+      transport === 'parent' || transport === 'declarative-parent'
+        ? null
+        : PLUGIN_FRAME_TRANSPORT_GLOBAL,
+    declarativePost:
+      transport === 'declarative-guest' || transport === 'declarative-parent'
+        ? PLUGIN_DECLARATIVE_POST_GLOBAL
+        : null
   }).replaceAll('<', '\\u003c')
   return `;(function (C) {
   var E = C.events
@@ -302,9 +312,15 @@ export const PLUGIN_GUEST_CSP =
 export function buildPluginGuestShellHtml(
   pluginHtml: string,
   surface: PluginFrameSurface = 'panel',
-  options: { declarative?: boolean; theme?: PluginFrameTheme | null } = {}
+  options: { declarative?: boolean; theme?: PluginFrameTheme | null; browser?: boolean } = {}
 ): string {
-  const transport = options.declarative ? 'declarative-guest' : 'guest'
+  const transport = options.browser
+    ? options.declarative
+      ? 'declarative-parent'
+      : 'parent'
+    : options.declarative
+      ? 'declarative-guest'
+      : 'guest'
   const theme = options.theme
   // Why baked in: plugins that read tokens at boot, and the first paint, must not wait for `hello`.
   const scheme =
@@ -313,6 +329,6 @@ export function buildPluginGuestShellHtml(
   return (
     `<!doctype html>\n<html${scheme ? ` class="${scheme}"` : ''}>\n<head>\n<meta charset="utf-8">\n` +
     `<style id="${PANEL_SHELL_TOKENS_STYLE_ID}">:root{${tokens}}</style>\n` +
-    `<script>\n'use strict'\n${frameApiScript(surface, transport)}</script>\n</head>\n${pluginHtml}`
+    `<script>\n'use strict'\n${options.browser ? BROWSER_FRAME_GUARD : ''}${frameApiScript(surface, transport)}</script>\n</head>\n${pluginHtml}`
   )
 }

@@ -120,6 +120,7 @@ export async function initializeMainProcessPlugins(core: DesktopCore, store: Sto
     getDevPluginPaths: () => normalizePluginIdList(store.getSettings().devPluginPaths),
     getKeybindings: () => core.keybindings?.getOverrides() ?? {},
     getPluginKillListEntry: (pluginKey) => core.pluginKillListService?.find(pluginKey) ?? null,
+    declarativeRuntimePath: join(bundledPluginRoot, '../declarative/orca-runtime.mjs'),
     hostEntryPath: resolvePluginHostEntryPath(app.getAppPath(), app.isPackaged),
     getDesktopFrameServices: getPluginDesktopFrameServices,
     statusBar: new PluginStatusBarState(),

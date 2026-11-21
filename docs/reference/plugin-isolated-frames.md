@@ -75,8 +75,8 @@ Every plugin frame on desktop is an Electron `<webview>`:
   for one machine and `=1` on, overriding the
   `experimentalPluginIsolatedFrames` setting; all are main-process only. Off, frames use the `srcdoc` iframe
   (never offered `orca.shell`/`orca.files`), and components panels say they are not available.
-- **Compatibility**: existing single-file plugins load unchanged. Browser clients (serve/web) have no
-  `<webview>` and keep the `srcdoc` iframe; multi-file assets need the desktop app. With isolation on, a
+- **Compatibility**: existing single-file plugins load unchanged. Browser clients (serve/web) use the isolated HTTP frame service when configured (below); otherwise
+  they keep the single-file `srcdoc` iframe. With isolation on, a
   desktop guest that cannot be set up fails closed (the panel shows its load error and its session is
   revoked); the iframe is never a fallback for a setup failure. On the guest path no `srcdoc` HTML is read,
   hashed or sent over IPC; the guest's own navigation is the one integrity check per open.
@@ -136,3 +136,21 @@ press on a stationary Orca-drawn control grants one call (see
   dialog left open while the plugin is disabled or uninstalled writes nothing. Dialogs and rate budgets bind
   to the window whose frame made the call (its WebContents travels with the IPC call).
 - `orca.locale`: Orca's UI locale from `hello` (guests' `navigator.language` follows the OS).
+
+## Isolated frames in paired browsers
+
+Set `ORCA_PLUGIN_FRAME_DOMAIN` to a dedicated wildcard subdomain and
+`ORCA_PLUGIN_FRAME_PARENT_ORIGIN` to the public HTTPS Orca origin. Each plugin receives its own
+hash-named HTTPS origin under that domain; never serve these frames from Orca's origin.
+The reverse proxy must forward these origins to the runtime HTTP listener and refuse WebSocket
+upgrades. `GET /__orca_plugin_tls?domain=...` admits certificates only for live, approved frame
+origins; expose it only to the reverse proxy's certificate manager.
+
+Frame URLs carry random, bounded tickets issued after paired RPC opens the approved contribution.
+The HTTP-only, secure, host-only cookie admits that plugin's assets; it cannot access another plugin
+or Orca's page. Tickets stop authorizing files when the paired connection/session is revoked.
+The existing plugin protocol still enforces containment, manifest approval, integrity, MIME types,
+stream limits and source transpilation. CSP restricts network access to the plugin origin and denies
+nested frames, forms and objects. Sandbox, permissions policy and origin isolation keep plugin DOM,
+storage and workers separate from Orca. Browser panels share the normal document, host-call,
+components-state and worker-push bridges; desktop OS dialogs remain desktop-only.

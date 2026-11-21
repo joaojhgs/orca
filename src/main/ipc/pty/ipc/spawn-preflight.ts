@@ -14,10 +14,12 @@ import { getConnectionExecutionHostId } from '../../../../shared/execution-host/
 
 export async function preparePtyIpcSpawnPreflight(ctx: PtyIpcSpawnState): Promise<void> {
   const args = ctx.args
-  // Establish local daemon identity before yielding so early output can be hidden; SSH execution is rejected here.
+  // Establish local daemon identity before yielding; the SSH relay mints its own fresh ids.
   ctx.provider = getProvider(getConnectionExecutionHostId(args.connectionId))
   ctx.isDaemonHostSpawn =
-    !(ctx.provider instanceof LocalPtyProvider) && !routesFreshSpawnsToLocalProvider(ctx.provider)
+    !args.connectionId &&
+    !(ctx.provider instanceof LocalPtyProvider) &&
+    !routesFreshSpawnsToLocalProvider(ctx.provider)
   ctx.ownsNewIncarnation = args.sessionId === undefined && ctx.isDaemonHostSpawn
   ctx.effectiveSessionId =
     args.sessionId ?? (ctx.isDaemonHostSpawn ? mintPtySessionId(args.worktreeId) : undefined)
@@ -64,7 +66,9 @@ export async function preparePtyIpcSpawnPreflight(ctx: PtyIpcSpawnState): Promis
     await freshSpawnRecovery
     const previousHiddenMarkId = ctx.preSpawnHiddenMarkId
     ctx.isDaemonHostSpawn =
-      !(ctx.provider instanceof LocalPtyProvider) && !routesFreshSpawnsToLocalProvider(ctx.provider)
+      !args.connectionId &&
+      !(ctx.provider instanceof LocalPtyProvider) &&
+      !routesFreshSpawnsToLocalProvider(ctx.provider)
     ctx.ownsNewIncarnation = args.sessionId === undefined && ctx.isDaemonHostSpawn
     ctx.effectiveSessionId =
       args.sessionId ?? (ctx.isDaemonHostSpawn ? mintPtySessionId(args.worktreeId) : undefined)

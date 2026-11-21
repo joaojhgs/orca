@@ -68,7 +68,10 @@ import { CLIENT_UI_METHODS } from './client-state/client-ui'
 import { CLIENT_EVENT_METHODS } from './client-events/client-events'
 import { WORKSPACE_PORT_METHODS } from './workspace-ports/workspace-ports'
 import { LINK_PREVIEW_METHODS } from './link-preview/link-preview'
+import { PLUGIN_STATUS_METHODS } from './plugins/plugin-status-methods'
 import { PLUGIN_METHODS } from './plugins/plugins'
+import { PLUGIN_FRAME_METHODS } from './plugins/plugin-frame-methods'
+import { PLUGIN_PANEL_DATA_METHODS } from './plugins/plugin-panel-data-methods'
 import { PLUGIN_VIEW_METHODS } from './plugins/plugin-view'
 import { PLUGIN_DEV_EMIT_METHODS } from './plugins/plugin-dev-emit'
 import { PLUGIN_DEV_REQUEST_METHODS } from './plugins/plugin-dev-request'
@@ -252,6 +255,9 @@ const SERVICE_RPC_METHODS = [
   ...WORKSPACE_PORT_METHODS,
   ...LINK_PREVIEW_METHODS,
   ...PLUGIN_METHODS,
+  ...PLUGIN_FRAME_METHODS,
+  ...PLUGIN_PANEL_DATA_METHODS,
+  ...PLUGIN_STATUS_METHODS,
   ...PLUGIN_MANAGEMENT_METHODS,
   ...PLUGIN_VIEW_METHODS,
   ...PLUGIN_DEV_EMIT_METHODS,

@@ -52,6 +52,7 @@ import {
 } from './frame-serving/plugin-frame-source-serving'
 
 export type PluginFrameProtocolDependencies = {
+  browser?: boolean
   /** Installed, enabled and consented plugins only. */
   findApprovedPluginByFrameKey: (frameKey: string) => ValidDiscoveredPlugin | null
   /** Defaults to hashing the tree with per-file digests (plugin-frame-integrity.ts). */
@@ -205,7 +206,8 @@ export function createPluginFrameRequestHandler(
                 : bytes.toString('utf8'),
               documentSurface(plugin, relativePath),
               {
-                theme: dependencies.currentTheme?.()
+                theme: dependencies.currentTheme?.(),
+                browser: dependencies.browser
               }
             ),
             'utf8'
@@ -281,7 +283,8 @@ async function readOrcaFile(
   }
   const html = buildPluginGuestShellHtml(buildPluginDeclarativeHostBody(entry), 'panel', {
     declarative: true,
-    theme: dependencies.currentTheme?.()
+    theme: dependencies.currentTheme?.(),
+    browser: dependencies.browser
   })
   return { contentType: pluginFrameContentType(file), bytes: Buffer.from(html, 'utf8') }
 }

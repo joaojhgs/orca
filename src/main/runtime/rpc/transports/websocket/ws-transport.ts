@@ -3,6 +3,7 @@ import { createServer as createHttpServer, type Server as HttpServer } from 'nod
 import type { Socket } from 'node:net'
 import { WebSocketServer, type WebSocket } from 'ws'
 import type { RpcTransport } from '../../transport'
+import { withWebPluginFrames } from '../../../../plugins/panels/web-frames/web-plugin-frame-http'
 import { answerWithoutWebClient, createStaticWebClientHandler } from './static-web-client-handler'
 import {
   attachDesktopVncWebSocketBridge,
@@ -228,7 +229,9 @@ export class WebSocketTransport implements RpcTransport {
     await assertPortNotShadowingListener(this.host, port)
     // Without an HTTP request listener, plain HTTP hangs instead of receiving 404 (#30100).
     const httpServer = createHttpServer(
-      this.staticRoot ? createStaticWebClientHandler(this.staticRoot) : answerWithoutWebClient
+      withWebPluginFrames(
+        this.staticRoot ? createStaticWebClientHandler(this.staticRoot) : answerWithoutWebClient
+      )
     )
 
     await new Promise<void>((resolve, reject) => {

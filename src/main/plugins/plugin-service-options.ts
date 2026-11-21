@@ -15,6 +15,7 @@ export type PluginServiceOptions = {
   getDevPluginPaths: () => string[]
   getKeybindings?: () => KeybindingOverrides
   getPluginKillListEntry?: (pluginKey: string) => PluginKillListEntry | null
+  declarativeRuntimePath?: string
   hostEntryPath?: string
   /** Where this release's bundled plugins live; absent where nothing is shipped. */
   bundledPluginRoot?: string

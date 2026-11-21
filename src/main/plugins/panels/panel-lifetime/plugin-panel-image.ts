@@ -1,5 +1,5 @@
-import { z } from 'zod'
-import { isPluginDeclarativeImagePath } from '../../../../shared/plugins/declarative/plugin-declarative-content-props'
+import { pluginPanelImageRequestSchema } from '../../../../shared/plugins/declarative/plugin-panel-image-request'
+export { pluginPanelImageRequestSchema } from '../../../../shared/plugins/declarative/plugin-panel-image-request'
 import {
   PLUGIN_IMAGE_MIME,
   readPluginImageHeader
@@ -8,13 +8,6 @@ import { readContainedPluginArtifactBytes } from '../../artifacts/plugin-contain
 
 /** One `Image` (or Markdown image) file; larger images belong in the plugin's own HTML panels. */
 export const PLUGIN_PANEL_IMAGE_MAX_BYTES = 8 * 1024 * 1024
-
-export const pluginPanelImageRequestSchema = z
-  .object({
-    sessionToken: z.string().min(1).max(256),
-    path: z.string().max(512).refine(isPluginDeclarativeImagePath)
-  })
-  .strict()
 
 export type PluginPanelImage = { contentType: string; bytes: Uint8Array }
 

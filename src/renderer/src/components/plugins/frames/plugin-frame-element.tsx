@@ -51,7 +51,15 @@ export function readPluginGuestMessage(
 export function usablePluginFrameGuest(
   guest: PluginFrameGuest | undefined
 ): PluginFrameGuest | null {
-  return guest && !isWebClientLocation() ? guest : null
+  if (guest?.web && isWebClientLocation()) {
+    try {
+      const url = new URL(guest.url)
+      return url.protocol === 'https:' && url.origin !== window.location.origin ? guest : null
+    } catch {
+      return null
+    }
+  }
+  return guest && !guest.web && !isWebClientLocation() ? guest : null
 }
 
 const focusRefused = new WeakSet<HTMLElement>()
@@ -87,6 +95,26 @@ export function PluginFrameView({
 }: PluginFrameViewProps): React.JSX.Element {
   const setFrame = (element: PluginFrameElement | null): void => {
     frameRef.current = element
+  }
+  if (guest?.web) {
+    return (
+      <iframe
+        ref={setFrame}
+        sandbox="allow-scripts allow-same-origin"
+        referrerPolicy="no-referrer"
+        src={guest.url}
+        name={name}
+        title={title}
+        onLoad={onLoad}
+        className={
+          hidden
+            ? 'pointer-events-none absolute size-0 border-0'
+            : 'min-h-0 w-full flex-1 border-0 bg-background'
+        }
+        aria-hidden={hidden || undefined}
+        tabIndex={hidden ? -1 : undefined}
+      />
+    )
   }
   if (guest && hidden) {
     return (

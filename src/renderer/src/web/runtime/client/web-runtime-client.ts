@@ -27,8 +27,6 @@ import {
   type WebRuntimeTransportSubscriptionHandle
 } from './web-runtime-subscription-contract'
 
-const SHARED_CONNECTION_SUBSCRIPTION_METHODS = new Set(['files.watch'])
-
 export class WebRuntimeClient {
   private readonly transport: WebRuntimeConnectionTransport
   private readonly fileWatchTeardownRetries = new Map<string, Set<() => Promise<void>>>()
@@ -126,8 +124,12 @@ export class WebRuntimeClient {
   ): Promise<WebRuntimeTransportSubscriptionHandle> {
     try {
       throwIfSignalAborted(options?.signal)
-      return SHARED_CONNECTION_SUBSCRIPTION_METHODS.has(method)
-        ? this.subscribeFileWatch(params, callbacks, options)
+      if (method === 'files.watch') {
+        return this.subscribeFileWatch(params, callbacks, options)
+      }
+      // Panel tokens belong to the socket that read the frame entry.
+      return method === 'plugins.subscribePanelPush'
+        ? this.subscribeOnCurrentConnection(method, params, callbacks, options)
         : this.subscribeDedicated(method, params, callbacks, options)
     } catch (error) {
       return Promise.reject(error)

@@ -1,3 +1,4 @@
+import { createWebPluginStatusApi } from './web-plugin-status-api'
 import type { PluginsApi } from '../../../../../preload/api/plugins/plugin-host-api'
 import type { PluginManagementMethod } from '../../../../../shared/plugins/plugin-management-contract'
 import type { PluginHostListEntry } from '../../../../../shared/plugins/plugin-list-entry'
@@ -57,6 +58,65 @@ async function consent(args: Parameters<PluginsApi['consent']>[0]): Promise<Plug
   return unwrapRuntimeRpcResult(response)
 }
 
+function subscribePanelPush(sessionToken: string, listener: (push: unknown) => void): () => void {
+  const owner = requireActiveEnvironment()
+  const revision = owner.pairingRevision ?? owner.createdAt
+  let closed = false
+  let subscription: { unsubscribe: () => void } | undefined
+  void getClientForEnvironment(owner)
+    .subscribe(
+      'plugins.subscribePanelPush',
+      { sessionToken },
+      {
+        onResponse: (response) => {
+          const current = requireActiveEnvironmentOrNull()
+          if (
+            closed ||
+            current?.id !== owner.id ||
+            (current.pairingRevision ?? current.createdAt) !== revision ||
+            !response.ok
+          ) {
+            return
+          }
+          const result: unknown = response.result
+          if (
+            result &&
+            typeof result === 'object' &&
+            'type' in result &&
+            result.type === 'push' &&
+            'push' in result
+          ) {
+            listener(result.push)
+          }
+        }
+      },
+      {
+        assertCurrent: () => {
+          assertEnvironmentPairing(owner.id, revision)
+          if (requireActiveEnvironmentOrNull()?.id !== owner.id) {
+            throw new Error('The active Orca server changed')
+          }
+        },
+        buildUnsubscribe: () => ({
+          method: 'plugins.unsubscribePanelPush',
+          params: { sessionToken }
+        })
+      }
+    )
+    .then((handle) => {
+      if (closed) {
+        handle.unsubscribe()
+      } else {
+        subscription = handle
+      }
+    })
+    .catch(() => undefined)
+  return () => {
+    closed = true
+    subscription?.unsubscribe()
+  }
+}
+
 function onChanged(callback: (event: PluginChangeEvent) => void): () => void {
   const owner = requireActiveEnvironmentOrNull()
   if (!owner) {
@@ -107,6 +167,16 @@ function onChanged(callback: (event: PluginChangeEvent) => void): () => void {
 export function createWebPluginsApi(): Pick<
   PluginsApi,
   | PluginManagementMethod
+  | 'statusBarState'
+  | 'onStatusBarChanged'
+  | 'panelState'
+  | 'panelImage'
+  | 'readPanelEntry'
+  | 'readCustomEditorEntry'
+  | 'readNewFileTemplate'
+  | 'panelAction'
+  | 'invokeCommand'
+  | 'subscribePanelPush'
   | 'list'
   | 'consent'
   | 'setEnabled'
@@ -119,7 +189,34 @@ export function createWebPluginsApi(): Pick<
   | 'onAutoUpdateChanged'
 > {
   return {
+    ...createWebPluginStatusApi(),
     list: () => callRuntimeResult('plugins.list'),
+    panelState: (args) => callRuntimeResult('plugins.panelState', args),
+    panelImage: async (args) => {
+      const image = await callRuntimeResult<{ contentType: string; dataBase64: string } | null>(
+        'plugins.panelImage',
+        args
+      )
+      return image
+        ? {
+            contentType: image.contentType,
+            bytes: Uint8Array.from(atob(image.dataBase64), (char) => char.charCodeAt(0))
+          }
+        : null
+    },
+    readPanelEntry: (args) => callRuntimeResult('plugins.readPanelEntry', args),
+    readCustomEditorEntry: (args) => callRuntimeResult('plugins.readCustomEditorEntry', args),
+    readNewFileTemplate: (args) => callRuntimeResult('plugins.readNewFileTemplate', args),
+    invokeCommand: (args) => callRuntimeResult('plugins.invokeCommand', args),
+    panelAction: async (args) =>
+      (
+        await callRuntimeResult<{ outcome: Awaited<ReturnType<PluginsApi['panelAction']>> }>(
+          'plugins.panelAction',
+          args
+        )
+      ).outcome,
+    subscribePanelPush,
+
     consent,
     setEnabled: (args) => callRuntimeResult('plugins.setEnabled', args),
     remove: async (args) => {

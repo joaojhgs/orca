@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { pluginPanelStateRequestSchema } from '../../plugins/declarative/plugin-declarative-panel-state'
+import { pluginPanelImageRequestSchema } from '../../plugins/declarative/plugin-panel-image-request'
 import { isQualifiedPluginKey } from '../../plugins/frames/plugin-tab-key'
 import {
   PLUGIN_PANEL_REQUEST_MAX_TIMEOUT_MS,
@@ -30,10 +32,35 @@ export const PluginRpcConsentParams = z
   })
   .strip()
 
+const frameThemeParam = z
+  .object({ colorScheme: z.enum(['light', 'dark']), tokens: z.string().max(16 * 1024) })
+  .optional()
+
 export const PluginReadPanelEntryParams = z.object({
   pluginKey: z.string().min(1),
-  panelId: z.string().min(1)
+  panelId: z.string().min(1),
+  theme: frameThemeParam
 })
+
+export const PluginReadCustomEditorEntryParams = z.object({
+  pluginKey: z.string().min(1),
+  editorId: z.string().min(1),
+  theme: frameThemeParam
+})
+
+export const PluginReadNewFileTemplateParams = z.object({
+  pluginKey: z.string().min(1),
+  newFileId: z.string().min(1)
+})
+
+export const PluginPanelSubscribeParams = z
+  .object({
+    sessionToken: z.string().min(32).max(128)
+  })
+  .strict()
+
+export const PluginPanelStateParams = pluginPanelStateRequestSchema
+export const PluginPanelImageParams = pluginPanelImageRequestSchema
 
 export const PluginInvokeCommandParams = z.object({
   pluginKey: z.string().min(1),

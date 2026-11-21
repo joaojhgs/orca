@@ -42,7 +42,7 @@ export async function prepareRuntimePtySpawn(
       await admission
     }
   }
-  // SSH execution is rejected here; remaining preparation belongs to this machine.
+  // The SSH relay mints fresh PTY ids; only local daemon spawns need a host-minted id.
   ctx.provider = getProvider(getConnectionExecutionHostId(args.connectionId))
   const freshSpawnRecovery = ctx.preAdoptedStablePane
     ? undefined
@@ -52,7 +52,9 @@ export async function prepareRuntimePtySpawn(
   }
   ctx.isClaudeLaunch = !ctx.preAdoptedStablePane && isClaudeLaunchCommand(args.command)
   ctx.isDaemonHostSpawn =
-    !(ctx.provider instanceof LocalPtyProvider) && !routesFreshSpawnsToLocalProvider(ctx.provider)
+    !args.connectionId &&
+    !(ctx.provider instanceof LocalPtyProvider) &&
+    !routesFreshSpawnsToLocalProvider(ctx.provider)
   ctx.callerRequestedSessionId = args.sessionId
   ctx.requestedSessionId =
     ctx.callerRequestedSessionId ??
