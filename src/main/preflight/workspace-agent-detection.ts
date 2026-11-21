@@ -30,7 +30,7 @@ import {
   resolveWorktreeHostRouting,
   type WorktreeHostRouting
 } from '../runtime/workspaces/catalog/worktree-launch-host-repo'
-import { SshHostNotServedError } from '../providers/ssh-host-not-served-error'
+import { detectInstalledSshAgents } from './ssh-agent-detection'
 import {
   detectInstalledAgentsWithShellPathHydration,
   refreshShellPathAndDetectAgents,
@@ -161,7 +161,7 @@ export async function detectAgentsOnHost(
 ): Promise<string[]> {
   // Unserved hosts are unverifiable; [] would falsely cache no installed agents.
   if (host.kind === 'ssh') {
-    throw new SshHostNotServedError(host.connectionId)
+    return detectInstalledSshAgents(host.connectionId, options)
   }
   return detectInstalledAgentsWithShellPathHydration(host.context, options)
 }
@@ -180,7 +180,13 @@ export async function refreshAgentsOnHost(
   userInitiated = false
 ): Promise<RefreshAgentsResult> {
   if (host.kind === 'ssh') {
-    throw new SshHostNotServedError(host.connectionId)
+    return {
+      agents: await detectInstalledSshAgents(host.connectionId, options),
+      addedPathSegments: [],
+      shellHydrationOk: true,
+      pathSource: 'shell_hydrate',
+      pathFailureReason: 'none'
+    }
   }
   const wsl = getPreflightWslTarget(host.context)
   const refresh = async (): Promise<RefreshAgentsResult> => {

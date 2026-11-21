@@ -1,3 +1,4 @@
+import { setSshAgentDetectionTransportResolver } from './ssh-agent-detection-transport'
 import type { SshChannelMultiplexer } from '../protocol/ssh-channel-multiplexer'
 import type { SshConnectionStore } from './ssh-connection-store'
 import type { SshConnectionManager } from '../connection/ssh-connection-manager'
@@ -114,6 +115,7 @@ export function setSshActiveMultiplexerResolver(
   resolve: ((targetId: string) => SshChannelMultiplexer | undefined) | null
 ): void {
   registeredGetActiveMultiplexer = resolve
+  setSshAgentDetectionTransportResolver(resolve)
 }
 
 export function getActiveMultiplexer(targetId: string): SshChannelMultiplexer | undefined {

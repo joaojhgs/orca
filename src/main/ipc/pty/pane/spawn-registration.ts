@@ -9,10 +9,8 @@ import {
   isCurrentPtyExit,
   ptyIncarnationById,
   ptyOwnership,
-  setAdoptedPtyOwnership,
-  setPtyOwnership
+  setAdoptedPtyOwnership
 } from '../provider/ownership-state'
-import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host/execution-host'
 import { finishPtyShutdown, isPtyAlreadyGoneError } from '../provider/liveness'
 import { PtyExitProof } from '../../../pty/process-retirement/pty-exit-proof'
 import { errorMessage } from '../../../../shared/errors/error-message'
@@ -31,7 +29,7 @@ export function admitPtySpawnOwnership(
     // Its exit listener already ran; tracking it now would resurrect it.
     return
   } else {
-    setPtyOwnership(result.id, LOCAL_EXECUTION_HOST_ID)
+    setAdoptedPtyOwnership(result.id)
   }
   if (result.incarnationId) {
     ptyIncarnationById.set(result.id, result.incarnationId)

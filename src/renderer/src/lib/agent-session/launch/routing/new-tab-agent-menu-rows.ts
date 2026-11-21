@@ -1,3 +1,4 @@
+import { supportsSshTerminalChat } from '../../../../../../shared/native-chat/ssh-terminal-chat-support'
 import {
   structuredAgentLaunchSupport,
   type AgentLaunchRoutingInput
@@ -6,6 +7,9 @@ import { STRUCTURED_AGENT_SESSION_REGISTERED_AGENTS_RUNTIME_CAPABILITY as CATALO
 import type { HostChatAnswer } from '../../../../../../shared/agent-launch/picker/agent-launch-picker-rows'
 
 export function hostChatAnswer(input: AgentLaunchRoutingInput): HostChatAnswer {
+  if (supportsSshTerminalChat(input)) {
+    return 'yes'
+  }
   const support = structuredAgentLaunchSupport(input)
   if (support.supported) {
     return 'yes'

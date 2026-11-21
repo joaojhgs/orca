@@ -1,4 +1,5 @@
 import { isPtyIncarnationId } from '../../../../shared/terminal/pty/lifecycle/pty-incarnation'
+import { parseAppSshPtyId } from '../../../../shared/remote-runtime/ssh/ssh-pty-id'
 import {
   LOCAL_EXECUTION_HOST_ID,
   toSshExecutionHostId,
@@ -23,7 +24,11 @@ export function setPtyOwnership(id: string, hostId: ExecutionHostId): void {
 }
 
 export function setAdoptedPtyOwnership(id: string): void {
-  ptyOwnership.set(id, ptyOwnership.get(id) ?? LOCAL_EXECUTION_HOST_ID)
+  const ssh = parseAppSshPtyId(id)
+  ptyOwnership.set(
+    id,
+    ssh ? toSshExecutionHostId(ssh.connectionId) : (ptyOwnership.get(id) ?? LOCAL_EXECUTION_HOST_ID)
+  )
 }
 
 export function restorePtyIncarnation(id: string, incarnationId: string): void {

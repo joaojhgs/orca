@@ -1,3 +1,4 @@
+import { supportsSshTerminalChat } from '../../../../../../shared/native-chat/ssh-terminal-chat-support'
 import { nativeChatPreferenceFor } from '../../../../../../shared/agent-launch/choices/structured-native-chat-launch-route'
 import { parseExecutionHostId } from '../../../../../../shared/execution-host/execution-host'
 import { registeredAgentChatInstallable } from '../../../../../../shared/agent-session/agent-discovery/agent-session-registered-agents'
@@ -88,6 +89,9 @@ export function readChatProgram(
   host: { executionHostId: string; hostCapabilities: readonly string[] | null },
   detected: readonly TuiAgent[] | null
 ): ChatProgramObservation {
+  if (supportsSshTerminalChat({ ...host, agent })) {
+    return detected === null ? 'unknown' : detected.includes(agent) ? 'available' : 'missing'
+  }
   const context = hostContext(statuses, host)
   const { executionHostId, runtimeId, pairingRevision, hostCapabilities: capabilities } = context
   const snapshot = readHostStructuredAgentAvailability(executionHostId, runtimeId, pairingRevision)
@@ -147,10 +151,11 @@ export function readAgentLaunchChoice(
       (support.blocker === 'agent-without-structured-session' && !catalogReady))
   const chatEligibility =
     (preferredSurface !== 'chat' && !nativeChatPreferenceFor(store.settings, agent)) ||
-    (!support.supported && !routePending) ||
+    (!support.supported && !supportsSshTerminalChat(input) && !routePending) ||
     program === 'missing'
       ? 'no'
-      : resolveAgentLaunchRoute(input) === 'structured-native-chat' &&
+      : (resolveAgentLaunchRoute(input) === 'structured-native-chat' ||
+            supportsSshTerminalChat(input)) &&
           (chatProgramOffered(program) || detected?.includes(agent))
         ? 'opens'
         : unresolved

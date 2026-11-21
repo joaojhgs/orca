@@ -1,3 +1,4 @@
+import { supportsSshTerminalChat } from '../../../../../../shared/native-chat/ssh-terminal-chat-support'
 import {
   notifyAgentLaunchFailure,
   agentLaunchRecoveryMessage
@@ -286,7 +287,7 @@ export function planAgentSessionLaunch(
 ): AgentSessionLaunchPlan {
   const input = buildAgentLaunchRouteInput(store, request)
   const route = request.requestedSurface
-    ? request.requestedSurface === 'chat'
+    ? request.requestedSurface === 'chat' && !supportsSshTerminalChat(input)
       ? 'structured-native-chat'
       : 'terminal-tui'
     : resolveAgentLaunchRoute(input)

@@ -182,7 +182,7 @@ export function readTranscriptFile(
   signal?: AbortSignal
 ): Promise<{ bytesRead: number; buffer: Buffer }> {
   if (isSshTranscriptHandle(handle)) {
-    return abort.waitForPromiseWithSignal(readSshTranscript(handle), signal)
+    return readSshTranscript(handle, buffer, offset, length, position, signal)
   }
   // Process handle identity overrides path spelling; never route it into native FileHandle reads.
   if (!isWslUncPath(path) && !isWslTranscriptFsProcessHandle(handle)) {

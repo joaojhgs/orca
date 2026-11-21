@@ -1,3 +1,4 @@
+import { sshTerminalChatViewMode } from '../../../../../../shared/native-chat/ssh-terminal-chat-support'
 import { refuseAgentTabLaunch, refuseUnavailableAgentTabLaunch } from './launch-agent-tab-refusal'
 import {
   launchNewTabPromptThroughHost,
@@ -153,6 +154,12 @@ function openAgentInNewTab(
   if ('unavailable' in executionContext) {
     return refuseUnavailableAgentTabLaunch(args, executionContext.unavailable, notifyFailure)
   }
+  const viewMode = sshTerminalChatViewMode({
+    agent,
+    connectionId: executionContext.worktreeSshConnectionId,
+    requestedSurface: args.requestedSurface,
+    settings: store.settings
+  })
   const { resolvedLaunchPlatform, isRemote, queuedShell } = executionContext
   const terminalShell = queuedShell ?? (resolvedLaunchPlatform === 'win32' ? 'powershell' : 'posix')
   const argsProblem = invalidTerminalArgsMessage(agent, agentArgs, terminalShell)
@@ -198,7 +205,7 @@ function openAgentInNewTab(
       actionAgentArgs: args.actionAgentArgs,
       launchPlatform: resolvedLaunchPlatform,
       launchShell: queuedShell,
-      viewMode: 'terminal',
+      viewMode,
       ...(activate === false ? { activate } : {}),
       onPromptDelivered
     })
@@ -274,6 +281,9 @@ function openAgentInNewTab(
       }
     }
   })
+  if (viewMode === 'chat') {
+    store.setTabViewMode(tab.id, 'chat')
+  }
   // Safe for native-prefill agents: delivery skips paste when their draft already arrived at launch.
   if (hasPrompt && promptDelivery === 'draft' && pasteDraftAfterLaunch === null) {
     // Native argv prefill skips the paste callback, so seed the chat composer here.
