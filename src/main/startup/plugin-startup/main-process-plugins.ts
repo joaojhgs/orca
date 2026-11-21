@@ -244,10 +244,7 @@ export async function initializeMainProcessPlugins(core: DesktopCore, store: Sto
   })
   // Bound here, not in the IPC handlers: a headless serve never opens a window to register them.
   const pluginDelegate = bindPluginRuntime(pluginService, runtime, agentHookServer, ALL_RPC_METHODS)
-  bindPluginRpcServices(store, pluginService, {
-    marketplace: core.pluginMarketplaceService,
-    installer: core.pluginMarketplaceInstaller
-  })
+  bindPluginRpcServices(store, core)
   bindPluginDesktopViews(state.isServeMode, pluginService, () => state.mainWindow)
   // Initialization discovers manifests only; workers/panel reads wait for explicit triggers.
   void core.pluginService

@@ -412,7 +412,6 @@
 3 src/main/plugins/appearance/plugin-appearance-service.ts
 2 src/main/plugins/development/plugin-dev-watcher.ts
 2 src/main/plugins/installation/plugin-install-staging.ts
-1 src/main/plugins/installation/plugin-install.ts
 1 src/main/plugins/panels/guest-isolation/plugin-frame-guest-sessions.ts
 1 src/main/plugins/panels/plugin-source-transpile-client.ts
 3 src/main/plugins/storage/plugin-secrets-store.ts

@@ -1,5 +1,7 @@
 import type { PluginManagementMethod } from '../../../shared/plugins/plugin-management-contract'
 
+export type PluginManagementRegistrar = (method: PluginManagementMethod, handler: Handler) => void
+
 type Handler = (args?: unknown) => unknown
 const handlers = new Map<PluginManagementMethod, Handler>()
 

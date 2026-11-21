@@ -1,3 +1,4 @@
+import type { PluginManagementRegistrar } from '../../plugins/management/plugin-management-handlers'
 import { registerPluginManagementIpc } from './plugin-management-ipc'
 import {
   installCatalogReleaseWithApproval,
@@ -72,6 +73,7 @@ export function registerPluginMarketplaceHandlers(
   getSettings: () => GlobalSettings,
   approveConsent: PluginApproveConsent
 ): void {
+  registerPluginMarketplaceManagementHandlers(pluginService, services, getSettings, approveConsent)
   // Why cached only: this runs on every file open, which must never wait on a catalog fetch.
   ipcMain.handle(
     'plugins:suggestForFileType',
@@ -89,6 +91,19 @@ export function registerPluginMarketplaceHandlers(
       })
     }
   )
+  ipcMain.handle(
+    'plugins:takeUpdateReviewNotices',
+    (): Promise<PluginUpdateReviewNotice[]> => services.reviewNotices?.take() ?? Promise.resolve([])
+  )
+}
+
+export function registerPluginMarketplaceManagementHandlers(
+  pluginService: PluginService,
+  services: PluginMarketplaceHandlerServices,
+  getSettings: () => Pick<GlobalSettings, 'pluginSystemEnabled'>,
+  approveConsent: PluginApproveConsent,
+  register: PluginManagementRegistrar = registerPluginManagementIpc
+): void {
   const refreshStaleCatalogs = createStaleMarketplaceRefresh(services.marketplace)
   // Startup defers the official seed; a marketplace view must not wait for that timer.
   const ensureOfficialSeed = async (waitForRefresh: boolean): Promise<void> => {
@@ -116,34 +131,34 @@ export function registerPluginMarketplaceHandlers(
     ])
     clearTimeout(timer)
   }
-  registerPluginManagementIpc('listMarketplaces', async (args: unknown) => {
+  register('listMarketplaces', async (args: unknown) => {
     await ensureOfficialSeed(listMarketplaceSchema.parse(args).waitForRefresh === true)
     return services.marketplace.listSources()
   })
-  registerPluginManagementIpc('addMarketplace', async (args: unknown) => {
+  register('addMarketplace', async (args: unknown) => {
     const source = pluginMarketplaceGitSourceSchema.parse(args)
     return services.marketplace.addSource(source)
   })
-  registerPluginManagementIpc('removeMarketplace', async (args: unknown) => {
+  register('removeMarketplace', async (args: unknown) => {
     const { sourceId } = removeMarketplaceSchema.parse(args)
     await services.marketplace.removeSource(sourceId)
     return services.marketplace.listSources()
   })
-  registerPluginManagementIpc('refreshMarketplaces', async (args: unknown) => {
+  register('refreshMarketplaces', async (args: unknown) => {
     const { sourceId } = refreshMarketplaceSchema.parse(args ?? {})
     return sourceId
       ? [await services.marketplace.refreshSource(sourceId)]
       : services.marketplace.refreshAll()
   })
-  registerPluginManagementIpc('listMarketplacePlugins', async (args: unknown) => {
+  register('listMarketplacePlugins', async (args: unknown) => {
     await ensureOfficialSeed(listMarketplaceSchema.parse(args).waitForRefresh === true)
     return services.marketplace.listPlugins()
   })
-  registerPluginManagementIpc('previewMarketplacePlugin', async (args: unknown) => {
+  register('previewMarketplacePlugin', async (args: unknown) => {
     const parsed = marketplacePluginSchema.parse(args)
     return services.installer.preview(parsed.marketplaceSourceId, parsed.pluginKey)
   })
-  registerPluginManagementIpc('installMarketplacePlugin', async (args: unknown) => {
+  register('installMarketplacePlugin', async (args: unknown) => {
     const { enableIfData, expectedFingerprint, fromInstallLink, ...identity } =
       installMarketplacePluginSchema.parse(args)
     return installCatalogReleaseWithApproval({
@@ -157,7 +172,7 @@ export function registerPluginMarketplaceHandlers(
       ...(enableIfData ? { enableIfData: { expectedFingerprint } } : {})
     })
   })
-  registerPluginManagementIpc('previewMarketplaceUpdate', async (args: unknown) => {
+  register('previewMarketplaceUpdate', async (args: unknown) => {
     const { pluginKey } = installedPluginSchema.parse(args)
     // Why refresh: the review is the user checking for updates, so a stale cached catalog would
     // offer the installed version back ("2.3.1 → 2.3.1, already installed").
@@ -169,26 +184,22 @@ export function registerPluginMarketplaceHandlers(
     }
     return { ...preview, accessGrowth: await readPreviewAccessGrowth(installed, preview) }
   })
-  registerPluginManagementIpc(
+  register(
     'getAutoUpdateState',
     (): PluginAutoUpdateState =>
       services.autoUpdater?.getState() ?? { updated: {}, needsReview: {} }
   )
-  ipcMain.handle(
-    'plugins:takeUpdateReviewNotices',
-    (): Promise<PluginUpdateReviewNotice[]> => services.reviewNotices?.take() ?? Promise.resolve([])
-  )
   // Why never rejects: counts are decoration; a failure just hides them.
-  registerPluginManagementIpc(
+  register(
     'getInstallCounts',
     (): Promise<Record<string, number>> =>
       services.installStats?.getInstallCounts().catch(() => ({})) ?? Promise.resolve({})
   )
-  registerPluginManagementIpc('getRollbackVersion', (args: unknown) => {
+  register('getRollbackVersion', (args: unknown) => {
     const { pluginKey } = installedPluginSchema.parse(args)
     return services.installer.rollbackVersion(pluginKey)
   })
-  registerPluginManagementIpc('rollbackMarketplacePlugin', async (args: unknown) => {
+  register('rollbackMarketplacePlugin', async (args: unknown) => {
     const { pluginKey } = installedPluginSchema.parse(args)
     await pluginService.deactivatePlugin(pluginKey)
     const result = await services.installer.rollback(pluginKey)

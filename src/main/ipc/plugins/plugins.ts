@@ -1,3 +1,4 @@
+import type { PluginManagementRegistrar } from '../../plugins/management/plugin-management-handlers'
 import { registerPluginManagementIpc } from './plugin-management-ipc'
 import type { PluginManagementMethod } from '../../../shared/plugins/plugin-management-contract'
 import { ipcMain } from 'electron'
@@ -93,14 +94,11 @@ import {
   readInstalledPluginManifest
 } from '../../plugins/discovery/plugin-client-list'
 
-export function registerPluginHandlers(
-  store: Store,
+export function registerPluginManagementHandlers(
   pluginService: PluginService,
-  marketplaceServices?: PluginMarketplaceHandlerServices
+  register: PluginManagementRegistrar = registerPluginManagementIpc
 ): void {
-  // All handlers must await startup discovery to avoid returning a pre-discovery empty list.
-  ipcMain.handle('plugins:list', async () => listPluginsForClients(pluginService))
-  registerPluginManagementIpc('getInstalledManifest', async (args: unknown) => {
+  register('getInstalledManifest', async (args: unknown) => {
     const { pluginKey } = logsArgsSchema.parse(args)
     return readInstalledPluginManifest(pluginService, pluginKey)
   })
@@ -108,7 +106,7 @@ export function registerPluginHandlers(
     channel: PluginManagementMethod,
     read: (arg: unknown) => unknown
   ): void => {
-    registerPluginManagementIpc(channel, async (arg: unknown) => {
+    register(channel, async (arg: unknown) => {
       await pluginService.whenReady()
       return read(arg)
     })
@@ -125,6 +123,50 @@ export function registerPluginHandlers(
   handleContentPacks('loadSyntax', (id) =>
     typeof id === 'string' ? contentPacks.syntaxes.load(id) : null
   )
+  register('resolveGitSource', async (args: unknown) =>
+    resolvePluginGitSource(resolveGitSourceArgsSchema.parse(args))
+  )
+
+  register('install', async (args: unknown) => {
+    await pluginService.whenReady()
+    const parsed = parsePluginInstallArgs(args)
+    const pluginsDir = getUserPluginsDir(pluginService.options.userDataPath)
+    const hostVersion = pluginService.options.hostVersion
+    const blockedPluginReason = (pluginKey: string): string | null =>
+      pluginService.options.getPluginKillListEntry?.(pluginKey)?.reason ?? null
+    const result =
+      parsed.kind === 'local-path'
+        ? await installPluginFromLocalPath({
+            pluginsDir,
+            sourcePath: parsed.path,
+            hostVersion,
+            blockedPluginReason
+          })
+        : await installPluginFromGit({
+            pluginsDir,
+            url: parsed.url,
+            ref: parsed.ref,
+            ...(parsed.expectedCommit ? { expectedCommit: parsed.expectedCommit } : {}),
+            hostVersion,
+            blockedPluginReason
+          })
+    if (result.ok) {
+      await pluginService.refresh()
+    }
+    return result
+  })
+
+  registerPluginSettingsHandlers(pluginService, register)
+}
+
+export function registerPluginHandlers(
+  store: Store,
+  pluginService: PluginService,
+  marketplaceServices?: PluginMarketplaceHandlerServices
+): void {
+  registerPluginManagementHandlers(pluginService)
+  // All handlers must await startup discovery to avoid returning a pre-discovery empty list.
+  ipcMain.handle('plugins:list', async () => listPluginsForClients(pluginService))
   ipcMain.handle('plugins:consent', async (_event, args: unknown) => {
     await pluginService.whenReady()
     const parsed = parsePluginConsentArgs(args)
@@ -155,7 +197,6 @@ export function registerPluginHandlers(
   registerPluginPanelPushHandlers(pluginService)
   registerPluginStatusBarHandlers(pluginService)
   registerPluginEditorSaveHookHandler()
-  registerPluginSettingsHandlers(pluginService)
 
   ipcMain.handle('plugins:readNewFileTemplate', async (_event, args: unknown) => {
     const parsed = readNewFileTemplateArgsSchema.parse(args)
@@ -208,39 +249,6 @@ export function registerPluginHandlers(
     const parsed = invokeCommandArgsSchema.parse(args)
     const startBy = parsed.timeoutMs === undefined ? undefined : askedAt + parsed.timeoutMs
     return pluginService.invokeCommand(parsed.pluginKey, parsed.commandId, parsed.args, startBy)
-  })
-
-  registerPluginManagementIpc('resolveGitSource', async (args: unknown) =>
-    resolvePluginGitSource(resolveGitSourceArgsSchema.parse(args))
-  )
-
-  registerPluginManagementIpc('install', async (args: unknown) => {
-    await pluginService.whenReady()
-    const parsed = parsePluginInstallArgs(args)
-    const pluginsDir = getUserPluginsDir(pluginService.options.userDataPath)
-    const hostVersion = pluginService.options.hostVersion
-    const blockedPluginReason = (pluginKey: string): string | null =>
-      pluginService.options.getPluginKillListEntry?.(pluginKey)?.reason ?? null
-    const result =
-      parsed.kind === 'local-path'
-        ? await installPluginFromLocalPath({
-            pluginsDir,
-            sourcePath: parsed.path,
-            hostVersion,
-            blockedPluginReason
-          })
-        : await installPluginFromGit({
-            pluginsDir,
-            url: parsed.url,
-            ref: parsed.ref,
-            ...(parsed.expectedCommit ? { expectedCommit: parsed.expectedCommit } : {}),
-            hostVersion,
-            blockedPluginReason
-          })
-    if (result.ok) {
-      await pluginService.refresh()
-    }
-    return result
   })
 
   ipcMain.handle('plugins:remove', async (_event, args: unknown) => {

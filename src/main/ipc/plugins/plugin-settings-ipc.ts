@@ -1,3 +1,4 @@
+import type { PluginManagementRegistrar } from '../../plugins/management/plugin-management-handlers'
 import { registerPluginManagementIpc } from './plugin-management-ipc'
 import { z } from 'zod'
 import { isQualifiedPluginKey } from '../../../shared/plugins/frames/plugin-tab-key'
@@ -14,18 +15,21 @@ const writeArgsSchema = z
   .strict()
 
 /** The plugin settings Orca's Settings page shows and edits (`contributes.settings`). */
-export function registerPluginSettingsHandlers(pluginService: PluginService): void {
+export function registerPluginSettingsHandlers(
+  pluginService: PluginService,
+  register: PluginManagementRegistrar = registerPluginManagementIpc
+): void {
   const host = () => ({
     findValidPlugin: (pluginKey: string) => pluginService.findValidPlugin(pluginKey),
     userDataPath: pluginService.options.userDataPath,
     dataChanged: (pluginKey: string, key: string) =>
       pluginService.panelBridge.dataChanged(pluginKey, 'settings', key)
   })
-  registerPluginManagementIpc('getSettings', async (args: unknown) => {
+  register('getSettings', async (args: unknown) => {
     await pluginService.whenReady()
     return readPluginDeclaredSettings(host(), readArgsSchema.parse(args).pluginKey)
   })
-  registerPluginManagementIpc('setSetting', async (args: unknown) => {
+  register('setSetting', async (args: unknown) => {
     await pluginService.whenReady()
     const { pluginKey, key, value } = writeArgsSchema.parse(args)
     return writePluginDeclaredSetting(host(), pluginKey, key, value)

@@ -1063,7 +1063,7 @@
 1 src/main/plugins/appearance/plugin-appearance-service.ts
 1 src/main/plugins/bootstrap/plugin-bundled-bootstrap.ts
 1 src/main/plugins/catalog/plugin-marketplace-installer.ts
-2 src/main/plugins/cli/plugin-cli-install-candidates.ts
+1 src/main/plugins/cli/plugin-cli-install-candidates.ts
 5 src/main/plugins/development/plugin-dev-watcher.ts
 4 src/main/plugins/installation/plugin-install.ts
 2 src/main/plugins/installation/plugin-staged-install.ts
