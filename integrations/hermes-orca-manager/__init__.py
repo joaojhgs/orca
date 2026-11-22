@@ -11,6 +11,8 @@ def register(ctx):
     register_event_tools(ctx)
     from .native_supervision import register_native_supervision
     register_native_supervision(ctx)
+    from .profile_memory import register_profile_memory
+    register_profile_memory(ctx)
     from .interactive_tools import register_interactive_tools
     register_interactive_tools(ctx)
 

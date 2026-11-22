@@ -7,6 +7,9 @@ provides_tools:
   - orca_cli
   - orca_supervision
   - orca_sessions_read
+  - profile_memory_recall
+  - orca_dispatch_read
+  - orca_dispatch_act
   - orca_manager_inspect
   - orca_manager_act
   - orca_events_read
@@ -14,6 +17,16 @@ provides_tools:
 requires_auth:
   - openai-codex
 config_schema:
+  enable_interactive_tools:
+    {
+      type: bool,
+      default: false,
+      description: Legacy scoped interactive tools when standard CLI is disabled
+    }
+  enable_cross_profile_delegation:
+    { type: bool, default: false, description: Coordinator-only legacy profile selection }
+  enable_federated_memory:
+    { type: bool, default: false, description: Coordinator-only read-only profile memory recall }
   use_standard_cli:
     {
       type: bool,
@@ -22,6 +35,12 @@ config_schema:
     }
   orca_public_executable:
     { type: str, default: '', description: Absolute normal relay CLI executable }
+  orca_mailbox_address:
+    {
+      type: str,
+      default: '',
+      description: Operator-owned profile mail route outside Orca terminals
+    }
   native_triage_retry_seconds:
     {
       type: int,

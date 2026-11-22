@@ -31,6 +31,31 @@ def selected_value(value, path):
     return selected_value(child, '.'.join(remaining))
 
 
+def profile_mail_arguments(ctx, argv, environment):
+    if (environment.get('ORCA_TERMINAL_HANDLE') or environment.get('ORCA_AGENT_SESSION_ID')
+            or argv[:1] != ['orchestration'] or len(argv) < 2):
+        return argv
+    command = argv[1]
+    if command not in {'send', 'reply', 'inbox'}:
+        return argv
+    mailbox = ctx.get_config('orca_mailbox_address', default='')
+    if not mailbox:
+        return argv
+    if not re.fullmatch(r'hermes:[a-z][a-z0-9_-]{0,63}', mailbox):
+        raise ValueError('Invalid operator-configured profile mailbox')
+    if command == 'send' and '--type' in argv:
+        index = argv.index('--type') + 1
+        if index >= len(argv) or argv[index] not in {'status', 'question', 'dispatch', 'merge_ready', 'handoff'}:
+            raise ValueError('A profile mailbox cannot claim worker lifecycle authority')
+    flag = '--terminal' if command == 'inbox' else '--from'
+    if flag in argv:
+        index = argv.index(flag) + 1
+        if index >= len(argv) or argv[index] != mailbox:
+            raise ValueError('Gateway mail must use this profile’s own mailbox')
+        return argv
+    return [*argv, flag, mailbox]
+
+
 def execute(ctx, argv, runner=subprocess.run, select=None):
     executable = ctx.get_config('orca_public_executable', default='')
     if not enabled(ctx) or not os.path.isabs(executable):
@@ -47,6 +72,7 @@ def execute(ctx, argv, runner=subprocess.run, select=None):
     environment = os.environ.copy()
     environment.pop('ORCA_MANAGER_TOKEN', None)
     environment.pop('ORCA_MANAGER_CREDENTIAL_FILE', None)
+    argv = profile_mail_arguments(ctx, argv, environment)
     result = runner([executable, *argv, *([] if '--json' in argv else ['--json'])],
                     env=environment, capture_output=True, text=True, timeout=130,
                     check=False, shell=False)
@@ -109,6 +135,8 @@ def register_public_cli(ctx):
                               'result.page or result.terminal.tail. Selection is read-only; '
                               'use it instead of shell parsing scripts. '
                               'Pass arguments only; no shell, executable or manager lease. '
+                              'Outside an Orca terminal, ordinary mail uses the operator-configured '
+                              'profile mailbox automatically; it grants no worker lifecycle ownership. '
                               'Preserve user objectives, project/account boundaries and native '
                               'Orca receipt/incarnation checks. Act within the user\'s authorized objectives. '
                               'network routes and network forward expose approved cross-host TCP routes.',

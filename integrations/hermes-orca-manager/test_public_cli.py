@@ -15,10 +15,30 @@ spec.loader.exec_module(cli)
 class Context:
     def get_config(self, key, default=None):
         return {'use_standard_cli': True,
+                'orca_mailbox_address': 'hermes:coding',
                 'orca_public_executable': '/home/developer/.orca-relay/bin/orca'}.get(key, default)
 
 
 class PublicCliTests(unittest.TestCase):
+    def test_gateway_delegation_has_its_own_mailbox_without_borrowing_a_terminal(self):
+        ctx = type('Gateway', (), {'get_config': lambda self, key, default=None:
+                                  {'orca_mailbox_address': 'hermes:work'}.get(key, default)})()
+        self.assertEqual(cli.profile_mail_arguments(ctx,
+                         ['orchestration', 'send', '--to', 'company', '--type', 'question'], {}),
+                         ['orchestration', 'send', '--to', 'company', '--type', 'question',
+                          '--from', 'hermes:work'])
+        self.assertEqual(cli.profile_mail_arguments(ctx, ['orchestration', 'inbox'], {}),
+                         ['orchestration', 'inbox', '--terminal', 'hermes:work'])
+        for args in [['orchestration', 'send', '--from', 'somebody-else'],
+                     ['orchestration', 'send', '--type', 'worker_done']]:
+            with self.assertRaises(ValueError):
+                cli.profile_mail_arguments(ctx, args, {})
+
+    def test_real_terminal_identity_is_preserved_instead_of_using_gateway_mailbox(self):
+        args = ['orchestration', 'send', '--to', 'company']
+        self.assertEqual(cli.profile_mail_arguments(Context(), args,
+                                                   {'ORCA_TERMINAL_HANDLE': 'own-terminal'}), args)
+
     def test_existing_owner_run_uses_public_cli_not_manager_or_lease(self):
         calls = []
         def runner(argv, **kwargs):
