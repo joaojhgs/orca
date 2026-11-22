@@ -7,9 +7,11 @@ import { parseExecutionHostId } from '../execution-host/execution-host'
 export function supportsSshTerminalChat(input: {
   executionHostId: string
   agent: string
+  sshConnectionId?: string | null
 }): boolean {
   return (
-    parseExecutionHostId(input.executionHostId)?.kind === 'ssh' &&
+    (parseExecutionHostId(input.executionHostId)?.kind === 'ssh' ||
+      Boolean(input.sshConnectionId)) &&
     (input.agent === 'codex' || input.agent === 'claude' || input.agent === 'openclaude')
   )
 }

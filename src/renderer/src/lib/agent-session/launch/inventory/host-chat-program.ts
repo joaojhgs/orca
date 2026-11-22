@@ -86,7 +86,11 @@ export function resolveChatProgramContext(
 export function readChatProgram(
   statuses: RuntimeStatuses,
   agent: TuiAgent,
-  host: { executionHostId: string; hostCapabilities: readonly string[] | null },
+  host: {
+    executionHostId: string
+    hostCapabilities: readonly string[] | null
+    sshConnectionId?: string | null
+  },
   detected: readonly TuiAgent[] | null
 ): ChatProgramObservation {
   if (supportsSshTerminalChat({ ...host, agent })) {
@@ -137,7 +141,12 @@ export function readAgentLaunchChoice(
 ) {
   const context = resolveChatProgramContext(store, workspace)
   const input = buildAgentLaunchRouteInput(store, { agent, workspace, preferredSurface })
-  const program = readChatProgram(routeHostStatuses(store), agent, context, detected)
+  const program = readChatProgram(
+    routeHostStatuses(store),
+    agent,
+    { ...context, sshConnectionId: input.sshConnectionId },
+    detected
+  )
   const support = structuredAgentLaunchSupport(input)
   const catalogReady =
     context.hostCapabilities !== null &&

@@ -142,6 +142,7 @@ export function useAgentMenuObservation(
   const local = facts.executionHostId === ExecutionHost.LOCAL_EXECUTION_HOST_ID
   // Use published host-wide availability when supported; older hosts defer final admission to the launch request.
   const published =
+    !input.sshConnectionId &&
     input.hostCapabilities?.includes(AVAILABILITY) === true &&
     Boolean(structuredAgentSessionTargetForHost(facts.executionHostId))
   const availability = useHostStructuredAgentAvailability(

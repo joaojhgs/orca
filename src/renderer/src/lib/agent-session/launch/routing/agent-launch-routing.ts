@@ -16,6 +16,7 @@ export type AgentLaunchRoutingInput = {
   preferredSurface?: 'chat'
   settings: NativeChatDefaultSettings | null | undefined
   executionHostId: string
+  sshConnectionId?: string | null
   /** Capabilities of the target host; `null` = not yet established. */
   hostCapabilities: readonly string[] | null
   /** What this client advertises to a paired host. */
@@ -53,7 +54,7 @@ export function structuredAgentLaunchSupport(input: Omit<AgentLaunchRoutingInput
     hostCapabilities: input.hostCapabilities,
     ...(input.clientCapabilities ? { clientCapabilities: input.clientCapabilities } : {}),
     workspaceKind: input.workspaceKind,
-    projectExecutionKind: input.projectExecutionKind,
+    projectExecutionKind: input.sshConnectionId ? 'ssh' : input.projectExecutionKind,
     projectRuntime: input.projectRuntime,
     startsOutsideWorkspaceRoot: input.startsOutsideWorkspaceRoot,
     ...(input.hostStructuredAgents ? { hostStructuredAgents: input.hostStructuredAgents } : {})

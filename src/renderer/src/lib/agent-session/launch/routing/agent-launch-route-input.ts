@@ -1,3 +1,4 @@
+import { agentLaunchTranscriptLocation } from './agent-launch-transcript-location'
 import {
   LOCAL_EXECUTION_HOST_ID,
   parseExecutionHostId,
@@ -6,15 +7,11 @@ import {
 import { findFirstIndexedWorktree } from '@/lib/workspace/ownership/worktree-runtime-owner-index'
 import { requestsCwdOutsideWorkspaceRootForWorkspace } from '../../../../../../shared/shell/launch/terminal-startup-cwd'
 import { workspaceKindForWorktreeId } from '../../../../../../shared/agent-launch/contracts/workspace-launch-kind'
-import {
-  getConnectionIdFromState,
-  getRepoConnectionIdFromState
-} from '@/lib/workspace/ownership/connection-owner-resolution'
+import type { getConnectionIdFromState } from '@/lib/workspace/ownership/connection-owner-resolution'
 import {
   getLocalProjectExecutionRuntimeContext,
   getLocalRepoProjectExecutionRuntimeContext
 } from '@/runtime/hosts/preflight/local-preflight-context'
-import { isNativeChatTranscriptLocalReadable } from '../../../../../../shared/native-chat/transcript/messages/native-chat-transcript-readability'
 import { getExecutionHostIdForWorktree } from '@/lib/workspace/ownership/worktree-runtime-owner'
 import { readLocalRuntimeCapabilitiesOrUnknown } from '@/runtime/hosts/capabilities/local-runtime-capabilities'
 import { resolveStructuredAgentSessionOwner } from '@/runtime/native-chat/session-ownership/structured-agent-session-owner'
@@ -221,24 +218,6 @@ function resolveProjectRuntime(
     : getLocalRepoProjectExecutionRuntimeContext(store, workspace.repoId)
 }
 
-function resolveTranscriptIsLocalReadable(
-  store: AgentLaunchRouteStore,
-  workspace: ProspectiveWorkspace,
-  executionHostId: string
-): boolean {
-  if (workspace.worktreeId) {
-    const connectionId = getConnectionIdFromState(store, workspace.worktreeId)
-    // Only undefined ownership delegates to the repo during hydration; resolved null authorizes local ownership.
-    return isNativeChatTranscriptLocalReadable(
-      connectionId === undefined
-        ? getRepoConnectionIdFromState(store, workspace.repoId)
-        : connectionId
-    )
-  }
-  const host = parseExecutionHostId(executionHostId)
-  return host?.kind === 'ssh' ? isNativeChatTranscriptLocalReadable(host.targetId) : true
-}
-
 function hostStructuredAgentsInput(
   store: AgentLaunchRouteStore,
   executionHostId: string
@@ -292,11 +271,7 @@ export function buildAgentLaunchRouteInput(
         : resolveProjectRuntime(store, workspace, executionHostId),
     promptDelivery: args.promptDelivery,
     launchText: args.prompt,
-    nativeChatTranscriptIsLocalReadable: resolveTranscriptIsLocalReadable(
-      store,
-      workspace,
-      executionHostId
-    ),
+    ...agentLaunchTranscriptLocation(store, workspace, executionHostId),
     // Only custom cwd forces a terminal; workspace-root cwd follows the same rule as host agent-launch-mode.ts.
     startsOutsideWorkspaceRoot: tuiCustomization?.cwd?.trim()
       ? requestsCwdOutsideWorkspaceRootForWorkspace({
