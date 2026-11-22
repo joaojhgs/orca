@@ -73,10 +73,6 @@ export function useSettingsPageEffects(
   }, [fetchKeybindings, fetchSettings])
 
   useEffect(() => {
-    if (!showDesktopOnlySettings) {
-      setVoiceModelStatesLoading(false)
-      return
-    }
     let canceled = false
     // An empty pre-scan state does not mean speech models are missing.
     setVoiceModelStatesLoading(true)

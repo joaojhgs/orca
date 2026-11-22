@@ -8,6 +8,7 @@ import {
   dictationShortcutModeSettings,
   type DictationShortcutMode
 } from '../../../../../shared/speech/dictation/dictation-shortcut-mode'
+import { isWebClientLocation } from '@/app-shell/platform/web-client-location'
 import { useAppStore } from '@/store'
 import { ShortcutKeyCombo } from '@/components/ui/ShortcutKeyCombo'
 import { useShortcutKeyDetails, useShortcutLabel } from '@/lib/keyboard/useShortcutLabel'
@@ -55,6 +56,12 @@ function dictationStatus(
     )
   }
   if (!selectedModel || selectedState?.status !== 'ready') {
+    if (isWebClientLocation()) {
+      return t(
+        'components.settings.voice.dictation.noServerModel',
+        'Select a speech provider or download a model on the connected Orca server below.'
+      )
+    }
     return t(
       'components.settings.voice.dictation.noModel',
       'Download a speech model below to start. It runs on this computer, so your audio stays here.'

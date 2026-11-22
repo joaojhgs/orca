@@ -1,6 +1,4 @@
 import type { SpeechApi } from '../../../../../preload/api/speech/speech-api'
-import type { GlobalSettings } from '../../../../../shared/settings/global-settings-types'
-import { getDefaultVoiceSettings } from '../../../../../shared/orca-profiles/constants'
 import type {
   SpeechErrorEvent,
   SpeechLifecycleEvent,
@@ -258,22 +256,4 @@ export function createWebSpeechApi(): Pick<
   }
 }
 
-/** The host refuses dictation unless its own voice settings allow it, so a paired browser follows them. */
-export function followHostVoiceSettings(
-  local: GlobalSettings,
-  host: Partial<GlobalSettings>
-): Partial<GlobalSettings> {
-  if (!host.voice) {
-    return {}
-  }
-  const voice = local.voice ?? getDefaultVoiceSettings()
-  // Browsers expose no microphone on plain-http pages, so the mic stays off there.
-  const canCapture = Boolean(globalThis.navigator?.mediaDevices?.getUserMedia)
-  return {
-    voice: {
-      ...voice,
-      enabled: host.voice.enabled === true && canCapture,
-      sttModel: host.voice.sttModel ?? ''
-    }
-  }
-}
+export { followHostVoiceSettings } from '../preferences/web-voice-settings'

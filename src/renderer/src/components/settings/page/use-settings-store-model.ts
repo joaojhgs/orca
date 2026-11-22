@@ -138,7 +138,7 @@ export function useSettingsStoreModel() {
   })
   const skillFreshnessApplies = activeSkillRuntime.bundledSkillTarget !== null
   const { plan: skillPlan } = useSkillFreshness(activeSkillRuntime.bundledSkillTarget)
-  const [voiceModelStatesLoading, setVoiceModelStatesLoading] = useState(showDesktopOnlySettings)
+  const [voiceModelStatesLoading, setVoiceModelStatesLoading] = useState(true)
   const [scrollbackMode, setScrollbackMode] = useState<'preset' | 'custom'>('preset')
   const [prevScrollbackRows, setPrevScrollbackRows] = useState(settings?.terminalScrollbackRows)
   // Keep import state above sections so remounts cannot close the modal.

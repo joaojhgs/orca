@@ -1,3 +1,4 @@
+import { isWebClientLocation } from '@/app-shell/platform/web-client-location'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import type {
@@ -103,7 +104,9 @@ export function VoiceSpeechModelSection({
           options={[
             {
               value: 'local',
-              label: t('components.settings.voice.models.local', 'On this computer')
+              label: isWebClientLocation()
+                ? t('components.settings.voice.models.server', 'Orca server')
+                : t('components.settings.voice.models.local', 'On this computer')
             },
             { value: 'cloud', label: t('components.settings.voice.models.cloud', 'Cloud') }
           ]}

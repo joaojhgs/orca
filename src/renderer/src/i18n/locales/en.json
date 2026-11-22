@@ -23395,7 +23395,8 @@
             "whisperTurbo": "Most languages, about 100. Slow without a GPU.",
             "senseVoice": "Fast. For Chinese, Japanese and Korean.",
             "nemotron": "{{languages}} languages, including Arabic, Hindi and Japanese."
-          }
+          },
+          "server": "Orca server"
         },
         "vocabulary": {
           "title": "Vocabulary",
@@ -23449,7 +23450,8 @@
           "noModel": "Download a speech model below to start. It runs on this computer, so your audio stays here.",
           "ready": "Press {{shortcut}} in any pane.",
           "off": "Turn on to dictate with {{shortcut}} in any pane.",
-          "label": "Dictation"
+          "label": "Dictation",
+          "noServerModel": "Select a speech provider or download a model on the connected Orca server below."
         },
         "mode": {
           "label": "Mode",
@@ -23506,7 +23508,8 @@
           "correctionWord": "Correction word",
           "correctionWordDescription": "Say it to take back what you just said: “at four, {{word}}, at five”.",
           "correctionWordOff": "None"
-        }
+        },
+        "webDescription": "Your browser captures the microphone. Transcription models and providers run on the connected Orca server."
       },
       "repositoryHooks": {
         "availableEnvVars": "Available environment variables"

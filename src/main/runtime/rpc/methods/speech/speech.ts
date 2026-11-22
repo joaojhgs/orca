@@ -1,15 +1,70 @@
 import { defineMethod } from '../../core'
+import { VoiceServerSettingsUpdate } from '../../../../../shared/speech/voice-server-settings'
 import {
   DictationChunk,
   DictationHandle,
   DictationSetup,
   DictationStart,
+  CompatibleSpeechProviderSet,
   OpenAiSpeechKeySet,
   SpeechModelAction,
   SpeechSetupRead
 } from '../../../../../shared/rpc-contract/speech/speech-params'
+import { saveVerifiedOpenAiCompatibleSpeechProvider } from '../../../../speech/openai-api-key-verification'
+import {
+  clearOpenAiCompatibleSpeechProvider,
+  summarizeOpenAiCompatibleSpeechProvider
+} from '../../../../speech/openai-compatible-speech-provider-store'
 
 export const SPEECH_METHODS = [
+  defineMethod({
+    name: 'speech.settings.get',
+    permission: 'workspace',
+    params: null,
+    handler: (_params, { runtime }) => runtime.getSpeechSettings()
+  }),
+  defineMethod({
+    name: 'speech.settings.update',
+    permission: 'settings-write',
+    params: VoiceServerSettingsUpdate,
+    handler: (params, { runtime }) => runtime.updateSpeechSettings(params)
+  }),
+  defineMethod({
+    name: 'speech.models.catalog',
+    permission: 'workspace',
+    params: null,
+    handler: (_params, { runtime }) => runtime.getSpeechCatalog()
+  }),
+  defineMethod({
+    name: 'speech.models.states',
+    permission: 'workspace',
+    params: null,
+    handler: (_params, { runtime }) => runtime.getSpeechModelStates()
+  }),
+  defineMethod({
+    name: 'speech.models.cancelDownload',
+    permission: 'settings-write',
+    params: SpeechModelAction,
+    handler: (params, { runtime }) => runtime.cancelSpeechModelDownload(params.modelId)
+  }),
+  defineMethod({
+    name: 'speech.compatibleProvider.get',
+    permission: 'workspace',
+    params: null,
+    handler: () => summarizeOpenAiCompatibleSpeechProvider()
+  }),
+  defineMethod({
+    name: 'speech.compatibleProvider.set',
+    permission: 'settings-write',
+    params: CompatibleSpeechProviderSet,
+    handler: (params) => saveVerifiedOpenAiCompatibleSpeechProvider(params)
+  }),
+  defineMethod({
+    name: 'speech.compatibleProvider.clear',
+    permission: 'settings-write',
+    params: null,
+    handler: () => clearOpenAiCompatibleSpeechProvider()
+  }),
   defineMethod({
     name: 'speech.models.list',
     permission: 'workspace',

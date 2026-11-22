@@ -50,6 +50,7 @@ import { webRuntimeState } from './runtime/client/web-runtime-session'
 import { createWebSettingsApi } from './preload-api/preferences/web-settings-api'
 import { createShellApi } from './preload-api/browser/web-shell-api'
 import { createWebSpeechApi } from './preload-api/agents/web-speech-api'
+import { createWebSpeechSettingsApi } from './preload-api/agents/web-speech-settings-api'
 import { createWebStarNagApi } from './preload-api/app/web-star-nag-api'
 import { createWebTelemetryApi } from './preload-api/diagnostics/web-telemetry-api'
 import { createPtyApi, createSshApi } from './preload-api/host-capabilities/web-terminal-api'
@@ -94,7 +95,7 @@ function createWebPreloadApi(): Omit<Partial<PreloadApi>, 'settings' | 'plugins'
     ...createWebGithubCacheApi(),
     runtime: createWebRuntimeApi(),
     nativeChat: createWebNativeChatApi(),
-    speech: createWebSpeechApi(),
+    speech: { ...createWebSpeechApi(), ...createWebSpeechSettingsApi() },
     runtimeEnvironments: createRuntimeEnvironmentsApi(),
     repos: createReposApi(),
     projectGroups: createWebProjectGroupsApi(),

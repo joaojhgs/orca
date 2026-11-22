@@ -99,8 +99,18 @@ export function createDeveloperPermissionsApi(): NonNullable<
 > {
   return {
     getStatus: () => Promise.resolve([]),
-    request: ({ id }) =>
-      Promise.resolve({ id, status: 'unsupported', openedSystemSettings: false } as const),
+    request: async ({ id }) => {
+      if (id !== 'microphone' || !globalThis.navigator?.mediaDevices?.getUserMedia) {
+        return { id, status: 'unsupported', openedSystemSettings: false } as const
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach((track) => track.stop())
+        return { id, status: 'granted', openedSystemSettings: false } as const
+      } catch {
+        return { id, status: 'denied', openedSystemSettings: false } as const
+      }
+    },
     openSettings: () => Promise.resolve(),
     testLocalNetworkConnection: ({ host, port }) =>
       Promise.resolve({

@@ -1,3 +1,4 @@
+import { syncHostVoiceSettings } from './web-voice-settings'
 import type { PreloadApi } from '../../../../../preload/api-types'
 import { legacyMatchTerminalSidebarWrite } from '../../../../../shared/plugins/appearance/plugin-theme-settings'
 import {
@@ -80,6 +81,13 @@ export function createWebSettingsApi(): Pick<Partial<PreloadApi>, 'agentAwake'> 
         }
         const stored = getStoredSettings()
         Object.assign(sanitizedUpdates, legacyMatchTerminalSidebarWrite(stored, sanitizedUpdates))
+        if (runtimeEnvironment && sanitizedUpdates.voice) {
+          const synced = await syncHostVoiceSettings(sanitizedUpdates, stored, runtimeEnvironment)
+          if (requireActiveEnvironmentOrNull()?.id !== runtimeEnvironment.id) {
+            throw new Error('The connected Orca server changed while saving Voice settings.')
+          }
+          Object.assign(sanitizedUpdates, synced)
+        }
         const localUpdates = { ...sanitizedUpdates }
         delete localUpdates.nativeChatAutoContinueAfterUsageLimit
         if (runtimeEnvironment) {

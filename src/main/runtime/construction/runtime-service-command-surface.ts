@@ -83,6 +83,11 @@ export type RuntimeServiceCommandSurface = {
   setHostAccountLaunchEnv: RuntimeAccountController['setHostLaunchEnv']
   restoreHostAccountLaunchEnv: RuntimeAccountController['restoreHostLaunchEnv']
   listMobileSpeechModels: RuntimeMobileSpeechCatalog['list']
+  getSpeechCatalog: RuntimeMobileSpeechCatalog['catalog']
+  getSpeechSettings: RuntimeMobileSpeechCatalog['settings']
+  updateSpeechSettings: RuntimeMobileSpeechCatalog['updateSettings']
+  getSpeechModelStates: RuntimeMobileSpeechCatalog['states']
+  cancelSpeechModelDownload: RuntimeMobileSpeechCatalog['cancelDownload']
   downloadMobileSpeechModel: RuntimeMobileSpeechCatalog['download']
   deleteMobileSpeechModel: RuntimeMobileSpeechCatalog['delete']
   configureMobileDictation: RuntimeMobileSpeechCatalog['configure']
@@ -209,6 +214,11 @@ export function installRuntimeServiceCommandSurface(
     setHostAccountLaunchEnv: accounts.setHostLaunchEnv.bind(accounts),
     restoreHostAccountLaunchEnv: accounts.restoreHostLaunchEnv.bind(accounts),
     listMobileSpeechModels: speech.list.bind(speech),
+    getSpeechCatalog: speech.catalog.bind(speech),
+    getSpeechSettings: speech.settings.bind(speech),
+    updateSpeechSettings: speech.updateSettings.bind(speech),
+    getSpeechModelStates: speech.states.bind(speech),
+    cancelSpeechModelDownload: speech.cancelDownload.bind(speech),
     downloadMobileSpeechModel: speech.download.bind(speech),
     deleteMobileSpeechModel: speech.delete.bind(speech),
     configureMobileDictation: speech.configure.bind(speech),

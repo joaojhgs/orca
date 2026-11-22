@@ -1,4 +1,8 @@
 import type { VoiceSettings } from '../../../shared/speech/speech-types'
+import {
+  VoiceServerSettingsSchema,
+  type VoiceServerSettingsPatch
+} from '../../../shared/speech/voice-server-settings'
 import { stopAfterSilenceSeconds } from '../../../shared/speech/dictation/dictation-silence-stop'
 import type {
   RuntimeSpeechModelSummary,
@@ -36,6 +40,46 @@ export type OpenAiSpeechKeyStatus = {
 export class RuntimeMobileSpeechCatalog {
   constructor(private readonly getStore: () => RuntimeStore | null) {}
 
+  catalog() {
+    return SPEECH_MODEL_CATALOG.filter(
+      (model) =>
+        isOfferedSpeechModel(model) && (!isLocalSpeechModel(model) || hasLocalSpeechRecognizer())
+    )
+  }
+
+  states() {
+    return getSpeechModelManager(this.requireStore()).getModelStates()
+  }
+
+  cancelDownload(modelId: string): void {
+    getSpeechModelManager(this.requireStore()).cancelDownload(modelId)
+  }
+
+  async settings() {
+    const voice = { ...getDefaultVoiceSettings(), ...this.requireStore().getSettings().voice }
+    return {
+      voice: {
+        ...VoiceServerSettingsSchema.parse(voice),
+        openAiApiKeyConfigured: await hasOpenAiSpeechApiKey()
+      }
+    }
+  }
+
+  async updateSettings(patch: VoiceServerSettingsPatch) {
+    const store = this.requireWritableStore()
+    if (patch.sttModel) {
+      const model = getCatalogModel(patch.sttModel)
+      if (!model || !isOfferedSpeechModel(model)) {
+        throw new Error('voice_model_unknown')
+      }
+    }
+    store.updateSettings?.(
+      { voice: { ...(store.getSettings().voice ?? getDefaultVoiceSettings()), ...patch } },
+      { notifyListeners: true }
+    )
+    return this.settings()
+  }
+
   /** `worktreeId` picks the repo terms a phone recognizing on its own spells with. */
   async list(worktreeId?: string): Promise<RuntimeSpeechSetupState> {
     const store = this.requireStore()
@@ -43,13 +87,10 @@ export class RuntimeMobileSpeechCatalog {
     const states = await getSpeechModelManager(store).getModelStates()
     const stateById = new Map(states.map((state) => [state.id, state]))
     // Omit unsupported status variants; older phones could treat them as pickable models.
-    const runnable = SPEECH_MODEL_CATALOG.filter(
+    const runnable = this.catalog().filter(
       (manifest) =>
-        isOfferedSpeechModel(manifest) &&
-        (!isLocalSpeechModel(manifest) || hasLocalSpeechRecognizer()) &&
         // Phones offer an unready cloud row as "add an OpenAI key", which can't set this one up.
-        (manifest.provider !== 'openai-compatible' ||
-          stateById.get(manifest.id)?.status === 'ready')
+        manifest.provider !== 'openai-compatible' || stateById.get(manifest.id)?.status === 'ready'
     )
     const models: RuntimeSpeechModelSummary[] = runnable.map((manifest) => {
       const state = stateById.get(manifest.id)

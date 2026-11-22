@@ -1,4 +1,5 @@
 import * as chatSettings from './web-native-chat-settings'
+import { readHostVoiceSettings } from './web-voice-settings'
 import type { PreloadApi } from '../../../../../preload/api-types'
 import { getDefaultSettings } from '../../../../../shared/orca-profiles/constants'
 import { normalizeWorktreeVisibilityDefaults } from '../../../../../shared/worktree/visibility/external-worktree-visibility'
@@ -122,9 +123,15 @@ export async function getRuntimeBackedStoredSettings(): Promise<GlobalSettings> 
   }
   try {
     // A reply after the host changed still merges; publish keeps consent to the pairing that answered.
-    const result = await callRuntimeResult<SettingsResult>('settings.get', undefined, 15_000)
-    const runtimeSettings = followHostVoiceSettings(local, result.settings)
+    const [result, voiceSettings] = await Promise.all([
+      callRuntimeResult<SettingsResult>('settings.get', undefined, 15_000),
+      readHostVoiceSettings(requestedEnvironment).catch(() => ({}))
+    ])
+    const runtimeSettings = followHostVoiceSettings(local, { ...result.settings, ...voiceSettings })
     const currentEnvironment = requireActiveEnvironmentOrNull()
+    if (zcodePlanSiteOwner(currentEnvironment) !== requestedSiteOwner) {
+      delete runtimeSettings.voice
+    }
     if (currentEnvironment?.id === requestedEnvironment.id) {
       const visibilityDefaults = normalizeWorktreeVisibilityDefaults(
         result.settings.worktreeVisibilityDefaults

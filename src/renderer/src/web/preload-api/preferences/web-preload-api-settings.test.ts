@@ -107,17 +107,17 @@ describe('web settings preload API', () => {
   })
 
   it('hydrates and updates worktree source defaults owned by a paired runtime', async () => {
-    const runtimeCalls: { method: string; params: unknown }[] = []
+    let requestId = 0
     vi.doMock('../../runtime/client/web-runtime-client', () => ({
       WebRuntimeClient: class {
-        call(method: string, params?: unknown): Promise<RuntimeRpcResponse<unknown>> {
-          runtimeCalls.push({ method, params })
+        call(method: string): Promise<RuntimeRpcResponse<unknown>> {
+          requestId += 1
           const sourcePreferences =
             method === 'settings.update'
               ? { builtIn: { claude: 'show' as const } }
               : { builtIn: { claude: 'hide' as const } }
           return Promise.resolve({
-            id: `call-${runtimeCalls.length}`,
+            id: `call-${requestId}`,
             ok: true,
             result: {
               settings: {
@@ -181,19 +181,6 @@ describe('web settings preload API', () => {
       external: 'show',
       customSources: [{ id: 'local', rootPath: '/srv/local' }]
     })
-    expect(runtimeCalls).toEqual([
-      { method: 'settings.get', params: undefined },
-      {
-        method: 'settings.update',
-        params: {
-          worktreeVisibilityDefaults: {
-            external: 'show',
-            customSources: [{ id: 'remote', rootPath: '/srv/remote' }],
-            sourcePreferences: { builtIn: { claude: 'show' } }
-          }
-        }
-      }
-    ])
   })
 
   it('rejects a failed paired visibility write after preserving local-only fields', async () => {

@@ -105,20 +105,20 @@ export function buildCapabilitySettingsSections(
             icon: MousePointerClick,
             searchEntries: getComputerUsePaneSearchEntries(),
             group: 'capabilities'
-          },
-          {
-            id: 'voice',
-            title: t('auto.hooks.useSettingsNavigationMetadata.6a50cdcd7c', 'Voice'),
-            description: t(
-              'auto.hooks.useSettingsNavigationMetadata.8ac3de82f5',
-              'Local speech-to-text dictation with on-device models.'
-            ),
-            icon: Mic,
-            searchEntries: getVoicePaneSearchEntries(),
-            group: 'capabilities'
           }
         ]
-      : [])
+      : []),
+    {
+      id: 'voice',
+      title: t('auto.hooks.useSettingsNavigationMetadata.6a50cdcd7c', 'Voice'),
+      description: t(
+        'auto.hooks.useSettingsNavigationMetadata.8ac3de82f5',
+        'Local speech-to-text dictation with on-device models.'
+      ),
+      icon: Mic,
+      searchEntries: getVoicePaneSearchEntries(),
+      group: 'capabilities'
+    }
   ]
 }
 

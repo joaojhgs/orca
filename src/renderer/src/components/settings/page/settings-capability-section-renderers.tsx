@@ -160,31 +160,38 @@ export function renderDesktopCapabilitySettingsSections(
   t: Translate = translate
 ): React.JSX.Element | null {
   const { model, navigation, view } = context
-  return model.showDesktopOnlySettings ? (
+  return (
     <>
-      <SettingsSection
-        id="computer-use"
-        title={t('auto.components.settings.Settings.3f3e11cb5d', 'Computer use')}
-        description={t(
-          'auto.components.settings.Settings.7118953f14',
-          'Enable agents to control any app on your computer.'
-        )}
-        searchEntries={navigation.getSectionSearchEntries('computer-use')}
-      >
-        {view.isSectionMounted('computer-use') ? <ComputerUsePane /> : null}
-      </SettingsSection>
+      {model.showDesktopOnlySettings ? (
+        <SettingsSection
+          id="computer-use"
+          title={t('auto.components.settings.Settings.3f3e11cb5d', 'Computer use')}
+          description={t(
+            'auto.components.settings.Settings.7118953f14',
+            'Enable agents to control any app on your computer.'
+          )}
+          searchEntries={navigation.getSectionSearchEntries('computer-use')}
+        >
+          {view.isSectionMounted('computer-use') ? <ComputerUsePane /> : null}
+        </SettingsSection>
+      ) : null}
 
       <SettingsSection
         id="voice"
         title={t('auto.components.settings.Settings.5063bb47a5', 'Voice')}
-        description={t(
-          'components.settings.voice.pageDescription',
-          'Talk instead of typing in any pane.'
-        )}
+        description={
+          model.isWebClient
+            ? t(
+                'components.settings.voice.webDescription',
+                'Your browser captures the microphone. Transcription models and providers run on the connected Orca server.'
+              )
+            : t('components.settings.voice.pageDescription', 'Talk instead of typing in any pane.')
+        }
         searchEntries={navigation.getSectionSearchEntries('voice')}
       >
         {view.isSectionMounted('voice') ? (
           <VoicePane
+            key={runtimeTargetEnvironmentId(model.settingsHostScope.target) ?? 'local'}
             settings={model.settings}
             updateSettings={model.updateSettings}
             writeSourceControlAiSettings={context.interactions.writeSourceControlAiSettingsOrThrow}
@@ -192,5 +199,5 @@ export function renderDesktopCapabilitySettingsSections(
         ) : null}
       </SettingsSection>
     </>
-  ) : null
+  )
 }

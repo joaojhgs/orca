@@ -899,6 +899,7 @@ import {
   HostedReviewForBranch
 } from './source-control/hosted-review-params'
 import {
+  CompatibleSpeechProviderSet,
   DictationChunk,
   DictationHandle,
   DictationSetup,
@@ -1112,6 +1113,7 @@ import {
   SkillUploadChunkRequestSchema,
   SkillUploadCommitRequestSchema
 } from '../skills/sharing/skill-upload-session-contract'
+import { VoiceServerSettingsUpdate } from '../speech/voice-server-settings'
 import { ComputerDesktopActionParams } from '../vnc-agent-contract'
 
 // Why: the host parses params with these schemas, so a client that matches this map
@@ -2201,17 +2203,25 @@ export const RPC_PARAMS_BY_METHOD = {
   'skills.removeInstall': SkillRemoveRequestSchema,
   'skills.share': AgentSkillShareRequestSchema,
   'skills.uploadChunk': SkillUploadChunkRequestSchema,
+  'speech.compatibleProvider.clear': null,
+  'speech.compatibleProvider.get': null,
+  'speech.compatibleProvider.set': CompatibleSpeechProviderSet,
   'speech.dictation.cancel': DictationHandle,
   'speech.dictation.chunk': DictationChunk,
   'speech.dictation.finish': DictationHandle,
   'speech.dictation.setup': DictationSetup,
   'speech.dictation.start': DictationStart,
+  'speech.models.cancelDownload': SpeechModelAction,
+  'speech.models.catalog': null,
   'speech.models.delete': SpeechModelAction,
   'speech.models.download': SpeechModelAction,
   'speech.models.list': SpeechSetupRead,
+  'speech.models.states': null,
   'speech.openAiKey.clear': null,
   'speech.openAiKey.set': OpenAiSpeechKeySet,
   'speech.openAiKey.status': null,
+  'speech.settings.get': null,
+  'speech.settings.update': VoiceServerSettingsUpdate,
   'ssh.addTarget': SshTargetAdd,
   'ssh.browseDir': SshBrowseDir,
   'ssh.connect': SshConnect,
