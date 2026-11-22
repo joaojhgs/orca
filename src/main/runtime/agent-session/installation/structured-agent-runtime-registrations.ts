@@ -1,3 +1,4 @@
+import { hermesProfileLaunchPart } from '../../../hermes/hermes-profile-launch'
 import { AcpAtRestCommandCatalog } from '../../../acp/discovery/acp-at-rest-commands'
 import { resolveNativeChatVisualsSkillLocation } from '../../../native-chat/conversation-files/native-chat-visuals-skill-location'
 import { withSupportedCodexCli } from '../../../codex/structured/launch/codex-cli-installation-error'
@@ -169,12 +170,18 @@ function createAcpAdapter(
     const savedSession = savedProviderTurns(context)
     const definition = acpStructuredAgentDefinition(spec)
     const sources = structuredAgentLaunchSources(context)
-    const part = acpStructuredLaunchPart(spec, {
+    const defaultPart = acpStructuredLaunchPart(spec, {
       savedSession,
       ...deps.acpLaunchCommand,
       dataDirectory: deps.stateDirectory,
       logger: deps.logger
     })
+    const part: typeof defaultPart = (basis, identity) => {
+      const link = spec.agent === 'hermes' ? deps.resolveHermesProfile?.(basis.record) : null
+      return link
+        ? hermesProfileLaunchPart(spec, link)(basis, identity)
+        : defaultPart(basis, identity)
+    }
     return new AcpStructuredSessionAdapter({
       spec,
       textTaskLaunch: {

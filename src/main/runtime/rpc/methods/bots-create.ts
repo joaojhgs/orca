@@ -1,3 +1,4 @@
+import { listRegisteredSshTargets } from '../../../ssh/targets/ssh-target-registry'
 // `bots.create`: the owner's New bot, in Orca (desktop or phone). A bot only proposes one
 // (`bots.createOffer`); creating from its card records the new bot against that card.
 import { BotCreate } from '../../../../shared/rpc-contract/bots-params'
@@ -25,6 +26,29 @@ export const BOT_CREATE_METHOD = defineMethod({
       context,
       'A bot can’t create a bot. Propose one with `orca bot create --offer`; your owner creates it from the card.'
     )
+    if (params.hermesProfile) {
+      if (
+        fromShare ||
+        fromOffer ||
+        fromTemplate ||
+        handOff ||
+        takingOver ||
+        params.seed ||
+        params.importFrom ||
+        params.launch
+      ) {
+        throw new InvalidArgumentError(
+          'Link an existing Hermes profile without importing or replacing its configuration.'
+        )
+      }
+      if (
+        !listRegisteredSshTargets().some(
+          (target) => target.id === params.hermesProfile?.connectionId
+        )
+      ) {
+        throw new InvalidArgumentError('Select an existing SSH host for this Hermes profile.')
+      }
+    }
     let bot
     if (fromShare) {
       bot = await createBotFromShare(botShareCreateDeps(runtime), { ...params, fromShare })
@@ -56,7 +80,7 @@ export const BOT_CREATE_METHOD = defineMethod({
       bot = await runtime.bots.create(params)
     }
     // Made in Hand to bot: its first turn is the hand-over, once the workspace is under its home.
-    if (takingOver) {
+    if (takingOver || bot.hermesProfile) {
       return { bot }
     }
     // The bot speaks first: its first-run rules turn this into a greeting. Made for workspaces, it then

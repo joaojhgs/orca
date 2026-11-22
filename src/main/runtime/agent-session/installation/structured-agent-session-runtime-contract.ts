@@ -1,3 +1,4 @@
+import type { HermesProfileLink } from '../../../../shared/bots/hermes-profile'
 import type { ReadOnlySessionMode } from '../../../bots/bot-look-around-policy'
 import type { BotLaunchTools } from '../../../bots/bot-launch-tools'
 import type { StructuredAgentSessionHostDeps } from '../../../native-chat/agent-session-wire/host/structured-agent-session-host-types'
@@ -64,6 +65,7 @@ export type StructuredAgentSessionRuntimeDeps = StructuredAgentSessionTransportO
   /** The settings a per-agent Command override is read from, for the same agents. */
   resolveAgentCommandSettings?: () => StructuredAgentCommandSettings
   /** See `StructuredAgentLaunchSources.resolveInstructions`. */
+  resolveHermesProfile?: (record: AgentSessionRecord) => HermesProfileLink | null
   resolveSessionInstructions?: (
     record: AgentSessionRecord,
     launchDirectory: string,

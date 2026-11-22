@@ -275,11 +275,9 @@ export async function startBotSession(
   }
   const permissionMode = bot.permissionMode && newChatPermissionMode(bot.agent, bot.permissionMode)
   // A model the agent no longer lists still goes through: the agent's own failure names it, as for any chat.
-  const saved = botStartOptions(
-    () => runtime.requireStore().getSettings(),
-    bot,
-    input.background === true
-  )
+  const saved = bot.hermesProfile
+    ? {}
+    : botStartOptions(() => runtime.requireStore().getSettings(), bot, input.background === true)
   const launch = supportedStructuredSeedOptions(bot.agent, saved)
   const dropped = Object.keys(saved).filter((key) => !(key in launch))
   if (dropped.length) {
@@ -309,10 +307,10 @@ export async function startBotSession(
     agent: bot.agent,
     // A picked model replaces the default selection, so a default effort for another model never rides along.
     // Background work always replaces it: the chat defaults hold the owner's last pick in any chat.
-    ...(launch.model || input.background
+    ...(launch.model || input.background || bot.hermesProfile
       ? { optionsMode: 'replace-model-selection' as const }
       : {}),
-    ...(Object.keys(options).length || input.background ? { options } : {}),
+    ...(Object.keys(options).length || input.background || bot.hermesProfile ? { options } : {}),
     ...(input.message
       ? {
           firstMessage: {

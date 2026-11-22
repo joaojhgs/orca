@@ -1,3 +1,4 @@
+import { HermesProfileConnection } from './HermesProfileConnection'
 // The settings view's root: the bot's card, then Agent, Schedule, Soul and memory, Access and Notifications, then Delete.
 import { useContext, useState } from 'react'
 import {
@@ -299,12 +300,16 @@ export function BotSettingsRoot({
   const state = bot.paused
     ? t('bots.settingsPage.paused', 'Paused')
     : t('bots.settingsPage.active', 'Active')
-  const model = bot.launch?.model ?? t('bots.settingsView.chatDefault', 'your chat default')
+  const model = bot.hermesProfile
+    ? t('bots.hermes.nativeModel', 'Hermes profile model')
+    : (bot.launch?.model ?? t('bots.settingsView.chatDefault', 'your chat default'))
   const [sharing, setSharing] = useState(false)
   const picture = useBotPictureSetting(bot, update)
   return (
     <>
-      {sharing ? <BotShareFlow bot={bot} onClose={() => setSharing(false)} /> : null}
+      {sharing && !bot.hermesProfile ? (
+        <BotShareFlow bot={bot} onClose={() => setSharing(false)} />
+      ) : null}
       <div className="flex flex-col gap-2 rounded-[10px] bg-foreground/[0.035] p-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <fieldset disabled={controlsOff} className="contents">
@@ -334,7 +339,7 @@ export function BotSettingsRoot({
             variant="outline"
             size="xs"
             className="h-7"
-            disabled={controlsOff}
+            disabled={controlsOff || !!bot.hermesProfile}
             onClick={() => setSharing(true)}
           >
             <Share2 className="size-3.5" />
@@ -342,13 +347,14 @@ export function BotSettingsRoot({
           </Button>
         </div>
       </div>
+      {bot.hermesProfile ? <HermesProfileConnection link={bot.hermesProfile} /> : null}
       <SettingsInsetGroup title={t('settings.bots.agent', 'Agent')}>
         <SettingsInsetRow
           icon={<BotIcon />}
           title={t('bots.settingsView.agent', 'Agent and model')}
           detail={`${botAgentLabel(bot.agent)} · ${model}`}
           page="agent"
-          onOpen={() => open('agent')}
+          onOpen={bot.hermesProfile ? undefined : () => open('agent')}
         />
         <SettingsInsetRow
           icon={<Shield />}
@@ -381,9 +387,9 @@ export function BotSettingsRoot({
         <ScheduleGroup bot={bot} update={update} open={open} />
       ) : null}
       <BotItemsSettingsGroup bot={bot} update={update} />
-      {home ? <SoulAndMemoryGroup home={home} open={open} /> : null}
-      <AccessGroup bot={bot} open={open} />
-      <BotSharingGroup bot={bot} open={open} />
+      {home && !bot.hermesProfile ? <SoulAndMemoryGroup home={home} open={open} /> : null}
+      {!bot.hermesProfile ? <AccessGroup bot={bot} open={open} /> : null}
+      {!bot.hermesProfile ? <BotSharingGroup bot={bot} open={open} /> : null}
       <NotificationsGroup bot={bot} update={update} />
       <div>
         <Button

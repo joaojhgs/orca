@@ -219,3 +219,46 @@ describe('a picked chat in a message', () => {
     )
   })
 })
+
+it('leaves an existing Hermes profile in charge of its instructions, skills and memory', async () => {
+  const link = {
+    connectionId: 'worker',
+    profile: 'work',
+    home: '/home/dev/.hermes/profiles/work',
+    directory: '/work-notes'
+  }
+  const bot = makeTestBot({
+    id: 'work',
+    agent: 'hermes',
+    folderWorkspaceId: 'work-home',
+    hermesProfile: link
+  })
+  const record = agentSessionRecordFixture({
+    sessionId: 'work-profile-chat',
+    provider: 'hermes',
+    location: { workspaceId: folderWorkspaceKey('work-home') }
+  })
+  const wiring = botStructuredSessionWiring({
+    store: () => ({ getBots: () => [bot], getRepos: () => [] }),
+    bots: {
+      endFirstRun: async () => undefined,
+      memory: createBotMemoryRecord(localBotHomeFilesystem)
+    },
+    chats: NO_BOT_CHAT_JOURNAL,
+    work: { turnNote: async () => null, handedOver: () => undefined, turnEnded: () => undefined },
+    lookAround: { botOfLook: () => null, botOfTidyUp: () => null, lookTurnIsQuiet: () => false }
+  })
+  expect(wiring.resolveHermesProfile(record)).toEqual(link)
+  expect(await wiring.resolveSessionInstructions(record, '/controller-bot-home', null)).toBeNull()
+  expect((await wiring.resolveSessionToolServers(record, '/controller-bot-home')).servers).toEqual(
+    []
+  )
+  expect((await wiring.resolveSessionLinkedSkills(record)).projects).toEqual([])
+  expect(
+    await wiring.turnContext.plan(record.sessionId, {
+      kind: 'message',
+      role: 'user',
+      blocks: [{ type: 'text', text: 'Hello' }]
+    })
+  ).toBeNull()
+})

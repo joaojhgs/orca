@@ -1,3 +1,4 @@
+import { checkedChat } from './bot-mentioned-chat'
 // A host's structured-session wiring for bots: preambles, own tools, the turn context, and look-around turns.
 import type { Bot } from '../../shared/bot-types'
 import type { AgentJournalMessageItem } from '../../shared/agent-session/journal/agent-session-journal-types'
@@ -9,8 +10,7 @@ import { messageWords } from '../../shared/agent-session/lifecycle/stopping/agen
 import {
   botMentionContext,
   mentionedBots,
-  mentionedServerBots,
-  type BotMentionChat
+  mentionedServerBots
 } from '../../shared/bots/bot-mention-context'
 import type { BotChatRow } from '../../shared/bots/bot-chat-row'
 import { soulSpecialty } from '../../shared/bot-roster'
@@ -77,6 +77,7 @@ export function botStructuredSessionWiring(deps: {
 }): Required<
   Pick<
     StructuredAgentSessionRuntimeDeps,
+    | 'resolveHermesProfile'
     | 'resolveSessionInstructions'
     | 'resolveSessionToolServers'
     | 'launchTools'
@@ -188,8 +189,15 @@ export function botStructuredSessionWiring(deps: {
   const syncLinkedSkills = (bot: Bot): Promise<LinkedSkills> =>
     linkedSkillProjects(bot, deps.store().getRepos(), botLinkedSkillsFolder(bot.id))
   return {
+    resolveHermesProfile: (record) => botOfRecord(record)?.hermesProfile ?? null,
     resolveSessionInstructions: (record, launchDirectory, linkedSkills) =>
-      botSessionInstructions(turnContext, bots(), record, launchDirectory, linkedSkills),
+      botSessionInstructions(
+        turnContext,
+        bots().filter((bot) => !bot.hermesProfile),
+        record,
+        launchDirectory,
+        linkedSkills
+      ),
     // The agent turned its roots down after launch: its next turn gets the list.
     reportSessionLinkedSkills: (sessionId, linkedSkills) => {
       // Later links reach it as a list with paths; an empty folder left it nothing to resend.
@@ -201,7 +209,7 @@ export function botStructuredSessionWiring(deps: {
     // Every launch of a bot's chat, Look around too: a copy left in its config would be readable by it.
     prepareSessionLaunch: async (record) => {
       const bot = botOfRecord(record)
-      if (bot) {
+      if (bot && !bot.hermesProfile) {
         await deps.scrubToolSecrets?.(bot)
         await linkBotOwnSkills(botHomeFolder(bot)).catch((error: unknown) => {
           console.warn("[bots] the bot's own skills could not be linked", bot.id, error)
@@ -209,7 +217,11 @@ export function botStructuredSessionWiring(deps: {
       }
     },
     resolveSessionToolServers: async (record, launchDirectory) => {
-      const { tools, launched } = await botSessionToolServers(bots(), record, launchDirectory)
+      const { tools, launched } = await botSessionToolServers(
+        bots().filter((bot) => !bot.hermesProfile),
+        record,
+        launchDirectory
+      )
       if (launched) {
         launchedTools.set(record.sessionId, launched)
       } else {
@@ -232,11 +244,11 @@ export function botStructuredSessionWiring(deps: {
     },
     prepareSessionLinkedSkills: async (record) => {
       const bot = botOfRecord(record)
-      return bot ? syncLinkedSkills(bot) : NO_LINKED_SKILLS
+      return bot && !bot.hermesProfile ? syncLinkedSkills(bot) : NO_LINKED_SKILLS
     },
     resolveSessionLinkedSkills: async (record) => {
       const bot = botOfRecord(record)
-      if (!bot) {
+      if (!bot || bot.hermesProfile) {
         return NO_LINKED_SKILLS
       }
       try {
@@ -315,20 +327,4 @@ export function botStructuredSessionWiring(deps: {
       deps.lookAround.lookTurnIsQuiet(sessionId, outcome, usageLimited === true),
     isBotHome: (workspaceId) => botOfHomeWorkspace(bots(), workspaceId) !== null
   }
-}
-
-/** A picked chat as the host's own list has it: `--chat` only for one of the bot's chats that takes
- *  mail; any doubt (an unread list included) says it can't, and never falls back to the Home Chat. */
-function checkedChat(rows: readonly BotChatRow[] | null, chatId: string): BotMentionChat {
-  if (!rows) {
-    return { refused: 'unverifiable' }
-  }
-  const row = rows.find((entry) => entry.id === chatId)
-  if (!row) {
-    return { refused: 'not-its-chat' }
-  }
-  if (row.self) {
-    return { refused: 'self' }
-  }
-  return row.closed ? { refused: row.reason ?? 'unverifiable' } : { id: row.id, title: row.title }
 }

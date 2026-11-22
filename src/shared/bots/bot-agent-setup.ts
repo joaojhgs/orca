@@ -42,10 +42,14 @@ export function botAutomationSetup(
 
 /** The bot as a conversation on `setup` runs it: same folder, identity, memory and connectors. An
  *  explicit setup replaces the launch, on the bot's own agent too. */
-export function botOnSetup<B extends Pick<Bot, 'agent' | 'launch'>>(
-  bot: B,
-  setup: BotAgentSetup
-): B {
+export function botOnSetup<
+  B extends Pick<Bot, 'agent' | 'launch'> & Partial<Pick<Bot, 'hermesProfile'>>
+>(bot: B, setup: BotAgentSetup): B {
+  if (bot.hermesProfile && setup.agent !== 'hermes') {
+    throw new Error(
+      'This bot connects an existing Hermes profile; use another bot for a different agent.'
+    )
+  }
   return { ...bot, agent: setup.agent, launch: setup.launch }
 }
 

@@ -209,6 +209,11 @@ export class BotController {
       const store = this.requireStore()
       const bot = this.requireBot(store, botId)
       const updates = typeof edit === 'function' ? edit(bot) : edit
+      if (bot.hermesProfile && updates.agent !== undefined && updates.agent !== 'hermes') {
+        throw new Error(
+          'A linked Hermes profile cannot change providers; create a separate bot instead.'
+        )
+      }
       if (updates.name !== undefined) {
         assertBotNameFree(store.getBots(), updates.name, botId)
       }

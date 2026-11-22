@@ -63,6 +63,8 @@ export type AcpStructuredLaunch = StructuredAgentCommand & {
   antigravityChatAuth?: AntigravityChatAuthConfig
   args: string[]
   cwd: string
+  /** ACP paths belong to the provider host when its stdio travels over SSH. */
+  sessionWorkingDirectory?: string
   /** Sealed for spawns; recovery reads use the unsealed agent environment. */
   env: Record<string, string>
   envToDelete: string[]

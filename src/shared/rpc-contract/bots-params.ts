@@ -1,3 +1,4 @@
+import { HermesProfileLinkSchema } from '../bots/hermes-profile'
 import { botTidyUp, patchTidyUp, TIDY_UP_EVERY_CHOICES } from '../bots/bot-tidy-up'
 import * as z from 'zod'
 import { BOT_IMPORT_REPLY_MAX, BotImportFromSchema } from '../bots/bot-import'
@@ -57,6 +58,7 @@ const SettableBotAvatar = z
 const HandedWorkspaces = z.array(HandedWorkspaceSchema).min(1).max(HANDED_WORKSPACES_MAX)
 
 export const BotCreate = z.object({
+  hermesProfile: HermesProfileLinkSchema.optional(),
   name: NewBotNameSchema,
   agent: z.enum(BOT_AGENTS).optional(),
   /** The model and options picked for `agent`; absent, its chats start on the native chat defaults. */

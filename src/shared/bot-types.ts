@@ -1,3 +1,4 @@
+import { HermesProfileLinkSchema } from './bots/hermes-profile'
 import * as z from 'zod'
 import { BotImportedFromSchema } from './bots/bot-import'
 import { BotSharedFromSchema } from './bots/bot-shared-from'
@@ -149,6 +150,8 @@ export const BotSchema = z.object({
   /** The bot's home folder workspace, in the hidden Bots project group. */
   folderWorkspaceId: z.string().min(1),
   agent: z.enum(BOT_AGENTS),
+  /** Linked Hermes keeps its own memory, integrations and schedules on its SSH host. */
+  hermesProfile: HermesProfileLinkSchema.optional(),
   avatar: z.string().nullable(),
   /** The mascot's tile color; absent or null, its own sky blue. Older hosts drop it. */
   avatarColor: BotAvatarColorSchema.nullable().optional().catch(undefined),

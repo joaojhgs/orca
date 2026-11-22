@@ -64,7 +64,7 @@ export async function initializeAcpStructuredSession(
   input: AcpHandshakeInput
 ): Promise<StructuredAgentSessionProviderOpenResult> {
   const { acquire, deps, launch, connection, options, prompts, child, onSettled } = input
-  const { spec } = launch
+  const { spec, sessionWorkingDirectory: sessionDirectory = launch.cwd } = launch
   const sessionId = acquire.identity.sessionId
   const now = deps.now ?? Date.now
   const assertStarting = () => assertAcpStartingSession(child, input.abandoned)
@@ -86,7 +86,7 @@ export async function initializeAcpStructuredSession(
   options.adoptInitialize(initialized)
   const meta = await spec.resolveSessionMeta?.({
     initialized,
-    cwd: launch.cwd,
+    cwd: sessionDirectory,
     env: launch.env,
     signal: input.signal
   })
@@ -154,13 +154,13 @@ export async function initializeAcpStructuredSession(
         opened: started,
         frames: replayed,
         lane: liveLane
-      } = await reopenIn(listedIn ?? launch.cwd))
+      } = await reopenIn(listedIn ?? sessionDirectory))
     } catch (refused) {
       let error: unknown = refused
       try {
         const movedTo = await retryAcpRequest(
           () =>
-            acpSessionOtherFolder(refused, resume.sessionId, launch.cwd, {
+            acpSessionOtherFolder(refused, resume.sessionId, sessionDirectory, {
               dialect: spec.dialect,
               initialized,
               connection,
@@ -189,11 +189,11 @@ export async function initializeAcpStructuredSession(
   if (!started || !liveLane) {
     liveLane?.dispose()
     input.lanes.clear()
-    const undo = await launch.aroundNewSession?.(launch.cwd)
+    const undo = await launch.aroundNewSession?.(sessionDirectory)
     try {
       started = await connection.start(
         {
-          cwd: launch.cwd,
+          cwd: sessionDirectory,
           mcpServers: launch.mcpServers ?? [],
           ...(sessionMeta ? { _meta: sessionMeta } : {}),
           ...setup
