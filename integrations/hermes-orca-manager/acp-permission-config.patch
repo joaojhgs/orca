@@ -1,0 +1,62 @@
+--- a/acp_adapter/server.py
++++ b/acp_adapter/server.py
+@@ -20,6 +20,7 @@
+     Implementation, InitializeResponse, ListSessionsResponse, LoadSessionResponse, McpServerHttp, McpServerSse,
+     McpServerStdio, ModelInfo, NewSessionResponse, PromptCapabilities, PromptResponse, ResumeSessionResponse,
+     SessionCapabilities, SessionForkCapabilities, SessionInfo, SessionInfoUpdate, SessionListCapabilities,
++    SessionConfigOptionSelect, SessionConfigSelectOption,
+     SessionMode, SessionModeState, SessionModelState, SessionResumeCapabilities, SetSessionConfigOptionResponse,
+     SetSessionModeResponse, SetSessionModelResponse, TextContentBlock, Usage, UsageUpdate, UserMessageChunk,
+ )
+@@ -279,6 +280,16 @@
+         loop = asyncio.get_running_loop()
+         loop.call_soon(asyncio.create_task, make_coro())
+ 
++    def _session_config_options(self, state: SessionState) -> list[SessionConfigOptionSelect]:
++        mode = str(getattr(state, "mode", self._MODE_DEFAULT))
++        policy = self._MODE_TO_EDIT_APPROVAL_POLICY.get(mode, self._EDIT_APPROVAL_POLICY_DEFAULT)
++        return [SessionConfigOptionSelect(
++            id=self._EDIT_APPROVAL_POLICY_CONFIG_ID, name="Edit approvals", category="mode",
++            type="select", current_value=policy,
++            options=[SessionConfigSelectOption(value=p, name=n, description=d)
++                     for p, n, d in self._MODES.values()],
++        )]
++
+     def _session_modes(self, state: SessionState) -> SessionModeState:
+         """Edit-approval policy as ACP modes. Zed renders ``config_options`` in the model
+         picker's slot; modes (as Claude/Codex use) coexist with the picker."""
+@@ -605,6 +616,7 @@
+         return {
+             "models": self._build_model_state(state),
+             "modes": self._session_modes(state),
++            "config_options": self._session_config_options(state),
+             "field_meta": self._provenance_meta(state.session_id, getattr(state.agent, "session_id", state.session_id)),
+         }
+ 
+@@ -674,7 +686,8 @@
+         logger.info("Forked session %s -> %s", session_id, state.session_id)
+         self._schedule_available_commands_update(state.session_id)
+         return ForkSessionResponse(
+-            session_id=state.session_id, models=self._build_model_state(state), modes=self._session_modes(state)
++            session_id=state.session_id, models=self._build_model_state(state), modes=self._session_modes(state),
++            config_options=self._session_config_options(state)
+         )
+ 
+     async def list_sessions(
+@@ -1081,7 +1094,9 @@
+             return None
+ 
+         if str(config_id) == self._EDIT_APPROVAL_POLICY_CONFIG_ID:
+-            state.mode = self._EDIT_APPROVAL_POLICY_TO_MODE.get(str(value), self._MODE_DEFAULT)
++            if str(value) not in self._EDIT_APPROVAL_POLICY_TO_MODE:
++                raise ValueError("Unsupported edit approval policy")
++            state.mode = self._EDIT_APPROVAL_POLICY_TO_MODE[str(value)]
+         else:
+             options = getattr(state, "config_options", None)
+             if not isinstance(options, dict):
+@@ -1090,4 +1105,4 @@
+             state.config_options = options
+         self.session_manager.save_session(session_id)
+         logger.info("Session %s: config option %s updated", session_id, config_id)
+-        return SetSessionConfigOptionResponse(config_options=[])
++        return SetSessionConfigOptionResponse(config_options=self._session_config_options(state))

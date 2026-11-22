@@ -44,3 +44,25 @@ the existing event supervisor. No additional polling supervisor is created.
 Hermes's existing Orca CLI/plugin integration remains the route for project and
 session management. This connection does not grant additional host access, weaken
 company/personal account boundaries, or copy credentials to the controller.
+
+## Older installed Hermes ACP adapters
+
+The worker's `0.21.6+529` adapter advertised legacy modes but returned no typed
+configuration or confirmation when saving an edit policy. Modern Orca deliberately
+rejects that unconfirmed change. `acp-permission-config.patch` adds the native
+`edit_approval_policy` select option to session open/load/resume/fork responses and
+returns the saved policy after writes; unknown policies are rejected. Existing
+legacy mode IDs and profile tool/terminal restrictions remain unchanged.
+
+Apply only to the matching native adapter, with its original source backed up:
+
+```sh
+sudo bash apply-acp-permission-compat.sh /path/to/hermes-agent /home/developer/.cache/hermes-pycache
+```
+
+The installer checks the exact patch before changing anything and invalidates only
+that module's compiled bytecode (the bundled unchecked cache otherwise masks source
+changes). New ACP clients load it immediately. The Telegram gateway is not restarted.
+Run `test_acp_permission_config.py` with Hermes's bundled interpreter and package
+paths to verify the saved policies. A future Hermes upgrade that provides the typed
+configuration surface should replace this compatibility patch rather than reapply it.
