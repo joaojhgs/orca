@@ -46,16 +46,17 @@ export abstract class OrcaRuntimeWithGetStructuredAgentSessionCreateSupport exte
     agent: StructuredAgentId,
     options?: { requireInstalledChatProgram?: boolean }
   ): Promise<StructuredAgentCreateSupportReply> {
+    const location = await this.resolveStructuredAgentSessionLocation(worktreeSelector)
     const support = await resolveHostStructuredAgentCreateSupport({
       agent,
       worktreeSelector,
-      location: await this.resolveStructuredAgentSessionLocation(worktreeSelector),
+      location,
       runtime: this
     })
     if (
       support.supported &&
       options?.requireInstalledChatProgram &&
-      (await structuredAgentChatProgramNeedsInstall(agent, this))
+      (await structuredAgentChatProgramNeedsInstall(agent, this, location))
     ) {
       return { supported: false, reason: 'chat-program' }
     }

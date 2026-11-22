@@ -1,3 +1,4 @@
+import { linkedHermesProfileForLocation } from '../../../hermes/hermes-profile-location'
 // Share/cache this host's agent health independently of readers. Probe each registration in server home; launches recheck in their workspace.
 
 import { homedir } from 'node:os'
@@ -129,8 +130,15 @@ async function observeChatProgram(
 /** True when a chat start would fail until Orca installs the agent's chat program on this host. */
 export async function structuredAgentChatProgramNeedsInstall(
   agent: string,
-  runtime: HealthRuntime
+  runtime: HealthRuntime,
+  location?: AgentSessionExecutionLocation
 ): Promise<boolean> {
+  if (
+    location &&
+    linkedHermesProfileForLocation(agent, location, runtime.requireStore().getBots?.() ?? [])
+  ) {
+    return false
+  }
   const metadata = structuredAgentRuntimeMetadata(agent)
   return Boolean(
     metadata?.chatProgram?.installable &&

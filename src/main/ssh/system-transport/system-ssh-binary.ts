@@ -1,7 +1,7 @@
 import { accessSync, constants, existsSync, statSync } from 'node:fs'
 import { posix, win32 } from 'node:path'
 
-function systemSshPaths(platform: NodeJS.Platform): string[] {
+export function systemSshPaths(platform: NodeJS.Platform): string[] {
   if (platform !== 'win32') {
     return ['/usr/bin/ssh', '/usr/local/bin/ssh', '/opt/homebrew/bin/ssh']
   }

@@ -7,8 +7,8 @@ import { agentSessionProviderHandleKey } from '../../shared/agent-session/lifecy
 import type { AcpLaunchSpec } from '../acp/launch/acp-launch-contract'
 import type { AcpStructuredLaunch } from '../acp/launch/acp-structured-launch-resolution'
 import type { StructuredAgentLaunchPartResolver } from '../runtime/agent-session/launch/structured-agent-launch-composition'
-import { buildSshArgs } from '../ssh/system-transport/system-ssh-args'
-import { findSystemSsh } from '../ssh/system-transport/system-ssh-binary'
+import { appendSshTargetDestinationArgs } from '../ssh/system-transport/system-ssh-args'
+import { findSystemSshAsync } from '../ssh/system-transport/system-ssh-binary-async'
 import { listRegisteredSshTargets } from '../ssh/targets/ssh-target-registry'
 
 /** Only an already registered SSH target is dialed; no listener, forwarded agent or copied login. */
@@ -25,7 +25,16 @@ export function hermesProfileCommand(link: HermesProfileLink, target: SshTarget)
     // its auth fallback, plugins, tool permissions, memory bank and Telegram destination.
     `exec env HERMES_HOME=${quote(link.home)} "$HOME/.local/bin/hermes" acp`
   ].join(' && ')
-  return [
+  const args = [
+    '-T',
+    '-S',
+    'none',
+    '-o',
+    'BatchMode=yes',
+    '-o',
+    'ServerAliveInterval=15',
+    '-o',
+    'ServerAliveCountMax=3',
     '-o',
     'StrictHostKeyChecking=yes',
     '-o',
@@ -33,10 +42,11 @@ export function hermesProfileCommand(link: HermesProfileLink, target: SshTarget)
     '-o',
     'ClearAllForwardings=yes',
     '-o',
-    'ConnectTimeout=15',
-    ...buildSshArgs(target, { nonInteractive: true, disableControlMaster: true, keepAlive: true }),
-    remote
+    'ConnectTimeout=15'
   ]
+  appendSshTargetDestinationArgs(args, target)
+  args.push(remote)
+  return args
 }
 
 /** Orca owns only the chat/SSH client. Hermes keeps the profile's native session and memory. */
@@ -52,7 +62,7 @@ export function hermesProfileLaunchPart(
     if (!target) {
       throw new Error('hermes_profile_ssh_host_not_found')
     }
-    const command = findSystemSsh()
+    const command = await findSystemSshAsync()
     if (!command) {
       throw new Error('OpenSSH is required to connect a Hermes profile')
     }

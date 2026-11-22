@@ -1,3 +1,5 @@
+import type { Bot } from '../../../../shared/bot-types'
+import { linkedHermesProfileForLocation } from '../../../hermes/hermes-profile-location'
 import type { AgentSessionExecutionLocation } from '../../../../shared/agent-session/lifecycle/agent-session-record'
 import type { StructuredAgentId } from '../../../../shared/agent-session/lifecycle/provider-handles/agent-session-provider-handle'
 import type { GlobalSettings } from '../../../../shared/settings/global-settings-types'
@@ -48,7 +50,9 @@ export type LaunchEnvironmentSettings = Pick<
   AgentLaunchProfileSettings
 
 /** What the check reads from the runtime asking it. */
-type LaunchSettingsRuntime = { requireStore(): { getSettings(): LaunchEnvironmentSettings } }
+type LaunchSettingsRuntime = {
+  requireStore(): { getSettings(): LaunchEnvironmentSettings; getBots?: () => readonly Bot[] }
+}
 type LaunchSupportRuntime = LaunchSettingsRuntime & {
   resolveRuntimeFileTarget(selector: string): Promise<{ worktree: { path: string } }>
 }
@@ -183,13 +187,19 @@ export async function resolveHostStructuredAgentCreateSupport(input: {
   const { agent, location, runtime } = input
   const supportsLocation =
     structuredAgentRuntimeMetadata(agent)?.supportsLocation(location) ?? false
+  const linkedProfile = linkedHermesProfileForLocation(
+    agent,
+    location,
+    runtime.requireStore().getBots?.() ?? []
+  )
   const supportsLaunch =
     supportsLocation &&
-    (await structuredAgentSupportsLaunch(
-      agent,
-      async () => (await runtime.resolveRuntimeFileTarget(input.worktreeSelector)).worktree.path,
-      runtime
-    ))
+    (linkedProfile !== null ||
+      (await structuredAgentSupportsLaunch(
+        agent,
+        async () => (await runtime.resolveRuntimeFileTarget(input.worktreeSelector)).worktree.path,
+        runtime
+      )))
   const support = resolveStructuredAgentSessionCreateSupport({
     location,
     adapterSupportsCreate: supportsLaunch,
