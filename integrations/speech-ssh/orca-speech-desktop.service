@@ -1,0 +1,18 @@
+[Unit]
+Description=Private dictation GPU service in Personal Distrobox
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/libexec/orca-speech-desktop
+Restart=always
+RestartSec=10
+KillMode=control-group
+TimeoutStopSec=15
+Nice=10
+MemoryMax=3G
+TasksMax=192
+
+[Install]
+WantedBy=default.target

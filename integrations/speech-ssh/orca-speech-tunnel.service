@@ -1,0 +1,24 @@
+[Unit]
+Description=Private Orca SSH dictation tunnel
+After=orca-control.service network-online.target
+Wants=orca-control.service
+
+[Service]
+Type=simple
+User=orca
+Environment=ORCA_USER_DATA_PATH=/var/lib/orca-control/profile
+ExecStart=/opt/orca-control/bin/node --max-old-space-size=64 /opt/orca-control/app/out/cli/index.js network forward --route desktop-personal-dictation --local-port 17785 --json
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/orca-control/profile
+IPAddressDeny=any
+IPAddressAllow=localhost
+IPAddressAllow=10.0.1.24/32
+MemoryMax=128M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

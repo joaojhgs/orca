@@ -1,0 +1,36 @@
+{
+	admin off
+	auto_https off
+	persist_config off
+}
+http://127.0.0.1:17784 {
+	bind 127.0.0.1
+	route {
+		@unauthorized not header Authorization "Bearer {$ORCA_SPEECH_KEY}"
+		respond @unauthorized 401
+		@allowed {
+			method POST
+			path /v1/audio/transcriptions
+		}
+		handle @allowed {
+			request_body {
+				max_size 22MB
+			}
+			reverse_proxy 127.0.0.1:17786 {
+				header_up -Authorization
+			}
+		}
+		@health {
+			method GET
+			path /health
+		}
+		handle @health {
+			reverse_proxy 127.0.0.1:17786 {
+				header_up -Authorization
+			}
+		}
+		handle {
+			respond 404
+		}
+	}
+}
