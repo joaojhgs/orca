@@ -1,3 +1,7 @@
+/** Local hosting accepts larger documents without the cloud API body limit. */
+export const LOCAL_ARTIFACT_MAX_CONTENT_BYTES = 64 * 1024 * 1024
+export const LOCAL_ARTIFACT_MAX_REQUEST_BYTES = 70 * 1024 * 1024
+
 /** Maximum UTF-8 bytes accepted for a manually shared artifact. */
 export const ARTIFACT_MAX_CONTENT_BYTES = 10 * 1024 * 1024
 

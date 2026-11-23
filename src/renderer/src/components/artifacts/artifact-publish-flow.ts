@@ -1,13 +1,13 @@
+import { sendArtifactPublish } from './artifact-publish-transport'
 import { toast } from 'sonner'
 import type {
-  ArtifactCloudOperation,
   ArtifactHostingStatus,
   ArtifactPublishResult,
   ArtifactWriteRequest
 } from '../../../../shared/artifacts/artifacts'
 import {
-  ARTIFACT_MAX_CONTENT_BYTES,
-  ARTIFACT_MAX_REQUEST_BYTES,
+  LOCAL_ARTIFACT_MAX_CONTENT_BYTES,
+  LOCAL_ARTIFACT_MAX_REQUEST_BYTES,
   ARTIFACT_RATE_LIMITED_CODE,
   artifactContentByteLength,
   artifactWriteRequestByteLength
@@ -40,8 +40,8 @@ export function validateArtifactPublishRequest(
     throw new ArtifactPublishPreparationError('empty')
   }
   if (
-    artifactContentByteLength(request.content) > ARTIFACT_MAX_CONTENT_BYTES ||
-    artifactWriteRequestByteLength(request) > ARTIFACT_MAX_REQUEST_BYTES
+    artifactContentByteLength(request.content) > LOCAL_ARTIFACT_MAX_CONTENT_BYTES ||
+    artifactWriteRequestByteLength(request) > LOCAL_ARTIFACT_MAX_REQUEST_BYTES
   ) {
     throw new ArtifactPublishPreparationError('too-large')
   }
@@ -58,11 +58,7 @@ export async function publishArtifactFromSurface(
       return null
     }
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const result = await callRuntimeRpc<ArtifactCloudOperation<ArtifactPublishResult>>(
-        LOCAL_RUNTIME,
-        'artifacts.publish',
-        request
-      )
+      const result = await sendArtifactPublish(request)
       if (result.status === 'ok') {
         showArtifactPublishedToast(result.value)
         return result.value

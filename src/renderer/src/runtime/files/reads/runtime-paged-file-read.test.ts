@@ -133,6 +133,20 @@ describe('remote reads larger than one RPC reply', () => {
     expect(Buffer.from(result.content, 'utf8').equals(bytes)).toBe(true)
   })
 
+  it('pages an ordinary workspace file when its host refuses the whole response', async () => {
+    const bytes = htmlBytes(2 * MB)
+    serveRemoteFile('report.html', { bytes })
+    const original = runtimeEnvironmentCall.getMockImplementation()!
+    runtimeEnvironmentCall.mockImplementation((request) =>
+      request.method === 'files.read'
+        ? Promise.resolve(fail('runtime_error', 'file_too_large'))
+        : original(request)
+    )
+    const result = await readRuntimeFileContent(remote('report.html'))
+    expect(result.content).toBe(bytes.toString('utf8'))
+    expect(result.isBinary).toBe(false)
+  })
+
   it.each([2, 5])('opens a %i MB PDF in the editor', async (sizeMb) => {
     const bytes = patternedBytes(sizeMb * MB)
     serveRemoteFile('paper.pdf', { bytes })

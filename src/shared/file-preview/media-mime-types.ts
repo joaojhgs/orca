@@ -10,5 +10,12 @@ export const MEDIA_FILE_MIME_TYPES: Record<string, string> = {
   '.mp4': 'video/mp4',
   '.m4v': 'video/mp4',
   '.mov': 'video/quicktime',
-  '.webm': 'video/webm'
+  '.webm': 'video/webm',
+  '.ogv': 'video/ogg',
+  '.mkv': 'video/x-matroska',
+  '.avi': 'video/x-msvideo',
+  '.mpeg': 'video/mpeg',
+  '.mpg': 'video/mpeg',
+  '.3gp': 'video/3gpp',
+  '.3g2': 'video/3gpp2'
 }

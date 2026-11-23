@@ -25724,7 +25724,8 @@
     "updateFailed": "Failed to update project field"
   },
   "mediaPreview": {
-    "unavailable": "Unable to play this media file. The file may be unavailable or use an unsupported codec."
+    "unavailable": "Unable to play this media file. The file may be unavailable or use an unsupported codec.",
+    "download": "Download file"
   },
   "workspace": {
     "branchChoice": {
@@ -30235,5 +30236,9 @@
       "sshServerDescription": "Browse SSH hosts registered with this server",
       "sshDesktopDescription": "Browse SSH hosts registered with this desktop"
     }
+  },
+  "htmlPreview": {
+    "preview": "Preview",
+    "source": "Source"
   }
 }

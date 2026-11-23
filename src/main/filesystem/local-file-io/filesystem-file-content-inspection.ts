@@ -1,3 +1,4 @@
+import { EDITOR_TEXT_MAX_BYTES } from '../../../shared/file-content/editor-file-limits'
 import {
   IMAGE_AND_PDF_PREVIEW_MIME_TYPES,
   filePreviewExtension
@@ -13,7 +14,7 @@ import {
 } from './local-regular-file-read'
 
 // Monaco degrades features on large files; a 5MB cap would reject ordinary logs and JSON.
-export const MAX_TEXT_FILE_SIZE = 50 * 1024 * 1024
+export const MAX_TEXT_FILE_SIZE = EDITOR_TEXT_MAX_BYTES
 export const MAX_PREVIEWABLE_BINARY_SIZE = 50 * 1024 * 1024
 
 export type LocalFileContent = {

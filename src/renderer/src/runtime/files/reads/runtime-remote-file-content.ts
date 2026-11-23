@@ -43,7 +43,7 @@ export async function readRemoteFileContent(
       return readRemoteBinaryFile(remote, { pageOversized: pageOversizedBinary })
     }
     // Why: a granted file past one reply is refused whole rather than cut short.
-    if (remote.grantId === undefined || !isRpcRefusal(err, 'file_too_large')) {
+    if (!isRpcRefusal(err, 'file_too_large')) {
       throw err
     }
     result = null

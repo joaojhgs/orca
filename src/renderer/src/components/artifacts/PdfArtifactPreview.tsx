@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ARTIFACT_MAX_CONTENT_BYTES } from '../../../../shared/artifacts/artifacts'
+import { LOCAL_ARTIFACT_MAX_CONTENT_BYTES } from '../../../../shared/artifacts/artifacts'
 import PdfViewer from '../editor/pdf/PdfViewer'
 import { translate } from '@/i18n/i18n'
 import { useTranslate } from '@/i18n/use-translate'
@@ -22,7 +22,7 @@ async function readPdf(response: Response): Promise<string> {
         break
       }
       bytes += value.byteLength
-      if (bytes > ARTIFACT_MAX_CONTENT_BYTES) {
+      if (bytes > LOCAL_ARTIFACT_MAX_CONTENT_BYTES) {
         throw new Error('PDF exceeds the artifact size limit')
       }
       chunks.push(value)

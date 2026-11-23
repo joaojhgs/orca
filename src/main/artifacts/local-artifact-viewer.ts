@@ -1,3 +1,4 @@
+import { serveLocalPdfArtifact } from './serve-local-pdf-artifact'
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
 import { timingSafeEqual } from 'node:crypto'
 import { join } from 'node:path'
@@ -78,7 +79,7 @@ export class LocalArtifactViewer {
     // Why: opaque sandbox origins prevent artifact scripts from reading Orca or sibling artifacts.
     response.setHeader(
       'Content-Security-Policy',
-      "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: https: http:; font-src data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+      "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline' https:; style-src 'unsafe-inline' https:; img-src data: https: http:; font-src data: https:; media-src data: blob: https:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
     )
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       response.writeHead(405, { Allow: 'GET, HEAD' })
@@ -116,21 +117,7 @@ export class LocalArtifactViewer {
         return
       }
       if (record.content_type === 'application/pdf') {
-        const pdf = Buffer.from(record.content, 'base64')
-        // Why: native PDF viewers cannot run in an opaque HTML sandbox. This separate
-        // capability origin serves only PDF bytes with nosniff; HTML keeps its sandbox.
-        response.setHeader(
-          'Content-Security-Policy',
-          "default-src 'none'; base-uri 'none'; form-action 'none'"
-        )
-        // Why: Orca renders PDFs with its existing PDF.js viewer rather than unsandboxing an iframe.
-        response.setHeader('Access-Control-Allow-Origin', '*')
-        response.writeHead(200, {
-          'Content-Type': 'application/pdf',
-          'Content-Length': pdf.length,
-          'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(record.file_name)}`
-        })
-        response.end(request.method === 'HEAD' ? undefined : pdf)
+        await serveLocalPdfArtifact(request, response, record)
         return
       }
       const content =

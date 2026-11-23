@@ -1,0 +1,1 @@
+export const EDITOR_TEXT_MAX_BYTES = 128 * 1024 * 1024

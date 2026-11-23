@@ -1,5 +1,5 @@
 import {
-  ARTIFACT_MAX_CONTENT_BYTES,
+  LOCAL_ARTIFACT_MAX_CONTENT_BYTES,
   type ArtifactWriteRequest
 } from '../../../../../shared/artifacts/artifacts'
 import {
@@ -82,7 +82,7 @@ export async function readPdfArtifactContent(preview: {
   if (!preview.size || !Number.isSafeInteger(preview.size) || preview.size < 0) {
     throw new ArtifactPublishPreparationError('unreadable')
   }
-  if (4 * Math.ceil(preview.size / 3) > ARTIFACT_MAX_CONTENT_BYTES) {
+  if (4 * Math.ceil(preview.size / 3) > LOCAL_ARTIFACT_MAX_CONTENT_BYTES) {
     throw new ArtifactPublishPreparationError('too-large')
   }
   try {

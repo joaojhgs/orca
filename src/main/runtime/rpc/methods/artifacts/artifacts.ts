@@ -1,3 +1,4 @@
+import { ARTIFACT_UPLOAD_METHODS } from './artifact-upload-methods'
 import { defineMethod } from '../../core'
 import { getAppEnvironment } from '../../../../../shared/app-lifecycle/app-environment'
 import { ensureActiveOrcaProfile } from '../../../../orca-profiles/profile-index-store'
@@ -10,6 +11,7 @@ import {
 } from '../../../../../shared/rpc-contract/artifacts/artifacts-params'
 
 export const ARTIFACT_METHODS = [
+  ...ARTIFACT_UPLOAD_METHODS,
   defineMethod({
     name: 'artifacts.hostingStatus',
     permission: 'workspace',

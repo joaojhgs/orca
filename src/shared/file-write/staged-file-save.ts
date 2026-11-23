@@ -1,3 +1,4 @@
+import { EDITOR_TEXT_MAX_BYTES } from '../file-content/editor-file-limits'
 /** A remote text save larger than one request, sent in chunks to a temp beside the target. */
 export const STAGED_FILE_SAVE_RUNTIME_CAPABILITY = 'files.write.staged.v1' as const
 
@@ -13,9 +14,9 @@ export const STAGED_FILE_SAVE_CHUNK_BYTES = 384 * 1024
 
 export const STAGED_FILE_SAVE_LIMITS = {
   // The largest file the editor opens from a remote host (PAGED_REMOTE_FILE_MAX_BYTES).
-  maxBytesPerSave: 50 * 1024 * 1024,
+  maxBytesPerSave: EDITOR_TEXT_MAX_BYTES,
   maxSavesPerConnection: 2,
-  maxBytesPerConnection: 100 * 1024 * 1024,
+  maxBytesPerConnection: 2 * EDITOR_TEXT_MAX_BYTES,
   maxSavesPerHost: 8,
   // A save no chunk has touched for this long is dropped with its temp.
   idleMs: 2 * 60 * 1000

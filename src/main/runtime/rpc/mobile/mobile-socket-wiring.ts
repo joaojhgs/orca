@@ -1,3 +1,5 @@
+import { revokeArtifactUploads } from '../../../artifacts/artifact-upload-store'
+import { revokeWebFilePreviews } from '../../../media/web-file-preview'
 import type { RuntimeClientCapabilities } from '../callers/runtime-client-capabilities'
 import { randomBytes } from 'node:crypto'
 import type { WebSocket } from 'ws'
@@ -292,6 +294,11 @@ export class MobileSocketWiring {
     this.authenticatedSockets.delete(ws)
     this.channels.get(ws)?.destroy()
     this.channels.delete(ws)
+    const closedConnectionId = this.connectionIds.get(ws)
+    if (closedConnectionId) {
+      revokeWebFilePreviews(closedConnectionId)
+      revokeArtifactUploads(closedConnectionId)
+    }
     this.connectionIds.delete(ws)
     const hasOtherConnections =
       socket !== null &&

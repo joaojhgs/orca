@@ -1,3 +1,5 @@
+import { matchesPendingEditorReveal } from './editor-pending-reveal'
+import HtmlFileSurface from '../document-media/HtmlFileSurface'
 import { useTranslate } from '@/i18n/use-translate'
 import type { MarkdownViewMode, OpenFile } from '@/store/slices/editor/types/open-file'
 import type { PendingEditorReveal } from '@/store/slices/editor/types/pending-editor-reveal'
@@ -333,6 +335,10 @@ export function EditorEditFileSurface({
       handleDirtyStateHint={handleDirtyStateHint}
       monacoEditor={monacoEditor}
     />
+  ) : /\.html?$/i.test(activeFile.filePath) ? (
+    <HtmlFileSurface key={activeFile.id} content={currentContent} filePath={activeFile.filePath}>
+      {monacoEditor}
+    </HtmlFileSurface>
   ) : isSvg && mdViewMode === 'rich' ? (
     <ImageViewer
       key={activeFile.id}
@@ -398,15 +404,4 @@ export function EditorEditFileSurface({
       <div className="min-h-0 flex-1 relative">{editorSurface}</div>
     </div>
   )
-}
-
-function matchesPendingEditorReveal(
-  reveal: PendingEditorReveal | null,
-  file: Pick<OpenFile, 'id' | 'filePath'>,
-  viewStateId: string
-): reveal is PendingEditorReveal {
-  if (!reveal || (reveal.viewStateId && reveal.viewStateId !== viewStateId)) {
-    return false
-  }
-  return reveal.fileId ? reveal.fileId === file.id : reveal.filePath === file.filePath
 }

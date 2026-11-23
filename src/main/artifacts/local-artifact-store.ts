@@ -1,3 +1,4 @@
+import { pdfArtifactByteLength } from './pdf-artifact-content'
 import { chmodSync, mkdirSync } from 'node:fs'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { dirname } from 'node:path'
@@ -5,8 +6,7 @@ import Database from '../sqlite/sync-database'
 import { z } from 'zod'
 import { localArtifactShareUrl } from './local-artifact-url'
 import {
-  ARTIFACT_MAX_CONTENT_BYTES,
-  artifactContentByteLength,
+  LOCAL_ARTIFACT_MAX_CONTENT_BYTES,
   type ArtifactListItem,
   type ArtifactWriteRequest
 } from '../../shared/artifacts/artifacts'
@@ -66,9 +66,27 @@ export class LocalArtifactStore {
     return rows.map((row) => MetadataSchema.parse(row))
   }
 
-  bySource(sourceKey: string): LocalArtifactRecord | null {
-    const row = this.db.prepare('SELECT * FROM artifacts WHERE source_key = ?').get(sourceKey)
-    return row ? RecordSchema.parse(row) : null
+  bySource(sourceKey: string): LocalArtifactRecord | null
+  bySource(
+    sourceKey: string,
+    metadataOnly: true
+  ): (LocalArtifactMetadata & { stored_bytes: number }) | null
+  bySource(
+    sourceKey: string,
+    metadataOnly = false
+  ): LocalArtifactRecord | (LocalArtifactMetadata & { stored_bytes: number }) | null {
+    const row = this.db
+      .prepare(
+        metadataOnly
+          ? 'SELECT slug, source_key, view_token, content_type, file_name, title, created_at, updated_at, byte_size, length(CAST(content AS BLOB)) AS stored_bytes FROM artifacts WHERE source_key = ?'
+          : 'SELECT * FROM artifacts WHERE source_key = ?'
+      )
+      .get(sourceKey)
+    return row
+      ? metadataOnly
+        ? MetadataSchema.extend({ stored_bytes: z.number() }).parse(row)
+        : RecordSchema.parse(row)
+      : null
   }
 
   bySlug(slug: string): LocalArtifactRecord | null {
@@ -85,9 +103,9 @@ export class LocalArtifactStore {
     request: ArtifactWriteRequest,
     requireExisting: boolean
   ): { change: 'created' | 'updated'; record: LocalArtifactRecord } {
-    const bytes = artifactContentByteLength(request.content)
-    if (!bytes || bytes > ARTIFACT_MAX_CONTENT_BYTES) {
-      throw new Error('Artifact content is empty or exceeds 10 MiB')
+    const bytes = Buffer.byteLength(request.content)
+    if (!bytes || bytes > LOCAL_ARTIFACT_MAX_CONTENT_BYTES) {
+      throw new Error('Artifact content is empty or exceeds 64 MiB')
     }
     if (
       !request.sourceKey ||
@@ -103,15 +121,11 @@ export class LocalArtifactStore {
     }
     let documentBytes = bytes
     if (request.contentType === 'application/pdf') {
-      const pdf = Buffer.from(request.content, 'base64')
-      if (pdf.toString('base64') !== request.content || pdf.subarray(0, 5).toString() !== '%PDF-') {
-        throw new Error('Invalid PDF artifact: expected canonical base64 PDF content')
-      }
-      documentBytes = pdf.byteLength
+      documentBytes = pdfArtifactByteLength(request.content)
     }
     this.db.exec('BEGIN IMMEDIATE')
     try {
-      const existing = this.bySource(request.sourceKey)
+      const existing = this.bySource(request.sourceKey, true)
       if (requireExisting && !existing) {
         throw new Error('Artifact has not been published')
       }
@@ -125,8 +139,7 @@ export class LocalArtifactStore {
             .get()
         )
       if (
-        totals.bytes - (existing ? artifactContentByteLength(existing.content) : 0) + bytes >
-          MAX_STORED_BYTES ||
+        totals.bytes - (existing?.stored_bytes ?? 0) + bytes > MAX_STORED_BYTES ||
         (!existing && totals.count >= MAX_ARTIFACTS)
       ) {
         throw new Error('Local artifact storage limit reached; remove unused artifacts')

@@ -119,6 +119,11 @@ import {
   ArtifactPublishingApprovalRequestParams
 } from './artifact-publishing-approval-params'
 import {
+  ArtifactUploadAppend,
+  ArtifactUploadId,
+  ArtifactUploadStart
+} from './artifacts/artifact-upload-params'
+import {
   ArtifactsDeleteParams,
   ListOptions,
   SourceRequest,
@@ -423,6 +428,7 @@ import {
   TerminalArtifactFileChunk,
   TerminalArtifactFileWrite
 } from './filesystem/files-terminal-artifact-params'
+import { WebFilePreview } from './filesystem/files-web-preview-params'
 import { BindableAccounts, ValidateAccountBinding } from './github/github-account-binding-params'
 import { UploadGitHubAttachment } from './github/github-attachment-params'
 import { CreateIssue, Issue, IssueComment, UpdateIssue } from './github/github-issue-params'
@@ -1257,6 +1263,10 @@ export const RPC_PARAMS_BY_METHOD = {
   'artifacts.share': WriteRequest,
   'artifacts.unshare': SourceRequest,
   'artifacts.update': WriteRequest,
+  'artifacts.uploadAbort': ArtifactUploadId,
+  'artifacts.uploadAppend': ArtifactUploadAppend,
+  'artifacts.uploadCommit': ArtifactUploadId,
+  'artifacts.uploadStart': ArtifactUploadStart,
   'automation.create': AutomationCreate,
   'automation.delete': AutomationId,
   'automation.list': AutomationList,
@@ -1589,6 +1599,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'files.open': FileOpenTab,
   'files.openDiff': FileOpenDiff,
   'files.pathsExist': FilePathsExist,
+  'files.previewUrl': WebFilePreview,
   'files.read': FileOpen,
   'files.readChatImage': ChatImageRead,
   'files.readChunk': FileReadChunk,

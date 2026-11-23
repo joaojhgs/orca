@@ -1,3 +1,5 @@
+import { readWebFileContent } from './web-file-content'
+import { grantWebFilePreview, readWebPreviewRange } from './web-file-preview'
 import { callAbortableRuntimeEnvironment } from '../../../runtime/rpc/calls/abortable-runtime-environment-call'
 import { unwrapRuntimeRpcResult } from '../../../runtime/rpc/calls/runtime-rpc-result'
 import type { PreloadApi } from '../../../../../preload/api-types'
@@ -52,18 +54,17 @@ export function createFileApi(): NonNullable<Partial<PreloadApi>['fs']> {
         relativePath: file.relativePath
       })
     },
-    // No orca-media protocol in a browser; audio and video keep the binary placeholder.
-    grantRuntimeFilePreview: async () => null,
-    // Never minted here, so no viewer asks.
-    readPreviewRange: async () => {
-      throw new Error('Preview ranges are not available in the web client')
-    },
+    grantRuntimeFilePreview: grantWebFilePreview,
+    readPreviewRange: readWebPreviewRange,
     readFile: async ({ filePath }) => {
-      const file = await resolveRuntimeFilePath(filePath)
-      return callRuntimeResult('files.readPreview', {
-        worktree: toRuntimeWorktreeSelector(file.worktree.id),
-        relativePath: file.relativePath
-      })
+      const environment = requireActiveEnvironment()
+      const owner = {
+        environmentId: environment.id,
+        expectedEnvironmentPairingRevision: environment.pairingRevision ?? environment.createdAt
+      }
+      const session = captureWebFileMutationSession()
+      const file = await session.resolveFilePath(filePath)
+      return readWebFileContent(file, session.callRuntimeResult, owner)
     },
     readLocalLogTail: async () => {
       throw new Error('Local log tailing is unavailable in paired web clients.')

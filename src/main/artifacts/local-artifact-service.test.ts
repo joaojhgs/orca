@@ -291,9 +291,6 @@ describe('server-local artifacts', () => {
         (item) => item.artifact.slug === second.value.artifacts[0]?.artifact.slug
       )
     ).toBe(false)
-    await expect(
-      service.share({ ...write, content: 'x'.repeat(10 * 1024 * 1024 + 1) })
-    ).rejects.toThrow('10 MiB')
     await expect(service.update({ ...write, sourceKey: 'unpublished' })).rejects.toThrow(
       'not been published'
     )

@@ -1,3 +1,4 @@
+import { readRemoteRangePreview } from './runtime-file-range-preview'
 import type { RuntimeFilePreviewResult } from '../../../../../shared/file-content/runtime-file-read'
 import { callRuntimeRpc } from '../../rpc/calls/runtime-rpc-call'
 import type {
@@ -138,6 +139,17 @@ export async function readRuntimeFilePreview(
       connectionId: context.connectionId,
       ...localAccess(context.connectionId, access)
     })
+  }
+  if (/\.pdf$/i.test(filePath)) {
+    const range = await readRemoteRangePreview({
+      target: remoteArgs.target,
+      worktree: remoteArgs.worktreeSelector,
+      relativePath: remoteArgs.relativePath,
+      expectedEnvironmentPairingRevision: context.expectedEnvironmentPairingRevision
+    })
+    if (range) {
+      return range
+    }
   }
   return readRemoteFilePreview(
     {

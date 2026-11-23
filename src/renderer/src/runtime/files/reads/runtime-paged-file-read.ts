@@ -1,3 +1,4 @@
+import { EDITOR_TEXT_MAX_BYTES } from '../../../../../shared/file-content/editor-file-limits'
 import { BINARY_PROBE_BYTES } from '../../../../../shared/file-preview/binary-buffer'
 import {
   IMAGE_AND_PDF_PREVIEW_MIME_TYPES,
@@ -32,7 +33,7 @@ import {
 // Why: under files.readChunk's 512 KiB cap, and a multiple of 3 so its base64 has no padding.
 const PAGED_READ_CHUNK_BYTES = 384 * 1024
 // Why: the cap local and SSH reads already apply, so a file opens the same on every host.
-export const PAGED_REMOTE_FILE_MAX_BYTES = 50 * 1024 * 1024
+export const PAGED_REMOTE_FILE_MAX_BYTES = EDITOR_TEXT_MAX_BYTES
 export const REMOTE_FILE_CHANGED_DURING_READ_MESSAGE =
   'File changed on disk while it was loading. Reload the file to see the latest version.'
 export const REMOTE_PATH_IS_DIRECTORY_MESSAGE = 'Remote path is a directory'

@@ -53,6 +53,7 @@ export default function MediaViewer({
     media.addEventListener('volumechange', saveVolume)
     media.addEventListener('loadedmetadata', restorePlayback, { once: true })
     // Strict Mode replays cleanup while retaining the DOM element.
+    setFailed(false)
     media.src = src
     return () => {
       media.removeEventListener('volumechange', saveVolume)
@@ -100,6 +101,18 @@ export default function MediaViewer({
           <video {...playerProps} className="max-h-full max-w-full" />
         )}
       </div>
+      {isPairedWebClientWindow() && failed && (
+        <div className="flex justify-end border-t px-3 py-2">
+          <a
+            href={src}
+            download={filePath.split(/[/\\]/).pop()}
+            className="text-sm underline"
+            referrerPolicy="no-referrer"
+          >
+            {t('mediaPreview.download', 'Download file')}
+          </a>
+        </div>
+      )}
       {source && !isPairedWebClientWindow() && (
         <div className="flex items-center justify-end border-t px-3 py-2">
           <BinaryFileDefaultAppButton source={source} />
