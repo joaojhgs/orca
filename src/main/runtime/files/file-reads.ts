@@ -1,3 +1,4 @@
+import { rethrowSshFileReadLimit } from './file-read-size-refusal'
 import { open, stat } from 'node:fs/promises'
 import { extname } from 'node:path'
 import type { RuntimeStore } from '../construction/runtime-store-contract'
@@ -69,19 +70,18 @@ export class RuntimeFileReads {
 
     const filePath = joinWorktreeRelativePath(worktree.path, relativePath)
     const provider = getDirectSshRuntimeFileProvider(target)
-    const remote = await provider?.readFile(filePath, { maxTextBytes: MOBILE_FILE_READ_MAX_BYTES })
+    const remote = await provider
+      ?.readFile(filePath, { maxTextBytes: MOBILE_FILE_READ_MAX_BYTES })
+      .catch(rethrowSshFileReadLimit)
     if (remote?.isBinary) {
       throw new Error('binary_file')
     }
     const content = remote?.content ?? (await readLocalMobileFile(filePath, store))
-    const truncated = truncateMobileFilePreview(content)
 
     return {
       worktree: worktree.id,
       relativePath,
-      content: truncated.content,
-      truncated: truncated.truncated,
-      byteLength: truncated.byteLength
+      ...truncateMobileFilePreview(content)
     }
   }
 
@@ -93,10 +93,12 @@ export class RuntimeFileReads {
     const target = await resolveFileExplorerPath(this.host, worktreeSelector, relativePath)
     const provider = getDirectSshRuntimeFileProvider(target)
     if (provider) {
-      const remote = await provider.readFile(target.path, {
-        maxTextBytes: MOBILE_FILE_READ_MAX_BYTES,
-        maxBinaryBytes: binaryPreviewMaxBytes(maxContentBytes)
-      })
+      const remote = await provider
+        .readFile(target.path, {
+          maxTextBytes: MOBILE_FILE_READ_MAX_BYTES,
+          maxBinaryBytes: binaryPreviewMaxBytes(maxContentBytes)
+        })
+        .catch(rethrowSshFileReadLimit)
       return assertPreviewWithinTransportBudget(remote, maxContentBytes)
     }
     const filePath = await resolveRuntimeAuthorizedPath(target.path, this.host.requireStore())
@@ -140,11 +142,13 @@ export class RuntimeFileReads {
       throw new Error('Secure document previews require a newer SSH relay')
     }
     return assertPreviewWithinTransportBudget(
-      await provider.readDocPreviewFile({
-        ...target,
-        maxTextBytes: MOBILE_FILE_READ_MAX_BYTES,
-        maxBinaryBytes: binaryPreviewMaxBytes(maxContentBytes)
-      }),
+      await provider
+        .readDocPreviewFile({
+          ...target,
+          maxTextBytes: MOBILE_FILE_READ_MAX_BYTES,
+          maxBinaryBytes: binaryPreviewMaxBytes(maxContentBytes)
+        })
+        .catch(rethrowSshFileReadLimit),
       maxContentBytes
     )
   }
