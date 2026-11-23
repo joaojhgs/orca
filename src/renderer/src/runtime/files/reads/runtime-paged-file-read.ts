@@ -30,8 +30,8 @@ import {
   renewTerminalArtifactGrant
 } from '../grants/runtime-terminal-artifact-grant'
 
-// Why: under files.readChunk's 512 KiB cap, and a multiple of 3 so its base64 has no padding.
-const PAGED_READ_CHUNK_BYTES = 384 * 1024
+// A multiple of three within the host's range cap keeps base64 chunks unpadded.
+const PAGED_READ_CHUNK_BYTES = Math.floor(MAX_FILE_RANGE_READ_BYTES / 3) * 3
 // Why: the cap local and SSH reads already apply, so a file opens the same on every host.
 export const PAGED_REMOTE_FILE_MAX_BYTES = EDITOR_TEXT_MAX_BYTES
 export const REMOTE_FILE_CHANGED_DURING_READ_MESSAGE =

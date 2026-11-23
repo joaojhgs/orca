@@ -147,6 +147,21 @@ describe('remote reads larger than one RPC reply', () => {
     expect(result.isBinary).toBe(false)
   })
 
+  it('opens a large file through a host enforcing the 256 KiB range contract', async () => {
+    const bytes = htmlBytes(2 * MB)
+    serveRemoteFile('report.html', {
+      bytes,
+      readChunk: (params, body) => {
+        if (params.length > 262144) {
+          throw new Error('Host range limit exceeded')
+        }
+        return sliceChunk(params, body)
+      }
+    })
+    const result = await readRuntimeFileContent(remote('report.html'))
+    expect(result.content).toBe(bytes.toString('utf8'))
+  })
+
   it.each([2, 5])('opens a %i MB PDF in the editor', async (sizeMb) => {
     const bytes = patternedBytes(sizeMb * MB)
     serveRemoteFile('paper.pdf', { bytes })
